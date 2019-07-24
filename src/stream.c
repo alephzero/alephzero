@@ -147,6 +147,7 @@ errno_t a0_lock_stream(a0_locked_stream_t* lk, a0_stream_t* stream) {
 }
 
 errno_t a0_unlock_stream(a0_locked_stream_t* lk) {
+  *a0_fcl_working_page(lk) = *a0_fcl_committed_page(lk);
   a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->_opts.shmobj->ptr;
   pthread_mutex_unlock(&hdr->mu);
   return A0_OK;
