@@ -67,7 +67,7 @@ CHEAT_TEST(test_stream_construct,
 
   a0_buf_t protocol_metadata;
   cheat_assert_int(a0_stream_protocol_metadata(&locked_stream, &protocol_metadata), A0_OK);
-  cheat_assert_uint64(13, protocol_metadata.len);
+  cheat_assert_uint64(13, protocol_metadata.size);
   cheat_assert_uint64(0, (uintptr_t)protocol_metadata.ptr % alignof(max_align_t));
   memcpy(protocol_metadata.ptr, "protocol info", 13);
 

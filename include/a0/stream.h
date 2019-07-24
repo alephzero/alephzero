@@ -2,6 +2,7 @@
 #define A0_STREAM_H
 
 #include <a0/err.h>
+#include <a0/packet.h>
 #include <a0/shmobj.h>
 #include <stdalign.h>
 #include <stdbool.h>
@@ -14,15 +15,9 @@
 extern "C" {
 #endif
 
-typedef struct a0_buf_s a0_buf_t;
 typedef struct a0_stream_construct_options_s a0_stream_construct_options_t;
 typedef struct a0_stream_options_s a0_stream_options_t;
 typedef struct a0_stream_s a0_stream_t;
-
-struct a0_buf_s {
-  uint8_t* ptr;
-  size_t len;
-};
 
 struct a0_stream_construct_options_s {
   uint64_t protocol_metadata_size;
@@ -84,4 +79,4 @@ void _a0_testing_stream_debugstr(a0_locked_stream_t* lk, char** out_str, size_t*
 }
 #endif
 
-#endif /* A0_STREAM_H */
+#endif  // A0_STREAM_H

@@ -30,4 +30,4 @@ errno_t a0_shmobj_detach(a0_shmobj_t*);
 
 errno_t a0_shmobj_create_or_attach(const char* path, const a0_shmobj_options_t* opts, a0_shmobj_t* out);
 
-#endif
+#endif  // A0_SHMOBJ_H

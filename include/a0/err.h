@@ -19,4 +19,4 @@ typedef int errno_t;
     return A0_CAT(_a0_var_, __LINE__);                     \
   }
 
-#endif
+#endif  // A0_ERR_H

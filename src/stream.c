@@ -155,7 +155,7 @@ errno_t a0_unlock_stream(a0_locked_stream_t* lk) {
 errno_t a0_stream_protocol_metadata(a0_locked_stream_t* lk, a0_buf_t* out) {
   a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->_opts.shmobj->ptr;
   out->ptr = (uint8_t*)hdr + a0_fcl_protocol_metadata_off(hdr);
-  out->len = hdr->protocol_metadata_size;
+  out->size = hdr->protocol_metadata_size;
   return A0_OK;
 }
 
@@ -253,7 +253,7 @@ errno_t a0_stream_elem(a0_locked_stream_t* lk, a0_stream_elem_hdr_t* hdr_out, a0
 
   hdr_out->seq = elem_hdr->seq;
   payload_out->ptr = (uint8_t*)elem_hdr + sizeof(a0_fcl_elem_hdr_t);
-  payload_out->len = elem_hdr->payload_size;
+  payload_out->size = elem_hdr->payload_size;
   return A0_OK;
 }
 
@@ -348,7 +348,7 @@ errno_t a0_stream_alloc(a0_locked_stream_t* lk, size_t size, a0_buf_t* out) {
   }
 
   out->ptr = (uint8_t*)hdr + off + sizeof(a0_fcl_elem_hdr_t);
-  out->len = size;
+  out->size = size;
 
   return A0_OK;
 }

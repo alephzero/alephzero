@@ -7,4 +7,4 @@
 #define A0_LIKELY(x) __builtin_expect((x), 1)
 #define A0_UNLIKELY(x) __builtin_expect((x), 0)
 
-#endif
+#endif  // A0_MACROS_H
