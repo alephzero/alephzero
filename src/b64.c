@@ -1,5 +1,7 @@
 #include <a0/b64.h>
 
+#include <errno.h>
+
 // These implementation were selected by:
 // https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c#answer-41094722
 
@@ -45,14 +47,18 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-static const uint8_t kBase64EncodeTable[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const uint8_t kBase64EncodeTable[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-errno_t b64_encode(const uint8_t* src, size_t size, uint8_t** out, size_t* out_size) {
+errno_t b64_encode(const uint8_t* src,
+                   size_t size,
+                   uint8_t** out,
+                   size_t* out_size) {
   *out_size = 4 * ((size + 2) / 3); /* 3-byte blocks to 4-byte */
   if (*out_size < size) {
     return EOVERFLOW;
   }
-  *out = malloc(*out_size);
+  *out = (uint8_t*)malloc(*out_size);
 
   const uint8_t* end = src + size;
   const uint8_t* in = src;
@@ -86,22 +92,24 @@ errno_t b64_encode(const uint8_t* src, size_t size, uint8_t** out, size_t* out_s
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static const int kBase64DecodeTable[] = {
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  62, 63, 62, 62, 63,
-    52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 0,  0,  0,  0,  0,  0,
-    0,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14,
-    15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 0,  0,  0,  0,  63,
-    0,  26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
-    41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51
+  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+  0,  0,  0,  0,  0,  0,  0,  62, 63, 62, 62, 63, 52, 53, 54, 55, 56, 57,
+  58, 59, 60, 61, 0,  0,  0,  0,  0,  0,  0,  0,  1,  2,  3,  4,  5,  6,
+  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+  25, 0,  0,  0,  0,  63, 0,  26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
+  37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51
 };
 
-errno_t b64_decode(const uint8_t* src, size_t size, uint8_t** out, size_t* out_size) {
+errno_t b64_decode(const uint8_t* src,
+                   size_t size,
+                   uint8_t** out,
+                   size_t* out_size) {
   size_t pad1 = size % 4 || src[size - 1] == '=';
   size_t pad2 = pad1 && (size % 4 > 2 || src[size - 2] != '=');
   const size_t last = (size - pad1) / 4 << 2;
   *out_size = last / 4 * 3 + pad1 + pad2;
-  *out = malloc(*out_size);
+  *out = (uint8_t*)malloc(*out_size);
 
   size_t j = 0;
 

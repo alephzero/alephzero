@@ -1,58 +1,27 @@
 #include <a0/shmobj.h>
 
+#include <a0/internal/macros.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <stdio.h>
+errno_t a0_shmobj_open(const char* path,
+                       const a0_shmobj_options_t* opts,
+                       a0_shmobj_t* out) {
+  out->fd = shm_open(path, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
+  A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(out->fd);
+  A0_INTERNAL_CLEANUP_ON_MINUS_ONE(fstat(out->fd, &out->stat));
 
-errno_t a0_shmobj_stat(const char* path, stat_t* out_stat) {
-  int fd = shm_open(path, O_RDONLY, 0);
-  if (fd == -1) {
-    return errno;
+  if (opts) {
+    if (opts->size != out->stat.st_size) {
+      A0_INTERNAL_CLEANUP_ON_MINUS_ONE(ftruncate(out->fd, opts->size));
+      A0_INTERNAL_CLEANUP_ON_MINUS_ONE(fstat(out->fd, &out->stat));
+    }
   }
 
-  errno_t err = A0_OK;
-  if (out_stat && fstat(fd, out_stat) == -1) {
-    err = errno;
-  }
-  close(fd);
-
-  return err;
-}
-
-errno_t a0_shmobj_exists(const char* path, bool* out_exists) {
-  errno_t err = a0_shmobj_stat(path, NULL);
-  *out_exists = (err == A0_OK);
-  if (err == ENOENT) {
-    return A0_OK;
-  }
-  return err;
-}
-
-errno_t a0_shmobj_create(const char* path, const a0_shmobj_options_t* opts) {
-  int fd = shm_open(path, O_RDWR | O_CREAT | O_EXCL, S_IRWXU | S_IRWXG | S_IRWXO);
-  if (fd == -1) {
-    return errno;
-  }
-  ftruncate(fd, opts->size);
-
-  close(fd);
-
-  return A0_OK;
-}
-
-errno_t a0_shmobj_destroy(const char* path) {
-  shm_unlink(path);
-  return A0_OK;
-}
-
-errno_t a0_shmobj_attach(const char* path, a0_shmobj_t* out) {
-  _A0_RETURN_ERR_ON_ERR(a0_shmobj_stat(path, &out->stat));
-
-  out->fd = shm_open(path, O_RDWR, 0);
   out->ptr = (uint8_t*)mmap(
       /* addr   = */ 0,
       /* length = */ out->stat.st_size,
@@ -60,25 +29,30 @@ errno_t a0_shmobj_attach(const char* path, a0_shmobj_t* out) {
       /* flags  = */ MAP_SHARED,
       /* fd     = */ out->fd,
       /* offset = */ 0);
+  A0_INTERNAL_CLEANUP_ON_MINUS_ONE((intptr_t)out->ptr);
 
+  return A0_OK;
+
+cleanup:;
+  errno_t err = errno;
+  if (out->fd > 0) {
+    close(out->fd);
+  }
+  return err;
+}
+
+errno_t a0_shmobj_unlink(const char* path) {
+  A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(shm_unlink(path));
   return A0_OK;
 }
 
-errno_t a0_shmobj_detach(a0_shmobj_t* obj) {
-  if (obj->ptr) {
-    munmap(obj->ptr, obj->stat.st_size);
+errno_t a0_shmobj_close(a0_shmobj_t* shmobj) {
+  if (shmobj->ptr) {
+    A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(
+        munmap(shmobj->ptr, shmobj->stat.st_size));
   }
-  if (obj->fd) {
-    close(obj->fd);
+  if (shmobj->fd) {
+    A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(close(shmobj->fd));
   }
   return A0_OK;
-}
-
-errno_t a0_shmobj_create_or_attach(const char* path, const a0_shmobj_options_t* opts, a0_shmobj_t* out) {
-  bool exists;
-  _A0_RETURN_ERR_ON_ERR(a0_shmobj_exists(path, &exists));
-  if (!exists) {
-    _A0_RETURN_ERR_ON_ERR(a0_shmobj_create(path, opts));
-  }
-  return a0_shmobj_attach(path, out);
 }
