@@ -9,15 +9,9 @@
 extern "C" {
 #endif
 
-errno_t b64_encode(const uint8_t* src,
-                   size_t size,
-                   uint8_t** out,
-                   size_t* out_size);
+errno_t b64_encode(const a0_buf_t* raw, a0_alloc_t*, a0_buf_t* out_encoded);
 
-errno_t b64_decode(const uint8_t* src,
-                   size_t size,
-                   uint8_t** out,
-                   size_t* out_size);
+errno_t b64_decode(const a0_buf_t* encoded, a0_alloc_t*, a0_buf_t* out_decoded);
 
 #ifdef __cplusplus
 }
