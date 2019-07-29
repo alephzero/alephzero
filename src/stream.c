@@ -41,13 +41,13 @@ typedef struct a0_fcl_hdr_s {
   size_t protocol_metadata_size;
 } a0_fcl_hdr_t;
 
-a0_fcl_state_t* a0_fcl_committed_page(a0_locked_stream_t* lk) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
+a0_fcl_state_t* a0_fcl_committed_page(a0_locked_stream_t lk) {
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->shmobj->ptr;
   return &hdr->state_pages[hdr->committed_page_idx];
 }
 
-a0_fcl_state_t* a0_fcl_working_page(a0_locked_stream_t* lk) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
+a0_fcl_state_t* a0_fcl_working_page(a0_locked_stream_t lk) {
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->shmobj->ptr;
   return &hdr->state_pages[!hdr->committed_page_idx];
 }
 
@@ -165,98 +165,98 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
     a0_futex_notify_change(&hdr->fu_cond_var);
   }
 
-  *a0_fcl_working_page(lk_out) = *a0_fcl_committed_page(lk_out);
+  *a0_fcl_working_page(*lk_out) = *a0_fcl_committed_page(*lk_out);
 
   return lock_status;
 }
 
-errno_t a0_unlock_stream(a0_locked_stream_t* lk) {
+errno_t a0_unlock_stream(a0_locked_stream_t lk) {
   *a0_fcl_working_page(lk) = *a0_fcl_committed_page(lk);
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->shmobj->ptr;
   pthread_mutex_unlock(&hdr->mu);
   return A0_OK;
 }
 
-errno_t a0_stream_protocol_metadata(a0_locked_stream_t* lk, a0_buf_t* out) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
+errno_t a0_stream_protocol_metadata(a0_locked_stream_t lk, a0_buf_t* out) {
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->shmobj->ptr;
   out->ptr = (uint8_t*)hdr + a0_fcl_protocol_metadata_off(hdr);
   out->size = hdr->protocol_metadata_size;
   return A0_OK;
 }
 
-errno_t a0_stream_empty(a0_locked_stream_t* lk, bool* out) {
+errno_t a0_stream_empty(a0_locked_stream_t lk, bool* out) {
   *out = !a0_fcl_working_page(lk)->seq_high;
   return A0_OK;
 }
 
-errno_t a0_stream_nonempty(a0_locked_stream_t* lk, bool* out) {
+errno_t a0_stream_nonempty(a0_locked_stream_t lk, bool* out) {
   errno_t err = a0_stream_empty(lk, out);
   *out = !*out;
   return err;
 }
 
-errno_t a0_stream_jump_head(a0_locked_stream_t* lk) {
+errno_t a0_stream_jump_head(a0_locked_stream_t lk) {
   a0_fcl_state_t* state = a0_fcl_working_page(lk);
 
   if (!state->seq_low) {
     return EAGAIN;
   }
 
-  lk->stream->_seq = state->seq_low;
-  lk->stream->_off = state->off_head;
+  lk.stream->_seq = state->seq_low;
+  lk.stream->_off = state->off_head;
   return A0_OK;
 }
 
-errno_t a0_stream_jump_tail(a0_locked_stream_t* lk) {
+errno_t a0_stream_jump_tail(a0_locked_stream_t lk) {
   a0_fcl_state_t* state = a0_fcl_working_page(lk);
 
   if (!state->seq_high) {
     return EAGAIN;
   }
 
-  lk->stream->_seq = state->seq_high;
-  lk->stream->_off = state->off_tail;
+  lk.stream->_seq = state->seq_high;
+  lk.stream->_off = state->off_tail;
   return A0_OK;
 }
 
-errno_t a0_stream_has_next(a0_locked_stream_t* lk, bool* out) {
+errno_t a0_stream_has_next(a0_locked_stream_t lk, bool* out) {
   a0_fcl_state_t* state = a0_fcl_working_page(lk);
-  *out = (state->seq_high) && (lk->stream->_seq < state->seq_high);
+  *out = (state->seq_high) && (lk.stream->_seq < state->seq_high);
   return A0_OK;
 }
 
-errno_t a0_stream_next(a0_locked_stream_t* lk) {
+errno_t a0_stream_next(a0_locked_stream_t lk) {
   a0_fcl_state_t* state = a0_fcl_working_page(lk);
 
-  if (lk->stream->_seq < state->seq_low) {
-    lk->stream->_seq = state->seq_low;
-    lk->stream->_off = state->off_head;
+  if (lk.stream->_seq < state->seq_low) {
+    lk.stream->_seq = state->seq_low;
+    lk.stream->_off = state->off_head;
     return A0_OK;
   }
 
-  if (lk->stream->_seq == state->seq_high) {
+  if (lk.stream->_seq == state->seq_high) {
     return EAGAIN;
   }
 
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->shmobj->ptr;
   a0_fcl_elem_hdr_t* elem_hdr =
-      (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + lk->stream->_off);
-  lk->stream->_seq++;
-  lk->stream->_off = elem_hdr->next_off;
+      (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
+  lk.stream->_seq++;
+  lk.stream->_off = elem_hdr->next_off;
 
   return A0_OK;
 }
 
-errno_t a0_stream_await(a0_locked_stream_t* lk,
-                        errno_t (*pred)(a0_locked_stream_t*, bool*)) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
+errno_t a0_stream_await(a0_locked_stream_t lk,
+                        errno_t (*pred)(a0_locked_stream_t, bool*)) {
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->shmobj->ptr;
   errno_t err = A0_OK;
 
-  lk->stream->_fu_await_cnt++;
-  a0_futex_notify_change(&lk->stream->_fu_await_cnt);
+  lk.stream->_fu_await_cnt++;
+  a0_futex_notify_change(&lk.stream->_fu_await_cnt);
 
   uint32_t old_val = hdr->fu_cond_var;
-  while (lk->stream->_running) {
+  while (lk.stream->_running) {
     bool sat;
     err = pred(lk, &sat);
     if (err || sat) {
@@ -268,22 +268,22 @@ errno_t a0_stream_await(a0_locked_stream_t* lk,
     old_val = hdr->fu_cond_var;
   }
 
-  lk->stream->_fu_await_cnt--;
-  a0_futex_notify_change(&lk->stream->_fu_await_cnt);
+  lk.stream->_fu_await_cnt--;
+  a0_futex_notify_change(&lk.stream->_fu_await_cnt);
 
   return err;
 }
 
-errno_t a0_stream_frame(a0_locked_stream_t* lk, a0_stream_frame_t* frame_out) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
+errno_t a0_stream_frame(a0_locked_stream_t lk, a0_stream_frame_t* frame_out) {
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->shmobj->ptr;
   a0_fcl_state_t* state = a0_fcl_working_page(lk);
 
-  if (lk->stream->_seq < state->seq_low) {
+  if (lk.stream->_seq < state->seq_low) {
     return ESPIPE;
   }
 
   a0_fcl_elem_hdr_t* elem_hdr =
-      (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + lk->stream->_off);
+      (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
 
   frame_out->hdr.seq = elem_hdr->seq;
   frame_out->data.ptr = (uint8_t*)elem_hdr + sizeof(a0_fcl_elem_hdr_t);
@@ -305,10 +305,10 @@ bool a0_fcl_intersects(fcl_off_t elem1_start,
   return (elem1_start <= elem2_end) && (elem2_start <= elem1_end);
 }
 
-bool a0_fcl_head_interval(a0_locked_stream_t* lk,
+bool a0_fcl_head_interval(a0_locked_stream_t lk,
                           fcl_off_t* head_off,
                           size_t* head_size) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->shmobj->ptr;
 
   bool empty;
   a0_stream_empty(lk, &empty);
@@ -322,8 +322,8 @@ bool a0_fcl_head_interval(a0_locked_stream_t* lk,
   return true;
 }
 
-void a0_fcl_remove_head(a0_locked_stream_t* lk) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
+void a0_fcl_remove_head(a0_locked_stream_t lk) {
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->shmobj->ptr;
   a0_fcl_state_t* state = a0_fcl_working_page(lk);
 
   a0_fcl_elem_hdr_t* head_hdr =
@@ -339,10 +339,10 @@ void a0_fcl_remove_head(a0_locked_stream_t* lk) {
   a0_stream_commit(lk);
 }
 
-errno_t a0_stream_alloc(a0_locked_stream_t* lk,
+errno_t a0_stream_alloc(a0_locked_stream_t lk,
                         size_t size,
                         a0_stream_frame_t* frame_out) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->shmobj->ptr;
 
   a0_fcl_state_t* state = a0_fcl_working_page(lk);
 
@@ -395,8 +395,8 @@ errno_t a0_stream_alloc(a0_locked_stream_t* lk,
   return A0_OK;
 }
 
-errno_t a0_stream_commit(a0_locked_stream_t* lk) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
+errno_t a0_stream_commit(a0_locked_stream_t lk) {
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->shmobj->ptr;
   hdr->committed_page_idx = !hdr->committed_page_idx;
   *a0_fcl_working_page(lk) = *a0_fcl_committed_page(lk);
 
@@ -406,8 +406,8 @@ errno_t a0_stream_commit(a0_locked_stream_t* lk) {
   return A0_OK;
 }
 
-void a0_stream_debugstr(a0_locked_stream_t* lk, a0_buf_t* out) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
+void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->shmobj->ptr;
 
   a0_fcl_state_t* committed_state = a0_fcl_committed_page(lk);
   a0_fcl_state_t* working_state = a0_fcl_working_page(lk);

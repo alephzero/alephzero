@@ -7,57 +7,57 @@
 TEST_CASE("Test base64 encode/decode", "[base64]") {
   uint8_t msg[] = "Hello, World!";
 
-  a0_buf_t raw;
-  raw.ptr = msg;
-  raw.size = sizeof(msg);
+  a0_buf_t original;
+  original.ptr = msg;
+  original.size = sizeof(msg);
 
-  a0_alloc_t allocator;
+  a0_alloc_t alloc;
   uint8_t encode_space[20];
-  allocator.user_data = encode_space;
-  allocator.callback = [](void* user_data, size_t size, a0_buf_t* out) {
+  alloc.user_data = encode_space;
+  alloc.callback = [](void* user_data, size_t size, a0_buf_t* out) {
     out->size = size;
     out->ptr = (uint8_t*)user_data;
   };
 
   a0_buf_t encoded;
-  REQUIRE(b64_encode(&raw, &allocator, &encoded) == A0_OK);
+  REQUIRE(b64_encode(original, alloc, &encoded) == A0_OK);
   REQUIRE(encoded.size == 20);
   REQUIRE(str(encoded) == "SGVsbG8sIFdvcmxkIQA=");
 
   uint8_t decode_space[14];
-  allocator.user_data = decode_space;
+  alloc.user_data = decode_space;
 
   a0_buf_t decoded;
-  REQUIRE(b64_decode(&encoded, &allocator, &decoded) == A0_OK);
+  REQUIRE(b64_decode(encoded, alloc, &decoded) == A0_OK);
   REQUIRE(decoded.size == 14);
-  REQUIRE(str(decoded) == str(raw));
+  REQUIRE(str(decoded) == str(original));
 }
 
 TEST_CASE("Test base64 encode/decode empty", "[base64_empty]") {
   uint8_t msg[] = "";
 
-  a0_buf_t raw;
-  raw.ptr = msg;
-  raw.size = 0;
+  a0_buf_t original;
+  original.ptr = msg;
+  original.size = 0;
 
-  a0_alloc_t allocator;
+  a0_alloc_t alloc;
   uint8_t encode_space[0];
-  allocator.user_data = encode_space;
-  allocator.callback = [](void* user_data, size_t size, a0_buf_t* out) {
+  alloc.user_data = encode_space;
+  alloc.callback = [](void* user_data, size_t size, a0_buf_t* out) {
     out->size = size;
     out->ptr = (uint8_t*)user_data;
   };
 
   a0_buf_t encoded;
-  REQUIRE(b64_encode(&raw, &allocator, &encoded) == A0_OK);
+  REQUIRE(b64_encode(original, alloc, &encoded) == A0_OK);
   REQUIRE(encoded.size == 0);
   REQUIRE(str(encoded) == "");
 
   uint8_t decode_space[0];
-  allocator.user_data = decode_space;
+  alloc.user_data = decode_space;
 
   a0_buf_t decoded;
-  REQUIRE(b64_decode(&encoded, &allocator, &decoded) == A0_OK);
+  REQUIRE(b64_decode(encoded, alloc, &decoded) == A0_OK);
   REQUIRE(decoded.size == 0);
-  REQUIRE(str(decoded) == str(raw));
+  REQUIRE(str(decoded) == str(original));
 }

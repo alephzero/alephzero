@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-void a0_stream_debugstr(a0_locked_stream_t*, a0_buf_t* out);
+void a0_stream_debugstr(a0_locked_stream_t, a0_buf_t* out);
 
 #ifdef __cplusplus
 }

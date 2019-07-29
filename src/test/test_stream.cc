@@ -62,14 +62,14 @@ TEST_CASE_METHOD(StreamTestFixture,
   REQUIRE(a0_lock_stream(&stream, &locked_stream) == A0_OK);
 
   a0_buf_t protocol_metadata;
-  REQUIRE(a0_stream_protocol_metadata(&locked_stream, &protocol_metadata) == A0_OK);
+  REQUIRE(a0_stream_protocol_metadata(locked_stream, &protocol_metadata) == A0_OK);
   REQUIRE(protocol_metadata.size == 13);
   REQUIRE((uintptr_t)protocol_metadata.ptr % alignof(max_align_t) == 0);
   memcpy(protocol_metadata.ptr, "protocol info", 13);
 
   {
     a0_buf_t debugstr;
-    a0_stream_debugstr(&locked_stream, &debugstr);
+    a0_stream_debugstr(locked_stream, &debugstr);
     REQUIRE(str(debugstr) == R"(
 =========================
 HEADER
@@ -97,7 +97,7 @@ DATA
     free(debugstr.ptr);
   }
 
-  REQUIRE(a0_unlock_stream(&locked_stream) == A0_OK);
+  REQUIRE(a0_unlock_stream(locked_stream) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);
 }
 
@@ -112,12 +112,12 @@ TEST_CASE_METHOD(StreamTestFixture,
   REQUIRE(a0_lock_stream(&stream, &locked_stream) == A0_OK);
 
   bool is_empty;
-  REQUIRE(a0_stream_empty(&locked_stream, &is_empty) == A0_OK);
+  REQUIRE(a0_stream_empty(locked_stream, &is_empty) == A0_OK);
   REQUIRE(is_empty);
 
   {
     a0_buf_t debugstr;
-    a0_stream_debugstr(&locked_stream, &debugstr);
+    a0_stream_debugstr(locked_stream, &debugstr);
     REQUIRE(str(debugstr) == R"(
 =========================
 HEADER
@@ -146,17 +146,17 @@ DATA
   }
 
   a0_stream_frame_t first_frame;
-  REQUIRE(a0_stream_alloc(&locked_stream, 10, &first_frame) == A0_OK);
+  REQUIRE(a0_stream_alloc(locked_stream, 10, &first_frame) == A0_OK);
   memcpy(first_frame.data.ptr, "0123456789", 10);
-  REQUIRE(a0_stream_commit(&locked_stream) == A0_OK);
+  REQUIRE(a0_stream_commit(locked_stream) == A0_OK);
 
   a0_stream_frame_t second_frame;
-  REQUIRE(a0_stream_alloc(&locked_stream, 40, &second_frame) == A0_OK);
+  REQUIRE(a0_stream_alloc(locked_stream, 40, &second_frame) == A0_OK);
   memcpy(second_frame.data.ptr, "0123456789012345678901234567890123456789", 40);
 
   {
     a0_buf_t debugstr;
-    a0_stream_debugstr(&locked_stream, &debugstr);
+    a0_stream_debugstr(locked_stream, &debugstr);
     REQUIRE(str(debugstr) == R"(
 =========================
 HEADER
@@ -198,11 +198,11 @@ Elem (not committed)
     free(debugstr.ptr);
   }
 
-  REQUIRE(a0_stream_commit(&locked_stream) == A0_OK);
+  REQUIRE(a0_stream_commit(locked_stream) == A0_OK);
 
   {
     a0_buf_t debugstr;
-    a0_stream_debugstr(&locked_stream, &debugstr);
+    a0_stream_debugstr(locked_stream, &debugstr);
     REQUIRE(str(debugstr) == R"(
 =========================
 HEADER
@@ -244,7 +244,7 @@ Elem
     free(debugstr.ptr);
   }
 
-  REQUIRE(a0_unlock_stream(&locked_stream) == A0_OK);
+  REQUIRE(a0_unlock_stream(locked_stream) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);
 }
 TEST_CASE_METHOD(StreamTestFixture, "Test stream iteration", "[stream_iter]") {
@@ -258,20 +258,20 @@ TEST_CASE_METHOD(StreamTestFixture, "Test stream iteration", "[stream_iter]") {
     REQUIRE(a0_lock_stream(&stream, &locked_stream) == A0_OK);
 
     a0_stream_frame_t first_frame;
-    REQUIRE(a0_stream_alloc(&locked_stream, 1, &first_frame) == A0_OK);
+    REQUIRE(a0_stream_alloc(locked_stream, 1, &first_frame) == A0_OK);
     memcpy(first_frame.data.ptr, "A", 1);
 
     a0_stream_frame_t second_frame;
-    REQUIRE(a0_stream_alloc(&locked_stream, 2, &second_frame) == A0_OK);
+    REQUIRE(a0_stream_alloc(locked_stream, 2, &second_frame) == A0_OK);
     memcpy(second_frame.data.ptr, "BB", 2);
 
     a0_stream_frame_t third_frame;
-    REQUIRE(a0_stream_alloc(&locked_stream, 3, &third_frame) == A0_OK);
+    REQUIRE(a0_stream_alloc(locked_stream, 3, &third_frame) == A0_OK);
     memcpy(third_frame.data.ptr, "CCC", 3);
 
-    REQUIRE(a0_stream_commit(&locked_stream) == A0_OK);
+    REQUIRE(a0_stream_commit(locked_stream) == A0_OK);
 
-    REQUIRE(a0_unlock_stream(&locked_stream) == A0_OK);
+    REQUIRE(a0_unlock_stream(locked_stream) == A0_OK);
     REQUIRE(a0_stream_close(&stream) == A0_OK);
   }
 
@@ -283,48 +283,48 @@ TEST_CASE_METHOD(StreamTestFixture, "Test stream iteration", "[stream_iter]") {
   REQUIRE(a0_lock_stream(&stream, &locked_stream) == A0_OK);
 
   bool is_empty;
-  REQUIRE(a0_stream_empty(&locked_stream, &is_empty) == A0_OK);
+  REQUIRE(a0_stream_empty(locked_stream, &is_empty) == A0_OK);
   REQUIRE(!is_empty);
 
-  REQUIRE(a0_stream_jump_head(&locked_stream) == A0_OK);
+  REQUIRE(a0_stream_jump_head(locked_stream) == A0_OK);
 
   a0_stream_frame_t frame;
 
-  REQUIRE(a0_stream_frame(&locked_stream, &frame) == A0_OK);
+  REQUIRE(a0_stream_frame(locked_stream, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(str(frame.data) == "A");
 
   bool has_next;
-  REQUIRE(a0_stream_has_next(&locked_stream, &has_next) == A0_OK);
+  REQUIRE(a0_stream_has_next(locked_stream, &has_next) == A0_OK);
   REQUIRE(has_next);
 
-  REQUIRE(a0_stream_next(&locked_stream) == A0_OK);
-  REQUIRE(a0_stream_frame(&locked_stream, &frame) == A0_OK);
+  REQUIRE(a0_stream_next(locked_stream) == A0_OK);
+  REQUIRE(a0_stream_frame(locked_stream, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(str(frame.data) == "BB");
 
-  REQUIRE(a0_stream_has_next(&locked_stream, &has_next) == A0_OK);
+  REQUIRE(a0_stream_has_next(locked_stream, &has_next) == A0_OK);
   REQUIRE(has_next);
 
-  REQUIRE(a0_stream_next(&locked_stream) == A0_OK);
-  REQUIRE(a0_stream_frame(&locked_stream, &frame) == A0_OK);
+  REQUIRE(a0_stream_next(locked_stream) == A0_OK);
+  REQUIRE(a0_stream_frame(locked_stream, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 3);
   REQUIRE(str(frame.data) == "CCC");
 
-  REQUIRE(a0_stream_has_next(&locked_stream, &has_next) == A0_OK);
+  REQUIRE(a0_stream_has_next(locked_stream, &has_next) == A0_OK);
   REQUIRE(!has_next);
 
-  REQUIRE(a0_stream_jump_head(&locked_stream) == A0_OK);
-  REQUIRE(a0_stream_frame(&locked_stream, &frame) == A0_OK);
+  REQUIRE(a0_stream_jump_head(locked_stream) == A0_OK);
+  REQUIRE(a0_stream_frame(locked_stream, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(str(frame.data) == "A");
 
-  REQUIRE(a0_stream_jump_tail(&locked_stream) == A0_OK);
-  REQUIRE(a0_stream_frame(&locked_stream, &frame) == A0_OK);
+  REQUIRE(a0_stream_jump_tail(locked_stream) == A0_OK);
+  REQUIRE(a0_stream_frame(locked_stream, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 3);
   REQUIRE(str(frame.data) == "CCC");
 
-  REQUIRE(a0_unlock_stream(&locked_stream) == A0_OK);
+  REQUIRE(a0_unlock_stream(locked_stream) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);
 }
 
@@ -340,11 +340,11 @@ void _fork_sleep_push(a0_stream_t* stream, const std::string& str) {
     REQUIRE(a0_lock_stream(stream, &locked_stream) == A0_OK);
 
     a0_stream_frame_t frame;
-    REQUIRE(a0_stream_alloc(&locked_stream, 3, &frame) == A0_OK);
+    REQUIRE(a0_stream_alloc(locked_stream, 3, &frame) == A0_OK);
     memcpy(frame.data.ptr, str.c_str(), str.size());
-    REQUIRE(a0_stream_commit(&locked_stream) == A0_OK);
+    REQUIRE(a0_stream_commit(locked_stream) == A0_OK);
 
-    REQUIRE(a0_unlock_stream(&locked_stream) == A0_OK);
+    REQUIRE(a0_unlock_stream(locked_stream) == A0_OK);
     REQUIRE(a0_stream_close(stream) == A0_OK);
 
     exit(0);
@@ -361,25 +361,25 @@ TEST_CASE_METHOD(StreamTestFixture, "Test stream await", "[stream_await]") {
   a0_locked_stream_t locked_stream;
   REQUIRE(a0_lock_stream(&stream, &locked_stream) == A0_OK);
 
-  REQUIRE(a0_stream_await(&locked_stream, a0_stream_nonempty) == A0_OK);
+  REQUIRE(a0_stream_await(locked_stream, a0_stream_nonempty) == A0_OK);
 
-  REQUIRE(a0_stream_jump_head(&locked_stream) == A0_OK);
+  REQUIRE(a0_stream_jump_head(locked_stream) == A0_OK);
 
   a0_stream_frame_t frame;
-  REQUIRE(a0_stream_frame(&locked_stream, &frame) == A0_OK);
+  REQUIRE(a0_stream_frame(locked_stream, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(str(frame.data) == "ABC");
 
-  REQUIRE(a0_stream_await(&locked_stream, a0_stream_nonempty) == A0_OK);
+  REQUIRE(a0_stream_await(locked_stream, a0_stream_nonempty) == A0_OK);
 
   _fork_sleep_push(&stream, "DEF");
-  REQUIRE(a0_stream_await(&locked_stream, a0_stream_has_next) == A0_OK);
+  REQUIRE(a0_stream_await(locked_stream, a0_stream_has_next) == A0_OK);
 
-  REQUIRE(a0_stream_next(&locked_stream) == A0_OK);
-  REQUIRE(a0_stream_frame(&locked_stream, &frame) == A0_OK);
+  REQUIRE(a0_stream_next(locked_stream) == A0_OK);
+  REQUIRE(a0_stream_frame(locked_stream, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(str(frame.data) == "DEF");
 
-  REQUIRE(a0_unlock_stream(&locked_stream) == A0_OK);
+  REQUIRE(a0_unlock_stream(locked_stream) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);
 }
