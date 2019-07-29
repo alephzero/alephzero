@@ -1,5 +1,6 @@
 #include <a0/stream.h>
 
+#include <a0/internal/stream_debug.h>
 #include <a0/internal/test_util.hh>
 #include <catch.hpp>
 #include <string.h>
@@ -68,7 +69,7 @@ TEST_CASE_METHOD(StreamTestFixture,
 
   {
     a0_buf_t debugstr;
-    _a0_testing_stream_debugstr(&locked_stream, &debugstr);
+    a0_stream_debugstr(&locked_stream, &debugstr);
     REQUIRE(str(debugstr) == R"(
 =========================
 HEADER
@@ -116,7 +117,7 @@ TEST_CASE_METHOD(StreamTestFixture,
 
   {
     a0_buf_t debugstr;
-    _a0_testing_stream_debugstr(&locked_stream, &debugstr);
+    a0_stream_debugstr(&locked_stream, &debugstr);
     REQUIRE(str(debugstr) == R"(
 =========================
 HEADER
@@ -155,7 +156,7 @@ DATA
 
   {
     a0_buf_t debugstr;
-    _a0_testing_stream_debugstr(&locked_stream, &debugstr);
+    a0_stream_debugstr(&locked_stream, &debugstr);
     REQUIRE(str(debugstr) == R"(
 =========================
 HEADER
@@ -201,7 +202,7 @@ Elem (not committed)
 
   {
     a0_buf_t debugstr;
-    _a0_testing_stream_debugstr(&locked_stream, &debugstr);
+    a0_stream_debugstr(&locked_stream, &debugstr);
     REQUIRE(str(debugstr) == R"(
 =========================
 HEADER

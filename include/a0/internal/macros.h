@@ -1,5 +1,5 @@
-#ifndef A0_MACROS_H
-#define A0_MACROS_H
+#ifndef A0_INTERNAL_MACROS_H
+#define A0_INTERNAL_MACROS_H
 
 #include <errno.h>
 
@@ -25,4 +25,4 @@
     return A0_CAT(_a0_var_, __LINE__);                    \
   }
 
-#endif  // A0_MACROS_H
+#endif  // A0_INTERNAL_MACROS_H

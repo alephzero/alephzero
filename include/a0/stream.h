@@ -86,9 +86,6 @@ errno_t a0_stream_alloc(a0_locked_stream_t*,
                         a0_stream_frame_t* frame_out);
 errno_t a0_stream_commit(a0_locked_stream_t*);
 
-// TODO: Move this into a debug-specific header.
-void _a0_testing_stream_debugstr(a0_locked_stream_t*, a0_buf_t* out);
-
 #ifdef __cplusplus
 }
 #endif

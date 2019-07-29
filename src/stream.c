@@ -406,7 +406,7 @@ errno_t a0_stream_commit(a0_locked_stream_t* lk) {
   return A0_OK;
 }
 
-void _a0_testing_stream_debugstr(a0_locked_stream_t* lk, a0_buf_t* out) {
+void a0_stream_debugstr(a0_locked_stream_t* lk, a0_buf_t* out) {
   a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk->stream->shmobj->ptr;
 
   a0_fcl_state_t* committed_state = a0_fcl_committed_page(lk);
