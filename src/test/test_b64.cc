@@ -32,3 +32,32 @@ TEST_CASE("Test base64 encode/decode", "[base64]") {
   REQUIRE(decoded.size == 14);
   REQUIRE(str(decoded) == str(raw));
 }
+
+TEST_CASE("Test base64 encode/decode empty", "[base64_empty]") {
+  uint8_t msg[] = "";
+
+  a0_buf_t raw;
+  raw.ptr = msg;
+  raw.size = 0;
+
+  a0_alloc_t allocator;
+  uint8_t encode_space[0];
+  allocator.user_data = encode_space;
+  allocator.callback = [](void* user_data, size_t size, a0_buf_t* out) {
+    out->size = size;
+    out->ptr = (uint8_t*)user_data;
+  };
+
+  a0_buf_t encoded;
+  REQUIRE(b64_encode(&raw, &allocator, &encoded) == A0_OK);
+  REQUIRE(encoded.size == 0);
+  REQUIRE(str(encoded) == "");
+
+  uint8_t decode_space[0];
+  allocator.user_data = decode_space;
+
+  a0_buf_t decoded;
+  REQUIRE(b64_decode(&encoded, &allocator, &decoded) == A0_OK);
+  REQUIRE(decoded.size == 0);
+  REQUIRE(str(decoded) == str(raw));
+}
