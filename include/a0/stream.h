@@ -15,30 +15,22 @@
 extern "C" {
 #endif
 
-typedef struct a0_stream_construct_options_s a0_stream_construct_options_t;
-typedef struct a0_stream_options_s a0_stream_options_t;
-typedef struct a0_stream_s a0_stream_t;
-
-struct a0_stream_construct_options_s {
-  uint64_t protocol_metadata_size;
-  void (*on_construct)(a0_stream_t*);
-  void (*on_already_constructed)(a0_stream_t*);
-};
-
 // Note: This object should not be copied or moved.
-struct a0_stream_s {
-  // Required from user.
-  a0_shmobj_t* shmobj;
-
-  // Optional from user.
-  void* user_data;
-
-  // Private.
+typedef struct a0_stream_s {
+  a0_shmobj_t* _shmobj;
   uint64_t _seq;
   uint64_t _off;
-  bool _running;
+  bool _closing;
   uint32_t _fu_await_cnt;
-};
+} a0_stream_t;
+
+typedef struct a0_stream_protocol_s {
+  a0_buf_t name;
+  uint32_t major_version;
+  uint32_t minor_version;
+  uint32_t patch_version;
+  uint64_t metadata_size;
+} a0_stream_protocol_t;
 
 typedef struct a0_stream_frame_hdr_s {
   uint64_t seq;
@@ -49,18 +41,25 @@ typedef struct a0_stream_frame_s {
   a0_buf_t data;
 } a0_stream_frame_t;
 
-errno_t a0_stream_init(a0_stream_t*, a0_stream_construct_options_t*);
-errno_t a0_stream_close(a0_stream_t*);
+typedef enum a0_stream_init_status_s {
+  A0_STREAM_CREATED,
+  A0_STREAM_PROTOCOL_MATCH,
+  A0_STREAM_PROTOCOL_MISMATCH,
+} a0_stream_init_status_t;
 
 typedef struct a0_locked_stream_s {
   a0_stream_t* stream;
 } a0_locked_stream_t;
 
+errno_t a0_stream_init(a0_stream_t*, a0_shmobj_t*, a0_stream_protocol_t*, a0_stream_init_status_t* status_out, a0_locked_stream_t* lk_out);
+errno_t a0_stream_close(a0_stream_t*);
+
 errno_t a0_lock_stream(a0_stream_t*, a0_locked_stream_t* lk_out);
 errno_t a0_unlock_stream(a0_locked_stream_t);
 
-// Caller does NOT own `out->base` and should not clean it up!
-errno_t a0_stream_protocol_metadata(a0_locked_stream_t, a0_buf_t* out);
+// Caller does NOT own `protocol_out->name->ptr` and should not clean it up!
+// Caller does NOT own `metadata_out->ptr` and should not clean it up!
+errno_t a0_stream_protocol(a0_locked_stream_t, a0_stream_protocol_t* protocol_out, a0_buf_t* metadata_out);
 
 errno_t a0_stream_empty(a0_locked_stream_t, bool*);
 errno_t a0_stream_nonempty(a0_locked_stream_t, bool*);
