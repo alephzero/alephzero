@@ -32,7 +32,7 @@ TEST_CASE("Test packet", "[packet]") {
   uint8_t write_buf[84];
   a0_alloc_t alloc;
   alloc.user_data = write_buf;
-  alloc.callback = [](void* user_data, size_t size, a0_buf_t* buf) {
+  alloc.fn = [](void* user_data, size_t size, a0_buf_t* buf) {
     REQUIRE(size == 84);
     buf->size = 84;
     buf->ptr = (uint8_t*)user_data;

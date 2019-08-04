@@ -43,7 +43,7 @@ errno_t a0_packet_build(a0_packet_builder_t builder, a0_alloc_t alloc, a0_packet
     }
     size += builder.payload.size;
 
-    alloc.callback(alloc.user_data, size, out);
+    alloc.fn(alloc.user_data, size, out);
   }
 
   size_t off = 0;

@@ -40,19 +40,19 @@ TEST_CASE_METHOD(StreamTestFixture,
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, &shmobj, &protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
 
   REQUIRE(*(uint64_t*)shmobj.ptr == 0x616c65667a65726f);
   REQUIRE(init_status == A0_STREAM_CREATED);
 
-  REQUIRE(a0_stream_init(&stream, &shmobj, &protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
   REQUIRE(init_status == A0_STREAM_PROTOCOL_MATCH);
 
   a0_buf_t protocol_metadata;
   protocol.patch_version++;
-  REQUIRE(a0_stream_init(&stream, &shmobj, &protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
   REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
   REQUIRE(protocol_metadata.size == 17);
   REQUIRE((uintptr_t)protocol_metadata.ptr % alignof(max_align_t) == 0);
@@ -113,7 +113,7 @@ TEST_CASE_METHOD(StreamTestFixture,
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, &shmobj, &protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
   a0_buf_t protocol_metadata;
   REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
   memcpy(protocol_metadata.ptr, "protocol metadata", 17);
@@ -267,7 +267,7 @@ TEST_CASE_METHOD(StreamTestFixture, "Test stream iteration", "[stream_iter]") {
     a0_stream_t stream;
     a0_stream_init_status_t init_status;
     a0_locked_stream_t lk;
-    REQUIRE(a0_stream_init(&stream, &shmobj, &protocol, &init_status, &lk) == A0_OK);
+    REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
     a0_buf_t protocol_metadata;
     REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
     memcpy(protocol_metadata.ptr, "protocol metadata", 17);
@@ -293,7 +293,7 @@ TEST_CASE_METHOD(StreamTestFixture, "Test stream iteration", "[stream_iter]") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, &shmobj, &protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
 
   bool is_empty;
   REQUIRE(a0_stream_empty(lk, &is_empty) == A0_OK);
@@ -368,7 +368,7 @@ TEST_CASE_METHOD(StreamTestFixture, "Test stream await", "[stream_await]") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, &shmobj, &protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
   a0_buf_t protocol_metadata;
   REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
   memcpy(protocol_metadata.ptr, "protocol metadata", 17);

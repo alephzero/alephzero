@@ -15,7 +15,6 @@
 #include <unistd.h>
 
 // TODO: s/fcl/stream/g
-// TODO: static all the things
 
 const uint64_t A0_STREAM_MAGIC = 0x616c65667a65726f;
 typedef uintptr_t fcl_off_t;  // ptr offset from start of shmobj.
@@ -47,34 +46,41 @@ typedef struct a0_fcl_hdr_s {
   uint32_t protocol_patch_version;
 } a0_fcl_hdr_t;
 
+A0_STATIC_INLINE
 a0_fcl_state_t* a0_fcl_committed_page(a0_locked_stream_t lk) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
   return &hdr->state_pages[hdr->committed_page_idx];
 }
 
+A0_STATIC_INLINE
 a0_fcl_state_t* a0_fcl_working_page(a0_locked_stream_t lk) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
   return &hdr->state_pages[!hdr->committed_page_idx];
 }
 
+A0_STATIC_INLINE
 fcl_off_t a0_fcl_align(fcl_off_t off) {
   return ((off + alignof(max_align_t) - 1) & ~(alignof(max_align_t) - 1));
 }
 
+A0_STATIC_INLINE
 fcl_off_t a0_fcl_protocol_name_off(a0_fcl_hdr_t* hdr) {
   return a0_fcl_align(sizeof(a0_fcl_hdr_t));
 }
 
+A0_STATIC_INLINE
 fcl_off_t a0_fcl_protocol_metadata_off(a0_fcl_hdr_t* hdr) {
   return a0_fcl_align(a0_fcl_protocol_name_off(hdr) +
                       hdr->protocol_name_size);
 }
 
+A0_STATIC_INLINE
 fcl_off_t a0_fcl_workspace_off(a0_fcl_hdr_t* hdr) {
   return a0_fcl_align(a0_fcl_protocol_metadata_off(hdr) +
                       hdr->protocol_metadata_size);
 }
 
+A0_STATIC_INLINE
 errno_t a0_futex(uint32_t* uaddr,
                  uint32_t futex_op,
                  uint32_t val,
@@ -86,10 +92,12 @@ errno_t a0_futex(uint32_t* uaddr,
   return A0_OK;
 }
 
+A0_STATIC_INLINE
 errno_t a0_futex_await_change(uint32_t* uaddr, uint32_t old_val) {
   return a0_futex(uaddr, FUTEX_WAIT, old_val, NULL, NULL, 0);
 }
 
+A0_STATIC_INLINE
 errno_t a0_futex_notify_change(uint32_t* uaddr) {
   return a0_futex(uaddr, FUTEX_WAKE, INT_MAX, NULL, NULL, 0);
 }
@@ -103,35 +111,38 @@ typedef struct a0_fcl_elem_hdr_s {
 } a0_fcl_elem_hdr_t;
 
 errno_t a0_stream_init(a0_stream_t* stream,
-                       a0_shmobj_t* shmobj,
-                       a0_stream_protocol_t* protocol,
+                       a0_shmobj_t shmobj,
+                       a0_stream_protocol_t protocol,
                        a0_stream_init_status_t* status_out,
                        a0_locked_stream_t* lk_out) {
   memset(stream, 0, sizeof(a0_stream_t));
   stream->_shmobj = shmobj;
 
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)shmobj->ptr;
+  pthread_mutex_init(&stream->_await_mu, NULL);
+  pthread_cond_init(&stream->_await_cv, NULL);
+
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)shmobj.ptr;
   if (hdr->magic != A0_STREAM_MAGIC) {
     // TODO: fcntl with F_SETLKW and check double-check magic.
 
     fcl_off_t protocol_name_off = a0_fcl_align(sizeof(a0_fcl_hdr_t));
-    fcl_off_t protocol_metadata_off = a0_fcl_align(protocol_name_off + protocol->name.size);
-    fcl_off_t workspace_off = a0_fcl_align(protocol_metadata_off + protocol->metadata_size);
+    fcl_off_t protocol_metadata_off = a0_fcl_align(protocol_name_off + protocol.name.size);
+    fcl_off_t workspace_off = a0_fcl_align(protocol_metadata_off + protocol.metadata_size);
 
-    if (workspace_off >= (uint64_t)stream->_shmobj->stat.st_size) {
+    if (workspace_off >= (uint64_t)stream->_shmobj.stat.st_size) {
       return ENOMEM;
     }
 
     memset((uint8_t*)hdr, 0, sizeof(a0_fcl_hdr_t));
 
-    hdr->shmobj_size = stream->_shmobj->stat.st_size;
-    hdr->protocol_name_size = protocol->name.size;
-    hdr->protocol_metadata_size = protocol->metadata_size;
-    hdr->protocol_major_version = protocol->major_version;
-    hdr->protocol_minor_version = protocol->minor_version;
-    hdr->protocol_patch_version = protocol->patch_version;
+    hdr->shmobj_size = stream->_shmobj.stat.st_size;
+    hdr->protocol_name_size = protocol.name.size;
+    hdr->protocol_metadata_size = protocol.metadata_size;
+    hdr->protocol_major_version = protocol.major_version;
+    hdr->protocol_minor_version = protocol.minor_version;
+    hdr->protocol_patch_version = protocol.patch_version;
 
-    memcpy((uint8_t*)hdr + a0_fcl_protocol_name_off(hdr), protocol->name.ptr, protocol->name.size);
+    memcpy((uint8_t*)hdr + a0_fcl_protocol_name_off(hdr), protocol.name.ptr, protocol.name.size);
 
     pthread_mutexattr_t mu_attr;
     pthread_mutexattr_init(&mu_attr);
@@ -152,12 +163,12 @@ errno_t a0_stream_init(a0_stream_t* stream,
     a0_stream_protocol(*lk_out, &active_protocol, NULL);
 
     *status_out = A0_STREAM_PROTOCOL_MATCH;
-    if (protocol->name.size != active_protocol.name.size ||
-        memcmp(protocol->name.ptr, active_protocol.name.ptr, protocol->name.size) != 0 ||
-        protocol->major_version != active_protocol.major_version ||
-        protocol->minor_version != active_protocol.minor_version ||
-        protocol->patch_version != active_protocol.patch_version ||
-        protocol->metadata_size != active_protocol.metadata_size) {
+    if (protocol.name.size != active_protocol.name.size ||
+        memcmp(protocol.name.ptr, active_protocol.name.ptr, protocol.name.size) != 0 ||
+        protocol.major_version != active_protocol.major_version ||
+        protocol.minor_version != active_protocol.minor_version ||
+        protocol.patch_version != active_protocol.patch_version ||
+        protocol.metadata_size != active_protocol.metadata_size) {
       *status_out = A0_STREAM_PROTOCOL_MISMATCH;
     }
   }
@@ -166,26 +177,27 @@ errno_t a0_stream_init(a0_stream_t* stream,
 }
 
 errno_t a0_stream_close(a0_stream_t* stream) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)stream->_shmobj.ptr;
 
-  a0_locked_stream_t lk;
-  a0_lock_stream(stream, &lk);
-  stream->_closing = true;
-  a0_unlock_stream(lk);
+  pthread_mutex_lock(&stream->_await_mu);
 
-  hdr->fu_cond_var++;
-  a0_futex_notify_change(&hdr->fu_cond_var);
+  if (!stream->_closing) {
+    stream->_closing = true;
 
-  uint32_t old_await_cnt = stream->_fu_await_cnt;
-  while (old_await_cnt) {
-    a0_futex_await_change(&stream->_fu_await_cnt, old_await_cnt);
-    old_await_cnt = stream->_fu_await_cnt;
+    hdr->fu_cond_var++;
+    a0_futex_notify_change(&hdr->fu_cond_var);
+
+    while (stream->_await_cnt) {
+      pthread_cond_wait(&stream->_await_cv, &stream->_await_mu);
+    }
   }
+
+  pthread_mutex_unlock(&stream->_await_mu);
   return A0_OK;
 }
 
 errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)stream->_shmobj.ptr;
 
   lk_out->stream = stream;
 
@@ -204,13 +216,13 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
 
 errno_t a0_unlock_stream(a0_locked_stream_t lk) {
   *a0_fcl_working_page(lk) = *a0_fcl_committed_page(lk);
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
   pthread_mutex_unlock(&hdr->mu);
   return A0_OK;
 }
 
 errno_t a0_stream_protocol(a0_locked_stream_t lk, a0_stream_protocol_t* protocol_out, a0_buf_t* metadata_out) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
   if (protocol_out) {
     protocol_out->name.ptr = (uint8_t*)hdr + a0_fcl_protocol_name_off(hdr);
     protocol_out->name.size = hdr->protocol_name_size;
@@ -280,7 +292,7 @@ errno_t a0_stream_next(a0_locked_stream_t lk) {
     return EAGAIN;
   }
 
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
   a0_fcl_elem_hdr_t* elem_hdr =
       (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
   lk.stream->_seq++;
@@ -291,14 +303,22 @@ errno_t a0_stream_next(a0_locked_stream_t lk) {
 
 errno_t a0_stream_await(a0_locked_stream_t lk,
                         errno_t (*pred)(a0_locked_stream_t, bool*)) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
   errno_t err = A0_OK;
 
-  lk.stream->_fu_await_cnt++;
-  a0_futex_notify_change(&lk.stream->_fu_await_cnt);
+  if (lk.stream->_closing) {
+    return ESHUTDOWN;
+  }
+  pthread_mutex_lock(&lk.stream->_await_mu);
+  lk.stream->_await_cnt++;
+  pthread_mutex_unlock(&lk.stream->_await_mu);
 
   uint32_t old_val = hdr->fu_cond_var;
-  while (!lk.stream->_closing) {
+  while (true) {
+    if (lk.stream->_closing) {
+      break;
+    }
+
     bool sat;
     err = pred(lk, &sat);
     if (err || sat) {
@@ -309,15 +329,20 @@ errno_t a0_stream_await(a0_locked_stream_t lk,
     pthread_mutex_lock(&hdr->mu);
     old_val = hdr->fu_cond_var;
   }
+  if (lk.stream->_closing) {
+    err = ESHUTDOWN;
+  }
 
-  lk.stream->_fu_await_cnt--;
-  a0_futex_notify_change(&lk.stream->_fu_await_cnt);
+  pthread_mutex_lock(&lk.stream->_await_mu);
+  lk.stream->_await_cnt--;
+  pthread_mutex_unlock(&lk.stream->_await_mu);
+  pthread_cond_broadcast(&lk.stream->_await_cv);
 
   return err;
 }
 
 errno_t a0_stream_frame(a0_locked_stream_t lk, a0_stream_frame_t* frame_out) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
   a0_fcl_state_t* state = a0_fcl_working_page(lk);
 
   if (lk.stream->_seq < state->seq_low) {
@@ -333,11 +358,13 @@ errno_t a0_stream_frame(a0_locked_stream_t lk, a0_stream_frame_t* frame_out) {
   return A0_OK;
 }
 
+A0_STATIC_INLINE
 fcl_off_t a0_fcl_elem_end(a0_fcl_hdr_t* hdr, fcl_off_t elem_off) {
   a0_fcl_elem_hdr_t* elem_hdr = (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + elem_off);
   return elem_off + sizeof(a0_fcl_elem_hdr_t) + elem_hdr->data_size;
 }
 
+A0_STATIC_INLINE
 bool a0_fcl_intersects(fcl_off_t elem1_start,
                        size_t elem1_size,
                        fcl_off_t elem2_start,
@@ -347,10 +374,11 @@ bool a0_fcl_intersects(fcl_off_t elem1_start,
   return (elem1_start <= elem2_end) && (elem2_start <= elem1_end);
 }
 
+A0_STATIC_INLINE
 bool a0_fcl_head_interval(a0_locked_stream_t lk,
                           fcl_off_t* head_off,
                           size_t* head_size) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
 
   bool empty;
   a0_stream_empty(lk, &empty);
@@ -364,8 +392,9 @@ bool a0_fcl_head_interval(a0_locked_stream_t lk,
   return true;
 }
 
+A0_STATIC_INLINE
 void a0_fcl_remove_head(a0_locked_stream_t lk) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
   a0_fcl_state_t* state = a0_fcl_working_page(lk);
 
   a0_fcl_elem_hdr_t* head_hdr =
@@ -384,7 +413,7 @@ void a0_fcl_remove_head(a0_locked_stream_t lk) {
 errno_t a0_stream_alloc(a0_locked_stream_t lk,
                         size_t size,
                         a0_stream_frame_t* frame_out) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
 
   a0_fcl_state_t* state = a0_fcl_working_page(lk);
 
@@ -438,7 +467,7 @@ errno_t a0_stream_alloc(a0_locked_stream_t lk,
 }
 
 errno_t a0_stream_commit(a0_locked_stream_t lk) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
   hdr->committed_page_idx = !hdr->committed_page_idx;
   *a0_fcl_working_page(lk) = *a0_fcl_committed_page(lk);
 
@@ -449,7 +478,7 @@ errno_t a0_stream_commit(a0_locked_stream_t lk) {
 }
 
 void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
-  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj->ptr;
+  a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
 
   a0_fcl_state_t* committed_state = a0_fcl_committed_page(lk);
   a0_fcl_state_t* working_state = a0_fcl_working_page(lk);

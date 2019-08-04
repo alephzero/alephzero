@@ -17,11 +17,14 @@ extern "C" {
 
 // Note: This object should not be copied or moved.
 typedef struct a0_stream_s {
-  a0_shmobj_t* _shmobj;
+  a0_shmobj_t _shmobj;
   uint64_t _seq;
   uint64_t _off;
   bool _closing;
-  uint32_t _fu_await_cnt;
+
+  uint32_t _await_cnt;
+  pthread_mutex_t _await_mu;
+  pthread_cond_t _await_cv;
 } a0_stream_t;
 
 typedef struct a0_stream_protocol_s {
@@ -51,7 +54,12 @@ typedef struct a0_locked_stream_s {
   a0_stream_t* stream;
 } a0_locked_stream_t;
 
-errno_t a0_stream_init(a0_stream_t*, a0_shmobj_t*, a0_stream_protocol_t*, a0_stream_init_status_t* status_out, a0_locked_stream_t* lk_out);
+errno_t a0_stream_init(
+    a0_stream_t*,
+    a0_shmobj_t,
+    a0_stream_protocol_t,
+    a0_stream_init_status_t* status_out,
+    a0_locked_stream_t* lk_out);
 errno_t a0_stream_close(a0_stream_t*);
 
 errno_t a0_lock_stream(a0_stream_t*, a0_locked_stream_t* lk_out);

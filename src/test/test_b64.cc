@@ -14,7 +14,7 @@ TEST_CASE("Test base64 encode/decode", "[base64]") {
   a0_alloc_t alloc;
   uint8_t encode_space[20];
   alloc.user_data = encode_space;
-  alloc.callback = [](void* user_data, size_t size, a0_buf_t* out) {
+  alloc.fn = [](void* user_data, size_t size, a0_buf_t* out) {
     out->size = size;
     out->ptr = (uint8_t*)user_data;
   };
@@ -43,7 +43,7 @@ TEST_CASE("Test base64 encode/decode empty", "[base64_empty]") {
   a0_alloc_t alloc;
   uint8_t encode_space[0];
   alloc.user_data = encode_space;
-  alloc.callback = [](void* user_data, size_t size, a0_buf_t* out) {
+  alloc.fn = [](void* user_data, size_t size, a0_buf_t* out) {
     out->size = size;
     out->ptr = (uint8_t*)user_data;
   };

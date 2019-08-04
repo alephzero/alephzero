@@ -51,7 +51,7 @@ static const uint8_t kBase64EncodeTable[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 errno_t b64_encode(a0_buf_t original, a0_alloc_t alloc, a0_buf_t* out_encoded) {
-  alloc.callback(
+  alloc.fn(
       alloc.user_data,
       4 * ((original.size + 2) / 3) /* 3-byte blocks to 4-byte */,
       out_encoded);
@@ -101,7 +101,7 @@ errno_t b64_decode(a0_buf_t encoded, a0_alloc_t alloc, a0_buf_t* out_decoded) {
   size_t pad1 = encoded.size % 4 || encoded.ptr[encoded.size - 1] == '=';
   size_t pad2 = pad1 && (encoded.size % 4 > 2 || encoded.ptr[encoded.size - 2] != '=');
   const size_t last = (encoded.size - pad1) / 4 << 2;
-  alloc.callback(
+  alloc.fn(
       alloc.user_data,
       last / 4 * 3 + pad1 + pad2,
       out_decoded);

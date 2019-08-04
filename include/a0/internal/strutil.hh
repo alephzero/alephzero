@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <sstream>
 
 namespace a0 {
