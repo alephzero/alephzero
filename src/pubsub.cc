@@ -160,8 +160,7 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
   a0_zero_copy_callback_t cb;
   cb.user_data = pkt.ptr;
   cb.fn = [](void* user_data, a0_locked_stream_t slk, a0_packet_t pkt_span) {
-    auto* user_pkt_ptr = (uint8_t*)user_data;
-    memcpy(pkt_span.ptr, user_pkt_ptr, pkt_span.size);
+    memcpy(pkt_span.ptr, (uint8_t*)user_data, pkt_span.size);
   };
   return a0_pub_zero_copy(pub, pkt.size, cb);
 }
@@ -271,6 +270,7 @@ errno_t a0_subscriber_sync_next(
   wrapped_cb.fn = [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
     auto* alloc_pkt = (std::pair<a0_alloc_t, a0_packet_t*>*)data;
     alloc_pkt->first.fn(alloc_pkt->first.user_data, pkt_zc.size, alloc_pkt->second);
+    memcpy(alloc_pkt->second->ptr, pkt_zc.ptr, alloc_pkt->second->size);
   };
   return a0_subscriber_sync_next_zero_copy(sub_sync, wrapped_cb);
 }

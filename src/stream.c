@@ -477,6 +477,20 @@ errno_t a0_stream_commit(a0_locked_stream_t lk) {
   return A0_OK;
 }
 
+A0_STATIC_INLINE
+void write_limited(FILE* f, a0_buf_t str) {
+  size_t line_size = str.size;
+  bool overflow = false;
+  if (line_size > 32) {
+    line_size = 29;
+    overflow = true;
+  }
+  fwrite(str.ptr, sizeof(char), line_size, f);
+  if (overflow) {
+    fprintf(f, "...");
+  }
+}
+
 void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
   a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
 
@@ -504,11 +518,15 @@ void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
   fprintf(ss, "-- name          = '%.*s'\n", (int)hdr->protocol_name_size, (char*)hdr + a0_fcl_protocol_name_off(hdr));
   fprintf(ss, "-- semver        = %d.%d.%d\n", hdr->protocol_major_version, hdr->protocol_minor_version, hdr->protocol_patch_version);
   fprintf(ss, "-- metadata size = %lu\n", hdr->protocol_metadata_size);
-  if (hdr->protocol_metadata_size <= 32) {
-    fprintf(ss, "-- metadata      = '%.*s'\n", (int)hdr->protocol_metadata_size, (char*)hdr + a0_fcl_protocol_metadata_off(hdr));
-  } else {
-    fprintf(ss, "-- metadata      = '%.*s...'\n", 29, (char*)hdr + a0_fcl_protocol_metadata_off(hdr));
-  }
+
+  fprintf(ss, "-- metadata      = '");
+  a0_buf_t data = {
+    .ptr = (uint8_t*)hdr + a0_fcl_protocol_metadata_off(hdr),
+    .size = hdr->protocol_metadata_size,
+  };
+  write_limited(ss, data);
+  fprintf(ss, "'\n");
+
   fprintf(ss, "=========================\n");
   fprintf(ss, "DATA\n");
   if (working_state->off_head) {
@@ -527,11 +545,14 @@ void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
       fprintf(ss, "-- seq    = %lu\n", elem_hdr->seq);
       fprintf(ss, "-- next @ = %lu\n", elem_hdr->next_off);
       fprintf(ss, "-- size   = %lu\n", elem_hdr->data_size);
-      if (elem_hdr->data_size <= 32) {
-        fprintf(ss, "-- data   = '%.*s'\n", (int)elem_hdr->data_size, (char*)hdr + elem_hdr->off + sizeof(a0_fcl_elem_hdr_t));
-      } else {
-        fprintf(ss, "-- data   = '%.*s...'\n", 29, (char*)hdr + elem_hdr->off + sizeof(a0_fcl_elem_hdr_t));
-      }
+
+      fprintf(ss, "-- data   = '");
+      a0_buf_t data = {
+        .ptr = (uint8_t*)hdr + elem_hdr->off + sizeof(a0_fcl_elem_hdr_t),
+        .size = elem_hdr->data_size,
+      };
+      write_limited(ss, data);
+      fprintf(ss, "'\n");
 
       off = elem_hdr->next_off;
       seq++;
