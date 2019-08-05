@@ -50,15 +50,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 static const uint8_t kBase64EncodeTable[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-errno_t b64_encode(a0_buf_t original, a0_alloc_t alloc, a0_buf_t* out_encoded) {
+errno_t b64_encode(a0_buf_t original, a0_alloc_t alloc, a0_buf_t* encoded_out) {
   alloc.fn(
       alloc.user_data,
       4 * ((original.size + 2) / 3) /* 3-byte blocks to 4-byte */,
-      out_encoded);
+      encoded_out);
 
   const uint8_t* end = original.ptr + original.size;
   const uint8_t* in = original.ptr;
-  uint8_t* pos = out_encoded->ptr;
+  uint8_t* pos = encoded_out->ptr;
   while (end - in >= 3) {
     *pos++ = kBase64EncodeTable[in[0] >> 2];
     *pos++ = kBase64EncodeTable[((in[0] & 0x03) << 4) | (in[1] >> 4)];
@@ -97,14 +97,14 @@ static const int kBase64DecodeTable[] = {
   37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51
 };
 
-errno_t b64_decode(a0_buf_t encoded, a0_alloc_t alloc, a0_buf_t* out_decoded) {
+errno_t b64_decode(a0_buf_t encoded, a0_alloc_t alloc, a0_buf_t* decoded_out) {
   size_t pad1 = encoded.size % 4 || encoded.ptr[encoded.size - 1] == '=';
   size_t pad2 = pad1 && (encoded.size % 4 > 2 || encoded.ptr[encoded.size - 2] != '=');
   const size_t last = (encoded.size - pad1) / 4 << 2;
   alloc.fn(
       alloc.user_data,
       last / 4 * 3 + pad1 + pad2,
-      out_decoded);
+      decoded_out);
 
   size_t j = 0;
 
@@ -113,19 +113,19 @@ errno_t b64_decode(a0_buf_t encoded, a0_alloc_t alloc, a0_buf_t* out_decoded) {
             kBase64DecodeTable[encoded.ptr[i + 1]] << 12 |
             kBase64DecodeTable[encoded.ptr[i + 2]] << 6 |
             kBase64DecodeTable[encoded.ptr[i + 3]];
-    out_decoded->ptr[j++] = n >> 16;
-    out_decoded->ptr[j++] = n >> 8 & 0xFF;
-    out_decoded->ptr[j++] = n & 0xFF;
+    decoded_out->ptr[j++] = n >> 16;
+    decoded_out->ptr[j++] = n >> 8 & 0xFF;
+    decoded_out->ptr[j++] = n & 0xFF;
   }
 
   if (pad1) {
     int n = kBase64DecodeTable[encoded.ptr[last]] << 18 |
             kBase64DecodeTable[encoded.ptr[last + 1]] << 12;
-    out_decoded->ptr[j++] = n >> 16;
+    decoded_out->ptr[j++] = n >> 16;
 
     if (pad2) {
       n |= kBase64DecodeTable[encoded.ptr[last + 2]] << 6;
-      out_decoded->ptr[j++] = n >> 8 & 0xFF;
+      decoded_out->ptr[j++] = n >> 8 & 0xFF;
     }
   }
 

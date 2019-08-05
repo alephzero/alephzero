@@ -248,7 +248,7 @@ errno_t a0_subscriber_open(
     a0_alloc_t alloc,
     a0_subscriber_read_start_t read_start,
     a0_subscriber_read_next_t read_next,
-    int* out_fd) {
+    int* fd_out) {
   subscriber->_impl = new a0_subscriber_impl_t;
   subscriber->_impl->efd = eventfd(0, 0);
   subscriber->_impl->alloc = alloc;
@@ -284,7 +284,7 @@ errno_t a0_subscriber_open(
     subscriber->_impl->thread_main();
   });
 
-  *out_fd = subscriber->_impl->efd;
+  *fd_out = subscriber->_impl->efd;
   return A0_OK;
 }
 

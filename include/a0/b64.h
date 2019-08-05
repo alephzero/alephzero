@@ -9,9 +9,9 @@
 extern "C" {
 #endif
 
-errno_t b64_encode(a0_buf_t original, a0_alloc_t, a0_buf_t* out_encoded);
+errno_t b64_encode(a0_buf_t original, a0_alloc_t, a0_buf_t* encoded_out);
 
-errno_t b64_decode(a0_buf_t encoded, a0_alloc_t, a0_buf_t* out_decoded);
+errno_t b64_decode(a0_buf_t encoded, a0_alloc_t, a0_buf_t* decoded_out);
 
 #ifdef __cplusplus
 }
