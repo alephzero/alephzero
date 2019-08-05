@@ -13,6 +13,11 @@ typedef struct a0_buf_s {
   size_t size;
 } a0_buf_t;
 
+typedef struct a0_callback_s {
+  void* user_data;
+  void (*fn)(void* user_data);
+} a0_callback_t;
+
 typedef struct a0_alloc_s {
   void* user_data;
   void (*fn)(void* user_data, size_t size, a0_buf_t*);
