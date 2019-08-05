@@ -105,28 +105,28 @@ struct a0_publisher_impl_s {
   a0_stream_t stream;
 };
 
-errno_t a0_publisher_init(a0_publisher_t* publisher, a0_topic_t topic) {
-  publisher->_impl = new a0_publisher_impl_t;
+errno_t a0_publisher_init(a0_publisher_t* pub, a0_topic_t topic) {
+  pub->_impl = new a0_publisher_impl_t;
 
   auto topic_path = publisher_topic_path(topic);
   a0_shmobj_open(topic_path.c_str(),
                  default_shmobj_options(),
-                 &publisher->_impl->shmobj);
+                 &pub->_impl->shmobj);
 
   a0_stream_init_status_t init_status;
-  a0_locked_stream_t lk;
+  a0_locked_stream_t slk;
   a0_stream_init(
-      &publisher->_impl->stream,
-      publisher->_impl->shmobj,
+      &pub->_impl->stream,
+      pub->_impl->shmobj,
       protocol_info(),
       &init_status,
-      &lk);
+      &slk);
 
   if (init_status == A0_STREAM_CREATED) {
     // TODO: Add metadata...
   }
 
-  a0_unlock_stream(lk);
+  a0_unlock_stream(slk);
 
   if (init_status == A0_STREAM_PROTOCOL_MISMATCH) {
     // TODO: Report error?
@@ -135,27 +135,145 @@ errno_t a0_publisher_init(a0_publisher_t* publisher, a0_topic_t topic) {
   return A0_OK;
 }
 
-errno_t a0_publisher_close(a0_publisher_t* publisher) {
-  a0_stream_close(&publisher->_impl->stream);
-  a0_shmobj_close(&publisher->_impl->shmobj);
-  delete publisher->_impl;
+errno_t a0_publisher_close(a0_publisher_t* pub) {
+  a0_stream_close(&pub->_impl->stream);
+  a0_shmobj_close(&pub->_impl->shmobj);
+  delete pub->_impl;
   return A0_OK;
 }
 
-errno_t a0_pub(a0_publisher_t* publisher, a0_packet_t pkt) {
-  sync_stream_t ss{&publisher->_impl->stream};
-  return ss.with_lock([&](a0_locked_stream_t lk) {
+errno_t a0_pub_zero_copy(
+    a0_publisher_t* pub,
+    size_t size,
+    a0_zero_copy_callback_t cb) {
+  sync_stream_t ss{&pub->_impl->stream};
+  return ss.with_lock([&](a0_locked_stream_t slk) {
     a0_stream_frame_t frame;
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_alloc(lk, pkt.size, &frame));
-    memcpy(frame.data.ptr, pkt.ptr, pkt.size);
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(lk));
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_alloc(slk, size, &frame));
+    cb.fn(cb.user_data, slk, frame.data);
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
     return A0_OK;
   });
+}
+
+errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
+  a0_zero_copy_callback_t cb;
+  cb.user_data = pkt.ptr;
+  cb.fn = [](void* user_data, a0_locked_stream_t slk, a0_packet_t pkt_span) {
+    auto* user_pkt_ptr = (uint8_t*)user_data;
+    memcpy(pkt_span.ptr, user_pkt_ptr, pkt_span.size);
+  };
+  return a0_pub_zero_copy(pub, pkt.size, cb);
 }
 
 //////////////////
 //  Subscriber  //
 //////////////////
+
+struct a0_subscriber_sync_impl_s {
+  a0_shmobj_t shmobj;
+  a0_stream_t stream;
+
+  a0_subscriber_read_start_t read_start;
+  a0_subscriber_read_next_t read_next;
+
+  bool read_first{false};
+};
+
+errno_t a0_subscriber_sync_open(
+    a0_subscriber_sync_t* sub_sync,
+    a0_topic_t topic,
+    a0_subscriber_read_start_t read_start,
+    a0_subscriber_read_next_t read_next) {
+  sub_sync->_impl = new a0_subscriber_sync_impl_t;
+  sub_sync->_impl->read_start = read_start;
+  sub_sync->_impl->read_next = read_next;
+
+  auto topic_path = unmapped_topic_path(topic);
+  a0_shmobj_open(topic_path.c_str(),
+                 default_shmobj_options(),
+                 &sub_sync->_impl->shmobj);
+
+  a0_stream_init_status_t init_status;
+  a0_locked_stream_t slk;
+  a0_stream_init(
+      &sub_sync->_impl->stream,
+      sub_sync->_impl->shmobj,
+      protocol_info(),
+      &init_status,
+      &slk);
+
+  if (init_status == A0_STREAM_CREATED) {
+      // TODO: Add metadata...
+  }
+
+  a0_unlock_stream(slk);
+
+  if (init_status == A0_STREAM_PROTOCOL_MISMATCH) {
+      // TODO: Report error?
+  }
+
+  return A0_OK;
+}
+
+errno_t a0_subscriber_sync_close(a0_subscriber_sync_t* sub_sync) {
+  a0_stream_close(&sub_sync->_impl->stream);
+  a0_shmobj_close(&sub_sync->_impl->shmobj);
+  delete sub_sync->_impl;
+  return A0_OK;
+}
+
+errno_t a0_subscriber_sync_has_next(a0_subscriber_sync_t* sub_sync, bool* has_next) {
+  sync_stream_t ss{&sub_sync->_impl->stream};
+  return ss.with_lock([&](a0_locked_stream_t slk) {
+    return a0_stream_has_next(slk, has_next);
+  });
+}
+
+errno_t a0_subscriber_sync_next_zero_copy(
+    a0_subscriber_sync_t* sub_sync,
+    a0_zero_copy_callback_t cb) {
+  sync_stream_t ss{&sub_sync->_impl->stream};
+  return ss.with_lock([&](a0_locked_stream_t slk) {
+    if (!sub_sync->_impl->read_first) {
+      if (sub_sync->_impl->read_start == A0_READ_START_EARLIEST) {
+        a0_stream_jump_head(slk);
+      } else if (sub_sync->_impl->read_start == A0_READ_START_LATEST) {
+        a0_stream_jump_tail(slk);
+      } else if (sub_sync->_impl->read_start == A0_READ_START_NEW) {
+        a0_stream_jump_tail(slk);
+      }
+    } else {
+      if (sub_sync->_impl->read_next == A0_READ_NEXT_SEQUENTIAL) {
+        a0_stream_next(slk);
+      } else if (sub_sync->_impl->read_next == A0_READ_NEXT_RECENT) {
+        a0_stream_jump_tail(slk);
+      }
+    }
+
+    a0_stream_frame_t frame;
+    a0_stream_frame(slk, &frame);
+    cb.fn(cb.user_data, slk, frame.data);
+    sub_sync->_impl->read_first = true;
+
+    return A0_OK;
+  });
+}
+
+errno_t a0_subscriber_sync_next(
+    a0_subscriber_sync_t* sub_sync,
+    a0_alloc_t alloc,
+    a0_packet_t* pkt) {
+  std::pair<a0_alloc_t, a0_packet_t*> data{alloc, pkt};
+    
+  a0_zero_copy_callback_t wrapped_cb;
+  wrapped_cb.user_data = &data;
+  wrapped_cb.fn = [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
+    auto* alloc_pkt = (std::pair<a0_alloc_t, a0_packet_t*>*)data;
+    alloc_pkt->first.fn(alloc_pkt->first.user_data, pkt_zc.size, alloc_pkt->second);
+  };
+  return a0_subscriber_sync_next_zero_copy(sub_sync, wrapped_cb);
+}
 
 // Zero-copy multi-threaded version.
 
@@ -164,11 +282,10 @@ namespace {
 struct subscriber_zero_copy_state {
   a0_shmobj_t shmobj;
   a0_stream_t stream;
-  sync_stream_t sync_stream;
   a0_subscriber_read_start_t read_start;
   a0_subscriber_read_next_t read_next;
   a0_stream_frame_t frame;
-  a0_subscriber_zero_copy_callback_t onmsg;
+  a0_zero_copy_callback_t onmsg;
 
   a0::sync<a0_callback_t> onclose;
 
@@ -178,7 +295,8 @@ struct subscriber_zero_copy_state {
   }
 
   bool handle_first_pkt() {
-    return sync_stream.with_lock([&](a0_locked_stream_t slk) {
+    sync_stream_t ss{&stream};
+    return ss.with_lock([&](a0_locked_stream_t slk) {
       if (!a0_stream_await(slk, a0_stream_nonempty)) {
         return false;
       }
@@ -198,7 +316,8 @@ struct subscriber_zero_copy_state {
   }
 
   bool handle_next_pkt() {
-    return sync_stream.with_lock([&](a0_locked_stream_t slk) {
+    sync_stream_t ss{&stream};
+    return ss.with_lock([&](a0_locked_stream_t slk) {
       if (!a0_stream_await(slk, a0_stream_has_next)) {
         return false;
       }
@@ -239,7 +358,7 @@ errno_t a0_subscriber_zero_copy_open(
     a0_topic_t topic,
     a0_subscriber_read_start_t read_start,
     a0_subscriber_read_next_t read_next,
-    a0_subscriber_zero_copy_callback_t onmsg) {
+    a0_zero_copy_callback_t onmsg) {
   sub_zc->_impl = new a0_subscriber_zero_copy_impl_t;
   sub_zc->_impl->state = std::make_shared<subscriber_zero_copy_state>();
 
@@ -271,8 +390,6 @@ errno_t a0_subscriber_zero_copy_open(
       // TODO: Report error?
   }
 
-  sub_zc->_impl->state->sync_stream.stream = &sub_zc->_impl->state->stream;
-
   std::thread t([state = sub_zc->_impl->state]() {
     state->thread_main();
   });
@@ -290,6 +407,7 @@ errno_t a0_subscriber_zero_copy_close(
 
   sub_zc->_impl->state->onclose.with_unique_lock([&](a0_callback_t& cb) {
     cb = onclose;
+    // a0_shmobj_close(&sub_zc->_impl->state->shmobj);
   });
   a0_stream_close(&sub_zc->_impl->state->stream);
   sub_zc->_impl->state = nullptr;
@@ -319,7 +437,7 @@ errno_t a0_subscriber_open(
   sub->_impl->alloc = alloc;
   sub->_impl->user_onmsg = onmsg;
 
-  a0_subscriber_zero_copy_callback_t wrapped_onmsg;
+  a0_zero_copy_callback_t wrapped_onmsg;
   wrapped_onmsg.user_data = sub->_impl;
   wrapped_onmsg.fn = [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
     auto* impl = (a0_subscriber_impl_t*)data;
