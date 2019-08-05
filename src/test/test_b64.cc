@@ -1,10 +1,10 @@
 #include <a0/b64.h>
 
 #include <a0/internal/test_util.hh>
-#include <catch.hpp>
+#include <doctest.h>
 #include <string>
 
-TEST_CASE("Test base64 encode/decode", "[base64]") {
+TEST_CASE("Test base64 encode/decode") {
   uint8_t msg[] = "Hello, World!";
 
   a0_buf_t original;
@@ -33,7 +33,7 @@ TEST_CASE("Test base64 encode/decode", "[base64]") {
   REQUIRE(str(decoded) == str(original));
 }
 
-TEST_CASE("Test base64 encode/decode empty", "[base64_empty]") {
+TEST_CASE("Test base64 encode/decode empty") {
   uint8_t msg[] = "";
 
   a0_buf_t original;

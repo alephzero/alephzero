@@ -1,9 +1,9 @@
 #include <a0/packet.h>
 
 #include <a0/internal/test_util.hh>
-#include <catch.hpp>
+#include <doctest.h>
 
-TEST_CASE("Test packet", "[packet]") {
+TEST_CASE("Test packet") {
   uint8_t header0_key[] = "key0";
   uint8_t header0_val[] = "val0";
   uint8_t header1_key[] = "key 1";

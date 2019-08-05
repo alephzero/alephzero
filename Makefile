@@ -20,8 +20,8 @@ TEST_SRC_CXX := $(wildcard $(SRC_DIR)/test/*.cc)
 TEST_OBJ := $(TEST_SRC_C:$(SRC_DIR)/test/%.c=$(OBJ_DIR)/test/%.o)
 TEST_OBJ += $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cc=$(OBJ_DIR)/test/%.o)
 
-TEST_CFLAGS += -I. -Itest -Ithird_party/catch2
-TEST_CXXFLAGS += -I. -Itest -Ithird_party/catch2
+TEST_CFLAGS += -I. -Itest -Ithird_party/doctest/doctest
+TEST_CXXFLAGS += -I. -Itest -Ithird_party/doctest/doctest
 TEST_LDLIBS += -lm
 
 DEBUG ?= 0

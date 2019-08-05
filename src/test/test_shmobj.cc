@@ -1,7 +1,9 @@
 #include <a0/shmobj.h>
 
-#include <catch.hpp>
+#include <doctest.h>
 
+#include <math.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -15,11 +17,11 @@ struct ShmObjTestFixture {
   }
 
   ~ShmObjTestFixture() {
-    // a0_shmobj_unlink(TEST_SHM);
+    a0_shmobj_unlink(TEST_SHM);
   }
 };
 
-TEST_CASE_METHOD(ShmObjTestFixture, "Test shared memory objects", "[shmobj]") {
+TEST_CASE_FIXTURE(ShmObjTestFixture, "Test shared memory objects") {
   a0_shmobj_t shmobj;
   REQUIRE(a0_shmobj_open(TEST_SHM, nullptr, &shmobj) == EINVAL);
 

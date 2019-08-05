@@ -2,7 +2,7 @@
 
 #include <a0/internal/stream_debug.h>
 #include <a0/internal/test_util.hh>
-#include <catch.hpp>
+#include <doctest.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -32,9 +32,7 @@ struct StreamTestFixture {
   a0_stream_protocol_t protocol;
 };
 
-TEST_CASE_METHOD(StreamTestFixture,
-                 "Test stream construct",
-                 "[stream_construct]") {
+TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
   REQUIRE(*(uint64_t*)shmobj.ptr != 0x616c65667a65726f);
 
   a0_stream_t stream;
@@ -107,9 +105,7 @@ DATA
   REQUIRE(a0_stream_close(&stream) == A0_OK);
 }
 
-TEST_CASE_METHOD(StreamTestFixture,
-                 "Test stream alloc/commit",
-                 "[stream_alloc_commit]") {
+TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
@@ -261,7 +257,7 @@ Elem
   REQUIRE(a0_stream_close(&stream) == A0_OK);
 }
 
-TEST_CASE_METHOD(StreamTestFixture, "Test stream iteration", "[stream_iter]") {
+TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
   // Create stream and close it.
   {
     a0_stream_t stream;
@@ -364,7 +360,7 @@ void fork_sleep_push(a0_stream_t* stream, const std::string& str) {
   }
 }
 
-TEST_CASE_METHOD(StreamTestFixture, "Test stream await", "[stream_await]") {
+TEST_CASE_FIXTURE(StreamTestFixture, "Test stream await") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
