@@ -203,13 +203,13 @@ errno_t a0_subscriber_sync_open(
       &slk);
 
   if (init_status == A0_STREAM_CREATED) {
-      // TODO: Add metadata...
+    // TODO: Add metadata...
   }
 
   a0_unlock_stream(slk);
 
   if (init_status == A0_STREAM_PROTOCOL_MISMATCH) {
-      // TODO: Report error?
+    // TODO: Report error?
   }
 
   return A0_OK;
@@ -381,17 +381,18 @@ errno_t a0_subscriber_zero_copy_open(
       &slk);
 
   if (init_status == A0_STREAM_CREATED) {
-      // TODO: Add metadata...
+    // TODO: Add metadata...
   }
 
   a0_unlock_stream(slk);
 
   if (init_status == A0_STREAM_PROTOCOL_MISMATCH) {
-      // TODO: Report error?
+    // TODO: Report error?
   }
 
   std::thread t([state = sub_zc->_impl->state]() {
     state->thread_main();
+    a0_shmobj_close(&state->shmobj);
   });
   t.detach();
 
@@ -407,7 +408,6 @@ errno_t a0_subscriber_zero_copy_close(
 
   sub_zc->_impl->state->onclose.with_unique_lock([&](a0_callback_t& cb) {
     cb = onclose;
-    // a0_shmobj_close(&sub_zc->_impl->state->shmobj);
   });
   a0_stream_close(&sub_zc->_impl->state->stream);
   sub_zc->_impl->state = nullptr;
