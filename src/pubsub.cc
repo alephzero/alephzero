@@ -157,10 +157,11 @@ errno_t a0_pub_zero_copy(
 }
 
 errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
-  a0_zero_copy_callback_t cb;
-  cb.user_data = pkt.ptr;
-  cb.fn = [](void* user_data, a0_locked_stream_t slk, a0_packet_t pkt_span) {
-    memcpy(pkt_span.ptr, (uint8_t*)user_data, pkt_span.size);
+  a0_zero_copy_callback_t cb = {
+    .user_data = pkt.ptr,
+    .fn = [](void* user_data, a0_locked_stream_t slk, a0_packet_t pkt_span) {
+      memcpy(pkt_span.ptr, (uint8_t*)user_data, pkt_span.size);
+    },
   };
   return a0_pub_zero_copy(pub, pkt.size, cb);
 }
@@ -265,12 +266,13 @@ errno_t a0_subscriber_sync_next(
     a0_packet_t* pkt) {
   std::pair<a0_alloc_t, a0_packet_t*> data{alloc, pkt};
     
-  a0_zero_copy_callback_t wrapped_cb;
-  wrapped_cb.user_data = &data;
-  wrapped_cb.fn = [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
-    auto* alloc_pkt = (std::pair<a0_alloc_t, a0_packet_t*>*)data;
-    alloc_pkt->first.fn(alloc_pkt->first.user_data, pkt_zc.size, alloc_pkt->second);
-    memcpy(alloc_pkt->second->ptr, pkt_zc.ptr, alloc_pkt->second->size);
+  a0_zero_copy_callback_t wrapped_cb = {
+    .user_data = &data,
+    .fn = [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
+      auto* alloc_pkt = (std::pair<a0_alloc_t, a0_packet_t*>*)data;
+      alloc_pkt->first.fn(alloc_pkt->first.user_data, pkt_zc.size, alloc_pkt->second);
+      memcpy(alloc_pkt->second->ptr, pkt_zc.ptr, alloc_pkt->second->size);
+    },
   };
   return a0_subscriber_sync_next_zero_copy(sub_sync, wrapped_cb);
 }
@@ -297,7 +299,7 @@ struct subscriber_zero_copy_state {
   bool handle_first_pkt() {
     sync_stream_t ss{&stream};
     return ss.with_lock([&](a0_locked_stream_t slk) {
-      if (!a0_stream_await(slk, a0_stream_nonempty)) {
+      if (a0_stream_await(slk, a0_stream_nonempty)) {
         return false;
       }
 
@@ -318,7 +320,7 @@ struct subscriber_zero_copy_state {
   bool handle_next_pkt() {
     sync_stream_t ss{&stream};
     return ss.with_lock([&](a0_locked_stream_t slk) {
-      if (!a0_stream_await(slk, a0_stream_has_next)) {
+      if (a0_stream_await(slk, a0_stream_has_next)) {
         return false;
       }
 
@@ -406,12 +408,12 @@ errno_t a0_subscriber_zero_copy_close(
     return EPIPE;
   }
 
-  sub_zc->_impl->state->onclose.with_unique_lock([&](a0_callback_t& cb) {
+  auto state = sub_zc->_impl->state;
+  delete sub_zc->_impl;
+  state->onclose.with_unique_lock([&](a0_callback_t& cb) {
     cb = onclose;
   });
-  a0_stream_close(&sub_zc->_impl->state->stream);
-  sub_zc->_impl->state = nullptr;
-  delete sub_zc->_impl;
+  a0_stream_close(&state->stream);
   return A0_OK;
 }
 
@@ -437,15 +439,17 @@ errno_t a0_subscriber_open(
   sub->_impl->alloc = alloc;
   sub->_impl->user_onmsg = onmsg;
 
-  a0_zero_copy_callback_t wrapped_onmsg;
-  wrapped_onmsg.user_data = sub->_impl;
-  wrapped_onmsg.fn = [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
-    auto* impl = (a0_subscriber_impl_t*)data;
-    a0_packet_t pkt;
-    impl->alloc.fn(impl->alloc.user_data, pkt_zc.size, &pkt);
-    a0_unlock_stream(slk);
-    impl->user_onmsg.fn(impl->user_onmsg.user_data, pkt);
-    a0_lock_stream(slk.stream, &slk);
+  a0_zero_copy_callback_t wrapped_onmsg = {
+    .user_data = sub->_impl,
+    .fn = [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
+      auto* impl = (a0_subscriber_impl_t*)data;
+      a0_packet_t pkt;
+      impl->alloc.fn(impl->alloc.user_data, pkt_zc.size, &pkt);
+      memcpy(pkt.ptr, pkt_zc.ptr, pkt.size);
+      a0_unlock_stream(slk);
+      impl->user_onmsg.fn(impl->user_onmsg.user_data, pkt);
+      a0_lock_stream(slk.stream, &slk);
+    },
   };
 
   a0_subscriber_zero_copy_open(
@@ -462,12 +466,13 @@ errno_t a0_subscriber_close(
     a0_subscriber_t* sub,
     a0_callback_t onclose) {
   sub->_impl->user_onclose = onclose;
-  a0_callback_t wrapped_onclose;
-  wrapped_onclose.user_data = sub->_impl;
-  wrapped_onclose.fn = [](void* data) {
-    auto* impl = (a0_subscriber_impl_t*)data;
-    impl->user_onclose.fn(impl->user_onclose.user_data);
-    delete impl;
+  a0_callback_t wrapped_onclose = {
+    .user_data = sub->_impl,
+    .fn = [](void* data) {
+      auto* impl = (a0_subscriber_impl_t*)data;
+      impl->user_onclose.fn(impl->user_onclose.user_data);
+      delete impl;
+    },
   };
   a0_subscriber_zero_copy_close(&sub->_impl->sub_zc, wrapped_onclose);
   return A0_OK;
@@ -496,23 +501,24 @@ errno_t a0_subscriber_fd_open(
   sub_fd->_impl = new a0_subscriber_fd_impl_t;
   sub_fd->_impl->efd = eventfd(0, 0);
 
-  a0_subscriber_callback_t onmsg;
-  onmsg.user_data = sub_fd->_impl;
-  onmsg.fn = [](void* data, a0_packet_t pkt) {
-    auto* impl = (a0_subscriber_fd_impl_t*)data;
+  a0_subscriber_callback_t onmsg = {
+    .user_data = sub_fd->_impl,
+    .fn = [](void* data, a0_packet_t pkt) {
+      auto* impl = (a0_subscriber_fd_impl_t*)data;
 
-    if (impl->closing) {
-      return;
-    }
+      if (impl->closing) {
+        return;
+      }
 
-    std::unique_lock<std::mutex> lk{impl->mu};
-    impl->cur_pkt = pkt;
-    impl->data_ready = true;
+      std::unique_lock<std::mutex> lk{impl->mu};
+      impl->cur_pkt = pkt;
+      impl->data_ready = true;
     
-    static const uint64_t efd_inc = 1;
-    write(impl->efd, &efd_inc, sizeof(uint64_t));
+      static const uint64_t efd_inc = 1;
+      write(impl->efd, &efd_inc, sizeof(uint64_t));
 
-    impl->cv.wait(lk, [impl]() { return !impl->data_ready || impl->closing; });
+      impl->cv.wait(lk, [impl]() { return !impl->data_ready || impl->closing; });
+    },
   };
 
   a0_subscriber_open(
@@ -543,12 +549,13 @@ errno_t a0_subscriber_fd_close(a0_subscriber_fd_t* sub_fd) {
   sub_fd->_impl->closing = true;
   sub_fd->_impl->cv.notify_one();
 
-  a0_callback_t onclose;
-  onclose.user_data = sub_fd->_impl;
-  onclose.fn = [](void* data) {
-    auto* impl = (a0_subscriber_fd_impl_t*)data;;
-    close(impl->efd);
-    delete impl;
+  a0_callback_t onclose = {
+    .user_data = sub_fd->_impl,
+    .fn = [](void* data) {
+      auto* impl = (a0_subscriber_fd_impl_t*)data;;
+      close(impl->efd);
+      delete impl;
+    },
   };
   a0_subscriber_close(&sub_fd->_impl->sub, onclose);
   return A0_OK;

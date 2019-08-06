@@ -26,10 +26,11 @@ TEST_LDLIBS += -lm
 
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
+    CFLAGS += -O0 -g3 -ggdb3
     CXXFLAGS += -O0 -g3 -ggdb3
 endif
 
-.PHONY: all clean test
+.PHONY: all clean test valgrind
 
 all:
 	@echo "TODO"
@@ -58,6 +59,9 @@ $(BIN_DIR)/test: $(TEST_OBJ) $(OBJ)
 
 test: $(BIN_DIR)/test
 	$(BIN_DIR)/test
+
+valgrind: $(BIN_DIR)/test
+	RUNNING_ON_VALGRIND=1 valgrind --tool=memcheck --leak-check=yes ./bin/test
 
 clean:
 	rm -rf $(OBJ_DIR)/* $(BIN_DIR)/*
