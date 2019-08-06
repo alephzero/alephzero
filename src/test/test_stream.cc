@@ -2,6 +2,7 @@
 
 #include <a0/internal/stream_debug.h>
 #include <a0/internal/test_util.hh>
+
 #include <doctest.h>
 #include <string.h>
 #include <unistd.h>
@@ -343,7 +344,7 @@ void fork_sleep_push(a0_stream_t* stream, const std::string& str) {
     struct timespec ts;
     ts.tv_sec = 0;
     ts.tv_nsec = 1e6;  // 1ms
-    nanosleep(&ts, (struct timespec *)NULL);
+    nanosleep(&ts, (struct timespec*)NULL);
 
     a0_locked_stream_t lk;
     REQUIRE(a0_lock_stream(stream, &lk) == A0_OK);

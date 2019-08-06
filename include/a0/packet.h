@@ -2,6 +2,7 @@
 #define A0_PACKET_H
 
 #include <a0/common.h>
+
 #include <stddef.h>
 #include <stdint.h>
 

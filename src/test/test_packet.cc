@@ -1,6 +1,7 @@
 #include <a0/packet.h>
 
 #include <a0/internal/test_util.hh>
+
 #include <doctest.h>
 
 TEST_CASE("Test packet") {
@@ -37,7 +38,7 @@ TEST_CASE("Test packet") {
     buf->size = 84;
     buf->ptr = (uint8_t*)user_data;
   };
-  
+
   a0_packet_t pkt;
   REQUIRE(a0_packet_build(builder, alloc, &pkt) == A0_OK);
 

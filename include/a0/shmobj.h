@@ -2,6 +2,7 @@
 #define A0_SHMOBJ_H
 
 #include <a0/common.h>
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -25,9 +26,7 @@ typedef struct a0_shmobj_s {
 
 // a0_shmobj_t may NOT be NULL.
 // Note: a0_shmobj_options_t may be only by NULL if the file already exists.
-errno_t a0_shmobj_open(const char* path,
-                       const a0_shmobj_options_t*,
-                       a0_shmobj_t* out);
+errno_t a0_shmobj_open(const char* path, const a0_shmobj_options_t*, a0_shmobj_t* out);
 errno_t a0_shmobj_unlink(const char* path);
 errno_t a0_shmobj_close(a0_shmobj_t*);
 

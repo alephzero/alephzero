@@ -1,18 +1,23 @@
 ---
-BasedOnStyle:  Google
+BasedOnStyle:  Chromium
 ---
-Language:        Cpp
-ColumnLimit: 120
-AllowShortCaseLabelsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: Empty
-AllowShortIfStatementsOnASingleLine: false
-AllowShortLoopsOnASingleLine: false
-BinPackArguments: false
-BinPackParameters: false
-DerivePointerAlignment: false
-PointerAlignment: Left
-SpacesInContainerLiterals: true
-SpacesInCStyleCastParentheses: false
-SpacesInParentheses: false
-SpacesInSquareBrackets: false
-Standard:        Cpp11
+Language:                            Cpp
+ColumnLimit:                         100
+
+AllowShortFunctionsOnASingleLine:    Empty
+AllowShortLambdasOnASingleLine:      Empty
+AllowAllArgumentsOnNextLine:         false
+BinPackArguments:                    false
+
+IncludeBlocks:       Regroup
+IncludeCategories:
+  - Regex:           '^<a0/internal/.*\.h*>'
+    Priority:        2
+  - Regex:           '^<a0/.*\.h*>'
+    Priority:        1
+  - Regex:           '^<.*\.h*>'
+    Priority:        3
+  - Regex:           '^<.*'
+    Priority:        4
+  - Regex:           '.*'
+    Priority:        5

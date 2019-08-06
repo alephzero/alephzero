@@ -1,7 +1,9 @@
 #include <a0/b64.h>
 
 #include <a0/internal/test_util.hh>
+
 #include <doctest.h>
+
 #include <string>
 
 TEST_CASE("Test base64 encode/decode") {

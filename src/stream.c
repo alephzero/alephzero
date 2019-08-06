@@ -1,6 +1,7 @@
 #include <a0/stream.h>
 
 #include <a0/internal/macros.h>
+
 #include <fcntl.h>
 #include <limits.h>
 #include <linux/futex.h>
@@ -70,14 +71,12 @@ fcl_off_t a0_fcl_protocol_name_off(a0_fcl_hdr_t* hdr) {
 
 A0_STATIC_INLINE
 fcl_off_t a0_fcl_protocol_metadata_off(a0_fcl_hdr_t* hdr) {
-  return a0_fcl_align(a0_fcl_protocol_name_off(hdr) +
-                      hdr->protocol_name_size);
+  return a0_fcl_align(a0_fcl_protocol_name_off(hdr) + hdr->protocol_name_size);
 }
 
 A0_STATIC_INLINE
 fcl_off_t a0_fcl_workspace_off(a0_fcl_hdr_t* hdr) {
-  return a0_fcl_align(a0_fcl_protocol_metadata_off(hdr) +
-                      hdr->protocol_metadata_size);
+  return a0_fcl_align(a0_fcl_protocol_metadata_off(hdr) + hdr->protocol_metadata_size);
 }
 
 A0_STATIC_INLINE
@@ -221,7 +220,9 @@ errno_t a0_unlock_stream(a0_locked_stream_t lk) {
   return A0_OK;
 }
 
-errno_t a0_stream_protocol(a0_locked_stream_t lk, a0_stream_protocol_t* protocol_out, a0_buf_t* metadata_out) {
+errno_t a0_stream_protocol(a0_locked_stream_t lk,
+                           a0_stream_protocol_t* protocol_out,
+                           a0_buf_t* metadata_out) {
   a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
   if (protocol_out) {
     protocol_out->name.ptr = (uint8_t*)hdr + a0_fcl_protocol_name_off(hdr);
@@ -293,16 +294,14 @@ errno_t a0_stream_next(a0_locked_stream_t lk) {
   }
 
   a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
-  a0_fcl_elem_hdr_t* elem_hdr =
-      (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
+  a0_fcl_elem_hdr_t* elem_hdr = (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
   lk.stream->_seq++;
   lk.stream->_off = elem_hdr->next_off;
 
   return A0_OK;
 }
 
-errno_t a0_stream_await(a0_locked_stream_t lk,
-                        errno_t (*pred)(a0_locked_stream_t, bool*)) {
+errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_t, bool*)) {
   a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
   errno_t err = A0_OK;
 
@@ -349,8 +348,7 @@ errno_t a0_stream_frame(a0_locked_stream_t lk, a0_stream_frame_t* frame_out) {
     return ESPIPE;
   }
 
-  a0_fcl_elem_hdr_t* elem_hdr =
-      (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
+  a0_fcl_elem_hdr_t* elem_hdr = (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
 
   frame_out->hdr.seq = elem_hdr->seq;
   frame_out->data.ptr = (uint8_t*)elem_hdr + sizeof(a0_fcl_elem_hdr_t);
@@ -375,9 +373,7 @@ bool a0_fcl_intersects(fcl_off_t elem1_start,
 }
 
 A0_STATIC_INLINE
-bool a0_fcl_head_interval(a0_locked_stream_t lk,
-                          fcl_off_t* head_off,
-                          size_t* head_size) {
+bool a0_fcl_head_interval(a0_locked_stream_t lk, fcl_off_t* head_off, size_t* head_size) {
   a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
 
   bool empty;
@@ -397,8 +393,7 @@ void a0_fcl_remove_head(a0_locked_stream_t lk) {
   a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
   a0_fcl_state_t* state = a0_fcl_working_page(lk);
 
-  a0_fcl_elem_hdr_t* head_hdr =
-      (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + state->off_head);
+  a0_fcl_elem_hdr_t* head_hdr = (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + state->off_head);
 
   state->seq_low++;
   if (state->off_head == state->off_tail) {
@@ -410,9 +405,7 @@ void a0_fcl_remove_head(a0_locked_stream_t lk) {
   a0_stream_commit(lk);
 }
 
-errno_t a0_stream_alloc(a0_locked_stream_t lk,
-                        size_t size,
-                        a0_stream_frame_t* frame_out) {
+errno_t a0_stream_alloc(a0_locked_stream_t lk, size_t size, a0_stream_frame_t* frame_out) {
   a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
 
   a0_fcl_state_t* state = a0_fcl_working_page(lk);
@@ -450,8 +443,7 @@ errno_t a0_stream_alloc(a0_locked_stream_t lk,
   elem_hdr->data_size = size;
 
   if (state->off_tail) {
-    a0_fcl_elem_hdr_t* tail_elem_hdr =
-        (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + state->off_tail);
+    a0_fcl_elem_hdr_t* tail_elem_hdr = (a0_fcl_elem_hdr_t*)((uint8_t*)hdr + state->off_tail);
     tail_elem_hdr->next_off = off;
   }
   state->off_tail = off;
@@ -498,6 +490,7 @@ void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
   a0_fcl_state_t* working_state = a0_fcl_working_page(lk);
 
   FILE* ss = open_memstream((char**)&out->ptr, &out->size);
+  // clang-format off
   fprintf(ss, "\n=========================\n");
   fprintf(ss, "HEADER\n");
   fprintf(ss, "-------------------------\n");
@@ -518,11 +511,12 @@ void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
   fprintf(ss, "-- name          = '%.*s'\n", (int)hdr->protocol_name_size, (char*)hdr + a0_fcl_protocol_name_off(hdr));
   fprintf(ss, "-- semver        = %d.%d.%d\n", hdr->protocol_major_version, hdr->protocol_minor_version, hdr->protocol_patch_version);
   fprintf(ss, "-- metadata size = %lu\n", hdr->protocol_metadata_size);
+  // clang-format on
 
   fprintf(ss, "-- metadata      = '");
   a0_buf_t data = {
-    .ptr = (uint8_t*)hdr + a0_fcl_protocol_metadata_off(hdr),
-    .size = hdr->protocol_metadata_size,
+      .ptr = (uint8_t*)hdr + a0_fcl_protocol_metadata_off(hdr),
+      .size = hdr->protocol_metadata_size,
   };
   write_limited(ss, data);
   fprintf(ss, "'\n");
@@ -548,8 +542,8 @@ void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
 
       fprintf(ss, "-- data   = '");
       a0_buf_t data = {
-        .ptr = (uint8_t*)hdr + elem_hdr->off + sizeof(a0_fcl_elem_hdr_t),
-        .size = elem_hdr->data_size,
+          .ptr = (uint8_t*)hdr + elem_hdr->off + sizeof(a0_fcl_elem_hdr_t),
+          .size = elem_hdr->data_size,
       };
       write_limited(ss, data);
       fprintf(ss, "'\n");

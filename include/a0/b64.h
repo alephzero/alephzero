@@ -2,6 +2,7 @@
 #define A0_B64_H
 
 #include <a0/common.h>
+
 #include <stdint.h>
 #include <stdlib.h>
 

@@ -51,10 +51,9 @@ static const uint8_t kBase64EncodeTable[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 errno_t b64_encode(a0_buf_t original, a0_alloc_t alloc, a0_buf_t* encoded_out) {
-  alloc.fn(
-      alloc.user_data,
-      4 * ((original.size + 2) / 3) /* 3-byte blocks to 4-byte */,
-      encoded_out);
+  alloc.fn(alloc.user_data,
+           4 * ((original.size + 2) / 3) /* 3-byte blocks to 4-byte */,
+           encoded_out);
 
   const uint8_t* end = original.ptr + original.size;
   const uint8_t* in = original.ptr;
@@ -82,45 +81,45 @@ errno_t b64_encode(a0_buf_t original, a0_alloc_t alloc, a0_buf_t* encoded_out) {
   return A0_OK;
 }
 
-
+// clang-format off
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  Modified from https://stackoverflow.com/questions/180947/base64-decode-snippet-in-c/13935718#answer-37109258  //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// clang-format on
 
 static const int kBase64DecodeTable[] = {
-  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-  0,  0,  0,  0,  0,  0,  0,  62, 63, 62, 62, 63, 52, 53, 54, 55, 56, 57,
-  58, 59, 60, 61, 0,  0,  0,  0,  0,  0,  0,  0,  1,  2,  3,  4,  5,  6,
-  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-  25, 0,  0,  0,  0,  63, 0,  26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
-  37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51
-};
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  62, 63, 62, 62, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 0,  0,  0,  0,  0,
+    0,  0,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 18,
+    19, 20, 21, 22, 23, 24, 25, 0,  0,  0,  0,  63, 0,  26, 27, 28, 29, 30, 31, 32, 33,
+    34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51};
 
 errno_t b64_decode(a0_buf_t encoded, a0_alloc_t alloc, a0_buf_t* decoded_out) {
   size_t pad1 = encoded.size % 4 || encoded.ptr[encoded.size - 1] == '=';
   size_t pad2 = pad1 && (encoded.size % 4 > 2 || encoded.ptr[encoded.size - 2] != '=');
   const size_t last = (encoded.size - pad1) / 4 << 2;
-  alloc.fn(
-      alloc.user_data,
-      last / 4 * 3 + pad1 + pad2,
-      decoded_out);
+  alloc.fn(alloc.user_data, last / 4 * 3 + pad1 + pad2, decoded_out);
 
   size_t j = 0;
 
   for (size_t i = 0; i < last; i += 4) {
+    // clang-format off
     int n = kBase64DecodeTable[encoded.ptr[i]] << 18 |
             kBase64DecodeTable[encoded.ptr[i + 1]] << 12 |
             kBase64DecodeTable[encoded.ptr[i + 2]] << 6 |
             kBase64DecodeTable[encoded.ptr[i + 3]];
+    // clang-format on
     decoded_out->ptr[j++] = n >> 16;
     decoded_out->ptr[j++] = n >> 8 & 0xFF;
     decoded_out->ptr[j++] = n & 0xFF;
   }
 
   if (pad1) {
+    // clang-format off
     int n = kBase64DecodeTable[encoded.ptr[last]] << 18 |
             kBase64DecodeTable[encoded.ptr[last + 1]] << 12;
+    // clang-format on
     decoded_out->ptr[j++] = n >> 16;
 
     if (pad2) {

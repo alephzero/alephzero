@@ -1,15 +1,15 @@
 #include <a0/pubsub.h>
 
+#include <a0/internal/strutil.hh>
+#include <a0/internal/test_util.hh>
+
+#include <doctest.h>
+
 #include <condition_variable>
 #include <mutex>
 #include <set>
 #include <thread>
 #include <vector>
-
-#include <doctest.h>
-
-#include <a0/internal/strutil.hh>
-#include <a0/internal/test_util.hh>
 
 struct PubsubFixture {
   std::string topic_name = "topic";
@@ -73,7 +73,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
   {
     a0_subscriber_sync_t sub;
-    REQUIRE(a0_subscriber_sync_open(&sub, topic, A0_READ_START_EARLIEST, A0_READ_NEXT_SEQUENTIAL) == A0_OK);
+    REQUIRE(a0_subscriber_sync_open(&sub, topic, A0_READ_START_EARLIEST, A0_READ_NEXT_SEQUENTIAL) ==
+            A0_OK);
 
     uint8_t space[100];
     a0_alloc_t alloc;
@@ -124,7 +125,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
   {
     a0_subscriber_sync_t sub;
-    REQUIRE(a0_subscriber_sync_open(&sub, topic, A0_READ_START_LATEST, A0_READ_NEXT_RECENT) == A0_OK);
+    REQUIRE(a0_subscriber_sync_open(&sub, topic, A0_READ_START_LATEST, A0_READ_NEXT_RECENT) ==
+            A0_OK);
 
     uint8_t space[22];
     a0_alloc_t alloc;
@@ -221,10 +223,17 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
     };
 
     a0_subscriber_t sub;
-    REQUIRE(a0_subscriber_open(&sub, topic, A0_READ_START_EARLIEST, A0_READ_NEXT_SEQUENTIAL, alloc, cb) == A0_OK);
+    REQUIRE(a0_subscriber_open(&sub,
+                               topic,
+                               A0_READ_START_EARLIEST,
+                               A0_READ_NEXT_SEQUENTIAL,
+                               alloc,
+                               cb) == A0_OK);
     {
       std::unique_lock<std::mutex> lk{data.mu};
-      data.cv.wait(lk, [&]() { return data.msg_cnt == 2; });
+      data.cv.wait(lk, [&]() {
+        return data.msg_cnt == 2;
+      });
     }
 
     a0_callback_t close_cb = {
@@ -240,7 +249,9 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
     REQUIRE(a0_subscriber_close(&sub, close_cb) == A0_OK);
     {
       std::unique_lock<std::mutex> lk{data.mu};
-      data.cv.wait(lk, [&]() { return data.closed; });
+      data.cv.wait(lk, [&]() {
+        return data.closed;
+      });
     }
   }
 }
@@ -282,7 +293,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
   // Now sanity-check our values.
   std::set<std::string> msgs;
   a0_subscriber_sync_t sub;
-  REQUIRE(a0_subscriber_sync_open(&sub, topic, A0_READ_START_EARLIEST, A0_READ_NEXT_SEQUENTIAL) == A0_OK);
+  REQUIRE(a0_subscriber_sync_open(&sub, topic, A0_READ_START_EARLIEST, A0_READ_NEXT_SEQUENTIAL) ==
+          A0_OK);
 
   uint8_t space[100];
   a0_alloc_t alloc = {

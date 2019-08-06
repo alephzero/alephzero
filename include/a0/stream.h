@@ -4,6 +4,7 @@
 #include <a0/common.h>
 #include <a0/packet.h>
 #include <a0/shmobj.h>
+
 #include <stdalign.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -54,12 +55,11 @@ typedef struct a0_locked_stream_s {
   a0_stream_t* stream;
 } a0_locked_stream_t;
 
-errno_t a0_stream_init(
-    a0_stream_t*,
-    a0_shmobj_t,
-    a0_stream_protocol_t,
-    a0_stream_init_status_t* status_out,
-    a0_locked_stream_t* lk_out);
+errno_t a0_stream_init(a0_stream_t*,
+                       a0_shmobj_t,
+                       a0_stream_protocol_t,
+                       a0_stream_init_status_t* status_out,
+                       a0_locked_stream_t* lk_out);
 errno_t a0_stream_close(a0_stream_t*);
 
 errno_t a0_lock_stream(a0_stream_t*, a0_locked_stream_t* lk_out);
@@ -67,7 +67,9 @@ errno_t a0_unlock_stream(a0_locked_stream_t);
 
 // Caller does NOT own `protocol_out->name->ptr` and should not clean it up!
 // Caller does NOT own `metadata_out->ptr` and should not clean it up!
-errno_t a0_stream_protocol(a0_locked_stream_t, a0_stream_protocol_t* protocol_out, a0_buf_t* metadata_out);
+errno_t a0_stream_protocol(a0_locked_stream_t,
+                           a0_stream_protocol_t* protocol_out,
+                           a0_buf_t* metadata_out);
 
 errno_t a0_stream_empty(a0_locked_stream_t, bool*);
 errno_t a0_stream_nonempty(a0_locked_stream_t, bool*);
@@ -78,8 +80,7 @@ errno_t a0_stream_next(a0_locked_stream_t);
 
 // Await until the given predicate is satisfied.
 // The predicate is checked when an event occurs on any stream wrapping shmobj.
-errno_t a0_stream_await(a0_locked_stream_t,
-                        errno_t (*pred)(a0_locked_stream_t, bool*));
+errno_t a0_stream_await(a0_locked_stream_t, errno_t (*pred)(a0_locked_stream_t, bool*));
 
 // Caller does NOT own `frame_out->data` and should not clean it up!
 errno_t a0_stream_frame(a0_locked_stream_t, a0_stream_frame_t* frame_out);
@@ -89,9 +90,7 @@ errno_t a0_stream_frame(a0_locked_stream_t, a0_stream_frame_t* frame_out);
 // For robustness, allocated frames are not tracked until explicitly commited.
 // Note: if an alloc evicts an old frame, that frame is lost, even if no
 // commit call is issued.
-errno_t a0_stream_alloc(a0_locked_stream_t,
-                        size_t,
-                        a0_stream_frame_t* frame_out);
+errno_t a0_stream_alloc(a0_locked_stream_t, size_t, a0_stream_frame_t* frame_out);
 errno_t a0_stream_commit(a0_locked_stream_t);
 
 #ifdef __cplusplus

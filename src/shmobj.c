@@ -1,6 +1,7 @@
 #include <a0/shmobj.h>
 
 #include <a0/internal/macros.h>
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,9 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-errno_t a0_shmobj_open(const char* path,
-                       const a0_shmobj_options_t* opts,
-                       a0_shmobj_t* out) {
+errno_t a0_shmobj_open(const char* path, const a0_shmobj_options_t* opts, a0_shmobj_t* out) {
   out->fd = shm_open(path, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
   A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(out->fd);
   A0_INTERNAL_CLEANUP_ON_MINUS_ONE(fstat(out->fd, &out->stat));
@@ -48,8 +47,7 @@ errno_t a0_shmobj_unlink(const char* path) {
 
 errno_t a0_shmobj_close(a0_shmobj_t* shmobj) {
   if (shmobj->ptr) {
-    A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(
-        munmap(shmobj->ptr, shmobj->stat.st_size));
+    A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(munmap(shmobj->ptr, shmobj->stat.st_size));
   }
   if (shmobj->fd) {
     A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(close(shmobj->fd));

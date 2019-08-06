@@ -1,12 +1,14 @@
 #include <a0/pubsub.h>
 
 #include <a0/internal/macros.h>
+#include <a0/internal/strutil.hh>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
-#include <a0/internal/strutil.hh>
+
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -159,9 +161,10 @@ errno_t a0_pub_zero_copy(a0_publisher_t* pub, size_t size, a0_zero_copy_callback
 errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
   a0_zero_copy_callback_t cb = {
       .user_data = pkt.ptr,
-      .fn = [](void* user_data,
-               a0_locked_stream_t slk,
-               a0_packet_t pkt_span) { memcpy(pkt_span.ptr, (uint8_t*)user_data, pkt_span.size); },
+      .fn =
+          [](void* user_data, a0_locked_stream_t slk, a0_packet_t pkt_span) {
+            memcpy(pkt_span.ptr, (uint8_t*)user_data, pkt_span.size);
+          },
   };
   return a0_pub_zero_copy(pub, pkt.size, cb);
 }
@@ -193,7 +196,11 @@ errno_t a0_subscriber_sync_open(a0_subscriber_sync_t* sub_sync,
 
   a0_stream_init_status_t init_status;
   a0_locked_stream_t slk;
-  a0_stream_init(&sub_sync->_impl->stream, sub_sync->_impl->shmobj, protocol_info(), &init_status, &slk);
+  a0_stream_init(&sub_sync->_impl->stream,
+                 sub_sync->_impl->shmobj,
+                 protocol_info(),
+                 &init_status,
+                 &slk);
 
   if (init_status == A0_STREAM_CREATED) {
     // TODO: Add metadata...
@@ -217,10 +224,13 @@ errno_t a0_subscriber_sync_close(a0_subscriber_sync_t* sub_sync) {
 
 errno_t a0_subscriber_sync_has_next(a0_subscriber_sync_t* sub_sync, bool* has_next) {
   sync_stream_t ss{&sub_sync->_impl->stream};
-  return ss.with_lock([&](a0_locked_stream_t slk) { return a0_stream_has_next(slk, has_next); });
+  return ss.with_lock([&](a0_locked_stream_t slk) {
+    return a0_stream_has_next(slk, has_next);
+  });
 }
 
-errno_t a0_subscriber_sync_next_zero_copy(a0_subscriber_sync_t* sub_sync, a0_zero_copy_callback_t cb) {
+errno_t a0_subscriber_sync_next_zero_copy(a0_subscriber_sync_t* sub_sync,
+                                          a0_zero_copy_callback_t cb) {
   sync_stream_t ss{&sub_sync->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     if (!sub_sync->_impl->read_first) {
@@ -248,7 +258,9 @@ errno_t a0_subscriber_sync_next_zero_copy(a0_subscriber_sync_t* sub_sync, a0_zer
   });
 }
 
-errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync, a0_alloc_t alloc, a0_packet_t* pkt) {
+errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync,
+                                a0_alloc_t alloc,
+                                a0_packet_t* pkt) {
   std::pair<a0_alloc_t, a0_packet_t*> data{alloc, pkt};
 
   a0_zero_copy_callback_t wrapped_cb = {
@@ -361,7 +373,11 @@ errno_t a0_subscriber_zero_copy_open(a0_subscriber_zero_copy_t* sub_zc,
 
   a0_stream_init_status_t init_status;
   a0_locked_stream_t slk;
-  a0_stream_init(&sub_zc->_impl->state->stream, sub_zc->_impl->state->shmobj, protocol_info(), &init_status, &slk);
+  a0_stream_init(&sub_zc->_impl->state->stream,
+                 sub_zc->_impl->state->shmobj,
+                 protocol_info(),
+                 &init_status,
+                 &slk);
 
   if (init_status == A0_STREAM_CREATED) {
     // TODO: Add metadata...
@@ -491,7 +507,9 @@ errno_t a0_subscriber_fd_open(a0_subscriber_fd_t* sub_fd,
             static const uint64_t efd_inc = 1;
             write(impl->efd, &efd_inc, sizeof(uint64_t));
 
-            impl->cv.wait(lk, [impl]() { return !impl->data_ready || impl->closing; });
+            impl->cv.wait(lk, [impl]() {
+              return !impl->data_ready || impl->closing;
+            });
           },
   };
 

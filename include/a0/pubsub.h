@@ -54,11 +54,10 @@ typedef struct a0_subscriber_sync_s {
   a0_subscriber_sync_impl_t* _impl;
 } a0_subscriber_sync_t;
 
-errno_t a0_subscriber_sync_open(
-    a0_subscriber_sync_t*,
-    a0_topic_t,
-    a0_subscriber_read_start_t,
-    a0_subscriber_read_next_t);
+errno_t a0_subscriber_sync_open(a0_subscriber_sync_t*,
+                                a0_topic_t,
+                                a0_subscriber_read_start_t,
+                                a0_subscriber_read_next_t);
 
 errno_t a0_subscriber_sync_close(a0_subscriber_sync_t*);
 
@@ -74,12 +73,11 @@ typedef struct a0_subscriber_zero_copy_s {
   a0_subscriber_zero_copy_impl_t* _impl;
 } a0_subscriber_zero_copy_t;
 
-errno_t a0_subscriber_zero_copy_open(
-    a0_subscriber_zero_copy_t*,
-    a0_topic_t,
-    a0_subscriber_read_start_t,
-    a0_subscriber_read_next_t,
-    a0_zero_copy_callback_t);
+errno_t a0_subscriber_zero_copy_open(a0_subscriber_zero_copy_t*,
+                                     a0_topic_t,
+                                     a0_subscriber_read_start_t,
+                                     a0_subscriber_read_next_t,
+                                     a0_zero_copy_callback_t);
 
 errno_t a0_subscriber_zero_copy_close(a0_subscriber_zero_copy_t*, a0_callback_t);
 
@@ -96,13 +94,12 @@ typedef struct a0_subscriber_s {
   a0_subscriber_impl_t* _impl;
 } a0_subscriber_t;
 
-errno_t a0_subscriber_open(
-    a0_subscriber_t*,
-    a0_topic_t,
-    a0_subscriber_read_start_t,
-    a0_subscriber_read_next_t,
-    a0_alloc_t,
-    a0_subscriber_callback_t);
+errno_t a0_subscriber_open(a0_subscriber_t*,
+                           a0_topic_t,
+                           a0_subscriber_read_start_t,
+                           a0_subscriber_read_next_t,
+                           a0_alloc_t,
+                           a0_subscriber_callback_t);
 
 errno_t a0_subscriber_close(a0_subscriber_t*, a0_callback_t);
 
@@ -114,12 +111,11 @@ typedef struct a0_subscriber_fd_s {
   a0_subscriber_fd_impl_t* _impl;
 } a0_subscriber_fd_t;
 
-errno_t a0_subscriber_fd_open(
-    a0_subscriber_fd_t*,
-    a0_topic_t,
-    a0_subscriber_read_start_t,
-    a0_subscriber_read_next_t,
-    int* fd_out);
+errno_t a0_subscriber_fd_open(a0_subscriber_fd_t*,
+                              a0_topic_t,
+                              a0_subscriber_read_start_t,
+                              a0_subscriber_read_next_t,
+                              int* fd_out);
 
 errno_t a0_subscriber_fd_read(a0_subscriber_fd_t*, a0_alloc_t, a0_packet_t*);
 
