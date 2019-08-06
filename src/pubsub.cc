@@ -271,15 +271,18 @@ errno_t a0_subscriber_sync_next_zero_copy(a0_subscriber_sync_t* sub_sync,
 errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync,
                                 a0_alloc_t alloc,
                                 a0_packet_t* pkt) {
-  std::pair<a0_alloc_t, a0_packet_t*> data{alloc, pkt};
+  struct data_t {
+    a0_alloc_t alloc;
+    a0_packet_t* pkt;
+  } data{alloc, pkt};
 
   a0_zero_copy_callback_t wrapped_cb = {
       .user_data = &data,
       .fn =
-          [](void* data, a0_locked_stream_t, a0_packet_t pkt_zc) {
-            auto* alloc_pkt = (std::pair<a0_alloc_t, a0_packet_t*>*)data;
-            alloc_pkt->first.fn(alloc_pkt->first.user_data, pkt_zc.size, alloc_pkt->second);
-            memcpy(alloc_pkt->second->ptr, pkt_zc.ptr, alloc_pkt->second->size);
+          [](void* user_data, a0_locked_stream_t, a0_packet_t pkt_zc) {
+            auto* data = (data_t*)user_data;
+            data->alloc.fn(data->alloc.user_data, pkt_zc.size, data->pkt);
+            memcpy(data->pkt->ptr, pkt_zc.ptr, data->pkt->size);
           },
   };
   return a0_subscriber_sync_next_zero_copy(sub_sync, wrapped_cb);
