@@ -257,7 +257,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "Test close before publish") {
-  // TODO(mac) DO THIS.
+  // TODO(mac): DO THIS.
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
@@ -274,10 +274,10 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
   for (int i = 0; i < NUM_THREADS; i++) {
     threads.emplace_back([i, &topic, this]() {
       a0_publisher_t pub;
-      REQUIRE(a0_publisher_init(&pub, topic) == 0);
+      REQUIRE(a0_publisher_init(&pub, topic) == A0_OK);
 
       for (int j = 0; j < NUM_PACKETS; j++) {
-        const auto pkt = malloc_packet(a0::strutil::cat("pub ", i, " msg ", j));
+        const auto pkt = malloc_packet(a0::strutil::fmt("pub %d msg %d", i, j));
         REQUIRE(a0_pub(&pub, pkt) == 0);
         free_packet(pkt);
       }
@@ -326,7 +326,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
   REQUIRE(msgs.size() == 5000);
   for (int i = 0; i < NUM_THREADS; i++) {
     for (int j = 0; j < NUM_PACKETS; j++) {
-      REQUIRE(msgs.find(a0::strutil::cat("pub ", i, " msg ", j)) != msgs.end());
+      REQUIRE(msgs.count(a0::strutil::fmt("pub %d msg %d", i, j)));
     }
   }
 }

@@ -103,22 +103,4 @@ errno_t a0_subscriber_open(a0_subscriber_t*,
 
 errno_t a0_subscriber_close(a0_subscriber_t*, a0_callback_t);
 
-// FD version.
-
-typedef struct a0_subscriber_fd_impl_s a0_subscriber_fd_impl_t;
-
-typedef struct a0_subscriber_fd_s {
-  a0_subscriber_fd_impl_t* _impl;
-} a0_subscriber_fd_t;
-
-errno_t a0_subscriber_fd_open(a0_subscriber_fd_t*,
-                              a0_topic_t,
-                              a0_subscriber_read_start_t,
-                              a0_subscriber_read_next_t,
-                              int* fd_out);
-
-errno_t a0_subscriber_fd_read(a0_subscriber_fd_t*, a0_alloc_t, a0_packet_t*);
-
-errno_t a0_subscriber_fd_close(a0_subscriber_fd_t*);
-
 #endif  // A0_PUBSUB_H

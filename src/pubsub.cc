@@ -65,6 +65,7 @@ a0_shmobj_options_t* default_shmobj_options() {
 }
 
 void validate_topic(a0_topic_t topic) {
+  (void)topic;
   // TODO: assert topic->name is entirely isalnum + '_' + '.' and does not contain '__'.
   // TODO: assert topic->container is entirely isalnum + '_' + '.' and does not contain '__'.
 }
@@ -162,7 +163,7 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
   a0_zero_copy_callback_t cb = {
       .user_data = pkt.ptr,
       .fn =
-          [](void* user_data, a0_locked_stream_t slk, a0_packet_t pkt_span) {
+          [](void* user_data, a0_locked_stream_t, a0_packet_t pkt_span) {
             memcpy(pkt_span.ptr, (uint8_t*)user_data, pkt_span.size);
           },
   };
@@ -219,10 +220,15 @@ errno_t a0_subscriber_sync_close(a0_subscriber_sync_t* sub_sync) {
   a0_stream_close(&sub_sync->_impl->stream);
   a0_shmobj_close(&sub_sync->_impl->shmobj);
   delete sub_sync->_impl;
+  sub_sync->_impl = nullptr;
   return A0_OK;
 }
 
 errno_t a0_subscriber_sync_has_next(a0_subscriber_sync_t* sub_sync, bool* has_next) {
+  if (!sub_sync || !sub_sync->_impl) {
+    return ESHUTDOWN;
+  }
+
   sync_stream_t ss{&sub_sync->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     return a0_stream_has_next(slk, has_next);
@@ -231,6 +237,10 @@ errno_t a0_subscriber_sync_has_next(a0_subscriber_sync_t* sub_sync, bool* has_ne
 
 errno_t a0_subscriber_sync_next_zero_copy(a0_subscriber_sync_t* sub_sync,
                                           a0_zero_copy_callback_t cb) {
+  if (!sub_sync || !sub_sync->_impl) {
+    return ESHUTDOWN;
+  }
+
   sync_stream_t ss{&sub_sync->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     if (!sub_sync->_impl->read_first) {
@@ -266,7 +276,7 @@ errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync,
   a0_zero_copy_callback_t wrapped_cb = {
       .user_data = &data,
       .fn =
-          [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
+          [](void* data, a0_locked_stream_t, a0_packet_t pkt_zc) {
             auto* alloc_pkt = (std::pair<a0_alloc_t, a0_packet_t*>*)data;
             alloc_pkt->first.fn(alloc_pkt->first.user_data, pkt_zc.size, alloc_pkt->second);
             memcpy(alloc_pkt->second->ptr, pkt_zc.ptr, alloc_pkt->second->size);
@@ -400,11 +410,12 @@ errno_t a0_subscriber_zero_copy_open(a0_subscriber_zero_copy_t* sub_zc,
 
 errno_t a0_subscriber_zero_copy_close(a0_subscriber_zero_copy_t* sub_zc, a0_callback_t onclose) {
   if (!sub_zc->_impl || !sub_zc->_impl->state) {
-    return EPIPE;
+    return ESHUTDOWN;
   }
 
   auto state = sub_zc->_impl->state;
   delete sub_zc->_impl;
+  sub_zc->_impl = nullptr;
   {
     std::unique_lock<std::mutex> lk{state->mu};
     state->onclose = onclose;
@@ -454,97 +465,21 @@ errno_t a0_subscriber_open(a0_subscriber_t* sub,
 }
 
 errno_t a0_subscriber_close(a0_subscriber_t* sub, a0_callback_t onclose) {
+  if (!sub->_impl) {
+    return ESHUTDOWN;
+  }
+
   sub->_impl->user_onclose = onclose;
   a0_callback_t wrapped_onclose = {
-      .user_data = sub->_impl,
+      .user_data = sub,
       .fn =
           [](void* data) {
-            auto* impl = (a0_subscriber_impl_t*)data;
-            impl->user_onclose.fn(impl->user_onclose.user_data);
-            delete impl;
+            auto* sub = (a0_subscriber_t*)data;
+            sub->_impl->user_onclose.fn(sub->_impl->user_onclose.user_data);
+            delete sub->_impl;
+            sub->_impl = nullptr;
           },
   };
   a0_subscriber_zero_copy_close(&sub->_impl->sub_zc, wrapped_onclose);
-  return A0_OK;
-}
-
-// FD version.
-
-struct a0_subscriber_fd_impl_s {
-  a0_subscriber_t sub;
-  int efd;
-
-  a0_packet_t cur_pkt;
-  std::atomic<bool> data_ready{false};
-  std::atomic<bool> closing{false};
-  std::mutex mu;
-  std::condition_variable cv;
-};
-
-errno_t a0_subscriber_fd_open(a0_subscriber_fd_t* sub_fd,
-                              a0_topic_t topic,
-                              a0_alloc_t alloc,
-                              a0_subscriber_read_start_t read_start,
-                              a0_subscriber_read_next_t read_next,
-                              int* fd_out) {
-  sub_fd->_impl = new a0_subscriber_fd_impl_t;
-  sub_fd->_impl->efd = eventfd(0, 0);
-
-  a0_subscriber_callback_t onmsg = {
-      .user_data = sub_fd->_impl,
-      .fn =
-          [](void* data, a0_packet_t pkt) {
-            auto* impl = (a0_subscriber_fd_impl_t*)data;
-
-            if (impl->closing) {
-              return;
-            }
-
-            std::unique_lock<std::mutex> lk{impl->mu};
-            impl->cur_pkt = pkt;
-            impl->data_ready = true;
-
-            static const uint64_t efd_inc = 1;
-            write(impl->efd, &efd_inc, sizeof(uint64_t));
-
-            impl->cv.wait(lk, [impl]() {
-              return !impl->data_ready || impl->closing;
-            });
-          },
-  };
-
-  a0_subscriber_open(&sub_fd->_impl->sub, topic, read_start, read_next, alloc, onmsg);
-
-  *fd_out = sub_fd->_impl->efd;
-
-  return A0_OK;
-}
-
-errno_t a0_subscriber_fd_read(a0_subscriber_fd_t* sub_fd, a0_packet_t* pkt) {
-  if (!sub_fd->_impl->data_ready) {
-    return EWOULDBLOCK;
-  }
-
-  *pkt = sub_fd->_impl->cur_pkt;
-  sub_fd->_impl->data_ready = false;
-  sub_fd->_impl->cv.notify_one();
-  return A0_OK;
-}
-
-errno_t a0_subscriber_fd_close(a0_subscriber_fd_t* sub_fd) {
-  sub_fd->_impl->closing = true;
-  sub_fd->_impl->cv.notify_one();
-
-  a0_callback_t onclose = {
-      .user_data = sub_fd->_impl,
-      .fn =
-          [](void* data) {
-            auto* impl = (a0_subscriber_fd_impl_t*)data;
-            ;
-            close(impl->efd);
-            delete impl;
-          },
-  };
-  a0_subscriber_close(&sub_fd->_impl->sub, onclose);
   return A0_OK;
 }

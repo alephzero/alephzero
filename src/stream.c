@@ -66,6 +66,7 @@ fcl_off_t a0_fcl_align(fcl_off_t off) {
 
 A0_STATIC_INLINE
 fcl_off_t a0_fcl_protocol_name_off(a0_fcl_hdr_t* hdr) {
+  (void)hdr;
   return a0_fcl_align(sizeof(a0_fcl_hdr_t));
 }
 
