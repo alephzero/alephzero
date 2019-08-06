@@ -1,17 +1,17 @@
 #include <a0/pubsub.h>
 
 #include <a0/internal/macros.h>
-#include <a0/internal/strutil.hh>
-#include <atomic>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <string>
-#include <thread>
 #include <sys/eventfd.h>
 #include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <mutex>
+#include <a0/internal/strutil.hh>
+#include <atomic>
 #include <condition_variable>
+#include <mutex>
+#include <string>
+#include <thread>
 
 /////////////////////
 //  Pubsub Common  //
@@ -70,9 +70,12 @@ void validate_topic(a0_topic_t topic) {
 std::string unmapped_topic_path(a0_topic_t topic) {
   validate_topic(topic);
   return a0::strutil::fmt("/%.*s__%.*s__%.*s",
-                          sizeof(A0_PUBSUB_PROTOCOL_NAME), A0_PUBSUB_PROTOCOL_NAME,
-                          topic.container.size, topic.container.ptr,
-                          topic.name.size, topic.name.ptr);
+                          sizeof(A0_PUBSUB_PROTOCOL_NAME),
+                          A0_PUBSUB_PROTOCOL_NAME,
+                          topic.container.size,
+                          topic.container.ptr,
+                          topic.name.size,
+                          topic.name.ptr);
 }
 
 }  // namespace
@@ -92,9 +95,12 @@ std::string publisher_topic_path(a0_topic_t topic) {
 
   const char* container_name = getenv("A0_CONTAINER_NAME");
   return a0::strutil::fmt("/%.*s__%s__%.*s",
-                          sizeof(A0_PUBSUB_PROTOCOL_NAME), A0_PUBSUB_PROTOCOL_NAME,
-                          strlen(container_name), container_name,
-                          topic.name.size, topic.name.ptr);
+                          sizeof(A0_PUBSUB_PROTOCOL_NAME),
+                          A0_PUBSUB_PROTOCOL_NAME,
+                          strlen(container_name),
+                          container_name,
+                          topic.name.size,
+                          topic.name.ptr);
 }
 
 }  // namespace
@@ -108,18 +114,11 @@ errno_t a0_publisher_init(a0_publisher_t* pub, a0_topic_t topic) {
   pub->_impl = new a0_publisher_impl_t;
 
   auto topic_path = publisher_topic_path(topic);
-  a0_shmobj_open(topic_path.c_str(),
-                 default_shmobj_options(),
-                 &pub->_impl->shmobj);
+  a0_shmobj_open(topic_path.c_str(), default_shmobj_options(), &pub->_impl->shmobj);
 
   a0_stream_init_status_t init_status;
   a0_locked_stream_t slk;
-  a0_stream_init(
-      &pub->_impl->stream,
-      pub->_impl->shmobj,
-      protocol_info(),
-      &init_status,
-      &slk);
+  a0_stream_init(&pub->_impl->stream, pub->_impl->shmobj, protocol_info(), &init_status, &slk);
 
   if (init_status == A0_STREAM_CREATED) {
     // TODO: Add metadata...
@@ -138,13 +137,15 @@ errno_t a0_publisher_close(a0_publisher_t* pub) {
   a0_stream_close(&pub->_impl->stream);
   a0_shmobj_close(&pub->_impl->shmobj);
   delete pub->_impl;
+  pub->_impl = nullptr;
   return A0_OK;
 }
 
-errno_t a0_pub_zero_copy(
-    a0_publisher_t* pub,
-    size_t size,
-    a0_zero_copy_callback_t cb) {
+errno_t a0_pub_zero_copy(a0_publisher_t* pub, size_t size, a0_zero_copy_callback_t cb) {
+  if (!pub || !pub->_impl) {
+    return ESHUTDOWN;
+  }
+
   sync_stream_t ss{&pub->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     a0_stream_frame_t frame;
@@ -157,10 +158,10 @@ errno_t a0_pub_zero_copy(
 
 errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
   a0_zero_copy_callback_t cb = {
-    .user_data = pkt.ptr,
-    .fn = [](void* user_data, a0_locked_stream_t slk, a0_packet_t pkt_span) {
-      memcpy(pkt_span.ptr, (uint8_t*)user_data, pkt_span.size);
-    },
+      .user_data = pkt.ptr,
+      .fn = [](void* user_data,
+               a0_locked_stream_t slk,
+               a0_packet_t pkt_span) { memcpy(pkt_span.ptr, (uint8_t*)user_data, pkt_span.size); },
   };
   return a0_pub_zero_copy(pub, pkt.size, cb);
 }
@@ -179,28 +180,20 @@ struct a0_subscriber_sync_impl_s {
   bool read_first{false};
 };
 
-errno_t a0_subscriber_sync_open(
-    a0_subscriber_sync_t* sub_sync,
-    a0_topic_t topic,
-    a0_subscriber_read_start_t read_start,
-    a0_subscriber_read_next_t read_next) {
+errno_t a0_subscriber_sync_open(a0_subscriber_sync_t* sub_sync,
+                                a0_topic_t topic,
+                                a0_subscriber_read_start_t read_start,
+                                a0_subscriber_read_next_t read_next) {
   sub_sync->_impl = new a0_subscriber_sync_impl_t;
   sub_sync->_impl->read_start = read_start;
   sub_sync->_impl->read_next = read_next;
 
   auto topic_path = unmapped_topic_path(topic);
-  a0_shmobj_open(topic_path.c_str(),
-                 default_shmobj_options(),
-                 &sub_sync->_impl->shmobj);
+  a0_shmobj_open(topic_path.c_str(), default_shmobj_options(), &sub_sync->_impl->shmobj);
 
   a0_stream_init_status_t init_status;
   a0_locked_stream_t slk;
-  a0_stream_init(
-      &sub_sync->_impl->stream,
-      sub_sync->_impl->shmobj,
-      protocol_info(),
-      &init_status,
-      &slk);
+  a0_stream_init(&sub_sync->_impl->stream, sub_sync->_impl->shmobj, protocol_info(), &init_status, &slk);
 
   if (init_status == A0_STREAM_CREATED) {
     // TODO: Add metadata...
@@ -224,14 +217,10 @@ errno_t a0_subscriber_sync_close(a0_subscriber_sync_t* sub_sync) {
 
 errno_t a0_subscriber_sync_has_next(a0_subscriber_sync_t* sub_sync, bool* has_next) {
   sync_stream_t ss{&sub_sync->_impl->stream};
-  return ss.with_lock([&](a0_locked_stream_t slk) {
-    return a0_stream_has_next(slk, has_next);
-  });
+  return ss.with_lock([&](a0_locked_stream_t slk) { return a0_stream_has_next(slk, has_next); });
 }
 
-errno_t a0_subscriber_sync_next_zero_copy(
-    a0_subscriber_sync_t* sub_sync,
-    a0_zero_copy_callback_t cb) {
+errno_t a0_subscriber_sync_next_zero_copy(a0_subscriber_sync_t* sub_sync, a0_zero_copy_callback_t cb) {
   sync_stream_t ss{&sub_sync->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     if (!sub_sync->_impl->read_first) {
@@ -259,19 +248,17 @@ errno_t a0_subscriber_sync_next_zero_copy(
   });
 }
 
-errno_t a0_subscriber_sync_next(
-    a0_subscriber_sync_t* sub_sync,
-    a0_alloc_t alloc,
-    a0_packet_t* pkt) {
+errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync, a0_alloc_t alloc, a0_packet_t* pkt) {
   std::pair<a0_alloc_t, a0_packet_t*> data{alloc, pkt};
-    
+
   a0_zero_copy_callback_t wrapped_cb = {
-    .user_data = &data,
-    .fn = [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
-      auto* alloc_pkt = (std::pair<a0_alloc_t, a0_packet_t*>*)data;
-      alloc_pkt->first.fn(alloc_pkt->first.user_data, pkt_zc.size, alloc_pkt->second);
-      memcpy(alloc_pkt->second->ptr, pkt_zc.ptr, alloc_pkt->second->size);
-    },
+      .user_data = &data,
+      .fn =
+          [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
+            auto* alloc_pkt = (std::pair<a0_alloc_t, a0_packet_t*>*)data;
+            alloc_pkt->first.fn(alloc_pkt->first.user_data, pkt_zc.size, alloc_pkt->second);
+            memcpy(alloc_pkt->second->ptr, pkt_zc.ptr, alloc_pkt->second->size);
+          },
   };
   return a0_subscriber_sync_next_zero_copy(sub_sync, wrapped_cb);
 }
@@ -338,7 +325,8 @@ struct subscriber_zero_copy_state {
 
   void thread_main() {
     if (handle_first_pkt()) {
-      while (handle_next_pkt());
+      while (handle_next_pkt())
+        ;
     }
 
     {
@@ -356,12 +344,11 @@ struct a0_subscriber_zero_copy_impl_s {
   std::shared_ptr<subscriber_zero_copy_state> state;
 };
 
-errno_t a0_subscriber_zero_copy_open(
-    a0_subscriber_zero_copy_t* sub_zc,
-    a0_topic_t topic,
-    a0_subscriber_read_start_t read_start,
-    a0_subscriber_read_next_t read_next,
-    a0_zero_copy_callback_t onmsg) {
+errno_t a0_subscriber_zero_copy_open(a0_subscriber_zero_copy_t* sub_zc,
+                                     a0_topic_t topic,
+                                     a0_subscriber_read_start_t read_start,
+                                     a0_subscriber_read_next_t read_next,
+                                     a0_zero_copy_callback_t onmsg) {
   sub_zc->_impl = new a0_subscriber_zero_copy_impl_t;
   sub_zc->_impl->state = std::make_shared<subscriber_zero_copy_state>();
 
@@ -370,18 +357,11 @@ errno_t a0_subscriber_zero_copy_open(
   sub_zc->_impl->state->onmsg = onmsg;
 
   auto topic_path = unmapped_topic_path(topic);
-  a0_shmobj_open(topic_path.c_str(),
-                 default_shmobj_options(),
-                 &sub_zc->_impl->state->shmobj);
+  a0_shmobj_open(topic_path.c_str(), default_shmobj_options(), &sub_zc->_impl->state->shmobj);
 
   a0_stream_init_status_t init_status;
   a0_locked_stream_t slk;
-  a0_stream_init(
-      &sub_zc->_impl->state->stream,
-      sub_zc->_impl->state->shmobj,
-      protocol_info(),
-      &init_status,
-      &slk);
+  a0_stream_init(&sub_zc->_impl->state->stream, sub_zc->_impl->state->shmobj, protocol_info(), &init_status, &slk);
 
   if (init_status == A0_STREAM_CREATED) {
     // TODO: Add metadata...
@@ -402,9 +382,7 @@ errno_t a0_subscriber_zero_copy_open(
   return A0_OK;
 }
 
-errno_t a0_subscriber_zero_copy_close(
-    a0_subscriber_zero_copy_t* sub_zc,
-    a0_callback_t onclose) {
+errno_t a0_subscriber_zero_copy_close(a0_subscriber_zero_copy_t* sub_zc, a0_callback_t onclose) {
   if (!sub_zc->_impl || !sub_zc->_impl->state) {
     return EPIPE;
   }
@@ -429,52 +407,46 @@ struct a0_subscriber_impl_s {
   a0_callback_t user_onclose;
 };
 
-errno_t a0_subscriber_open(
-    a0_subscriber_t* sub,
-    a0_topic_t topic,
-    a0_subscriber_read_start_t read_start,
-    a0_subscriber_read_next_t read_next,
-    a0_alloc_t alloc,
-    a0_subscriber_callback_t onmsg) {
+errno_t a0_subscriber_open(a0_subscriber_t* sub,
+                           a0_topic_t topic,
+                           a0_subscriber_read_start_t read_start,
+                           a0_subscriber_read_next_t read_next,
+                           a0_alloc_t alloc,
+                           a0_subscriber_callback_t onmsg) {
   sub->_impl = new a0_subscriber_impl_t;
 
   sub->_impl->alloc = alloc;
   sub->_impl->user_onmsg = onmsg;
 
   a0_zero_copy_callback_t wrapped_onmsg = {
-    .user_data = sub->_impl,
-    .fn = [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
-      auto* impl = (a0_subscriber_impl_t*)data;
-      a0_packet_t pkt;
-      impl->alloc.fn(impl->alloc.user_data, pkt_zc.size, &pkt);
-      memcpy(pkt.ptr, pkt_zc.ptr, pkt.size);
-      a0_unlock_stream(slk);
-      impl->user_onmsg.fn(impl->user_onmsg.user_data, pkt);
-      a0_lock_stream(slk.stream, &slk);
-    },
+      .user_data = sub->_impl,
+      .fn =
+          [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
+            auto* impl = (a0_subscriber_impl_t*)data;
+            a0_packet_t pkt;
+            impl->alloc.fn(impl->alloc.user_data, pkt_zc.size, &pkt);
+            memcpy(pkt.ptr, pkt_zc.ptr, pkt.size);
+            a0_unlock_stream(slk);
+            impl->user_onmsg.fn(impl->user_onmsg.user_data, pkt);
+            a0_lock_stream(slk.stream, &slk);
+          },
   };
 
-  a0_subscriber_zero_copy_open(
-    &sub->_impl->sub_zc,
-    topic,
-    read_start,
-    read_next,
-    wrapped_onmsg);
+  a0_subscriber_zero_copy_open(&sub->_impl->sub_zc, topic, read_start, read_next, wrapped_onmsg);
 
   return A0_OK;
 }
 
-errno_t a0_subscriber_close(
-    a0_subscriber_t* sub,
-    a0_callback_t onclose) {
+errno_t a0_subscriber_close(a0_subscriber_t* sub, a0_callback_t onclose) {
   sub->_impl->user_onclose = onclose;
   a0_callback_t wrapped_onclose = {
-    .user_data = sub->_impl,
-    .fn = [](void* data) {
-      auto* impl = (a0_subscriber_impl_t*)data;
-      impl->user_onclose.fn(impl->user_onclose.user_data);
-      delete impl;
-    },
+      .user_data = sub->_impl,
+      .fn =
+          [](void* data) {
+            auto* impl = (a0_subscriber_impl_t*)data;
+            impl->user_onclose.fn(impl->user_onclose.user_data);
+            delete impl;
+          },
   };
   a0_subscriber_zero_copy_close(&sub->_impl->sub_zc, wrapped_onclose);
   return A0_OK;
@@ -493,43 +465,37 @@ struct a0_subscriber_fd_impl_s {
   std::condition_variable cv;
 };
 
-errno_t a0_subscriber_fd_open(
-    a0_subscriber_fd_t* sub_fd,
-    a0_topic_t topic,
-    a0_alloc_t alloc,
-    a0_subscriber_read_start_t read_start,
-    a0_subscriber_read_next_t read_next,
-    int* fd_out) {
+errno_t a0_subscriber_fd_open(a0_subscriber_fd_t* sub_fd,
+                              a0_topic_t topic,
+                              a0_alloc_t alloc,
+                              a0_subscriber_read_start_t read_start,
+                              a0_subscriber_read_next_t read_next,
+                              int* fd_out) {
   sub_fd->_impl = new a0_subscriber_fd_impl_t;
   sub_fd->_impl->efd = eventfd(0, 0);
 
   a0_subscriber_callback_t onmsg = {
-    .user_data = sub_fd->_impl,
-    .fn = [](void* data, a0_packet_t pkt) {
-      auto* impl = (a0_subscriber_fd_impl_t*)data;
+      .user_data = sub_fd->_impl,
+      .fn =
+          [](void* data, a0_packet_t pkt) {
+            auto* impl = (a0_subscriber_fd_impl_t*)data;
 
-      if (impl->closing) {
-        return;
-      }
+            if (impl->closing) {
+              return;
+            }
 
-      std::unique_lock<std::mutex> lk{impl->mu};
-      impl->cur_pkt = pkt;
-      impl->data_ready = true;
-    
-      static const uint64_t efd_inc = 1;
-      write(impl->efd, &efd_inc, sizeof(uint64_t));
+            std::unique_lock<std::mutex> lk{impl->mu};
+            impl->cur_pkt = pkt;
+            impl->data_ready = true;
 
-      impl->cv.wait(lk, [impl]() { return !impl->data_ready || impl->closing; });
-    },
+            static const uint64_t efd_inc = 1;
+            write(impl->efd, &efd_inc, sizeof(uint64_t));
+
+            impl->cv.wait(lk, [impl]() { return !impl->data_ready || impl->closing; });
+          },
   };
 
-  a0_subscriber_open(
-      &sub_fd->_impl->sub,
-      topic,
-      read_start,
-      read_next,
-      alloc,
-      onmsg);
+  a0_subscriber_open(&sub_fd->_impl->sub, topic, read_start, read_next, alloc, onmsg);
 
   *fd_out = sub_fd->_impl->efd;
 
@@ -552,12 +518,14 @@ errno_t a0_subscriber_fd_close(a0_subscriber_fd_t* sub_fd) {
   sub_fd->_impl->cv.notify_one();
 
   a0_callback_t onclose = {
-    .user_data = sub_fd->_impl,
-    .fn = [](void* data) {
-      auto* impl = (a0_subscriber_fd_impl_t*)data;;
-      close(impl->efd);
-      delete impl;
-    },
+      .user_data = sub_fd->_impl,
+      .fn =
+          [](void* data) {
+            auto* impl = (a0_subscriber_fd_impl_t*)data;
+            ;
+            close(impl->efd);
+            delete impl;
+          },
   };
   a0_subscriber_close(&sub_fd->_impl->sub, onclose);
   return A0_OK;
