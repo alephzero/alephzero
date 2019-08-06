@@ -54,3 +54,6 @@ dkms.conf
 # Non-standard
 bin/
 obj/
+
+# Editor noise.
+*.swp
