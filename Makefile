@@ -2,8 +2,8 @@ SRC_DIR = src
 OBJ_DIR = obj
 BIN_DIR = bin
 
-CFLAGS += -Wall -fPIC -Iinclude
-CXXFLAGS += -Wall -fPIC -Iinclude -std=c++17 -D_GLIBCXX_USE_CXX11_ABI=0
+CFLAGS += -Wall -Wextra -fPIC -Iinclude
+CXXFLAGS += -Wall -Wextra -fPIC -Iinclude -std=c++17 -D_GLIBCXX_USE_CXX11_ABI=0
 LDLIBS += -lm -lpthread -lrt
 
 SRC_C := $(wildcard $(SRC_DIR)/*.c)
