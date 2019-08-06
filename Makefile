@@ -38,29 +38,33 @@ all:
 -include $(DEP)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-	mkdir -p $(@D)
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -MMD -c $< -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc
-	mkdir -p $(@D)
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
 
 $(OBJ_DIR)/test/%.o: $(SRC_DIR)/test/%.c
-	mkdir -p $(@D)
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(TEST_CFLAGS) -MMD -c $< -o $@
 
 $(OBJ_DIR)/test/%.o: $(SRC_DIR)/test/%.cc
-	mkdir -p $(@D)
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $(TEST_CXXFLAGS) -MMD -c $< -o $@
 
 $(BIN_DIR)/test: $(TEST_OBJ) $(OBJ)
-	mkdir -p $(@D)
+	@mkdir -p $(@D)
 	$(CXX) $(TEST_OBJ) $(OBJ) $(LDLIBS) $(TEST_LDLIBS) -o $@
 
 test: $(BIN_DIR)/test
 	$(BIN_DIR)/test
 
 valgrind: $(BIN_DIR)/test
+	@command -v valgrind >/dev/null 2>&1 || {                   \
+		echo "\e[01;31mError: valgrind is not installed\e[0m";  \
+		exit 1;                                                 \
+	}
 	RUNNING_ON_VALGRIND=1 valgrind --tool=memcheck --leak-check=yes ./bin/test
 
 clean:
