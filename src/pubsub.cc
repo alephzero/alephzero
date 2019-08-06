@@ -2,7 +2,6 @@
 
 #include <a0/internal/macros.h>
 #include <a0/internal/strutil.hh>
-#include <a0/internal/sync.hh>
 #include <atomic>
 #include <string.h>
 #include <string>
@@ -289,7 +288,8 @@ struct subscriber_zero_copy_state {
   a0_stream_frame_t frame;
   a0_zero_copy_callback_t onmsg;
 
-  a0::sync<a0_callback_t> onclose;
+  a0_callback_t onclose;
+  std::mutex mu;
 
   void read_current_packet(a0_locked_stream_t slk) {
     a0_stream_frame(slk, &frame);
@@ -341,11 +341,12 @@ struct subscriber_zero_copy_state {
       while (handle_next_pkt());
     }
 
-    onclose.with_unique_lock([](a0_callback_t& cb) {
-      if (cb.fn) {
-        cb.fn(cb.user_data);
+    {
+      std::unique_lock<std::mutex> lk{mu};
+      if (onclose.fn) {
+        onclose.fn(onclose.user_data);
       }
-    });
+    }
   }
 };
 
@@ -410,9 +411,10 @@ errno_t a0_subscriber_zero_copy_close(
 
   auto state = sub_zc->_impl->state;
   delete sub_zc->_impl;
-  state->onclose.with_unique_lock([&](a0_callback_t& cb) {
-    cb = onclose;
-  });
+  {
+    std::unique_lock<std::mutex> lk{state->mu};
+    state->onclose = onclose;
+  }
   a0_stream_close(&state->stream);
   return A0_OK;
 }
