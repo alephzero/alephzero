@@ -17,7 +17,7 @@ errno_t a0_packet_header(a0_packet_t pkt, size_t hdr_idx, a0_packet_header_t* ou
   out->key.ptr = pkt.ptr + key_off;
   out->val.size = next_off - val_off;
   out->val.ptr = pkt.ptr + val_off;
-  
+
   return A0_OK;
 }
 
@@ -27,19 +27,19 @@ errno_t a0_packet_payload(a0_packet_t pkt, a0_buf_t* out) {
 
   out->size = pkt.size - payload_off;
   out->ptr = pkt.ptr + payload_off;
-  
+
   return A0_OK;
 }
 
 errno_t a0_packet_build(a0_packet_builder_t builder, a0_alloc_t alloc, a0_packet_t* out) {
   // Alloc out space.
   {
-    size_t size = sizeof(size_t);                        // Num headers.
-    size += 2 * builder.num_headers * sizeof(size_t);   // Header offsets.
-    size += sizeof(size_t);                              // Payload offset.
-    for (int i = 0; i < builder.num_headers; i++) {
-      size += builder.headers[i].key.size;              // Key content.
-      size += builder.headers[i].val.size;              // Val content.
+    size_t size = sizeof(size_t);                      // Num headers.
+    size += 2 * builder.num_headers * sizeof(size_t);  // Header offsets.
+    size += sizeof(size_t);                            // Payload offset.
+    for (size_t i = 0; i < builder.num_headers; i++) {
+      size += builder.headers[i].key.size;  // Key content.
+      size += builder.headers[i].val.size;  // Val content.
     }
     size += builder.payload.size;
 
