@@ -31,17 +31,21 @@ errno_t a0_packet_payload(a0_packet_t pkt, a0_buf_t* out) {
   return A0_OK;
 }
 
-errno_t a0_packet_build(a0_packet_builder_t builder, a0_alloc_t alloc, a0_packet_t* out) {
+errno_t a0_packet_build(size_t num_headers,
+                        a0_packet_header_t* headers,
+                        a0_buf_t payload,
+                        a0_alloc_t alloc,
+                        a0_packet_t* out) {
   // Alloc out space.
   {
-    size_t size = sizeof(size_t);                      // Num headers.
-    size += 2 * builder.num_headers * sizeof(size_t);  // Header offsets.
-    size += sizeof(size_t);                            // Payload offset.
-    for (size_t i = 0; i < builder.num_headers; i++) {
-      size += builder.headers[i].key.size;  // Key content.
-      size += builder.headers[i].val.size;  // Val content.
+    size_t size = sizeof(size_t);              // Num headers.
+    size += 2 * num_headers * sizeof(size_t);  // Header offsets.
+    size += sizeof(size_t);                    // Payload offset.
+    for (size_t i = 0; i < num_headers; i++) {
+      size += headers[i].key.size;  // Key content.
+      size += headers[i].val.size;  // Val content.
     }
-    size += builder.payload.size;
+    size += payload.size;
 
     alloc.fn(alloc.user_data, size, out);
   }
@@ -49,35 +53,35 @@ errno_t a0_packet_build(a0_packet_builder_t builder, a0_alloc_t alloc, a0_packet
   size_t off = 0;
 
   // Number of headers.
-  *(size_t*)(out->ptr + off) = builder.num_headers;
+  *(size_t*)(out->ptr + off) = num_headers;
   off += sizeof(size_t);
 
   size_t idx_off = off;
-  off += 2 * builder.num_headers * sizeof(size_t) + sizeof(size_t);
+  off += 2 * num_headers * sizeof(size_t) + sizeof(size_t);
 
   // For each header.
-  for (size_t i = 0; i < builder.num_headers; i++) {
+  for (size_t i = 0; i < num_headers; i++) {
     // Header key offset.
     *(size_t*)(out->ptr + idx_off) = off;
     idx_off += sizeof(size_t);
 
     // Header key content.
-    memcpy(out->ptr + off, builder.headers[i].key.ptr, builder.headers[i].key.size);
-    off += builder.headers[i].key.size;
+    memcpy(out->ptr + off, headers[i].key.ptr, headers[i].key.size);
+    off += headers[i].key.size;
 
     // Header val offset.
     *(size_t*)(out->ptr + idx_off) = off;
     idx_off += sizeof(size_t);
 
     // Header val content.
-    memcpy(out->ptr + off, builder.headers[i].val.ptr, builder.headers[i].val.size);
-    off += builder.headers[i].val.size;
+    memcpy(out->ptr + off, headers[i].val.ptr, headers[i].val.size);
+    off += headers[i].val.size;
   }
 
   *(size_t*)(out->ptr + idx_off) = off;
 
   // Payload.
-  memcpy(out->ptr + off, builder.payload.ptr, builder.payload.size);
+  memcpy(out->ptr + off, payload.ptr, payload.size);
 
   return A0_OK;
 }

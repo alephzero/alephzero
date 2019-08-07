@@ -24,13 +24,13 @@ struct PubsubFixture {
   }
 
   a0_packet_t malloc_packet(std::string data) {
-    a0_packet_builder_t builder;
-    builder.num_headers = 0;
-    builder.payload.size = data.size();
-    builder.payload.ptr = (uint8_t*)data.c_str();
+    a0_buf_t payload = {
+        .ptr = (uint8_t*)data.c_str(),
+        .size = data.size(),
+    };
 
     a0_packet_t pkt;
-    REQUIRE(a0_packet_build(builder, make_alloc(), &pkt) == A0_OK);
+    REQUIRE(a0_packet_build(0, nullptr, payload, make_alloc(), &pkt) == A0_OK);
 
     return pkt;
   }

@@ -23,13 +23,11 @@ errno_t a0_packet_header(a0_packet_t, size_t hdr_idx, a0_packet_header_t* out);
 // Note: out points to memory in the packet buffer.
 errno_t a0_packet_payload(a0_packet_t, a0_buf_t* out);
 
-typedef struct a0_packet_builder_s {
-  size_t num_headers;
-  a0_packet_header_t* headers;
-  a0_buf_t payload;
-} a0_packet_builder_t;
-
-errno_t a0_packet_build(a0_packet_builder_t, a0_alloc_t, a0_packet_t* out);
+errno_t a0_packet_build(size_t num_headers,
+                        a0_packet_header_t* headers,
+                        a0_buf_t payload,
+                        a0_alloc_t,
+                        a0_packet_t* out);
 
 #ifdef __cplusplus
 }
