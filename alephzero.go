@@ -53,7 +53,7 @@ func NewPacket(headers map[string]string, payload []byte) (pkt Packet, err error
 
 	var hdrList []struct{k, v string}
 	for k, v := range headers {
-		hdrList = append(hdrList, {k, v})
+		hdrList = append(hdrList, struct{k, v string}{k, v})
 	}
 
 	i := 0
