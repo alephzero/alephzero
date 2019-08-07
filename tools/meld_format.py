@@ -25,15 +25,15 @@ def run_clang_format(path):
 pool = ThreadPool(100)
 clang_format_futures = []
 
-for dirpath, _, files in os.walk('include'):
-    for filename in sorted(files):
-        path = os.path.join(dirpath, filename)
-        clang_format_futures.append(pool.apply_async(run_clang_format, (path,)))
+def code_in(root):
+    for dirpath, _, files in os.walk(root):
+        for filename in sorted(files):
+            path = os.path.join(dirpath, filename)
+            clang_format_futures.append(pool.apply_async(run_clang_format, (path,)))
 
-for dirpath, _, files in os.walk('src'):
-    for filename in sorted(files):
-        path = os.path.join(dirpath, filename)
-        clang_format_futures.append(pool.apply_async(run_clang_format, (path,)))
+code_in('include')
+code_in('src')
+code_in('go')
 
 for fut in clang_format_futures:
     orig_path, new_path = fut.get()
