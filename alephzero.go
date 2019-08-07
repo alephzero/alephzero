@@ -31,6 +31,7 @@ func registerAlloc(fn func(C.size_t, *C.a0_buf_t)) (id int) {
 	id = nextAllocId
 	nextAllocId++
 	allocRegistry[id] = fn
+	return
 }
 
 func unregisterAlloc(id int) {
@@ -48,7 +49,7 @@ func NewPacket(headers map[string]string, payload []byte) (pkt Packet, err error
 	// TODO: What if payload is 0?
 	var c_payload C.a0_buf_t
 	c_payload.size = C.size_t(len(payload))
-	c_payload.ptr = unsafe.Pointer(&payload[0])
+	c_payload.ptr = (*_Ctype_uchar)(&payload[0])
 
 	i := 0
 	for k, v := range headers {
