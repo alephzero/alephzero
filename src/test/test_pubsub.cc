@@ -12,8 +12,8 @@
 #include <vector>
 
 struct PubsubFixture {
-  std::string topic_name = "topic";
-  std::string container_name = "container";
+  std::string container = "container";
+  std::string topic = "topic";
 
   PubsubFixture() {
     a0_shmobj_unlink("/a0_pubsub__container__topic");
@@ -50,15 +50,9 @@ struct PubsubFixture {
 };
 
 TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
-  a0_topic_t topic;
-  topic.name.ptr = (uint8_t*)topic_name.c_str();
-  topic.name.size = topic_name.size();
-  topic.container.ptr = (uint8_t*)container_name.c_str();
-  topic.container.size = container_name.size();
-
   {
     a0_publisher_t pub;
-    REQUIRE(a0_publisher_init(&pub, topic) == A0_OK);
+    REQUIRE(a0_publisher_init_unmapped(&pub, container.c_str(), topic.c_str()) == A0_OK);
 
     a0_packet_t pkt = malloc_packet(a0::strutil::cat("msg #", 0));
     REQUIRE(a0_pub(&pub, pkt) == A0_OK);
@@ -73,8 +67,11 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
   {
     a0_subscriber_sync_t sub;
-    REQUIRE(a0_subscriber_sync_open(&sub, topic, A0_READ_START_EARLIEST, A0_READ_NEXT_SEQUENTIAL) ==
-            A0_OK);
+    REQUIRE(a0_subscriber_sync_init_unmapped(&sub,
+                                             container.c_str(),
+                                             topic.c_str(),
+                                             A0_READ_START_EARLIEST,
+                                             A0_READ_NEXT_SEQUENTIAL) == A0_OK);
 
     uint8_t space[100];
     a0_alloc_t alloc;
@@ -125,8 +122,11 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
   {
     a0_subscriber_sync_t sub;
-    REQUIRE(a0_subscriber_sync_open(&sub, topic, A0_READ_START_LATEST, A0_READ_NEXT_RECENT) ==
-            A0_OK);
+    REQUIRE(a0_subscriber_sync_init_unmapped(&sub,
+                                             container.c_str(),
+                                             topic.c_str(),
+                                             A0_READ_START_LATEST,
+                                             A0_READ_NEXT_RECENT) == A0_OK);
 
     uint8_t space[22];
     a0_alloc_t alloc;
@@ -162,15 +162,9 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
-  a0_topic_t topic;
-  topic.name.ptr = (uint8_t*)topic_name.c_str();
-  topic.name.size = topic_name.size();
-  topic.container.ptr = (uint8_t*)container_name.c_str();
-  topic.container.size = container_name.size();
-
   {
     a0_publisher_t pub;
-    REQUIRE(a0_publisher_init(&pub, topic) == A0_OK);
+    REQUIRE(a0_publisher_init_unmapped(&pub, container.c_str(), topic.c_str()) == A0_OK);
 
     a0_packet_t pkt = malloc_packet(a0::strutil::cat("msg #", 0));
     REQUIRE(a0_pub(&pub, pkt) == A0_OK);
@@ -223,12 +217,13 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
     };
 
     a0_subscriber_t sub;
-    REQUIRE(a0_subscriber_open(&sub,
-                               topic,
-                               A0_READ_START_EARLIEST,
-                               A0_READ_NEXT_SEQUENTIAL,
-                               alloc,
-                               cb) == A0_OK);
+    REQUIRE(a0_subscriber_init_unmapped(&sub,
+                                        container.c_str(),
+                                        topic.c_str(),
+                                        A0_READ_START_EARLIEST,
+                                        A0_READ_NEXT_SEQUENTIAL,
+                                        alloc,
+                                        cb) == A0_OK);
     {
       std::unique_lock<std::mutex> lk{data.mu};
       data.cv.wait(lk, [&]() {
@@ -261,20 +256,14 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test close before publish") {
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
-  a0_topic_t topic;
-  topic.name.ptr = (uint8_t*)topic_name.c_str();
-  topic.name.size = topic_name.size();
-  topic.container.ptr = (uint8_t*)container_name.c_str();
-  topic.container.size = container_name.size();
-
   constexpr int NUM_THREADS = 10;
   constexpr int NUM_PACKETS = 500;
   std::vector<std::thread> threads;
 
   for (int i = 0; i < NUM_THREADS; i++) {
-    threads.emplace_back([i, &topic, this]() {
+    threads.emplace_back([this, i]() {
       a0_publisher_t pub;
-      REQUIRE(a0_publisher_init(&pub, topic) == A0_OK);
+      REQUIRE(a0_publisher_init_unmapped(&pub, container.c_str(), topic.c_str()) == A0_OK);
 
       for (int j = 0; j < NUM_PACKETS; j++) {
         const auto pkt = malloc_packet(a0::strutil::fmt("pub %d msg %d", i, j));
@@ -293,8 +282,11 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
   // Now sanity-check our values.
   std::set<std::string> msgs;
   a0_subscriber_sync_t sub;
-  REQUIRE(a0_subscriber_sync_open(&sub, topic, A0_READ_START_EARLIEST, A0_READ_NEXT_SEQUENTIAL) ==
-          A0_OK);
+  REQUIRE(a0_subscriber_sync_init_unmapped(&sub,
+                                           container.c_str(),
+                                           topic.c_str(),
+                                           A0_READ_START_EARLIEST,
+                                           A0_READ_NEXT_SEQUENTIAL) == A0_OK);
 
   uint8_t space[100];
   a0_alloc_t alloc = {

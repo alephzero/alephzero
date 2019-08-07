@@ -64,21 +64,16 @@ a0_shmobj_options_t* default_shmobj_options() {
   return &opts;
 }
 
-void validate_topic(a0_topic_t topic) {
+void validate_topic(const char* topic) {
   (void)topic;
   // TODO: assert topic->name is entirely isalnum + '_' + '.' and does not contain '__'.
   // TODO: assert topic->container is entirely isalnum + '_' + '.' and does not contain '__'.
 }
 
-std::string unmapped_topic_path(a0_topic_t topic) {
+std::string unmapped_topic_path(const char* container, const char* topic) {
+  validate_topic(container);
   validate_topic(topic);
-  return a0::strutil::fmt("/%.*s__%.*s__%.*s",
-                          sizeof(A0_PUBSUB_PROTOCOL_NAME),
-                          A0_PUBSUB_PROTOCOL_NAME,
-                          topic.container.size,
-                          topic.container.ptr,
-                          topic.name.size,
-                          topic.name.ptr);
+  return a0::strutil::fmt("/%s__%s__%s", A0_PUBSUB_PROTOCOL_NAME, container, topic);
 }
 
 }  // namespace
@@ -87,36 +82,15 @@ std::string unmapped_topic_path(a0_topic_t topic) {
 //  Publisher  //
 /////////////////
 
-namespace {
-
-std::string publisher_topic_path(a0_topic_t topic) {
-  validate_topic(topic);
-
-  if (topic.container.size) {
-    return unmapped_topic_path(topic);
-  }
-
-  const char* container_name = getenv("A0_CONTAINER_NAME");
-  return a0::strutil::fmt("/%.*s__%s__%.*s",
-                          sizeof(A0_PUBSUB_PROTOCOL_NAME),
-                          A0_PUBSUB_PROTOCOL_NAME,
-                          strlen(container_name),
-                          container_name,
-                          topic.name.size,
-                          topic.name.ptr);
-}
-
-}  // namespace
-
 struct a0_publisher_impl_s {
   a0_shmobj_t shmobj;
   a0_stream_t stream;
 };
 
-errno_t a0_publisher_init(a0_publisher_t* pub, a0_topic_t topic) {
+errno_t a0_publisher_init_unmapped(a0_publisher_t* pub, const char* container, const char* topic) {
   pub->_impl = new a0_publisher_impl_t;
 
-  auto topic_path = publisher_topic_path(topic);
+  auto topic_path = unmapped_topic_path(container, topic);
   a0_shmobj_open(topic_path.c_str(), default_shmobj_options(), &pub->_impl->shmobj);
 
   a0_stream_init_status_t init_status;
@@ -134,6 +108,11 @@ errno_t a0_publisher_init(a0_publisher_t* pub, a0_topic_t topic) {
   }
 
   return A0_OK;
+}
+
+errno_t a0_publisher_init(a0_publisher_t* pub, const char* topic) {
+  // TODO: Validate env A0_CONTAINER.
+  return a0_publisher_init_unmapped(pub, getenv("A0_CONTAINER"), topic);
 }
 
 errno_t a0_publisher_close(a0_publisher_t* pub) {
@@ -184,15 +163,22 @@ struct a0_subscriber_sync_impl_s {
   bool read_first{false};
 };
 
-errno_t a0_subscriber_sync_open(a0_subscriber_sync_t* sub_sync,
-                                a0_topic_t topic,
-                                a0_subscriber_read_start_t read_start,
-                                a0_subscriber_read_next_t read_next) {
+errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync, const char* topic) {
+  (void)sub_sync;
+  (void)topic;
+  return ENOTSUP;
+}
+
+errno_t a0_subscriber_sync_init_unmapped(a0_subscriber_sync_t* sub_sync,
+                                         const char* container,
+                                         const char* topic,
+                                         a0_subscriber_read_start_t read_start,
+                                         a0_subscriber_read_next_t read_next) {
   sub_sync->_impl = new a0_subscriber_sync_impl_t;
   sub_sync->_impl->read_start = read_start;
   sub_sync->_impl->read_next = read_next;
 
-  auto topic_path = unmapped_topic_path(topic);
+  auto topic_path = unmapped_topic_path(container, topic);
   a0_shmobj_open(topic_path.c_str(), default_shmobj_options(), &sub_sync->_impl->shmobj);
 
   a0_stream_init_status_t init_status;
@@ -369,11 +355,21 @@ struct a0_subscriber_zero_copy_impl_s {
   std::shared_ptr<subscriber_zero_copy_state> state;
 };
 
-errno_t a0_subscriber_zero_copy_open(a0_subscriber_zero_copy_t* sub_zc,
-                                     a0_topic_t topic,
-                                     a0_subscriber_read_start_t read_start,
-                                     a0_subscriber_read_next_t read_next,
+errno_t a0_subscriber_zero_copy_init(a0_subscriber_zero_copy_t* sub_zc,
+                                     const char* topic,
                                      a0_zero_copy_callback_t onmsg) {
+  (void)sub_zc;
+  (void)topic;
+  (void)onmsg;
+  return ENOTSUP;
+}
+
+errno_t a0_subscriber_zero_copy_init_unmapped(a0_subscriber_zero_copy_t* sub_zc,
+                                              const char* container,
+                                              const char* topic,
+                                              a0_subscriber_read_start_t read_start,
+                                              a0_subscriber_read_next_t read_next,
+                                              a0_zero_copy_callback_t onmsg) {
   sub_zc->_impl = new a0_subscriber_zero_copy_impl_t;
   sub_zc->_impl->state = std::make_shared<subscriber_zero_copy_state>();
 
@@ -381,7 +377,7 @@ errno_t a0_subscriber_zero_copy_open(a0_subscriber_zero_copy_t* sub_zc,
   sub_zc->_impl->state->read_next = read_next;
   sub_zc->_impl->state->onmsg = onmsg;
 
-  auto topic_path = unmapped_topic_path(topic);
+  auto topic_path = unmapped_topic_path(container, topic);
   a0_shmobj_open(topic_path.c_str(), default_shmobj_options(), &sub_zc->_impl->state->shmobj);
 
   a0_stream_init_status_t init_status;
@@ -437,12 +433,22 @@ struct a0_subscriber_impl_s {
   a0_callback_t user_onclose;
 };
 
-errno_t a0_subscriber_open(a0_subscriber_t* sub,
-                           a0_topic_t topic,
-                           a0_subscriber_read_start_t read_start,
-                           a0_subscriber_read_next_t read_next,
-                           a0_alloc_t alloc,
+errno_t a0_subscriber_init(a0_subscriber_t* sub,
+                           const char* topic,
                            a0_subscriber_callback_t onmsg) {
+  (void)sub;
+  (void)topic;
+  (void)onmsg;
+  return ENOTSUP;
+}
+
+errno_t a0_subscriber_init_unmapped(a0_subscriber_t* sub,
+                                    const char* container,
+                                    const char* topic,
+                                    a0_subscriber_read_start_t read_start,
+                                    a0_subscriber_read_next_t read_next,
+                                    a0_alloc_t alloc,
+                                    a0_subscriber_callback_t onmsg) {
   sub->_impl = new a0_subscriber_impl_t;
 
   sub->_impl->alloc = alloc;
@@ -462,7 +468,12 @@ errno_t a0_subscriber_open(a0_subscriber_t* sub,
           },
   };
 
-  a0_subscriber_zero_copy_open(&sub->_impl->sub_zc, topic, read_start, read_next, wrapped_onmsg);
+  a0_subscriber_zero_copy_init_unmapped(&sub->_impl->sub_zc,
+                                        container,
+                                        topic,
+                                        read_start,
+                                        read_next,
+                                        wrapped_onmsg);
 
   return A0_OK;
 }
