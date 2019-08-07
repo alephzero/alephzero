@@ -65,13 +65,13 @@ func NewPacket(headers map[string]string, payload []byte) (pkt Packet, err error
 
 	allocId := registerAlloc(func(size C.size_t, out *C.a0_buf_t) {
 		pkt.goMem = make([]byte, int(size))
-		out = &data.goMem[0]
+		out = &pkt.goMem[0]
 	})
 	defer unregisterAlloc(allocId)
 
 	err = errorFrom(C.a0go_packet_build(
 		C.size_t(len(headers)),
-		unsafe.Pointer(&hdrs[0]),
+		&hdrs[0],
 		c_payload,
 		allocId,
 		&pkt.cPkt))
