@@ -51,12 +51,17 @@ func NewPacket(headers map[string]string, payload []byte) (pkt Packet, err error
 	c_payload.size = C.size_t(len(payload))
 	c_payload.ptr = (*_Ctype_uchar)(&payload[0])
 
-	i := 0
+	var hdrList []struct{k, v string}
 	for k, v := range headers {
-		hdrs[i].key.size = C.size_t(len(k))
-		hdrs[i].key.ptr = unsafe.Pointer(&k[0])
-		hdrs[i].val.size = C.size_t(len(v))
-		hdrs[i].val.ptr = unsafe.Pointer(&v[0])
+		hdrList = append(hdrList, {k, v})
+	}
+
+	i := 0
+	for kv := range hdrList {
+		hdrs[i].key.size = C.size_t(len(kv.k))
+		hdrs[i].key.ptr = (*_Ctype_uchar)(&kv.k[0])
+		hdrs[i].val.size = C.size_t(len(kv.v))
+		hdrs[i].val.ptr = (*_Ctype_uchar)(&kv.v[0])
 		i++
 	}
 
