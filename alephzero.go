@@ -99,8 +99,8 @@ func (p *Packet) Header(idx int) (hdr Header, err error) {
 		return
 	}
 
-	hdr.Key = string((*[1<<30]byte)(unsafe.Pointer(cHdr.key.ptr))[:int(cHdr.key.size):int(cHdr.key.size)])
-	hdr.Val = string((*[1<<30]byte)(unsafe.Pointer(cHdr.val.ptr))[:int(cHdr.val.size):int(cHdr.val.size)])
+	hdr.Key = (*[1<<30]byte)(unsafe.Pointer(cHdr.key.ptr))[:int(cHdr.key.size):int(cHdr.key.size)]
+	hdr.Val = (*[1<<30]byte)(unsafe.Pointer(cHdr.val.ptr))[:int(cHdr.val.size):int(cHdr.val.size)]
 
 	return
 }
