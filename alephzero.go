@@ -19,7 +19,7 @@ func errorFrom(err C.errno_t) error {
 	if err == 0 {
 		return nil
 	}
-	return syscall.Errno(err).Error()
+	return syscall.Errno{err}
 }
 
 //export a0go_alloc
