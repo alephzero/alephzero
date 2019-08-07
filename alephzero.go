@@ -85,7 +85,7 @@ func (p *Packet) Bytes() ([]byte, error) {
 }
 
 func (p *Packet) NumHeaders() (cnt int, err error) {
-	err = errorFrom(C.a0_packet_num_headers(p.cPkt, (*C.size_t)&cnt))
+	err = errorFrom(C.a0_packet_num_headers(p.cPkt, (*C.size_t)(&cnt)))
 	return
 }
 
@@ -105,7 +105,7 @@ func (p *Packet) Header(idx int) (key, val string, err error) {
 func (p *Packet) Payload() (payload []byte, err error) {
 	var out C.a0_buf_t
 
-	if err = errorFrom(a0_packet_header(p.cPkt, C.size_t(idx), &hdr)); err != nil {
+	if err = errorFrom(C.a0_packet_header(p.cPkt, C.size_t(idx), &hdr)); err != nil {
 		return
 	}
 
@@ -115,7 +115,7 @@ func (p *Packet) Payload() (payload []byte, err error) {
 }
 
 func (p *Packet) Headers() (map[string]string, error) {
-	numHdrs, err := p.NumHeader()
+	numHdrs, err := p.NumHeaders()
 	if err != nil {
 		return nil, err
 	}
