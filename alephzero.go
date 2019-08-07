@@ -5,7 +5,8 @@ package alephzero
 import "C"
 
 import (
-	"log"
+	"syscall"
+	"unsafe"
 )
 
 var (
@@ -26,8 +27,8 @@ func a0go_alloc(idPtr unsafe.Pointer, size C.size_t, out *C.a0_buf_t) {
 	allocRegistry[*(*int)(idPtr)](size, out)
 }
 
-func registerAlloc(fn func(C.size_t, *C.a0_buf_t)) int {
-	id := nextAllocId
+func registerAlloc(fn func(C.size_t, *C.a0_buf_t)) (id int) {
+	id = nextAllocId
 	nextAllocId++
 	allocRegistry[id] = fn
 }
@@ -40,8 +41,6 @@ type Packet struct {
 	cPkt  C.a0_packet_t
 	goMem []byte
 }
-
-type Packet = C.a0_packet_t
 
 func NewPacket(headers map[string]string, payload []byte) (pkt Packet, err error) {
 	hdrs := make([]C.a0_packet_header_t, len(headers))
