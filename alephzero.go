@@ -38,29 +38,27 @@ func unregisterAlloc(id int) {
 	delete(allocRegistry, id)
 }
 
+type Header struct {
+	Key, Val []byte
+}
+
 type Packet struct {
 	cPkt  C.a0_packet_t
 	goMem []byte
 }
 
-func NewPacket(headers map[string]string, payload []byte) (pkt Packet, err error) {
-	hdrs := make([]C.a0_packet_header_t, len(headers))
-
+func NewPacket(headers []Header, payload []byte) (pkt Packet, err error) {
 	// TODO: What if payload is 0?
 	var c_payload C.a0_buf_t
 	c_payload.size = C.size_t(len(payload))
 	c_payload.ptr = (*C.uint8_t)(&payload[0])
 
-	var hdrList []struct{k, v string}
-	for k, v := range headers {
-		hdrList = append(hdrList, struct{k, v string}{k, v})
-	}
-
-	for i := range hdrList {
-		hdrs[i].key.size = C.size_t(len(hdrList[i].k))
-		hdrs[i].key.ptr = (*C.uint8_t)(&hdrList[i].k[0])
-		hdrs[i].val.size = C.size_t(len(hdrList[i].v))
-		hdrs[i].val.ptr = (*C.uint8_t)(&hdrList[i].v[0])
+	hdrs := make([]C.a0_packet_header_t, len(headers))
+	for i, hdr := range headers {
+		hdrs[i].key.size = C.size_t(len(hdr.Key))
+		hdrs[i].key.ptr = (*C.uint8_t)(&hdr.Key[0])
+		hdrs[i].val.size = C.size_t(len(hdr.Val))
+		hdrs[i].val.ptr = (*C.uint8_t)(&hdr.Val[0])
 	}
 
 	allocId := registerAlloc(func(size C.size_t, out *C.a0_buf_t) {
@@ -94,15 +92,15 @@ func (p *Packet) NumHeaders() (cnt int, err error) {
 	return
 }
 
-func (p *Packet) Header(idx int) (key, val string, err error) {
-	var hdr C.a0_packet_header_t
+func (p *Packet) Header(idx int) (hdr Header, err error) {
+	var cHdr C.a0_packet_header_t
 
-	if err = errorFrom(C.a0_packet_header(p.cPkt, C.size_t(idx), &hdr)); err != nil {
+	if err = errorFrom(C.a0_packet_header(p.cPkt, C.size_t(idx), &cHdr)); err != nil {
 		return
 	}
 
-	key = string((*[1<<30]byte)(unsafe.Pointer(hdr.key.ptr))[:int(hdr.key.size):int(hdr.key.size)])
-	val = string((*[1<<30]byte)(unsafe.Pointer(hdr.val.ptr))[:int(hdr.val.size):int(hdr.val.size)])
+	hdr.Key = string((*[1<<30]byte)(unsafe.Pointer(cHdr.key.ptr))[:int(cHdr.key.size):int(cHdr.key.size)])
+	hdr.Val = string((*[1<<30]byte)(unsafe.Pointer(cHdr.val.ptr))[:int(cHdr.val.size):int(cHdr.val.size)])
 
 	return
 }
@@ -110,28 +108,11 @@ func (p *Packet) Header(idx int) (key, val string, err error) {
 func (p *Packet) Payload() (payload []byte, err error) {
 	var out C.a0_buf_t
 
-	if err = errorFrom(C.a0_packet_header(p.cPkt, &out)); err != nil {
+	if err = errorFrom(C.a0_packet_payload(p.cPkt, &out)); err != nil {
 		return
 	}
 
 	payload = (*[1<<30]byte)(unsafe.Pointer(out.ptr))[:int(out.size):int(out.size)]
 
 	return
-}
-
-func (p *Packet) Headers() (map[string]string, error) {
-	numHdrs, err := p.NumHeaders()
-	if err != nil {
-		return nil, err
-	}
-
-	hdrs := make(map[string]string)
-	for i := 0; i < numHdrs; i++ {
-		k, v, err := p.Header(i)
-		if err != nil {
-			return nil, err
-		}
-		hdrs[k] = v
-	}
-	return hdrs, nil
 }
