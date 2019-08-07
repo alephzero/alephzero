@@ -27,7 +27,8 @@ func a0go_alloc(idPtr unsafe.Pointer, size C.size_t, out *C.a0_buf_t) {
 }
 
 func registerAlloc(fn func(C.size_t, *C.a0_buf_t)) int {
-	id := nextAllocId++
+	id := nextAllocId
+	nextAllocId++
 	allocRegistry[id] = fn
 }
 
