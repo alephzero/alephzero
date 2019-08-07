@@ -53,4 +53,4 @@ static inline errno_t a0go_subscriber_close(a0_subscriber_t* sub, void* user_dat
   return a0_subscriber_close(sub, callback);
 }
 
-#endif A0_ALEPHZERO_GO_H
+#endif  // A0_ALEPHZERO_GO_H
