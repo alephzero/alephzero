@@ -56,16 +56,17 @@ func NewPacket(headers map[string]string, payload []byte) (pkt Packet, err error
 		hdrList = append(hdrList, struct{k, v string}{k, v})
 	}
 
-	for i, kv := range hdrList {
-		hdrs[i].key.size = C.size_t(len(kv.k))
-		hdrs[i].key.ptr = (*_Ctype_uchar)(&kv.k[0])
-		hdrs[i].val.size = C.size_t(len(kv.v))
-		hdrs[i].val.ptr = (*_Ctype_uchar)(&kv.v[0])
+	for i := range hdrList {
+		hdrs[i].key.size = C.size_t(len(hdrList[i].k))
+		hdrs[i].key.ptr = (*_Ctype_uchar)(&hdrList[i].k[0])
+		hdrs[i].val.size = C.size_t(len(hdrList[i].v))
+		hdrs[i].val.ptr = (*_Ctype_uchar)(&hdrList[i].v[0])
 	}
 
 	allocId := registerAlloc(func(size C.size_t, out *C.a0_buf_t) {
 		pkt.goMem = make([]byte, int(size))
-		out = &pkt.goMem[0]
+		out.size = size
+		out.ptr = (*C.uint8_t)(&pkt.goMem[0])
 	})
 	defer unregisterAlloc(allocId)
 
@@ -75,6 +76,8 @@ func NewPacket(headers map[string]string, payload []byte) (pkt Packet, err error
 		c_payload,
 		allocId,
 		&pkt.cPkt))
+
+	return
 }
 
 func (p *Packet) Bytes() ([]byte, error) {
@@ -83,6 +86,7 @@ func (p *Packet) Bytes() ([]byte, error) {
 
 func (p *Packet) NumHeaders() (cnt int, err error) {
 	err = errorFrom(C.a0_packet_num_headers(p.cPkt, (*C.size_t)&cnt))
+	return
 }
 
 func (p *Packet) Header(idx int) (key, val string, err error) {
@@ -94,6 +98,8 @@ func (p *Packet) Header(idx int) (key, val string, err error) {
 
 	key = string((*[1<<30]byte)(unsafe.Pointer(hdr.key.ptr))[:int(hdr.key.size):int(hdr.key.size)])
 	val = string((*[1<<30]byte)(unsafe.Pointer(hdr.val.ptr))[:int(hdr.val.size):int(hdr.val.size)])
+
+	return
 }
 
 func (p *Packet) Payload() (payload []byte, err error) {
@@ -104,6 +110,8 @@ func (p *Packet) Payload() (payload []byte, err error) {
 	}
 
 	payload = (*[1<<30]byte)(unsafe.Pointer(out.ptr))[:int(out.size):int(out.size)]
+
+	return
 }
 
 func (p *Packet) Headers() (map[string]string, error) {
