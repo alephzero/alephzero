@@ -23,7 +23,7 @@ func errorFrom(err C.errno_t) error {
 
 //export a0go_alloc
 func a0go_alloc(idPtr unsafe.Pointer, size C.size_t, out *C.a0_buf_t) {
-	allocRegistry[*((*int)idPtr)](size, out)
+	allocRegistry[*(*int)(idPtr)](size, out)
 }
 
 func registerAlloc(fn func(C.size_t, *C.a0_buf_t)) int {
@@ -77,7 +77,7 @@ func (p *Packet) Bytes() ([]byte, error) {
 	return p.goMem, nil
 }
 
-func (p *Packet) NumHeader() (cnt int, err error) {
+func (p *Packet) NumHeaders() (cnt int, err error) {
 	err = errorFrom(C.a0_packet_num_headers(p.cPkt, (*C.size_t)&cnt))
 }
 
