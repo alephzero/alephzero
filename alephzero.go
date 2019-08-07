@@ -110,7 +110,7 @@ func (p *Packet) Header(idx int) (key, val string, err error) {
 func (p *Packet) Payload() (payload []byte, err error) {
 	var out C.a0_buf_t
 
-	if err = errorFrom(C.a0_packet_header(p.cPkt, C.size_t(idx), &hdr)); err != nil {
+	if err = errorFrom(C.a0_packet_header(p.cPkt, &out)); err != nil {
 		return
 	}
 
