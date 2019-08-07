@@ -58,9 +58,9 @@ func NewPacket(headers map[string]string, payload []byte) (pkt Packet, err error
 
 	for i := range hdrList {
 		hdrs[i].key.size = C.size_t(len(hdrList[i].k))
-		hdrs[i].key.ptr = (*_Ctype_uchar)(&hdrList[i].k[0])
+		hdrs[i].key.ptr = (*_Ctype_uchar)(&(hdrList[i].k[0]))
 		hdrs[i].val.size = C.size_t(len(hdrList[i].v))
-		hdrs[i].val.ptr = (*_Ctype_uchar)(&hdrList[i].v[0])
+		hdrs[i].val.ptr = (*_Ctype_uchar)(&(hdrList[i].v[0]))
 	}
 
 	allocId := registerAlloc(func(size C.size_t, out *C.a0_buf_t) {
