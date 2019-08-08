@@ -72,7 +72,7 @@ $(LIB_DIR)/lib$(A0).so: $(OBJ)
 
 install: $(LIB_DIR)/lib$(A0).a $(LIB_DIR)/lib$(A0).so
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/
-	cp -f $(LIB_DIR)/lib$(A0).a $(DESTDIR)$(PREFIX)/lib/
+	cp -f $(LIB_DIR)/lib$(A0).* $(DESTDIR)$(PREFIX)/lib/
 	rm -rf $(DESTDIR)$(PREFIX)/include/a0/
 	mkdir -p $(DESTDIR)$(PREFIX)/include/a0/
 	cp -r include/a0/* $(DESTDIR)$(PREFIX)/include/a0/
