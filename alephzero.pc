@@ -7,4 +7,4 @@ Name: alephzero
 Description: TODO
 Version: 0.1.0
 Cflags: -I${includedir}
-Libs: -L${libdir} -lrt -lalephzero
+Libs: -L${libdir} -lalephzero -lrt
