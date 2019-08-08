@@ -65,17 +65,20 @@ $(BIN_DIR)/test: $(TEST_OBJ) $(OBJ)
 	$(CXX) $(TEST_OBJ) $(OBJ) $(LDLIBS) $(TEST_LDLIBS) -o $@
 
 $(LIB_DIR)/lib$(A0).a: $(OBJ)
-	$(AR) -cqr $@ $(OBJ)
+	@mkdir -p $(@D)
+	$(AR) r $@ $(OBJ)
 
 $(LIB_DIR)/lib$(A0).so: $(OBJ)
+	@mkdir -p $(@D)
 	$(CXX) -shared -o $@ $(OBJ)
 
 install: $(LIB_DIR)/lib$(A0).a $(LIB_DIR)/lib$(A0).so
-	mkdir -p $(DESTDIR)$(PREFIX)/lib/
-	cp -f $(LIB_DIR)/lib$(A0).* $(DESTDIR)$(PREFIX)/lib/
 	rm -rf $(DESTDIR)$(PREFIX)/include/a0/
 	mkdir -p $(DESTDIR)$(PREFIX)/include/a0/
 	cp -r include/a0/* $(DESTDIR)$(PREFIX)/include/a0/
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/
+	cp -f $(LIB_DIR)/lib$(A0).* $(DESTDIR)$(PREFIX)/lib/
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/pkgconfig/
 	cp -f $(A0).pc $(DESTDIR)$(PREFIX)/lib/pkgconfig/
 
 uninstall:
@@ -95,4 +98,4 @@ valgrind: $(BIN_DIR)/test
 	RUNNING_ON_VALGRIND=1 valgrind --tool=memcheck --leak-check=yes ./bin/test
 
 clean:
-	rm -rf $(OBJ_DIR)/* $(BIN_DIR)/*
+	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/
