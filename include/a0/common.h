@@ -4,6 +4,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef int errno_t;
 
 static const errno_t A0_OK = 0;
@@ -22,5 +26,9 @@ typedef struct a0_alloc_s {
   void* user_data;
   void (*fn)(void* user_data, size_t size, a0_buf_t*);
 } a0_alloc_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // A0_COMMON_H

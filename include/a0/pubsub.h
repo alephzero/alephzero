@@ -4,6 +4,10 @@
 #include <a0/packet.h>
 #include <a0/stream.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct a0_zero_copy_callback_s {
   void* user_data;
   void (*fn)(void* user_data, a0_locked_stream_t, a0_packet_t);
@@ -108,5 +112,9 @@ errno_t a0_subscriber_init_unmapped(a0_subscriber_t*,
                                     a0_subscriber_callback_t);
 
 errno_t a0_subscriber_close(a0_subscriber_t*, a0_callback_t);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // A0_PUBSUB_H
