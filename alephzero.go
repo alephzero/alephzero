@@ -11,7 +11,7 @@ import (
 
 var (
 	// TODO: make thread safe.
-	allocRegistry map[int]func(C.size_t, *C.a0_buf_t)
+	allocRegistry = make(map[int]func(C.size_t, *C.a0_buf_t))
 	nextAllocId   int
 )
 
