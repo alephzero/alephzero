@@ -1,5 +1,8 @@
+A0 = alephzero
+
 SRC_DIR = src
 OBJ_DIR = obj
+LIB_DIR = lib
 BIN_DIR = bin
 
 CFLAGS += -Wall -Wextra -fPIC -Iinclude
@@ -30,7 +33,11 @@ ifeq ($(DEBUG), 1)
     CXXFLAGS += -O0 -g3 -ggdb3
 endif
 
-.PHONY: all clean test valgrind
+ifeq ($(PREFIX),)
+    PREFIX := /usr/local
+endif
+
+.PHONY: all clean install test uninstall valgrind
 
 all:
 	@echo "TODO"
@@ -56,6 +63,26 @@ $(OBJ_DIR)/test/%.o: $(SRC_DIR)/test/%.cc
 $(BIN_DIR)/test: $(TEST_OBJ) $(OBJ)
 	@mkdir -p $(@D)
 	$(CXX) $(TEST_OBJ) $(OBJ) $(LDLIBS) $(TEST_LDLIBS) -o $@
+
+$(LIB_DIR)/lib$(A0).a: $(OBJ)
+	$(AR) -cqr $@ $(OBJ)
+
+$(LIB_DIR)/lib$(A0).so: $(OBJ)
+	$(CXX) -shared -o $@ $(OBJ)
+
+install: $(LIB_DIR)/lib$(A0).a $(LIB_DIR)/lib$(A0).so
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/
+	cp -f $(LIB_DIR)/lib$(A0).a $(DESTDIR)$(PREFIX)/lib/
+	rm -rf $(DESTDIR)$(PREFIX)/include/a0/
+	mkdir -p $(DESTDIR)$(PREFIX)/include/a0/
+	cp -r include/a0/* $(DESTDIR)$(PREFIX)/include/a0/
+	cp -f $(A0).pc $(DESTDIR)$(PREFIX)/lib/pkgconfig/
+
+uninstall:
+	rm -rf                                        \
+	  $(DESTDIR)$(PREFIX)/include/a0/             \
+	  $(DESTDIR)$(PREFIX)/lib/lib$(A0).*          \
+	  $(DESTDIR)$(PREFIX)/lib/pkgconfig/$(A0).pc
 
 test: $(BIN_DIR)/test
 	$(BIN_DIR)/test
