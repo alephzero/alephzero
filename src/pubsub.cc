@@ -123,7 +123,7 @@ errno_t a0_publisher_close(a0_publisher_t* pub) {
   return A0_OK;
 }
 
-errno_t a0_pub_zero_copy(a0_publisher_t* pub, size_t size, a0_zero_copy_callback_t cb) {
+errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
   if (!pub || !pub->_impl) {
     return ESHUTDOWN;
   }
@@ -131,22 +131,11 @@ errno_t a0_pub_zero_copy(a0_publisher_t* pub, size_t size, a0_zero_copy_callback
   sync_stream_t ss{&pub->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     a0_stream_frame_t frame;
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_alloc(slk, size, &frame));
-    cb.fn(cb.user_data, slk, frame.data);
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_alloc(slk, pkt.size, &frame));
+    memcpy(frame.data.ptr, (uint8_t*)pkt.ptr, pkt.size);
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
     return A0_OK;
   });
-}
-
-errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
-  a0_zero_copy_callback_t cb = {
-      .user_data = pkt.ptr,
-      .fn =
-          [](void* user_data, a0_locked_stream_t, a0_packet_t pkt_span) {
-            memcpy(pkt_span.ptr, (uint8_t*)user_data, pkt_span.size);
-          },
-  };
-  return a0_pub_zero_copy(pub, pkt.size, cb);
 }
 
 //////////////////

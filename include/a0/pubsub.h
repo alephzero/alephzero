@@ -28,8 +28,6 @@ errno_t a0_publisher_init_unmapped(a0_publisher_t*, const char* container, const
 errno_t a0_publisher_close(a0_publisher_t*);
 errno_t a0_pub(a0_publisher_t*, a0_packet_t);
 
-errno_t a0_pub_zero_copy(a0_publisher_t*, size_t, a0_zero_copy_callback_t);
-
 ////////////////
 // Subscriber //
 ////////////////
