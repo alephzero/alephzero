@@ -66,22 +66,28 @@ errno_t a0_packet_build(size_t num_headers,
     idx_off += sizeof(size_t);
 
     // Header key content.
-    memcpy(out->ptr + off, headers[i].key.ptr, headers[i].key.size);
-    off += headers[i].key.size;
+    if (headers[i].key.size) {
+      memcpy(out->ptr + off, headers[i].key.ptr, headers[i].key.size);
+      off += headers[i].key.size;
+    }
 
     // Header val offset.
     *(size_t*)(out->ptr + idx_off) = off;
     idx_off += sizeof(size_t);
 
     // Header val content.
-    memcpy(out->ptr + off, headers[i].val.ptr, headers[i].val.size);
-    off += headers[i].val.size;
+    if (headers[i].val.size) {
+      memcpy(out->ptr + off, headers[i].val.ptr, headers[i].val.size);
+      off += headers[i].val.size;
+    }
   }
 
   *(size_t*)(out->ptr + idx_off) = off;
 
   // Payload.
-  memcpy(out->ptr + off, payload.ptr, payload.size);
+  if (payload.size) {
+    memcpy(out->ptr + off, payload.ptr, payload.size);
+  }
 
   return A0_OK;
 }
