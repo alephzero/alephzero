@@ -55,27 +55,6 @@ a0_stream_protocol_t protocol_info() {
   return protocol;
 }
 
-a0_shmobj_options_t* default_shmobj_options() {
-  static a0_shmobj_options_t opts = []() {
-    a0_shmobj_options_t opts_;
-    opts_.size = 32 * 1024 * 1024;  // 32MB
-    return opts_;
-  }();
-  return &opts;
-}
-
-void validate_topic(const char* topic) {
-  (void)topic;
-  // TODO: assert topic->name is entirely isalnum + '_' + '.' and does not contain '__'.
-  // TODO: assert topic->container is entirely isalnum + '_' + '.' and does not contain '__'.
-}
-
-std::string unmapped_topic_path(const char* container, const char* topic) {
-  validate_topic(container);
-  validate_topic(topic);
-  return a0::strutil::fmt("/%s__%s__%s", A0_PUBSUB_PROTOCOL_NAME, container, topic);
-}
-
 }  // namespace
 
 /////////////////
@@ -87,15 +66,12 @@ struct a0_publisher_impl_s {
   a0_stream_t stream;
 };
 
-errno_t a0_publisher_init_unmapped(a0_publisher_t* pub, const char* container, const char* topic) {
+errno_t a0_publisher_init(a0_publisher_t* pub, a0_shmobj_t shmobj) {
   pub->_impl = new a0_publisher_impl_t;
-
-  auto topic_path = unmapped_topic_path(container, topic);
-  a0_shmobj_open(topic_path.c_str(), default_shmobj_options(), &pub->_impl->shmobj);
 
   a0_stream_init_status_t init_status;
   a0_locked_stream_t slk;
-  a0_stream_init(&pub->_impl->stream, pub->_impl->shmobj, protocol_info(), &init_status, &slk);
+  a0_stream_init(&pub->_impl->stream, shmobj, protocol_info(), &init_status, &slk);
 
   if (init_status == A0_STREAM_CREATED) {
     // TODO: Add metadata...
@@ -110,14 +86,8 @@ errno_t a0_publisher_init_unmapped(a0_publisher_t* pub, const char* container, c
   return A0_OK;
 }
 
-errno_t a0_publisher_init(a0_publisher_t* pub, const char* topic) {
-  // TODO: Validate env A0_CONTAINER.
-  return a0_publisher_init_unmapped(pub, getenv("A0_CONTAINER"), topic);
-}
-
 errno_t a0_publisher_close(a0_publisher_t* pub) {
   a0_stream_close(&pub->_impl->stream);
-  a0_shmobj_close(&pub->_impl->shmobj);
   delete pub->_impl;
   pub->_impl = nullptr;
   return A0_OK;
@@ -143,7 +113,6 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
 //////////////////
 
 struct a0_subscriber_sync_impl_s {
-  a0_shmobj_t shmobj;
   a0_stream_t stream;
 
   a0_subscriber_read_start_t read_start;
@@ -152,31 +121,17 @@ struct a0_subscriber_sync_impl_s {
   bool read_first{false};
 };
 
-errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync, const char* topic) {
-  (void)sub_sync;
-  (void)topic;
-  return ENOTSUP;
-}
-
-errno_t a0_subscriber_sync_init_unmapped(a0_subscriber_sync_t* sub_sync,
-                                         const char* container,
-                                         const char* topic,
-                                         a0_subscriber_read_start_t read_start,
-                                         a0_subscriber_read_next_t read_next) {
+errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
+                                a0_shmobj_t shmobj,
+                                a0_subscriber_read_start_t read_start,
+                                a0_subscriber_read_next_t read_next) {
   sub_sync->_impl = new a0_subscriber_sync_impl_t;
   sub_sync->_impl->read_start = read_start;
   sub_sync->_impl->read_next = read_next;
 
-  auto topic_path = unmapped_topic_path(container, topic);
-  a0_shmobj_open(topic_path.c_str(), default_shmobj_options(), &sub_sync->_impl->shmobj);
-
   a0_stream_init_status_t init_status;
   a0_locked_stream_t slk;
-  a0_stream_init(&sub_sync->_impl->stream,
-                 sub_sync->_impl->shmobj,
-                 protocol_info(),
-                 &init_status,
-                 &slk);
+  a0_stream_init(&sub_sync->_impl->stream, shmobj, protocol_info(), &init_status, &slk);
 
   if (init_status == A0_STREAM_CREATED) {
     // TODO: Add metadata...
@@ -193,7 +148,6 @@ errno_t a0_subscriber_sync_init_unmapped(a0_subscriber_sync_t* sub_sync,
 
 errno_t a0_subscriber_sync_close(a0_subscriber_sync_t* sub_sync) {
   a0_stream_close(&sub_sync->_impl->stream);
-  a0_shmobj_close(&sub_sync->_impl->shmobj);
   delete sub_sync->_impl;
   sub_sync->_impl = nullptr;
   return A0_OK;
@@ -268,7 +222,6 @@ errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync,
 namespace {
 
 struct subscriber_zero_copy_state {
-  a0_shmobj_t shmobj;
   a0_stream_t stream;
   a0_subscriber_read_start_t read_start;
   a0_subscriber_read_next_t read_next;
@@ -345,20 +298,10 @@ struct a0_subscriber_zero_copy_impl_s {
 };
 
 errno_t a0_subscriber_zero_copy_init(a0_subscriber_zero_copy_t* sub_zc,
-                                     const char* topic,
+                                     a0_shmobj_t shmobj,
+                                     a0_subscriber_read_start_t read_start,
+                                     a0_subscriber_read_next_t read_next,
                                      a0_zero_copy_callback_t onmsg) {
-  (void)sub_zc;
-  (void)topic;
-  (void)onmsg;
-  return ENOTSUP;
-}
-
-errno_t a0_subscriber_zero_copy_init_unmapped(a0_subscriber_zero_copy_t* sub_zc,
-                                              const char* container,
-                                              const char* topic,
-                                              a0_subscriber_read_start_t read_start,
-                                              a0_subscriber_read_next_t read_next,
-                                              a0_zero_copy_callback_t onmsg) {
   sub_zc->_impl = new a0_subscriber_zero_copy_impl_t;
   sub_zc->_impl->state = std::make_shared<subscriber_zero_copy_state>();
 
@@ -366,16 +309,9 @@ errno_t a0_subscriber_zero_copy_init_unmapped(a0_subscriber_zero_copy_t* sub_zc,
   sub_zc->_impl->state->read_next = read_next;
   sub_zc->_impl->state->onmsg = onmsg;
 
-  auto topic_path = unmapped_topic_path(container, topic);
-  a0_shmobj_open(topic_path.c_str(), default_shmobj_options(), &sub_zc->_impl->state->shmobj);
-
   a0_stream_init_status_t init_status;
   a0_locked_stream_t slk;
-  a0_stream_init(&sub_zc->_impl->state->stream,
-                 sub_zc->_impl->state->shmobj,
-                 protocol_info(),
-                 &init_status,
-                 &slk);
+  a0_stream_init(&sub_zc->_impl->state->stream, shmobj, protocol_info(), &init_status, &slk);
 
   if (init_status == A0_STREAM_CREATED) {
     // TODO: Add metadata...
@@ -389,7 +325,6 @@ errno_t a0_subscriber_zero_copy_init_unmapped(a0_subscriber_zero_copy_t* sub_zc,
 
   std::thread t([state = sub_zc->_impl->state]() {
     state->thread_main();
-    a0_shmobj_close(&state->shmobj);
   });
   t.detach();
 
@@ -423,21 +358,11 @@ struct a0_subscriber_impl_s {
 };
 
 errno_t a0_subscriber_init(a0_subscriber_t* sub,
-                           const char* topic,
+                           a0_shmobj_t shmobj,
+                           a0_subscriber_read_start_t read_start,
+                           a0_subscriber_read_next_t read_next,
+                           a0_alloc_t alloc,
                            a0_subscriber_callback_t onmsg) {
-  (void)sub;
-  (void)topic;
-  (void)onmsg;
-  return ENOTSUP;
-}
-
-errno_t a0_subscriber_init_unmapped(a0_subscriber_t* sub,
-                                    const char* container,
-                                    const char* topic,
-                                    a0_subscriber_read_start_t read_start,
-                                    a0_subscriber_read_next_t read_next,
-                                    a0_alloc_t alloc,
-                                    a0_subscriber_callback_t onmsg) {
   sub->_impl = new a0_subscriber_impl_t;
 
   sub->_impl->alloc = alloc;
@@ -457,12 +382,7 @@ errno_t a0_subscriber_init_unmapped(a0_subscriber_t* sub,
           },
   };
 
-  a0_subscriber_zero_copy_init_unmapped(&sub->_impl->sub_zc,
-                                        container,
-                                        topic,
-                                        read_start,
-                                        read_next,
-                                        wrapped_onmsg);
+  a0_subscriber_zero_copy_init(&sub->_impl->sub_zc, shmobj, read_start, read_next, wrapped_onmsg);
 
   return A0_OK;
 }

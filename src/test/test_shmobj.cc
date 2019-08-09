@@ -1,5 +1,7 @@
 #include <a0/shmobj.h>
 
+#include <a0/internal/test_util.hh>
+
 #include <doctest.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -20,14 +22,6 @@ struct ShmObjTestFixture {
     a0_shmobj_unlink(TEST_SHM);
   }
 };
-
-bool is_valgrind() {
-#ifdef RUNNING_ON_VALGRIND
-  return RUNNING_ON_VALGRIND;
-#endif
-  char* env = getenv("RUNNING_ON_VALGRIND");
-  return env && strcmp(env, "0");
-}
 
 TEST_CASE_FIXTURE(ShmObjTestFixture, "Test shared memory objects") {
   a0_shmobj_t shmobj;
