@@ -4,12 +4,7 @@
 
 #include <doctest.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <math.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 static const char* TEST_SHM = "/test.shm";
 

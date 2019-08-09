@@ -1,4 +1,7 @@
+#include <a0/common.h>
+#include <a0/packet.h>
 #include <a0/pubsub.h>
+#include <a0/shmobj.h>
 
 #include <a0/internal/strutil.hh>
 #include <a0/internal/test_util.hh>

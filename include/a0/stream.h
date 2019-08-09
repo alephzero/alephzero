@@ -1,16 +1,9 @@
 #ifndef A0_STREAM_H
 #define A0_STREAM_H
 
-#include <a0/common.h>
-#include <a0/packet.h>
 #include <a0/shmobj.h>
 
-#include <stdalign.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <sys/types.h>
+#include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {

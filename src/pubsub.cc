@@ -3,16 +3,9 @@
 #include <a0/internal/macros.h>
 #include <a0/internal/strutil.hh>
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/eventfd.h>
-#include <unistd.h>
 
-#include <atomic>
-#include <condition_variable>
 #include <mutex>
-#include <string>
 #include <thread>
 
 /////////////////////

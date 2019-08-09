@@ -2,16 +2,12 @@
 
 #include <a0/internal/macros.h>
 
-#include <fcntl.h>
 #include <limits.h>
 #include <linux/futex.h>
-#include <pthread.h>
-#include <stdbool.h>
+#include <stdalign.h>
 #include <stddef.h>
-#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 

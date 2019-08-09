@@ -1,6 +1,5 @@
 #include <a0/packet.h>
 
-#include <stdio.h>
 #include <string.h>
 
 errno_t a0_packet_num_headers(a0_packet_t pkt, size_t* out) {
