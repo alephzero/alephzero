@@ -31,6 +31,9 @@ DEBUG ?= 0
 ifeq ($(DEBUG), 1)
     CFLAGS += -O0 -g3 -ggdb3
     CXXFLAGS += -O0 -g3 -ggdb3
+else
+    CFLAGS += -O2
+    CXXFLAGS += -O2
 endif
 
 ifeq ($(PREFIX),)
