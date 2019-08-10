@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include <mutex>
+#include <random>
 #include <thread>
 
 /////////////////////
@@ -46,6 +47,14 @@ a0_stream_protocol_t protocol_info() {
   protocol.patch_version = patch_version;
   protocol.metadata_size = 0;
   return protocol;
+}
+
+void uuidv4(char out[16]) {
+  static std::random_device rd;
+  static std::uniform_int_distribution<uint64_t> dist;
+
+  *(uint64_t*)&out[0] = (dist(rd) & 0xFFFFFFFFFFFF0FFFULL) | 0x0000000000004000ULL;
+  *(uint64_t*)&out[8] = (dist(rd) & 0x3FFFFFFFFFFFFFFFULL) | 0x8000000000000000ULL;
 }
 
 }  // namespace
@@ -91,11 +100,86 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
     return ESHUTDOWN;
   }
 
+  // TODO: Move "a0_uid" at packet build time to make references easier.
+  constexpr size_t num_extra_headers = 2;
+  std::pair<std::string, std::string> extra_headers[num_extra_headers] = {
+      {"a0_uid", "0000000000000000"},
+      {"a0_pub_clock", "00000000"},
+  };
+  uuidv4((char*)extra_headers[0].second.c_str());
+  *(uint64_t*)extra_headers[1].second.c_str() =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+          std::chrono::steady_clock::now().time_since_epoch())
+          .count();
+
+  size_t expanded_pkt_size = pkt.size;
+  for (auto&& kv : extra_headers) {
+    expanded_pkt_size += sizeof(size_t) + kv.first.size() + sizeof(size_t) + kv.second.size();
+  }
+
   sync_stream_t ss{&pub->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     a0_stream_frame_t frame;
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_alloc(slk, pkt.size, &frame));
-    memcpy(frame.data.ptr, (uint8_t*)pkt.ptr, pkt.size);
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_alloc(slk, expanded_pkt_size, &frame));
+
+    // Offsets into the pkt (r=read ptr) and frame data (w=write ptr).
+    size_t roff = 0;
+    size_t woff = 0;
+
+    // Number of headers.
+    size_t orig_num_headers = *(size_t*)(pkt.ptr + roff);
+    size_t total_num_headers = orig_num_headers + num_extra_headers;
+
+    // Write in the new header count.
+    *(size_t*)(frame.data.ptr + woff) = total_num_headers;
+
+    roff += sizeof(size_t);
+    woff += sizeof(size_t);
+
+    // Offset for the index table.
+    size_t idx_roff = roff;
+    size_t idx_woff = woff;
+
+    // Update offsets past the end of the index table.
+    roff += 2 * orig_num_headers * sizeof(size_t) + sizeof(size_t);
+    woff += 2 * total_num_headers * sizeof(size_t) + sizeof(size_t);
+
+    // Add extra headers.
+    for (size_t i = 0; i < num_extra_headers; i++) {
+      // Key offset.
+      *(size_t*)(frame.data.ptr + idx_woff) = woff;
+      idx_woff += sizeof(size_t);
+
+      // Key content.
+      memcpy(frame.data.ptr + woff, extra_headers[i].first.c_str(), extra_headers[i].first.size());
+      woff += extra_headers[i].first.size();
+
+      // Val offset.
+      *(size_t*)(frame.data.ptr + idx_woff) = woff;
+      idx_woff += sizeof(size_t);
+
+      // Val content.
+      memcpy(frame.data.ptr + woff,
+             extra_headers[i].second.c_str(),
+             extra_headers[i].second.size());
+      woff += extra_headers[i].second.size();
+    }
+
+    // Add offsets for existing headers.
+    for (size_t i = 0; i < 2 * orig_num_headers; i++) {
+      *(size_t*)(frame.data.ptr + idx_woff) =
+          woff + *(size_t*)(pkt.ptr + idx_roff) - *(size_t*)(pkt.ptr + sizeof(size_t));
+      idx_woff += sizeof(size_t);
+      idx_roff += sizeof(size_t);
+    }
+
+    // Add offset for payload.
+    *(size_t*)(frame.data.ptr + idx_woff) =
+        woff + *(size_t*)(pkt.ptr + idx_roff) - *(size_t*)(pkt.ptr + sizeof(size_t));
+
+    // Copy existing headers + payload.
+    memcpy(frame.data.ptr + woff, pkt.ptr + roff, pkt.size - roff);
+
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
     return A0_OK;
   });
