@@ -94,7 +94,7 @@ test: $(BIN_DIR)/test
 	$(BIN_DIR)/test
 
 valgrind: $(BIN_DIR)/test
-	@command -v valgrind >/dev/null 2>&1 || {                   \
+	@command -v valgrind >/dev/null 2>&1 || {                       \
 		echo "\e[01;31mError: valgrind is not installed\e[0m";  \
 		exit 1;                                                 \
 	}

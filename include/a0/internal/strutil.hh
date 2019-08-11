@@ -6,12 +6,16 @@
 namespace a0 {
 
 struct strutil {
+  // Doesn't work with C++17 in g++ 5.4.0, shipped with ubuntu:xenial.
+  /*
   template <typename... Arg>
   static std::string cat(Arg&&... arg) {
     std::ostringstream ss;
     ((ss << std::forward<Arg>(arg)), ...);
     return ss.str();
   }
+  */
+
 
   template <typename Container>
   static std::string join(Container c) {
