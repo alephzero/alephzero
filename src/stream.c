@@ -300,11 +300,17 @@ errno_t a0_stream_next(a0_locked_stream_t lk) {
 
 errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_t, bool*)) {
   a0_fcl_hdr_t* hdr = (a0_fcl_hdr_t*)lk.stream->_shmobj.ptr;
-  errno_t err = A0_OK;
 
   if (lk.stream->_closing) {
     return ESHUTDOWN;
   }
+
+  bool sat = false;
+  errno_t err = pred(lk, &sat);
+  if (err || sat) {
+    return err;
+  }
+
   pthread_mutex_lock(&lk.stream->_await_mu);
   lk.stream->_await_cnt++;
   pthread_mutex_unlock(&lk.stream->_await_mu);
@@ -315,7 +321,6 @@ errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_
       break;
     }
 
-    bool sat;
     err = pred(lk, &sat);
     if (err || sat) {
       break;
