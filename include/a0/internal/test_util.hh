@@ -15,8 +15,8 @@ inline a0_buf_t buf(std::string str) {
     mem.insert(str);
   }
   return a0_buf_t{
-    .ptr = (uint8_t*)mem.find(str)->c_str(),
-    .size = str.size(),
+      .ptr = (uint8_t*)mem.find(str)->c_str(),
+      .size = str.size(),
   };
 }
 

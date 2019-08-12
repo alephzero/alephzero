@@ -1,7 +1,9 @@
 #include <a0/pubsub.h>
 
 #include <a0/internal/macros.h>
+#include <a0/internal/stream_thread.hh>
 #include <a0/internal/strutil.hh>
+#include <a0/internal/sync_stream.hh>
 
 #include <string.h>
 
@@ -13,50 +15,32 @@
 //  Pubsub Common  //
 /////////////////////
 
-namespace {
-
-static const char A0_PUBSUB_PROTOCOL_NAME[] = "a0_pubsub";
-static const uint32_t major_version = 0;
-static const uint32_t minor_version = 1;
-static const uint32_t patch_version = 0;
-
-struct sync_stream_t {
-  a0_stream_t* stream{nullptr};
-
-  template <typename Fn>
-  auto with_lock(Fn&& fn) {
-    struct guard {
-      a0_locked_stream_t lk;
-      guard(a0_stream_t* stream) {
-        a0_lock_stream(stream, &lk);
-      }
-      ~guard() {
-        a0_unlock_stream(lk);
-      }
-    } scope(stream);
-    return fn(scope.lk);
-  }
-};
-
+A0_STATIC_INLINE
 a0_stream_protocol_t protocol_info() {
-  a0_stream_protocol_t protocol;
-  protocol.name.size = sizeof(A0_PUBSUB_PROTOCOL_NAME);
-  protocol.name.ptr = (uint8_t*)A0_PUBSUB_PROTOCOL_NAME;
-  protocol.major_version = major_version;
-  protocol.minor_version = minor_version;
-  protocol.patch_version = patch_version;
-  protocol.metadata_size = 0;
+  static a0_stream_protocol_t protocol = []() {
+    static const char PROTOCOL_NAME[] = "a0_pubsub";
+
+    a0_stream_protocol_t p;
+    p.name.size = strlen(PROTOCOL_NAME);
+    p.name.ptr = (uint8_t*)PROTOCOL_NAME;
+
+    p.major_version = 0;
+    p.minor_version = 1;
+    p.patch_version = 0;
+
+    p.metadata_size = 0;
+
+    return p;
+  }();
+
   return protocol;
 }
-
-}  // namespace
 
 /////////////////
 //  Publisher  //
 /////////////////
 
 struct a0_publisher_impl_s {
-  a0_shmobj_t shmobj;
   a0_stream_t stream;
 };
 
@@ -95,8 +79,8 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
   constexpr size_t extra_headers = 2;
   static const char clock_key[] = "a0_pub_clock";
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
-          std::chrono::steady_clock::now().time_since_epoch())
-          .count();
+                           std::chrono::steady_clock::now().time_since_epoch())
+                           .count();
   static const char seq_key[] = "a0_stream_seq";
   uint64_t seq_val = 0;  // Get from frame below.
 
@@ -104,7 +88,7 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
   expanded_pkt_size += sizeof(size_t) + strlen(clock_key) + sizeof(size_t) + sizeof(clock_val);
   expanded_pkt_size += sizeof(size_t) + strlen(seq_key) + sizeof(size_t) + sizeof(seq_val);
 
-  sync_stream_t ss{&pub->_impl->stream};
+  a0::sync_stream_t ss{&pub->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     a0_stream_frame_t frame;
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_alloc(slk, expanded_pkt_size, &frame));
@@ -233,7 +217,7 @@ errno_t a0_subscriber_sync_has_next(a0_subscriber_sync_t* sub_sync, bool* has_ne
     return ESHUTDOWN;
   }
 
-  sync_stream_t ss{&sub_sync->_impl->stream};
+  a0::sync_stream_t ss{&sub_sync->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     return a0_stream_has_next(slk, has_next);
   });
@@ -245,7 +229,7 @@ errno_t a0_subscriber_sync_next_zero_copy(a0_subscriber_sync_t* sub_sync,
     return ESHUTDOWN;
   }
 
-  sync_stream_t ss{&sub_sync->_impl->stream};
+  a0::sync_stream_t ss{&sub_sync->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     if (!sub_sync->_impl->read_first) {
       if (sub_sync->_impl->read_start == A0_READ_START_EARLIEST) {
@@ -294,82 +278,8 @@ errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync,
 
 // Zero-copy multi-threaded version.
 
-namespace {
-
-struct subscriber_zero_copy_state {
-  a0_stream_t stream;
-  a0_subscriber_read_start_t read_start;
-  a0_subscriber_read_next_t read_next;
-  a0_stream_frame_t frame;
-  a0_zero_copy_callback_t onmsg;
-
-  a0_callback_t onclose;
-  std::mutex mu;
-
-  void read_current_packet(a0_locked_stream_t slk) {
-    a0_stream_frame(slk, &frame);
-    onmsg.fn(onmsg.user_data, slk, frame.data);
-  }
-
-  bool handle_first_pkt() {
-    sync_stream_t ss{&stream};
-    return ss.with_lock([&](a0_locked_stream_t slk) {
-      if (a0_stream_await(slk, a0_stream_nonempty)) {
-        return false;
-      }
-
-      if (read_start == A0_READ_START_EARLIEST) {
-        a0_stream_jump_head(slk);
-        read_current_packet(slk);
-      } else if (read_start == A0_READ_START_LATEST) {
-        a0_stream_jump_tail(slk);
-        read_current_packet(slk);
-      } else if (read_start == A0_READ_START_NEW) {
-        a0_stream_jump_tail(slk);
-      }
-
-      return true;
-    });
-  }
-
-  bool handle_next_pkt() {
-    sync_stream_t ss{&stream};
-    return ss.with_lock([&](a0_locked_stream_t slk) {
-      if (a0_stream_await(slk, a0_stream_has_next)) {
-        return false;
-      }
-
-      if (read_next == A0_READ_NEXT_SEQUENTIAL) {
-        a0_stream_next(slk);
-      } else if (read_next == A0_READ_NEXT_RECENT) {
-        a0_stream_jump_tail(slk);
-      }
-
-      read_current_packet(slk);
-
-      return true;
-    });
-  }
-
-  void thread_main() {
-    if (handle_first_pkt()) {
-      while (handle_next_pkt())
-        ;
-    }
-
-    {
-      std::unique_lock<std::mutex> lk{mu};
-      if (onclose.fn) {
-        onclose.fn(onclose.user_data);
-      }
-    }
-  }
-};
-
-}  // namespace
-
 struct a0_subscriber_zero_copy_impl_s {
-  std::shared_ptr<subscriber_zero_copy_state> state;
+  a0::stream_thread st;
 };
 
 errno_t a0_subscriber_zero_copy_init(a0_subscriber_zero_copy_t* sub_zc,
@@ -378,47 +288,54 @@ errno_t a0_subscriber_zero_copy_init(a0_subscriber_zero_copy_t* sub_zc,
                                      a0_subscriber_read_next_t read_next,
                                      a0_zero_copy_callback_t onmsg) {
   sub_zc->_impl = new a0_subscriber_zero_copy_impl_t;
-  sub_zc->_impl->state = std::make_shared<subscriber_zero_copy_state>();
 
-  sub_zc->_impl->state->read_start = read_start;
-  sub_zc->_impl->state->read_next = read_next;
-  sub_zc->_impl->state->onmsg = onmsg;
+  auto on_stream_init = [](a0_locked_stream_t, a0_stream_init_status_t) -> errno_t {
+    // TODO
+    return A0_OK;
+  };
 
-  a0_stream_init_status_t init_status;
-  a0_locked_stream_t slk;
-  a0_stream_init(&sub_zc->_impl->state->stream, shmobj, protocol_info(), &init_status, &slk);
+  auto read_current_packet = [onmsg](a0_locked_stream_t slk) {
+    a0_stream_frame_t frame;
+    a0_stream_frame(slk, &frame);
+    onmsg.fn(onmsg.user_data, slk, frame.data);
+  };
 
-  if (init_status == A0_STREAM_CREATED) {
-    // TODO: Add metadata...
-  }
+  auto on_stream_nonempty = [read_start, read_current_packet](a0_locked_stream_t slk) {
+    if (read_start == A0_READ_START_EARLIEST) {
+      a0_stream_jump_head(slk);
+      read_current_packet(slk);
+    } else if (read_start == A0_READ_START_LATEST) {
+      a0_stream_jump_tail(slk);
+      read_current_packet(slk);
+    } else if (read_start == A0_READ_START_NEW) {
+      a0_stream_jump_tail(slk);
+    }
+  };
 
-  a0_unlock_stream(slk);
+  auto on_stream_hasnext = [read_next, read_current_packet](a0_locked_stream_t slk) {
+    if (read_next == A0_READ_NEXT_SEQUENTIAL) {
+      a0_stream_next(slk);
+    } else if (read_next == A0_READ_NEXT_RECENT) {
+      a0_stream_jump_tail(slk);
+    }
 
-  if (init_status == A0_STREAM_PROTOCOL_MISMATCH) {
-    // TODO: Report error?
-  }
+    read_current_packet(slk);
+  };
 
-  std::thread t([state = sub_zc->_impl->state]() {
-    state->thread_main();
-  });
-  t.detach();
-
-  return A0_OK;
+  return sub_zc->_impl->st.init(shmobj,
+                                protocol_info(),
+                                on_stream_init,
+                                on_stream_nonempty,
+                                on_stream_hasnext);
 }
 
 errno_t a0_subscriber_zero_copy_close(a0_subscriber_zero_copy_t* sub_zc, a0_callback_t onclose) {
-  if (!sub_zc->_impl || !sub_zc->_impl->state) {
+  if (!sub_zc->_impl) {
     return ESHUTDOWN;
   }
 
-  auto state = sub_zc->_impl->state;
+  sub_zc->_impl->st.close(onclose);
   delete sub_zc->_impl;
-  sub_zc->_impl = nullptr;
-  {
-    std::unique_lock<std::mutex> lk{state->mu};
-    state->onclose = onclose;
-  }
-  a0_stream_close(&state->stream);
   return A0_OK;
 }
 

@@ -3,6 +3,7 @@
 #include <a0/internal/test_util.hh>
 
 #include <doctest.h>
+
 #include <map>
 
 TEST_CASE("Test packet") {

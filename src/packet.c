@@ -75,8 +75,8 @@ errno_t a0_packet_build(size_t num_headers,
     size_t size = sizeof(size_t);                // Num headers.
     size += 2 * total_headers * sizeof(size_t);  // Header offsets.
     size += sizeof(size_t);                      // Payload offset.
-    size += strlen(id_key);  // Uid key.
-    size += sizeof(uid_val);  // Uid val.
+    size += strlen(id_key);                      // Uid key.
+    size += sizeof(uid_val);                     // Uid val.
     for (size_t i = 0; i < num_headers; i++) {
       size += headers[i].key.size;  // Key content.
       size += headers[i].val.size;  // Val content.

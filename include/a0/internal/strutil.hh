@@ -16,7 +16,6 @@ struct strutil {
   }
   */
 
-
   template <typename Container>
   static std::string join(Container c) {
     std::ostringstream ss;
