@@ -5,5 +5,5 @@ RUN apk add --no-cache g++ linux-headers make
 COPY . /alephzero
 WORKDIR /alephzero
 
-CMD ["make", "test"]
+CMD ["make", "test", "-j"]
 

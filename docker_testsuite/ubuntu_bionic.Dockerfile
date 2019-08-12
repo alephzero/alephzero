@@ -8,5 +8,5 @@ RUN apt update && apt install -y \
 COPY . /alephzero
 WORKDIR /alephzero
 
-CMD ["make", "test"]
+CMD ["make", "test", "-j"]
 

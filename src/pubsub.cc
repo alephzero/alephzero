@@ -49,14 +49,6 @@ a0_stream_protocol_t protocol_info() {
   return protocol;
 }
 
-void uuidv4(char out[16]) {
-  static std::random_device rd;
-  static std::uniform_int_distribution<uint64_t> dist;
-
-  *(uint64_t*)&out[0] = (dist(rd) & 0xFFFFFFFFFFFF0FFFULL) | 0x0000000000004000ULL;
-  *(uint64_t*)&out[8] = (dist(rd) & 0x3FFFFFFFFFFFFFFFULL) | 0x8000000000000000ULL;
-}
-
 }  // namespace
 
 /////////////////
@@ -100,27 +92,24 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
     return ESHUTDOWN;
   }
 
-  // TODO: Move "a0_uid" at packet build time to make references easier.
-  constexpr size_t num_extra_headers = 2;
-  std::pair<std::string, std::string> extra_headers[num_extra_headers] = {
-      {"a0_uid", "0000000000000000"},
-      {"a0_pub_clock", "00000000"},
-  };
-  uuidv4((char*)extra_headers[0].second.c_str());
-  *(uint64_t*)extra_headers[1].second.c_str() =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(
+  constexpr size_t extra_headers = 2;
+  static const char clock_key[] = "a0_pub_clock";
+  uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
           std::chrono::steady_clock::now().time_since_epoch())
           .count();
+  static const char seq_key[] = "a0_stream_seq";
+  uint64_t seq_val = 0;  // Get from frame below.
 
   size_t expanded_pkt_size = pkt.size;
-  for (auto&& kv : extra_headers) {
-    expanded_pkt_size += sizeof(size_t) + kv.first.size() + sizeof(size_t) + kv.second.size();
-  }
+  expanded_pkt_size += sizeof(size_t) + strlen(clock_key) + sizeof(size_t) + sizeof(clock_val);
+  expanded_pkt_size += sizeof(size_t) + strlen(seq_key) + sizeof(size_t) + sizeof(seq_val);
 
   sync_stream_t ss{&pub->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     a0_stream_frame_t frame;
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_alloc(slk, expanded_pkt_size, &frame));
+
+    seq_val = frame.hdr.seq;
 
     // Offsets into the pkt (r=read ptr) and frame data (w=write ptr).
     size_t roff = 0;
@@ -128,7 +117,7 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
 
     // Number of headers.
     size_t orig_num_headers = *(size_t*)(pkt.ptr + roff);
-    size_t total_num_headers = orig_num_headers + num_extra_headers;
+    size_t total_num_headers = orig_num_headers + extra_headers;
 
     // Write in the new header count.
     *(size_t*)(frame.data.ptr + woff) = total_num_headers;
@@ -145,25 +134,34 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
     woff += 2 * total_num_headers * sizeof(size_t) + sizeof(size_t);
 
     // Add extra headers.
-    for (size_t i = 0; i < num_extra_headers; i++) {
-      // Key offset.
-      *(size_t*)(frame.data.ptr + idx_woff) = woff;
-      idx_woff += sizeof(size_t);
 
-      // Key content.
-      memcpy(frame.data.ptr + woff, extra_headers[i].first.c_str(), extra_headers[i].first.size());
-      woff += extra_headers[i].first.size();
+    // Clock key.
+    *(size_t*)(frame.data.ptr + idx_woff) = woff;
+    idx_woff += sizeof(size_t);
 
-      // Val offset.
-      *(size_t*)(frame.data.ptr + idx_woff) = woff;
-      idx_woff += sizeof(size_t);
+    memcpy(frame.data.ptr + woff, clock_key, strlen(clock_key));
+    woff += strlen(clock_key);
 
-      // Val content.
-      memcpy(frame.data.ptr + woff,
-             extra_headers[i].second.c_str(),
-             extra_headers[i].second.size());
-      woff += extra_headers[i].second.size();
-    }
+    // Clock val.
+    *(size_t*)(frame.data.ptr + idx_woff) = woff;
+    idx_woff += sizeof(size_t);
+
+    *(uint64_t*)(frame.data.ptr + woff) = clock_val;
+    woff += sizeof(uint64_t);
+
+    // Sequence key.
+    *(size_t*)(frame.data.ptr + idx_woff) = woff;
+    idx_woff += sizeof(size_t);
+
+    memcpy(frame.data.ptr + woff, seq_key, strlen(seq_key));
+    woff += strlen(seq_key);
+
+    // Sequence val.
+    *(size_t*)(frame.data.ptr + idx_woff) = woff;
+    idx_woff += sizeof(size_t);
+
+    *(uint64_t*)(frame.data.ptr + woff) = seq_val;
+    woff += sizeof(uint64_t);
 
     // Add offsets for existing headers.
     for (size_t i = 0; i < 2 * orig_num_headers; i++) {
@@ -430,7 +428,7 @@ struct a0_subscriber_impl_s {
   a0_subscriber_zero_copy_t sub_zc;
 
   a0_alloc_t alloc;
-  a0_subscriber_callback_t user_onmsg;
+  a0_packet_callback_t user_onmsg;
   a0_callback_t user_onclose;
 };
 
@@ -439,7 +437,7 @@ errno_t a0_subscriber_init(a0_subscriber_t* sub,
                            a0_subscriber_read_start_t read_start,
                            a0_subscriber_read_next_t read_next,
                            a0_alloc_t alloc,
-                           a0_subscriber_callback_t onmsg) {
+                           a0_packet_callback_t onmsg) {
   sub->_impl = new a0_subscriber_impl_t;
 
   sub->_impl->alloc = alloc;

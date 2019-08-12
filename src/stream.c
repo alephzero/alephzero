@@ -371,7 +371,7 @@ bool a0_fcl_intersects(fcl_off_t elem1_start,
                        size_t elem2_size) {
   fcl_off_t elem1_end = elem1_start + elem1_size;
   fcl_off_t elem2_end = elem2_start + elem2_size;
-  return (elem1_start <= elem2_end) && (elem2_start <= elem1_end);
+  return (elem1_start < elem2_end) && (elem2_start < elem1_end);
 }
 
 A0_STATIC_INLINE

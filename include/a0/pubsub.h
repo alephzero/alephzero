@@ -79,11 +79,6 @@ errno_t a0_subscriber_zero_copy_close(a0_subscriber_zero_copy_t*, a0_callback_t)
 
 // Multi-threaded version.
 
-typedef struct a0_subscriber_callback_s {
-  void* user_data;
-  void (*fn)(void* user_data, a0_packet_t);
-} a0_subscriber_callback_t;
-
 typedef struct a0_subscriber_impl_s a0_subscriber_impl_t;
 
 typedef struct a0_subscriber_s {
@@ -95,7 +90,7 @@ errno_t a0_subscriber_init(a0_subscriber_t*,
                            a0_subscriber_read_start_t,
                            a0_subscriber_read_next_t,
                            a0_alloc_t,
-                           a0_subscriber_callback_t);
+                           a0_packet_callback_t);
 
 errno_t a0_subscriber_close(a0_subscriber_t*, a0_callback_t);
 

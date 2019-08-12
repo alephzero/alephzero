@@ -1,6 +1,11 @@
 #include <a0/packet.h>
 
+#include <a0/internal/macros.h>
+#include <a0/internal/rand.h>
+
 #include <string.h>
+
+static const char id_key[] = "a0_id";
 
 errno_t a0_packet_num_headers(a0_packet_t pkt, size_t* out) {
   *out = *(size_t*)pkt.ptr;
@@ -30,16 +35,48 @@ errno_t a0_packet_payload(a0_packet_t pkt, a0_buf_t* out) {
   return A0_OK;
 }
 
+errno_t a0_packet_id(a0_packet_t pkt, a0_packet_id_t* out) {
+  size_t num_hdrs = 0;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_num_headers(pkt, &num_hdrs));
+  for (size_t i = 0; i < num_hdrs; i++) {
+    a0_packet_header_t hdr;
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_header(pkt, i, &hdr));
+    if (!strncmp(id_key, (char*)hdr.key.ptr, strlen(id_key))) {
+      // Note: use memcpy, because memory in pkt hdrs is not aligned.
+      memcpy(out, hdr.val.ptr, sizeof(a0_packet_id_t));
+      return A0_OK;
+    }
+  }
+  return EINVAL;
+}
+
+A0_STATIC_INLINE
+a0_packet_id_t uuidv4() {
+  a0_packet_id_t id = a0_mrand48();
+  id |= (a0_packet_id_t)((a0_mrand48() & 0xFFFF0FFF) | 0x00004000) << 32;
+  id |= (a0_packet_id_t)((a0_mrand48() & 0x3FFFFFFF) | 0x80000000) << 64;
+  id |= (a0_packet_id_t)(a0_mrand48()) << 96;
+  return id;
+}
+
 errno_t a0_packet_build(size_t num_headers,
                         a0_packet_header_t* headers,
                         a0_buf_t payload,
                         a0_alloc_t alloc,
                         a0_packet_t* out) {
+  // Add in a uuid.
+  static const size_t extra_headers = 1;
+  a0_packet_id_t uid_val = uuidv4();
+
+  size_t total_headers = num_headers + extra_headers;
+
   // Alloc out space.
   {
-    size_t size = sizeof(size_t);              // Num headers.
-    size += 2 * num_headers * sizeof(size_t);  // Header offsets.
-    size += sizeof(size_t);                    // Payload offset.
+    size_t size = sizeof(size_t);                // Num headers.
+    size += 2 * total_headers * sizeof(size_t);  // Header offsets.
+    size += sizeof(size_t);                      // Payload offset.
+    size += strlen(id_key);  // Uid key.
+    size += sizeof(uid_val);  // Uid val.
     for (size_t i = 0; i < num_headers; i++) {
       size += headers[i].key.size;  // Key content.
       size += headers[i].val.size;  // Val content.
@@ -52,11 +89,29 @@ errno_t a0_packet_build(size_t num_headers,
   size_t off = 0;
 
   // Number of headers.
-  *(size_t*)(out->ptr + off) = num_headers;
+  *(size_t*)(out->ptr + off) = total_headers;
   off += sizeof(size_t);
 
   size_t idx_off = off;
-  off += 2 * num_headers * sizeof(size_t) + sizeof(size_t);
+  off += 2 * total_headers * sizeof(size_t) + sizeof(size_t);
+
+  // Add special headers first.
+
+  // Uid key offset.
+  *(size_t*)(out->ptr + idx_off) = off;
+  idx_off += sizeof(size_t);
+
+  // Uid key content.
+  memcpy(out->ptr + off, id_key, strlen(id_key));
+  off += strlen(id_key);
+
+  // Uid val offset.
+  *(size_t*)(out->ptr + idx_off) = off;
+  idx_off += sizeof(size_t);
+
+  // Uid val content.
+  memcpy(out->ptr + off, &uid_val, sizeof(a0_packet_id_t));
+  off += sizeof(a0_packet_id_t);
 
   // For each header.
   for (size_t i = 0; i < num_headers; i++) {

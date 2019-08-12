@@ -105,11 +105,11 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       a0_packet_t pkt;
       REQUIRE(a0_subscriber_sync_next(&sub, alloc, &pkt) == A0_OK);
-      REQUIRE(pkt.size == 118);
+      REQUIRE(pkt.size == 154);
 
       size_t num_headers;
       REQUIRE(a0_packet_num_headers(pkt, &num_headers) == A0_OK);
-      REQUIRE(num_headers == 3);
+      REQUIRE(num_headers == 4);
 
       std::map<std::string, std::string> hdrs;
       for (size_t i = 0; i < num_headers; i++) {
@@ -118,8 +118,9 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
         hdrs[str(pkt_hdr.key)] = str(pkt_hdr.val);
       }
       REQUIRE(hdrs.count("key"));
-      REQUIRE(hdrs.count("a0_uid"));
+      REQUIRE(hdrs.count("a0_id"));
       REQUIRE(hdrs.count("a0_pub_clock"));
+      REQUIRE(hdrs.count("a0_stream_seq"));
 
       a0_buf_t payload;
       REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
@@ -127,12 +128,13 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       REQUIRE(str(payload) == "msg #0");
 
       REQUIRE(hdrs["key"] == "val");
-      REQUIRE(hdrs["a0_uid"].size() == 16);
+      REQUIRE(hdrs["a0_id"].size() == 16);
       REQUIRE(hdrs["a0_pub_clock"].size() == 8);
       REQUIRE(*(uint64_t*)hdrs["a0_pub_clock"].c_str() <
               std::chrono::duration_cast<std::chrono::nanoseconds>(
                   std::chrono::steady_clock::now().time_since_epoch())
                   .count());
+      REQUIRE(*(uint64_t*)hdrs["a0_stream_seq"].c_str() == 1);
     }
 
     {
@@ -142,7 +144,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       a0_packet_t pkt;
       REQUIRE(a0_subscriber_sync_next(&sub, alloc, &pkt) == A0_OK);
-      REQUIRE(pkt.size == 118);
+      REQUIRE(pkt.size == 154);
 
       a0_buf_t payload;
       REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
@@ -179,7 +181,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       a0_packet_t pkt;
       REQUIRE(a0_subscriber_sync_next(&sub, alloc, &pkt) == A0_OK);
-      REQUIRE(pkt.size == 118);
+      REQUIRE(pkt.size == 154);
 
       a0_buf_t payload;
       REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
@@ -231,7 +233,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
       std::condition_variable cv;
     } data;
 
-    a0_subscriber_callback_t cb = {
+    a0_packet_callback_t cb = {
         .user_data = &data,
         .fn =
             [](void* vp, a0_packet_t pkt) {
