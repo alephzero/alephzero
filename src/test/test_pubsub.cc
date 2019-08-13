@@ -105,7 +105,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       a0_packet_t pkt;
       REQUIRE(a0_subscriber_sync_next(&sub, alloc, &pkt) == A0_OK);
-      REQUIRE(pkt.size == 154);
+      REQUIRE(pkt.size == 174);
 
       size_t num_headers;
       REQUIRE(a0_packet_num_headers(pkt, &num_headers) == A0_OK);
@@ -128,7 +128,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       REQUIRE(str(payload) == "msg #0");
 
       REQUIRE(hdrs["key"] == "val");
-      REQUIRE(hdrs["a0_id"].size() == 16);
+      REQUIRE(hdrs["a0_id"].size() == 36);
       REQUIRE(hdrs["a0_pub_clock"].size() == 8);
       REQUIRE(*(uint64_t*)hdrs["a0_pub_clock"].c_str() <
               std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -144,7 +144,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       a0_packet_t pkt;
       REQUIRE(a0_subscriber_sync_next(&sub, alloc, &pkt) == A0_OK);
-      REQUIRE(pkt.size == 154);
+      REQUIRE(pkt.size == 174);
 
       a0_buf_t payload;
       REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
@@ -181,7 +181,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       a0_packet_t pkt;
       REQUIRE(a0_subscriber_sync_next(&sub, alloc, &pkt) == A0_OK);
-      REQUIRE(pkt.size == 154);
+      REQUIRE(pkt.size == 174);
 
       a0_buf_t payload;
       REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);

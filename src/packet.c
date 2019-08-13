@@ -3,9 +3,26 @@
 #include <a0/internal/macros.h>
 #include <a0/internal/rand.h>
 
+#include <stdio.h>
 #include <string.h>
 
-static const char id_key[] = "a0_id";
+static const char kIdKey[] = "a0_id";
+static const char kDepKey[] = "a0_dep";
+static const size_t kUuidSize = 36;
+
+a0_buf_t a0_packet_id_key() {
+  return (a0_buf_t){
+      .ptr = (uint8_t*)kIdKey,
+      .size = strlen(kIdKey),
+  };
+}
+
+a0_buf_t a0_packet_dep_key() {
+  return (a0_buf_t){
+      .ptr = (uint8_t*)kDepKey,
+      .size = strlen(kDepKey),
+  };
+}
 
 errno_t a0_packet_num_headers(a0_packet_t pkt, size_t* out) {
   *out = *(size_t*)pkt.ptr;
@@ -13,14 +30,19 @@ errno_t a0_packet_num_headers(a0_packet_t pkt, size_t* out) {
 }
 
 errno_t a0_packet_header(a0_packet_t pkt, size_t hdr_idx, a0_packet_header_t* out) {
+  // TODO: Verify enough headers.
   size_t key_off = *(size_t*)(pkt.ptr + (sizeof(size_t) + (2 * hdr_idx + 0) * sizeof(size_t)));
   size_t val_off = *(size_t*)(pkt.ptr + (sizeof(size_t) + (2 * hdr_idx + 1) * sizeof(size_t)));
   size_t next_off = *(size_t*)(pkt.ptr + (sizeof(size_t) + (2 * hdr_idx + 2) * sizeof(size_t)));
 
-  out->key.size = val_off - key_off;
-  out->key.ptr = pkt.ptr + key_off;
-  out->val.size = next_off - val_off;
-  out->val.ptr = pkt.ptr + val_off;
+  out->key = (a0_buf_t){
+      .ptr = pkt.ptr + key_off,
+      .size = val_off - key_off,
+  };
+  out->val = (a0_buf_t){
+      .ptr = pkt.ptr + val_off,
+      .size = next_off - val_off,
+  };
 
   return A0_OK;
 }
@@ -29,34 +51,77 @@ errno_t a0_packet_payload(a0_packet_t pkt, a0_buf_t* out) {
   size_t num_header = *(size_t*)pkt.ptr;
   size_t payload_off = *(size_t*)(pkt.ptr + sizeof(size_t) + (2 * num_header) * sizeof(size_t));
 
-  out->size = pkt.size - payload_off;
-  out->ptr = pkt.ptr + payload_off;
+  *out = (a0_buf_t){
+      .ptr = pkt.ptr + payload_off,
+      .size = pkt.size - payload_off,
+  };
 
   return A0_OK;
 }
 
-errno_t a0_packet_id(a0_packet_t pkt, a0_packet_id_t* out) {
+errno_t a0_packet_id(a0_packet_t pkt, a0_buf_t* out) {
   size_t num_hdrs = 0;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_num_headers(pkt, &num_hdrs));
   for (size_t i = 0; i < num_hdrs; i++) {
     a0_packet_header_t hdr;
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_header(pkt, i, &hdr));
-    if (!strncmp(id_key, (char*)hdr.key.ptr, strlen(id_key))) {
-      // Note: use memcpy, because memory in pkt hdrs is not aligned.
-      memcpy(out, hdr.val.ptr, sizeof(a0_packet_id_t));
+    if (!strncmp(kIdKey, (char*)hdr.key.ptr, strlen(kIdKey))) {
+      *out = hdr.val;
       return A0_OK;
     }
   }
   return EINVAL;
 }
 
-// A0_STATIC_INLINE
-a0_packet_id_t uuidv4() {
-  a0_packet_id_t id = a0_mrand48();
-  id |= (a0_packet_id_t)((a0_mrand48() & 0xFFFF0FFF) | 0x00004000) << 32;
-  id |= (a0_packet_id_t)((a0_mrand48() & 0x3FFFFFFF) | 0x80000000) << 64;
-  id |= (a0_packet_id_t)(a0_mrand48()) << 96;
-  return id;
+static const char kHexDigits[] =
+    "000102030405060708090A0B0C0D0E0F"
+    "101112131415161718191A1B1C1D1E1F"
+    "202122232425262728292A2B2C2D2E2F"
+    "303132333435363738393A3B3C3D3E3F"
+    "404142434445464748494A4B4C4D4E4F"
+    "505152535455565758595A5B5C5D5E5F"
+    "606162636465666768696A6B6C6D6E6F"
+    "707172737475767778797A7B7C7D7E7F"
+    "808182838485868788898A8B8C8D8E8F"
+    "909192939495969798999A9B9C9D9E9F"
+    "A0A1A2A3A4A5A6A7A8A9AAABACADAEAF"
+    "B0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF"
+    "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF"
+    "D0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF"
+    "E0E1E2E3E4E5E6E7E8E9EAEBECEDEEEF"
+    "F0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF";
+
+A0_STATIC_INLINE
+void uuidv4(uint8_t out[36]) {
+  uint32_t data[4] = {
+      (uint32_t)mrand48(),
+      ((uint32_t)mrand48() & 0xFF0FFFFF) | 0x00400000,
+      ((uint32_t)mrand48() & 0xFFFFFF3F) | 0x00000080,
+      (uint32_t)mrand48(),
+  };
+
+  uint8_t* bytes = (uint8_t*)data;
+
+  *(uint16_t*)(&out[0]) = *(uint16_t*)(&kHexDigits[bytes[0] * 2]);
+  *(uint16_t*)(&out[2]) = *(uint16_t*)(&kHexDigits[bytes[1] * 2]);
+  *(uint16_t*)(&out[4]) = *(uint16_t*)(&kHexDigits[bytes[2] * 2]);
+  *(uint16_t*)(&out[6]) = *(uint16_t*)(&kHexDigits[bytes[3] * 2]);
+  out[8] = '-';
+  *(uint16_t*)(&out[9]) = *(uint16_t*)(&kHexDigits[bytes[4] * 2]);
+  *(uint16_t*)(&out[11]) = *(uint16_t*)(&kHexDigits[bytes[5] * 2]);
+  out[13] = '-';
+  *(uint16_t*)(&out[14]) = *(uint16_t*)(&kHexDigits[bytes[6] * 2]);
+  *(uint16_t*)(&out[16]) = *(uint16_t*)(&kHexDigits[bytes[7] * 2]);
+  out[18] = '-';
+  *(uint16_t*)(&out[19]) = *(uint16_t*)(&kHexDigits[bytes[8] * 2]);
+  *(uint16_t*)(&out[21]) = *(uint16_t*)(&kHexDigits[bytes[9] * 2]);
+  out[23] = '-';
+  *(uint16_t*)(&out[24]) = *(uint16_t*)(&kHexDigits[bytes[10] * 2]);
+  *(uint16_t*)(&out[26]) = *(uint16_t*)(&kHexDigits[bytes[11] * 2]);
+  *(uint16_t*)(&out[28]) = *(uint16_t*)(&kHexDigits[bytes[12] * 2]);
+  *(uint16_t*)(&out[30]) = *(uint16_t*)(&kHexDigits[bytes[13] * 2]);
+  *(uint16_t*)(&out[32]) = *(uint16_t*)(&kHexDigits[bytes[14] * 2]);
+  *(uint16_t*)(&out[34]) = *(uint16_t*)(&kHexDigits[bytes[15] * 2]);
 }
 
 errno_t a0_packet_build(size_t num_headers,
@@ -64,19 +129,26 @@ errno_t a0_packet_build(size_t num_headers,
                         a0_buf_t payload,
                         a0_alloc_t alloc,
                         a0_packet_t* out) {
-  // Add in a uuid.
-  static const size_t extra_headers = 1;
-  a0_packet_id_t uid_val = uuidv4();
-
-  size_t total_headers = num_headers + extra_headers;
+  bool has_id = false;
+  // TODO: Verify at most one id.
+  for (size_t i = 0; i < num_headers; i++) {
+    if (!strncmp(kIdKey, (char*)headers[i].key.ptr, strlen(kIdKey))) {
+      has_id = true;
+      break;
+    }
+  }
 
   // Alloc out space.
   {
-    size_t size = sizeof(size_t);                // Num headers.
-    size += 2 * total_headers * sizeof(size_t);  // Header offsets.
-    size += sizeof(size_t);                      // Payload offset.
-    size += strlen(id_key);                      // Uid key.
-    size += sizeof(uid_val);                     // Uid val.
+    size_t size = sizeof(size_t);  // Num headers.
+    if (!has_id) {
+      size += 2 * sizeof(size_t);  // Id offsets, if not already in headers.
+    }
+    size += 2 * num_headers * sizeof(size_t);  // Header offsets.
+    size += sizeof(size_t);                    // Payload offset.
+    if (!has_id) {
+      size += strlen(kIdKey) + kUuidSize;  // Id content, if not already in headers.
+    }
     for (size_t i = 0; i < num_headers; i++) {
       size += headers[i].key.size;  // Key content.
       size += headers[i].val.size;  // Val content.
@@ -84,6 +156,11 @@ errno_t a0_packet_build(size_t num_headers,
     size += payload.size;
 
     alloc.fn(alloc.user_data, size, out);
+  }
+
+  size_t total_headers = num_headers;
+  if (!has_id) {
+    total_headers++;
   }
 
   size_t off = 0;
@@ -95,23 +172,25 @@ errno_t a0_packet_build(size_t num_headers,
   size_t idx_off = off;
   off += 2 * total_headers * sizeof(size_t) + sizeof(size_t);
 
-  // Add special headers first.
+  // Add an id if needed.
 
-  // Uid key offset.
-  memcpy(out->ptr + idx_off, &off, sizeof(size_t));
-  idx_off += sizeof(size_t);
+  if (!has_id) {
+    // Id key offset.
+    memcpy(out->ptr + idx_off, &off, sizeof(size_t));
+    idx_off += sizeof(size_t);
 
-  // Uid key content.
-  memcpy(out->ptr + off, id_key, strlen(id_key));
-  off += strlen(id_key);
+    // Id key content.
+    memcpy(out->ptr + off, kIdKey, strlen(kIdKey));
+    off += strlen(kIdKey);
 
-  // Uid val offset.
-  memcpy(out->ptr + idx_off, &off, sizeof(size_t));
-  idx_off += sizeof(size_t);
+    // Id val offset.
+    memcpy(out->ptr + idx_off, &off, sizeof(size_t));
+    idx_off += sizeof(size_t);
 
-  // Uid val content.
-  memcpy(out->ptr + off, &uid_val, sizeof(a0_packet_id_t));
-  off += sizeof(a0_packet_id_t);
+    // Id val content.
+    uuidv4(out->ptr + off);
+    off += kUuidSize;
+  }
 
   // For each header.
   for (size_t i = 0; i < num_headers; i++) {
