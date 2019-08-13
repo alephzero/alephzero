@@ -17,11 +17,11 @@
 A0_STATIC_INLINE
 a0_stream_protocol_t protocol_info() {
   static a0_stream_protocol_t protocol = []() {
-    static const char PROTOCOL_NAME[] = "a0_pubsub";
+    static const char kProtocolName[] = "a0_pubsub";
 
     a0_stream_protocol_t p;
-    p.name.size = strlen(PROTOCOL_NAME);
-    p.name.ptr = (uint8_t*)PROTOCOL_NAME;
+    p.name.size = strlen(kProtocolName);
+    p.name.ptr = (uint8_t*)kProtocolName;
 
     p.major_version = 0;
     p.minor_version = 1;

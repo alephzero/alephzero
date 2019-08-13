@@ -2,6 +2,7 @@
 
 #include <a0/common.h>
 
+#include <mutex>
 #include <set>
 #include <string>
 
@@ -11,6 +12,8 @@ inline std::string str(a0_buf_t buf) {
 
 inline a0_buf_t buf(std::string str) {
   static std::set<std::string> mem;
+  static std::mutex mu;
+  std::unique_lock<std::mutex> lk{mu};
   if (!mem.count(str)) {
     mem.insert(str);
   }

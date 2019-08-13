@@ -15,7 +15,7 @@ extern "C" {
 // Among them are:
 //   * "a0_id": The unique id of the packet.
 //              This field will be auto-generated with a uuidv4 value, if not provided.
-//              It is recommended to NOT provide this, and let the builder auto-generate generate it.
+//              It is recommended to NOT provide this, and let the builder auto-generate it.
 //   * "a0_deps": A repeated key referencing the unique ids of other packets.
 //   * "a0_stream_seq": Provided by a0_stream. Sequence of the packet in the stream.
 //   * "a0_pub_clock": Provided by a0_publisher. Monotonic clock value at publish time.
@@ -48,12 +48,15 @@ errno_t a0_packet_header(a0_packet_t, size_t hdr_idx, a0_packet_header_t* out);
 // Get the packet payload.
 // Note: out points to memory in the packet buffer.
 errno_t a0_packet_payload(a0_packet_t, a0_buf_t* out);
-// Get the packet id.
+// Get the value for the given header key.
 // Note: out points to memory in the packet buffer.
-errno_t a0_packet_id(a0_packet_t, a0_buf_t* out);
-
-// TODO: Add a header-by-key method.
 // Note: A naive implementation would be O(N). Maybe sort the headers and bisect?
+errno_t a0_packet_find_header(a0_packet_t, a0_buf_t key, a0_buf_t* val_out);
+
+// Helper method to get the packet id.
+inline errno_t a0_packet_id(a0_packet_t pkt, a0_buf_t* id_out) {
+  return a0_packet_find_header(pkt, a0_packet_id_key(), id_out);
+}
 
 // The following build or modify packets.
 
@@ -82,6 +85,10 @@ typedef struct a0_packet_callback_s {
 
 // The format of a packet is described here.
 // It is recommended to not worry about this too much, and just use a0_packet_build.
+//
+// A packet has a header region followed by a payload.
+// The header has a lookup table followed by a number of key-value pairs.
+// The lookup table is designed for O(1) lookup of headers and the payload.
 //
 // +-------------------------------+
 // | num headers (size_t)          |

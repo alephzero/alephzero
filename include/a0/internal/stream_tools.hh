@@ -112,6 +112,8 @@ struct stream_thread {
       state->onclose = onclose;
     }
     a0_stream_close(&state->stream);
+
+    state = nullptr;
     return A0_OK;
   }
 };

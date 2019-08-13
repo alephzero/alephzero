@@ -60,6 +60,7 @@ errno_t a0_subscriber_sync_close(a0_subscriber_sync_t*);
 errno_t a0_subscriber_sync_has_next(a0_subscriber_sync_t*, bool*);
 errno_t a0_subscriber_sync_next(a0_subscriber_sync_t*, a0_alloc_t, a0_packet_t*);
 errno_t a0_subscriber_sync_next_zero_copy(a0_subscriber_sync_t*, a0_zero_copy_callback_t);
+// TODO: add poll method.
 
 // Zero-copy multi-threaded version.
 

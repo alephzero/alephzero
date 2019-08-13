@@ -16,40 +16,32 @@
 #include <thread>
 #include <vector>
 
-static const char TEST_SHM[] = "/test.shm";
-static const char HEADER0_KEY[] = "key";
-static const char HEADER0_VAL[] = "val";
+static const char kTestShm[] = "/test.shm";
 
 struct PubsubFixture {
   a0_shmobj_t shmobj;
 
   PubsubFixture() {
-    a0_shmobj_unlink(TEST_SHM);
+    a0_shmobj_unlink(kTestShm);
 
     a0_shmobj_options_t shmopt;
     shmopt.size = 16 * 1024 * 1024;
-    a0_shmobj_open(TEST_SHM, &shmopt, &shmobj);
+    a0_shmobj_open(kTestShm, &shmopt, &shmobj);
   }
 
   ~PubsubFixture() {
     a0_shmobj_close(&shmobj);
-    a0_shmobj_unlink(TEST_SHM);
+    a0_shmobj_unlink(kTestShm);
   }
 
   a0_packet_t malloc_packet(std::string data) {
-    a0_buf_t payload = {
-        .ptr = (uint8_t*)data.c_str(),
-        .size = data.size(),
-    };
-
-    a0_packet_header_t headers[1];
-    headers[0].key.ptr = (uint8_t*)HEADER0_KEY;
-    headers[0].key.size = strlen(HEADER0_KEY);
-    headers[0].val.ptr = (uint8_t*)HEADER0_VAL;
-    headers[0].val.size = strlen(HEADER0_VAL);
+    a0_packet_header_t headers[1] = {{
+        .key = buf("key"),
+        .val = buf("val"),
+    }};
 
     a0_packet_t pkt;
-    REQUIRE(a0_packet_build(1, headers, payload, make_alloc(), &pkt) == A0_OK);
+    REQUIRE(a0_packet_build(1, headers, buf(data), make_alloc(), &pkt) == A0_OK);
 
     return pkt;
   }

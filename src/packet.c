@@ -59,18 +59,18 @@ errno_t a0_packet_payload(a0_packet_t pkt, a0_buf_t* out) {
   return A0_OK;
 }
 
-errno_t a0_packet_id(a0_packet_t pkt, a0_buf_t* out) {
+errno_t a0_packet_find_header(a0_packet_t pkt, a0_buf_t key, a0_buf_t* val_out) {
   size_t num_hdrs = 0;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_num_headers(pkt, &num_hdrs));
   for (size_t i = 0; i < num_hdrs; i++) {
     a0_packet_header_t hdr;
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_header(pkt, i, &hdr));
-    if (!strncmp(kIdKey, (char*)hdr.key.ptr, strlen(kIdKey))) {
-      *out = hdr.val;
+    if (key.size == hdr.key.size && !memcmp(key.ptr, (char*)hdr.key.ptr, key.size)) {
+      *val_out = hdr.val;
       return A0_OK;
     }
   }
-  return EINVAL;
+  return ENOKEY;
 }
 
 static const char kHexDigits[] =
@@ -102,6 +102,9 @@ void uuidv4(uint8_t out[36]) {
 
   uint8_t* bytes = (uint8_t*)data;
 
+// GCC 5.4.0 complains about this.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
   *(uint16_t*)(&out[0]) = *(uint16_t*)(&kHexDigits[bytes[0] * 2]);
   *(uint16_t*)(&out[2]) = *(uint16_t*)(&kHexDigits[bytes[1] * 2]);
   *(uint16_t*)(&out[4]) = *(uint16_t*)(&kHexDigits[bytes[2] * 2]);
@@ -122,6 +125,7 @@ void uuidv4(uint8_t out[36]) {
   *(uint16_t*)(&out[30]) = *(uint16_t*)(&kHexDigits[bytes[13] * 2]);
   *(uint16_t*)(&out[32]) = *(uint16_t*)(&kHexDigits[bytes[14] * 2]);
   *(uint16_t*)(&out[34]) = *(uint16_t*)(&kHexDigits[bytes[15] * 2]);
+#pragma GCC diagnostic pop
 }
 
 errno_t a0_packet_build(size_t num_headers,
@@ -132,7 +136,8 @@ errno_t a0_packet_build(size_t num_headers,
   bool has_id = false;
   // TODO: Verify at most one id.
   for (size_t i = 0; i < num_headers; i++) {
-    if (!strncmp(kIdKey, (char*)headers[i].key.ptr, strlen(kIdKey))) {
+    if (strlen(kIdKey) == headers[i].key.size &&
+        !memcmp(kIdKey, (char*)headers[i].key.ptr, strlen(kIdKey))) {
       has_id = true;
       break;
     }
