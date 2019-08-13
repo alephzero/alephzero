@@ -1,14 +1,31 @@
 #pragma once
 
-#include <a0/internal/sync_stream.hh>
-
 #include <functional>
 #include <mutex>
 #include <thread>
 
 namespace a0 {
 
-class stream_thread {
+// TODO: maybe specialize std::unique_lock.
+struct sync_stream_t {
+  a0_stream_t* stream{nullptr};
+
+  template <typename Fn>
+  auto with_lock(Fn&& fn) {
+    struct guard {
+      a0_locked_stream_t lk;
+      guard(a0_stream_t* stream) {
+        a0_lock_stream(stream, &lk);
+      }
+      ~guard() {
+        a0_unlock_stream(lk);
+      }
+    } scope(stream);
+    return fn(scope.lk);
+  }
+};
+
+struct stream_thread {
   struct state_t {
     a0_stream_t stream;
 
@@ -61,7 +78,6 @@ class stream_thread {
 
   std::shared_ptr<state_t> state;
 
- public:
   errno_t init(a0_shmobj_t shmobj,
                a0_stream_protocol_t stream_protocol,
                std::function<errno_t(a0_locked_stream_t, a0_stream_init_status_t)> on_stream_init,
@@ -91,13 +107,11 @@ class stream_thread {
       return ESHUTDOWN;
     }
 
-    auto state_ = state;
-    state = nullptr;
     {
-      std::unique_lock<std::mutex> lk{state_->mu};
-      state_->onclose = onclose;
+      std::unique_lock<std::mutex> lk{state->mu};
+      state->onclose = onclose;
     }
-    a0_stream_close(&state_->stream);
+    a0_stream_close(&state->stream);
     return A0_OK;
   }
 };

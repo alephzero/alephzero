@@ -9,7 +9,7 @@
 _Thread_local unsigned short a0_xsubi[3];
 _Thread_local bool a0_xsubi_init = false;
 
-inline long int a0_mrand48() {
+static inline long int a0_mrand48() {
   if (A0_UNLIKELY(!a0_xsubi_init)) {
     // TODO: error handling.
     int fd = open("/dev/urandom", O_RDONLY);

@@ -50,7 +50,7 @@ errno_t a0_packet_id(a0_packet_t pkt, a0_packet_id_t* out) {
   return EINVAL;
 }
 
-A0_STATIC_INLINE
+// A0_STATIC_INLINE
 a0_packet_id_t uuidv4() {
   a0_packet_id_t id = a0_mrand48();
   id |= (a0_packet_id_t)((a0_mrand48() & 0xFFFF0FFF) | 0x00004000) << 32;
@@ -89,7 +89,7 @@ errno_t a0_packet_build(size_t num_headers,
   size_t off = 0;
 
   // Number of headers.
-  *(size_t*)(out->ptr + off) = total_headers;
+  memcpy(out->ptr + off, &total_headers, sizeof(size_t));
   off += sizeof(size_t);
 
   size_t idx_off = off;
@@ -98,7 +98,7 @@ errno_t a0_packet_build(size_t num_headers,
   // Add special headers first.
 
   // Uid key offset.
-  *(size_t*)(out->ptr + idx_off) = off;
+  memcpy(out->ptr + idx_off, &off, sizeof(size_t));
   idx_off += sizeof(size_t);
 
   // Uid key content.
@@ -106,7 +106,7 @@ errno_t a0_packet_build(size_t num_headers,
   off += strlen(id_key);
 
   // Uid val offset.
-  *(size_t*)(out->ptr + idx_off) = off;
+  memcpy(out->ptr + idx_off, &off, sizeof(size_t));
   idx_off += sizeof(size_t);
 
   // Uid val content.
@@ -116,7 +116,7 @@ errno_t a0_packet_build(size_t num_headers,
   // For each header.
   for (size_t i = 0; i < num_headers; i++) {
     // Header key offset.
-    *(size_t*)(out->ptr + idx_off) = off;
+    memcpy(out->ptr + idx_off, &off, sizeof(size_t));
     idx_off += sizeof(size_t);
 
     // Header key content.
@@ -126,7 +126,7 @@ errno_t a0_packet_build(size_t num_headers,
     }
 
     // Header val offset.
-    *(size_t*)(out->ptr + idx_off) = off;
+    memcpy(out->ptr + idx_off, &off, sizeof(size_t));
     idx_off += sizeof(size_t);
 
     // Header val content.
@@ -136,12 +136,87 @@ errno_t a0_packet_build(size_t num_headers,
     }
   }
 
-  *(size_t*)(out->ptr + idx_off) = off;
+  memcpy(out->ptr + idx_off, &off, sizeof(size_t));
 
   // Payload.
   if (payload.size) {
     memcpy(out->ptr + off, payload.ptr, payload.size);
   }
+
+  return A0_OK;
+}
+
+errno_t a0_packet_add_headers(size_t num_headers,
+                              a0_packet_header_t* headers,
+                              a0_packet_t in,
+                              a0_alloc_t alloc,
+                              a0_packet_t* out) {
+  size_t expanded_size = in.size;
+  for (size_t i = 0; i < num_headers; i++) {
+    expanded_size += sizeof(size_t) + headers[i].key.size + sizeof(size_t) + headers[i].val.size;
+  }
+  alloc.fn(alloc.user_data, expanded_size, out);
+
+  // Offsets into the pkt (r=read ptr) and frame data (w=write ptr).
+  size_t roff = 0;
+  size_t woff = 0;
+
+  // Number of headers.
+  size_t orig_num_headers = *(size_t*)(in.ptr + roff);
+  size_t total_num_headers = orig_num_headers + num_headers;
+
+  // Write in the new header count.
+  memcpy(out->ptr + woff, &total_num_headers, sizeof(size_t));
+
+  roff += sizeof(size_t);
+  woff += sizeof(size_t);
+
+  // Offset for the index table.
+  size_t idx_roff = roff;
+  size_t idx_woff = woff;
+
+  // Update offsets past the end of the index table.
+  roff += 2 * orig_num_headers * sizeof(size_t) + sizeof(size_t);
+  woff += 2 * total_num_headers * sizeof(size_t) + sizeof(size_t);
+
+  // Add new headers.
+  for (size_t i = 0; i < num_headers; i++) {
+    memcpy(out->ptr + idx_woff, &woff, sizeof(size_t));
+    idx_woff += sizeof(size_t);
+
+    memcpy(out->ptr + woff, headers[i].key.ptr, headers[i].key.size);
+    woff += headers[i].key.size;
+
+    memcpy(out->ptr + idx_woff, &woff, sizeof(size_t));
+    idx_woff += sizeof(size_t);
+
+    memcpy(out->ptr + woff, headers[i].val.ptr, headers[i].val.size);
+    woff += headers[i].val.size;
+  }
+
+  // Add offsets for existing headers.
+  size_t in_hdr0_off = 0;
+  memcpy(&in_hdr0_off, in.ptr + sizeof(size_t), sizeof(size_t));
+  for (size_t i = 0; i < 2 * orig_num_headers; i++) {
+    size_t in_hdri_off = 0;
+    memcpy(&in_hdri_off, in.ptr + idx_roff, sizeof(size_t));
+
+    size_t updated_off = woff + in_hdri_off - in_hdr0_off;
+
+    memcpy(out->ptr + idx_woff, &updated_off, sizeof(size_t));
+    idx_woff += sizeof(size_t);
+    idx_roff += sizeof(size_t);
+  }
+
+  // Add offset for payload.
+  size_t in_payload_off = 0;
+  memcpy(&in_payload_off, in.ptr + idx_roff, sizeof(size_t));
+
+  size_t updated_payload_off = woff + in_payload_off - in_hdr0_off;
+  memcpy(out->ptr + idx_woff, &updated_payload_off, sizeof(size_t));
+
+  // Copy existing headers + payload.
+  memcpy(out->ptr + woff, in.ptr + roff, in.size - roff);
 
   return A0_OK;
 }

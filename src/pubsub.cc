@@ -1,9 +1,8 @@
 #include <a0/pubsub.h>
 
 #include <a0/internal/macros.h>
-#include <a0/internal/stream_thread.hh>
+#include <a0/internal/stream_tools.hh>
 #include <a0/internal/strutil.hh>
-#include <a0/internal/sync_stream.hh>
 
 #include <string.h>
 
@@ -76,91 +75,56 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
     return ESHUTDOWN;
   }
 
-  constexpr size_t extra_headers = 2;
+  constexpr size_t num_extra_headers = 2;
+  a0_packet_header_t extra_headers[num_extra_headers];
+
   static const char clock_key[] = "a0_pub_clock";
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
+  extra_headers[0].key = a0_buf_t{
+      .ptr = (uint8_t*)clock_key,
+      .size = strlen(clock_key),
+  };
+  extra_headers[0].val = a0_buf_t{
+      .ptr = (uint8_t*)&clock_val,
+      .size = sizeof(uint64_t),
+  };
+
   static const char seq_key[] = "a0_stream_seq";
   uint64_t seq_val = 0;  // Get from frame below.
-
-  size_t expanded_pkt_size = pkt.size;
-  expanded_pkt_size += sizeof(size_t) + strlen(clock_key) + sizeof(size_t) + sizeof(clock_val);
-  expanded_pkt_size += sizeof(size_t) + strlen(seq_key) + sizeof(size_t) + sizeof(seq_val);
+  extra_headers[1].key = a0_buf_t{
+      .ptr = (uint8_t*)seq_key,
+      .size = strlen(seq_key),
+  };
+  extra_headers[1].val = a0_buf_t{
+      .ptr = (uint8_t*)&seq_val,
+      .size = sizeof(uint64_t),
+  };
 
   a0::sync_stream_t ss{&pub->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_stream_frame_t frame;
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_alloc(slk, expanded_pkt_size, &frame));
+    struct alloc_data_t {
+      a0_locked_stream_t slk_;
+      uint64_t* seq_val_ptr;
+    } alloc_data{slk, &seq_val};
 
-    seq_val = frame.hdr.seq;
+    a0_alloc_t alloc = {
+        .user_data = &alloc_data,
+        .fn =
+            [](void* user_data, size_t size, a0_buf_t* out) {
+              auto* d = (alloc_data_t*)user_data;
 
-    // Offsets into the pkt (r=read ptr) and frame data (w=write ptr).
-    size_t roff = 0;
-    size_t woff = 0;
+              a0_stream_frame_t frame;
+              a0_stream_alloc(d->slk_, size, &frame);
+              *d->seq_val_ptr = frame.hdr.seq;
 
-    // Number of headers.
-    size_t orig_num_headers = *(size_t*)(pkt.ptr + roff);
-    size_t total_num_headers = orig_num_headers + extra_headers;
+              *out = frame.data;
+            },
+    };
 
-    // Write in the new header count.
-    *(size_t*)(frame.data.ptr + woff) = total_num_headers;
-
-    roff += sizeof(size_t);
-    woff += sizeof(size_t);
-
-    // Offset for the index table.
-    size_t idx_roff = roff;
-    size_t idx_woff = woff;
-
-    // Update offsets past the end of the index table.
-    roff += 2 * orig_num_headers * sizeof(size_t) + sizeof(size_t);
-    woff += 2 * total_num_headers * sizeof(size_t) + sizeof(size_t);
-
-    // Add extra headers.
-
-    // Clock key.
-    *(size_t*)(frame.data.ptr + idx_woff) = woff;
-    idx_woff += sizeof(size_t);
-
-    memcpy(frame.data.ptr + woff, clock_key, strlen(clock_key));
-    woff += strlen(clock_key);
-
-    // Clock val.
-    *(size_t*)(frame.data.ptr + idx_woff) = woff;
-    idx_woff += sizeof(size_t);
-
-    *(uint64_t*)(frame.data.ptr + woff) = clock_val;
-    woff += sizeof(uint64_t);
-
-    // Sequence key.
-    *(size_t*)(frame.data.ptr + idx_woff) = woff;
-    idx_woff += sizeof(size_t);
-
-    memcpy(frame.data.ptr + woff, seq_key, strlen(seq_key));
-    woff += strlen(seq_key);
-
-    // Sequence val.
-    *(size_t*)(frame.data.ptr + idx_woff) = woff;
-    idx_woff += sizeof(size_t);
-
-    *(uint64_t*)(frame.data.ptr + woff) = seq_val;
-    woff += sizeof(uint64_t);
-
-    // Add offsets for existing headers.
-    for (size_t i = 0; i < 2 * orig_num_headers; i++) {
-      *(size_t*)(frame.data.ptr + idx_woff) =
-          woff + *(size_t*)(pkt.ptr + idx_roff) - *(size_t*)(pkt.ptr + sizeof(size_t));
-      idx_woff += sizeof(size_t);
-      idx_roff += sizeof(size_t);
-    }
-
-    // Add offset for payload.
-    *(size_t*)(frame.data.ptr + idx_woff) =
-        woff + *(size_t*)(pkt.ptr + idx_roff) - *(size_t*)(pkt.ptr + sizeof(size_t));
-
-    // Copy existing headers + payload.
-    memcpy(frame.data.ptr + woff, pkt.ptr + roff, pkt.size - roff);
+    a0_packet_t unused;
+    a0_packet_add_headers(num_extra_headers, extra_headers, pkt, alloc, &unused);
 
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
     return A0_OK;
@@ -334,8 +298,11 @@ errno_t a0_subscriber_zero_copy_close(a0_subscriber_zero_copy_t* sub_zc, a0_call
     return ESHUTDOWN;
   }
 
-  sub_zc->_impl->st.close(onclose);
+  auto st_ = sub_zc->_impl->st;
   delete sub_zc->_impl;
+  sub_zc->_impl = nullptr;
+
+  st_.close(onclose);
   return A0_OK;
 }
 

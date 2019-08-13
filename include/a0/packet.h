@@ -29,6 +29,12 @@ errno_t a0_packet_build(size_t num_headers,
                         a0_alloc_t,
                         a0_packet_t* out);
 
+errno_t a0_packet_add_headers(size_t num_headers,
+                              a0_packet_header_t* headers,
+                              a0_packet_t in,
+                              a0_alloc_t,
+                              a0_packet_t* out);
+
 typedef struct a0_packet_callback_s {
   void* user_data;
   void (*fn)(void* user_data, a0_packet_t);
