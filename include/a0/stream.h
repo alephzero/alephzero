@@ -76,6 +76,7 @@ errno_t a0_stream_next(a0_locked_stream_t);
 
 // Await until the given predicate is satisfied.
 // The predicate is checked when an event occurs on any stream wrapping shmobj.
+// TODO: should pred take user_data?
 errno_t a0_stream_await(a0_locked_stream_t, errno_t (*pred)(a0_locked_stream_t, bool*));
 
 // Caller does NOT own `frame_out->data` and should not clean it up!

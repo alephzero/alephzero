@@ -17,8 +17,8 @@ extern "C" {
 //              This field will be auto-generated with a uuidv4 value, if not provided.
 //              It is recommended to NOT provide this, and let the builder auto-generate it.
 //   * "a0_deps": A repeated key referencing the unique ids of other packets.
-//   * "a0_stream_seq": Provided by a0_stream. Sequence of the packet in the stream.
-//   * "a0_pub_clock": Provided by a0_publisher. Monotonic clock value at publish time.
+//   * "a0_stream_seq": Sequence of the packet in the stream.
+//   * "a0_pub_clock": Monotonic clock value at publish time.
 //
 // A packet is implemented as a flat buffer. The layout is described below.
 
