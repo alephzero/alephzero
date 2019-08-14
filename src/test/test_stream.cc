@@ -7,17 +7,17 @@
 #include <string.h>
 #include <unistd.h>
 
-static const char TEST_SHM[] = "/test.shm";
-static const char PROTOCOL_NAME[] = "my_protocol";
+static const char kTestShm[] = "/test.shm";
+static const char kProtocolName[] = "my_protocol";
 
 struct StreamTestFixture {
   StreamTestFixture() {
-    a0_shmobj_unlink(TEST_SHM);
+    a0_shmobj_unlink(kTestShm);
     shmopt.size = 4096;
-    a0_shmobj_open(TEST_SHM, &shmopt, &shmobj);
+    a0_shmobj_open(kTestShm, &shmopt, &shmobj);
 
-    protocol.name.ptr = (uint8_t*)PROTOCOL_NAME;
-    protocol.name.size = strlen(PROTOCOL_NAME);
+    protocol.name.ptr = (uint8_t*)kProtocolName;
+    protocol.name.size = strlen(kProtocolName);
     protocol.major_version = 1;
     protocol.minor_version = 2;
     protocol.patch_version = 3;
@@ -25,7 +25,7 @@ struct StreamTestFixture {
   }
   ~StreamTestFixture() {
     a0_shmobj_close(&shmobj);
-    a0_shmobj_unlink(TEST_SHM);
+    a0_shmobj_unlink(kTestShm);
   }
 
   a0_shmobj_options_t shmopt;
@@ -64,7 +64,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
 
   a0_stream_protocol_t read_protocol;
   REQUIRE(a0_stream_protocol(lk, &read_protocol, nullptr) == A0_OK);
-  REQUIRE(str(read_protocol.name) == PROTOCOL_NAME);
+  REQUIRE(str(read_protocol.name) == kProtocolName);
   REQUIRE(read_protocol.major_version == 1);
   REQUIRE(read_protocol.minor_version == 2);
   REQUIRE(read_protocol.patch_version == 3);
@@ -188,14 +188,14 @@ PROTOCOL INFO
 =========================
 DATA
 -------------------------
-Elem
+Frame
 -- @      = 224
 -- seq    = 1
 -- next @ = 272
 -- size   = 10
 -- data   = '0123456789'
 -------------------------
-Elem (not committed)
+Frame (not committed)
 -- @      = 272
 -- seq    = 2
 -- next @ = 0
@@ -236,14 +236,14 @@ PROTOCOL INFO
 =========================
 DATA
 -------------------------
-Elem
+Frame
 -- @      = 224
 -- seq    = 1
 -- next @ = 272
 -- size   = 10
 -- data   = '0123456789'
 -------------------------
-Elem
+Frame
 -- @      = 272
 -- seq    = 2
 -- next @ = 0

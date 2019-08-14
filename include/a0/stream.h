@@ -31,6 +31,9 @@ typedef struct a0_stream_protocol_s {
 
 typedef struct a0_stream_frame_hdr_s {
   uint64_t seq;
+  uint64_t off;
+  uint64_t next_off;
+  uint64_t data_size;
 } a0_stream_frame_hdr_t;
 
 typedef struct a0_stream_frame_s {
