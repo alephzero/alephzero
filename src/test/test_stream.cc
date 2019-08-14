@@ -153,12 +153,12 @@ DATA
 
   a0_stream_frame_t first_frame;
   REQUIRE(a0_stream_alloc(lk, 10, &first_frame) == A0_OK);
-  memcpy(first_frame.data.ptr, "0123456789", 10);
+  memcpy(first_frame.data, "0123456789", 10);
   REQUIRE(a0_stream_commit(lk) == A0_OK);
 
   a0_stream_frame_t second_frame;
   REQUIRE(a0_stream_alloc(lk, 40, &second_frame) == A0_OK);
-  memcpy(second_frame.data.ptr, "0123456789012345678901234567890123456789", 40);
+  memcpy(second_frame.data, "0123456789012345678901234567890123456789", 40);
 
   {
     a0_buf_t debugstr;
@@ -271,15 +271,15 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
 
     a0_stream_frame_t first_frame;
     REQUIRE(a0_stream_alloc(lk, 1, &first_frame) == A0_OK);
-    memcpy(first_frame.data.ptr, "A", 1);
+    memcpy(first_frame.data, "A", 1);
 
     a0_stream_frame_t second_frame;
     REQUIRE(a0_stream_alloc(lk, 2, &second_frame) == A0_OK);
-    memcpy(second_frame.data.ptr, "BB", 2);
+    memcpy(second_frame.data, "BB", 2);
 
     a0_stream_frame_t third_frame;
     REQUIRE(a0_stream_alloc(lk, 3, &third_frame) == A0_OK);
-    memcpy(third_frame.data.ptr, "CCC", 3);
+    memcpy(third_frame.data, "CCC", 3);
 
     REQUIRE(a0_stream_commit(lk) == A0_OK);
 
@@ -302,7 +302,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
 
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 1);
-  REQUIRE(str(frame.data) == "A");
+  REQUIRE(str(frame) == "A");
 
   bool has_next;
   REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
@@ -311,7 +311,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
   REQUIRE(a0_stream_next(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 2);
-  REQUIRE(str(frame.data) == "BB");
+  REQUIRE(str(frame) == "BB");
 
   REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
   REQUIRE(has_next);
@@ -319,7 +319,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
   REQUIRE(a0_stream_next(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 3);
-  REQUIRE(str(frame.data) == "CCC");
+  REQUIRE(str(frame) == "CCC");
 
   REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
   REQUIRE(!has_next);
@@ -327,12 +327,12 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
   REQUIRE(a0_stream_jump_head(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 1);
-  REQUIRE(str(frame.data) == "A");
+  REQUIRE(str(frame) == "A");
 
   REQUIRE(a0_stream_jump_tail(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 3);
-  REQUIRE(str(frame.data) == "CCC");
+  REQUIRE(str(frame) == "CCC");
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);
@@ -351,7 +351,7 @@ void fork_sleep_push(a0_stream_t* stream, const std::string& str) {
 
     a0_stream_frame_t frame;
     REQUIRE(a0_stream_alloc(lk, 3, &frame) == A0_OK);
-    memcpy(frame.data.ptr, str.c_str(), str.size());
+    memcpy(frame.data, str.c_str(), str.size());
     REQUIRE(a0_stream_commit(lk) == A0_OK);
 
     REQUIRE(a0_unlock_stream(lk) == A0_OK);
@@ -382,7 +382,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream await") {
   a0_stream_frame_t frame;
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 1);
-  REQUIRE(str(frame.data) == "ABC");
+  REQUIRE(str(frame) == "ABC");
 
   REQUIRE(a0_stream_await(lk, a0_stream_nonempty) == A0_OK);
 
@@ -392,7 +392,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream await") {
   REQUIRE(a0_stream_next(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 2);
-  REQUIRE(str(frame.data) == "DEF");
+  REQUIRE(str(frame) == "DEF");
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);

@@ -339,8 +339,7 @@ errno_t a0_stream_frame(a0_locked_stream_t lk, a0_stream_frame_t* frame_out) {
   a0_stream_frame_hdr_t* frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
 
   frame_out->hdr = *frame_hdr;
-  frame_out->data.ptr = (uint8_t*)frame_hdr + sizeof(a0_stream_frame_hdr_t);
-  frame_out->data.size = frame_hdr->data_size;
+  frame_out->data = (uint8_t*)frame_hdr + sizeof(a0_stream_frame_hdr_t);
   return A0_OK;
 }
 
@@ -352,9 +351,9 @@ stream_off_t a0_stream_frame_end(a0_stream_hdr_t* hdr, stream_off_t frame_off) {
 
 A0_STATIC_INLINE
 bool a0_stream_frame_intersects(stream_off_t frame1_start,
-                       size_t frame1_size,
-                       stream_off_t frame2_start,
-                       size_t frame2_size) {
+                                size_t frame1_size,
+                                stream_off_t frame2_start,
+                                size_t frame2_size) {
   stream_off_t frame1_end = frame1_start + frame1_size;
   stream_off_t frame2_end = frame2_start + frame2_size;
   return (frame1_start < frame2_end) && (frame2_start < frame1_end);
@@ -431,7 +430,8 @@ errno_t a0_stream_alloc(a0_locked_stream_t lk, size_t size, a0_stream_frame_t* f
   frame_hdr->data_size = size;
 
   if (state->off_tail) {
-    a0_stream_frame_hdr_t* tail_frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + state->off_tail);
+    a0_stream_frame_hdr_t* tail_frame_hdr =
+        (a0_stream_frame_hdr_t*)((uint8_t*)hdr + state->off_tail);
     tail_frame_hdr->next_off = off;
   }
   state->off_tail = off;
@@ -439,9 +439,8 @@ errno_t a0_stream_alloc(a0_locked_stream_t lk, size_t size, a0_stream_frame_t* f
     state->seq_low = frame_hdr->seq;
   }
 
-  frame_out->hdr.seq = frame_hdr->seq;
-  frame_out->data.ptr = (uint8_t*)hdr + off + sizeof(a0_stream_frame_hdr_t);
-  frame_out->data.size = size;
+  frame_out->hdr = *frame_hdr;
+  frame_out->data = (uint8_t*)hdr + off + sizeof(a0_stream_frame_hdr_t);
 
   return A0_OK;
 }

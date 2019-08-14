@@ -99,8 +99,8 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
     a0_stream_frame(slk, &frame);
 
     a0_packet_t pkt;
-    alloc.fn(alloc.user_data, frame.data.size, &pkt);
-    memcpy(pkt.ptr, frame.data.ptr, pkt.size);
+    alloc.fn(alloc.user_data, frame.hdr.data_size, &pkt);
+    memcpy(pkt.ptr, frame.data, pkt.size);
 
     a0_unlock_stream(slk);
     onrequest.fn(onrequest.user_data, a0_rpc_request_t{pkt});
@@ -200,7 +200,7 @@ errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_rpc_request_t request, a0_packe
               a0_stream_alloc(d->slk_, size, &frame);
               *d->seq_val_ptr = frame.hdr.seq;
 
-              *out = frame.data;
+              *out = a0::buf(frame);
             },
     };
 
@@ -279,8 +279,8 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client,
     // Note: This allocs for each packet, not just ones this rpc client cares about.
     // TODO: Is there a clean way to fix that?
     a0_packet_t pkt;
-    alloc.fn(alloc.user_data, frame.data.size, &pkt);
-    memcpy(pkt.ptr, frame.data.ptr, pkt.size);
+    alloc.fn(alloc.user_data, frame.hdr.data_size, &pkt);
+    memcpy(pkt.ptr, frame.data, pkt.size);
 
     a0_unlock_stream(slk);
     {
@@ -400,7 +400,7 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback
               a0_stream_alloc(d->slk_, size, &frame);
               *d->seq_val_ptr = frame.hdr.seq;
 
-              *out = frame.data;
+              *out = a0::buf(frame);
             },
     };
 

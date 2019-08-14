@@ -38,7 +38,7 @@ typedef struct a0_stream_frame_hdr_s {
 
 typedef struct a0_stream_frame_s {
   a0_stream_frame_hdr_t hdr;
-  a0_buf_t data;
+  uint8_t* data;
 } a0_stream_frame_t;
 
 typedef enum a0_stream_init_status_s {

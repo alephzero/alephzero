@@ -1,10 +1,19 @@
 #pragma once
 
+#include <a0/stream.h>
+
 #include <functional>
 #include <mutex>
 #include <thread>
 
 namespace a0 {
+
+inline a0_buf_t buf(a0_stream_frame_t frame) {
+  return a0_buf_t{
+      .ptr = frame.data,
+      .size = frame.hdr.data_size,
+  };
+}
 
 // TODO: maybe specialize std::unique_lock.
 struct sync_stream_t {

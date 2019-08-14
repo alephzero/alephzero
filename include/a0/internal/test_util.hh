@@ -2,12 +2,18 @@
 
 #include <a0/common.h>
 
+#include <a0/internal/stream_tools.hh>
+
 #include <mutex>
 #include <set>
 #include <string>
 
 inline std::string str(a0_buf_t buf) {
   return std::string((char*)buf.ptr, buf.size);
+}
+
+inline std::string str(a0_stream_frame_t frame) {
+  return str(a0::buf(frame));
 }
 
 inline a0_buf_t buf(std::string str) {

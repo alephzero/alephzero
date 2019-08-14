@@ -119,7 +119,7 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
               a0_stream_alloc(d->slk_, size, &frame);
               *d->seq_val_ptr = frame.hdr.seq;
 
-              *out = frame.data;
+              *out = a0::buf(frame);
             },
     };
 
@@ -213,7 +213,7 @@ errno_t a0_subscriber_sync_next_zero_copy(a0_subscriber_sync_t* sub_sync,
 
     a0_stream_frame_t frame;
     a0_stream_frame(slk, &frame);
-    cb.fn(cb.user_data, slk, frame.data);
+    cb.fn(cb.user_data, slk, a0::buf(frame));
     sub_sync->_impl->read_first = true;
 
     return A0_OK;
@@ -261,7 +261,7 @@ errno_t a0_subscriber_zero_copy_init(a0_subscriber_zero_copy_t* sub_zc,
   auto read_current_packet = [onmsg](a0_locked_stream_t slk) {
     a0_stream_frame_t frame;
     a0_stream_frame(slk, &frame);
-    onmsg.fn(onmsg.user_data, slk, frame.data);
+    onmsg.fn(onmsg.user_data, slk, a0::buf(frame));
   };
 
   auto on_stream_nonempty = [read_start, read_current_packet](a0_locked_stream_t slk) {
