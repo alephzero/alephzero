@@ -11,7 +11,7 @@ struct strutil {
   template <typename... Arg>
   static std::string cat(Arg&&... arg) {
     std::ostringstream ss;
-    ((ss << std::forward<Arg>(arg)), ...);
+    (void)(ss << ... << std::forward<Arg>(arg));
     return ss.str();
   }
   */
