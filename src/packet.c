@@ -230,11 +230,16 @@ errno_t a0_packet_build(size_t num_headers,
   return A0_OK;
 }
 
-errno_t a0_packet_add_headers(size_t num_headers,
-                              a0_packet_header_t* headers,
-                              a0_packet_t in,
-                              a0_alloc_t alloc,
-                              a0_packet_t* out) {
+errno_t a0_packet_copy_with_additional_headers(size_t num_headers,
+                                               a0_packet_header_t* headers,
+                                               a0_packet_t in,
+                                               a0_alloc_t alloc,
+                                               a0_packet_t* out) {
+  a0_packet_t pkt;
+  if (!out) {
+    out = &pkt;
+  }
+
   size_t expanded_size = in.size;
   for (size_t i = 0; i < num_headers; i++) {
     expanded_size += sizeof(size_t) + headers[i].key.size + sizeof(size_t) + headers[i].val.size;

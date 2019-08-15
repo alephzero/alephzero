@@ -67,15 +67,6 @@ errno_t a0_packet_build(size_t num_headers,
                         a0_alloc_t,
                         a0_packet_t* out);
 
-// Adds additional headers to an existing packet.
-// The packet content will be copied to an alloc-ed location.
-// Note: the allocated space cannot overlap with the input pkt.
-errno_t a0_packet_add_headers(size_t num_headers,
-                              a0_packet_header_t* headers,
-                              a0_packet_t in,
-                              a0_alloc_t,
-                              a0_packet_t* out);
-
 // Callback definition where packet is the only argument.
 
 typedef struct a0_packet_callback_s {
@@ -106,6 +97,8 @@ typedef struct a0_packet_callback_s {
 // | offset for hdr N key (size_t) |
 // +-------------------------------+
 // | offset for hdr N val (size_t) |
+// +-------------------------------+
+// | offset for payload (size_t)   |
 // +-------------------------------+
 // | hdr 0 key content             |
 // +-------------------------------+

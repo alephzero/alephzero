@@ -1,6 +1,7 @@
 #include <a0/pubsub.h>
 
 #include <a0/internal/macros.h>
+#include <a0/internal/packet_tools.h>
 #include <a0/internal/stream_tools.hh>
 #include <a0/internal/strutil.hh>
 
@@ -75,7 +76,7 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
     return ESHUTDOWN;
   }
 
-  constexpr size_t num_extra_headers = 2;
+  constexpr size_t num_extra_headers = 1;
   a0_packet_header_t extra_headers[num_extra_headers];
 
   static const char clock_key[] = "a0_pub_clock";
@@ -91,41 +92,15 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
       .size = sizeof(uint64_t),
   };
 
-  static const char seq_key[] = "a0_stream_seq";
-  uint64_t seq_val = 0;  // Get from frame below.
-  extra_headers[1].key = a0_buf_t{
-      .ptr = (uint8_t*)seq_key,
-      .size = strlen(seq_key),
-  };
-  extra_headers[1].val = a0_buf_t{
-      .ptr = (uint8_t*)&seq_val,
-      .size = sizeof(uint64_t),
-  };
+  // TODO: Add sequence numbers.
 
   a0::sync_stream_t ss{&pub->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    struct alloc_data_t {
-      a0_locked_stream_t slk_;
-      uint64_t* seq_val_ptr;
-    } alloc_data{slk, &seq_val};
-
-    a0_alloc_t alloc = {
-        .user_data = &alloc_data,
-        .fn =
-            [](void* user_data, size_t size, a0_buf_t* out) {
-              auto* d = (alloc_data_t*)user_data;
-
-              a0_stream_frame_t frame;
-              a0_stream_alloc(d->slk_, size, &frame);
-              *d->seq_val_ptr = frame.hdr.seq;
-
-              *out = a0::buf(frame);
-            },
-    };
-
-    a0_packet_t unused;
-    a0_packet_add_headers(num_extra_headers, extra_headers, pkt, alloc, &unused);
-
+    a0_packet_copy_with_additional_headers(num_extra_headers,
+                                           extra_headers,
+                                           pkt,
+                                           a0::stream_allocator(slk),
+                                           nullptr);
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
     return A0_OK;
   });

@@ -1,6 +1,7 @@
 #include <a0/rpc.h>
 
 #include <a0/internal/macros.h>
+#include <a0/internal/packet_tools.h>
 #include <a0/internal/stream_tools.hh>
 
 #include <string.h>
@@ -148,7 +149,7 @@ errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_rpc_request_t request, a0_packe
 
   // TODO: Ensure request.pkt != pkt.
 
-  constexpr size_t num_extra_headers = 3;
+  constexpr size_t num_extra_headers = 2;
   a0_packet_header_t extra_headers[num_extra_headers];
 
   static const char clock_key[] = "a0_pub_clock";
@@ -164,49 +165,22 @@ errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_rpc_request_t request, a0_packe
       .size = sizeof(uint64_t),
   };
 
-  static const char seq_key[] = "a0_stream_seq";
-  uint64_t seq_val = 0;  // Get from frame below.
-  extra_headers[1].key = a0_buf_t{
-      .ptr = (uint8_t*)seq_key,
-      .size = strlen(seq_key),
-  };
-  extra_headers[1].val = a0_buf_t{
-      .ptr = (uint8_t*)&seq_val,
-      .size = sizeof(uint64_t),
-  };
+  // TODO: Add sequence numbers.
 
   a0_buf_t request_val;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(
-      a0_packet_find_header(request.pkt, a0_packet_id_key(), &request_val));
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(request.pkt, &request_val));
 
-  extra_headers[2].key = a0_rpc_request_id_key();
-  extra_headers[2].val = request_val;
+  extra_headers[1].key = a0_rpc_request_id_key();
+  extra_headers[1].val = request_val;
 
   // TODO: Check impl and stream still valid?
   a0::sync_stream_t ss{&server->_impl->response_stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    struct alloc_data_t {
-      a0_locked_stream_t slk_;
-      uint64_t* seq_val_ptr;
-    } alloc_data{slk, &seq_val};
-
-    a0_alloc_t alloc = {
-        .user_data = &alloc_data,
-        .fn =
-            [](void* user_data, size_t size, a0_buf_t* out) {
-              auto* d = (alloc_data_t*)user_data;
-
-              a0_stream_frame_t frame;
-              a0_stream_alloc(d->slk_, size, &frame);
-              *d->seq_val_ptr = frame.hdr.seq;
-
-              *out = a0::buf(frame);
-            },
-    };
-
-    a0_packet_t unused;
-    a0_packet_add_headers(num_extra_headers, extra_headers, pkt, alloc, &unused);
-
+    a0_packet_copy_with_additional_headers(num_extra_headers,
+                                           extra_headers,
+                                           pkt,
+                                           a0::stream_allocator(slk),
+                                           nullptr);
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
 
     return A0_OK;
@@ -355,7 +329,7 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback
     client->_impl->state->outstanding[str(id)] = callback;
   }
 
-  constexpr size_t num_extra_headers = 2;
+  constexpr size_t num_extra_headers = 1;
   a0_packet_header_t extra_headers[num_extra_headers];
 
   static const char clock_key[] = "a0_pub_clock";
@@ -371,41 +345,16 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback
       .size = sizeof(uint64_t),
   };
 
-  static const char seq_key[] = "a0_stream_seq";
-  uint64_t seq_val = 0;  // Get from frame below.
-  extra_headers[1].key = a0_buf_t{
-      .ptr = (uint8_t*)seq_key,
-      .size = strlen(seq_key),
-  };
-  extra_headers[1].val = a0_buf_t{
-      .ptr = (uint8_t*)&seq_val,
-      .size = sizeof(uint64_t),
-  };
+  // TODO: Add sequence numbers.
 
   // TODO: Check impl and state still valid?
   a0::sync_stream_t ss{&client->_impl->request_stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    struct alloc_data_t {
-      a0_locked_stream_t slk_;
-      uint64_t* seq_val_ptr;
-    } alloc_data{slk, &seq_val};
-
-    a0_alloc_t alloc = {
-        .user_data = &alloc_data,
-        .fn =
-            [](void* user_data, size_t size, a0_buf_t* out) {
-              auto* d = (alloc_data_t*)user_data;
-
-              a0_stream_frame_t frame;
-              a0_stream_alloc(d->slk_, size, &frame);
-              *d->seq_val_ptr = frame.hdr.seq;
-
-              *out = a0::buf(frame);
-            },
-    };
-
-    a0_packet_t unused;
-    a0_packet_add_headers(num_extra_headers, extra_headers, pkt, alloc, &unused);
+    a0_packet_copy_with_additional_headers(num_extra_headers,
+                                           extra_headers,
+                                           pkt,
+                                           a0::stream_allocator(slk),
+                                           nullptr);
 
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
 

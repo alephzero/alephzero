@@ -34,6 +34,18 @@ struct sync_stream_t {
   }
 };
 
+inline a0_alloc_t stream_allocator(a0_locked_stream_t lk) {
+  return a0_alloc_t{
+      .user_data = &lk,
+      .fn =
+          [](void* data, size_t size, a0_buf_t* out) {
+            a0_stream_frame_t frame;
+            a0_stream_alloc(*(a0_locked_stream_t*)data, size, &frame);
+            *out = a0::buf(frame);
+          },
+  };
+}
+
 struct stream_thread {
   struct state_t {
     a0_stream_t stream;
