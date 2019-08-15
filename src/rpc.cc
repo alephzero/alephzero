@@ -179,7 +179,7 @@ errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_rpc_request_t request, a0_packe
     a0_packet_copy_with_additional_headers(num_extra_headers,
                                            extra_headers,
                                            pkt,
-                                           a0::stream_allocator(slk),
+                                           a0::stream_allocator(&slk),
                                            nullptr);
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
 
@@ -353,7 +353,7 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback
     a0_packet_copy_with_additional_headers(num_extra_headers,
                                            extra_headers,
                                            pkt,
-                                           a0::stream_allocator(slk),
+                                           a0::stream_allocator(&slk),
                                            nullptr);
 
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));

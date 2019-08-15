@@ -99,7 +99,7 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
     a0_packet_copy_with_additional_headers(num_extra_headers,
                                            extra_headers,
                                            pkt,
-                                           a0::stream_allocator(slk),
+                                           a0::stream_allocator(&slk),
                                            nullptr);
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
     return A0_OK;
