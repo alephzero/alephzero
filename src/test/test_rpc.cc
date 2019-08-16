@@ -10,83 +10,52 @@
 #include <map>
 #include <mutex>
 
-static const char kRequestShm[] = "/rpc_request.shm";
-static const char kResponseShm[] = "/rpc_response.shm";
+static const char kTestShm[] = "/test.shm";
 
 struct RpcFixture {
-  a0_shmobj_t request_shmobj;
-  a0_shmobj_t response_shmobj;
+  a0_shmobj_t shmobj;
 
   RpcFixture() {
-    a0_shmobj_unlink(kRequestShm);
-    a0_shmobj_unlink(kResponseShm);
+    a0_shmobj_unlink(kTestShm);
 
     a0_shmobj_options_t shmopt;
     shmopt.size = 16 * 1024 * 1024;
-    a0_shmobj_open(kRequestShm, &shmopt, &request_shmobj);
-    a0_shmobj_open(kResponseShm, &shmopt, &response_shmobj);
+    a0_shmobj_open(kTestShm, &shmopt, &shmobj);
   }
 
   ~RpcFixture() {
-    a0_shmobj_close(&request_shmobj);
-    a0_shmobj_unlink(kRequestShm);
-
-    a0_shmobj_close(&response_shmobj);
-    a0_shmobj_unlink(kResponseShm);
-  }
-};
-
-struct test_alloc {
-  std::map<size_t, std::string> dump;
-  std::mutex mu;
-
-  a0_alloc_t get() {
-    return (a0_alloc_t){
-        .user_data = this,
-        .fn =
-            [](void* data, size_t size, a0_buf_t* out) {
-              auto* self = (test_alloc*)data;
-              std::unique_lock<std::mutex> lk{self->mu};
-              auto key = self->dump.size();
-              self->dump[key].resize(size);
-              out->size = size;
-              out->ptr = (uint8_t*)self->dump[key].c_str();
-            },
-    };
+    a0_shmobj_close(&shmobj);
+    a0_shmobj_unlink(kTestShm);
   }
 };
 
 TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
-  test_alloc alloc;
-
   a0_rpc_server_t server;
 
-  struct server_data_t {
-    a0_rpc_server_t* server;
-    test_alloc* alloc;
-  } server_data{&server, &alloc};
-
-  a0_rpc_server_onrequest_t onrequest = {
-      .user_data = &server_data,
+  a0_packet_callback_t onrequest = {
+      .user_data = &server,
       .fn =
-          [](void* user_data, a0_rpc_request_t req) {
-            auto* data = (server_data_t*)user_data;
+          [](void* user_data, a0_packet_t req) {
             a0_buf_t payload;
-            REQUIRE(a0_packet_payload(req.pkt, &payload) == A0_OK);
-            // fwrite(payload.ptr, sizeof(uint8_t), payload.size, stderr);
+            REQUIRE(a0_packet_payload(req, &payload) == A0_OK);
 
             a0_packet_t pkt;
-            REQUIRE(a0_packet_build(0, nullptr, payload, data->alloc->get(), &pkt) == A0_OK);
+            REQUIRE(a0_packet_build(0, nullptr, payload, a0::test::allocator(), &pkt) == A0_OK);
 
-            REQUIRE(a0_rpc_reply(data->server, req, pkt) == A0_OK);
+            REQUIRE(a0_rpc_reply((a0_rpc_server_t*)user_data, req, pkt) == A0_OK);
           },
   };
 
-  REQUIRE(a0_rpc_server_init(&server, request_shmobj, response_shmobj, alloc.get(), onrequest) ==
+  a0_packet_callback_t oncancel = {
+      .user_data = nullptr,
+      .fn = nullptr,
+  };
+
+  REQUIRE(a0_rpc_server_init(&server, shmobj, a0::test::allocator(), onrequest, oncancel) ==
           A0_OK);
 
   a0_rpc_client_t client;
-  REQUIRE(a0_rpc_client_init(&client, request_shmobj, response_shmobj, alloc.get()) == A0_OK);
+  REQUIRE(a0_rpc_client_init(&client, shmobj, a0::test::allocator()) == A0_OK);
 
   struct client_onreply_data_t {
     size_t cnt{0};
@@ -111,7 +80,7 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
 
   for (int i = 0; i < 10; i++) {
     a0_packet_t pkt;
-    REQUIRE(a0_packet_build(0, nullptr, buf(a0::strutil::fmt("msg #%d", i)), alloc.get(), &pkt) ==
+    REQUIRE(a0_packet_build(0, nullptr, a0::test::buf(a0::strutil::fmt("msg #%d", i)), a0::test::allocator(), &pkt) ==
             A0_OK);
     REQUIRE(a0_rpc_send(&client, pkt, onreply) == A0_OK);
   }

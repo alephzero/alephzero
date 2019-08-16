@@ -64,7 +64,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
 
   a0_stream_protocol_t read_protocol;
   REQUIRE(a0_stream_protocol(lk, &read_protocol, nullptr) == A0_OK);
-  REQUIRE(str(read_protocol.name) == kProtocolName);
+  REQUIRE(a0::test::str(read_protocol.name) == kProtocolName);
   REQUIRE(read_protocol.major_version == 1);
   REQUIRE(read_protocol.minor_version == 2);
   REQUIRE(read_protocol.patch_version == 3);
@@ -73,7 +73,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
   {
     a0_buf_t debugstr;
     a0_stream_debugstr(lk, &debugstr);
-    REQUIRE(str(debugstr) == R"(
+    REQUIRE(a0::test::str(debugstr) == R"(
 =========================
 HEADER
 -------------------------
@@ -122,7 +122,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   {
     a0_buf_t debugstr;
     a0_stream_debugstr(lk, &debugstr);
-    REQUIRE(str(debugstr) == R"(
+    REQUIRE(a0::test::str(debugstr) == R"(
 =========================
 HEADER
 -------------------------
@@ -163,7 +163,7 @@ DATA
   {
     a0_buf_t debugstr;
     a0_stream_debugstr(lk, &debugstr);
-    REQUIRE(str(debugstr) == R"(
+    REQUIRE(a0::test::str(debugstr) == R"(
 =========================
 HEADER
 -------------------------
@@ -211,7 +211,7 @@ Frame (not committed)
   {
     a0_buf_t debugstr;
     a0_stream_debugstr(lk, &debugstr);
-    REQUIRE(str(debugstr) == R"(
+    REQUIRE(a0::test::str(debugstr) == R"(
 =========================
 HEADER
 -------------------------
@@ -302,7 +302,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
 
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 1);
-  REQUIRE(str(frame) == "A");
+  REQUIRE(a0::test::str(frame) == "A");
 
   bool has_next;
   REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
@@ -311,7 +311,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
   REQUIRE(a0_stream_next(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 2);
-  REQUIRE(str(frame) == "BB");
+  REQUIRE(a0::test::str(frame) == "BB");
 
   REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
   REQUIRE(has_next);
@@ -319,7 +319,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
   REQUIRE(a0_stream_next(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 3);
-  REQUIRE(str(frame) == "CCC");
+  REQUIRE(a0::test::str(frame) == "CCC");
 
   REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
   REQUIRE(!has_next);
@@ -327,12 +327,12 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
   REQUIRE(a0_stream_jump_head(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 1);
-  REQUIRE(str(frame) == "A");
+  REQUIRE(a0::test::str(frame) == "A");
 
   REQUIRE(a0_stream_jump_tail(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 3);
-  REQUIRE(str(frame) == "CCC");
+  REQUIRE(a0::test::str(frame) == "CCC");
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);
@@ -382,7 +382,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream await") {
   a0_stream_frame_t frame;
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 1);
-  REQUIRE(str(frame) == "ABC");
+  REQUIRE(a0::test::str(frame) == "ABC");
 
   REQUIRE(a0_stream_await(lk, a0_stream_nonempty) == A0_OK);
 
@@ -392,7 +392,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream await") {
   REQUIRE(a0_stream_next(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 2);
-  REQUIRE(str(frame) == "DEF");
+  REQUIRE(a0::test::str(frame) == "DEF");
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);

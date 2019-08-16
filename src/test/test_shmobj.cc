@@ -40,7 +40,7 @@ TEST_CASE_FIXTURE(ShmObjTestFixture, "Test shared memory objects") {
 
   REQUIRE(a0_shmobj_close(&shmobj) == A0_OK);
 
-  if (!is_valgrind()) {
+  if (!a0::test::is_valgrind()) {
     shmopt.size = pow(2, 46);
     REQUIRE(a0_shmobj_open(kTestShm, &shmopt, &shmobj) == A0_OK);
     REQUIRE(shmobj.stat.st_size == shmopt.size);

@@ -34,29 +34,16 @@ struct PubsubFixture {
     a0_shmobj_unlink(kTestShm);
   }
 
-  a0_packet_t malloc_packet(std::string data) {
+  a0_packet_t make_packet(std::string data) {
     a0_packet_header_t headers[1] = {{
-        .key = buf("key"),
-        .val = buf("val"),
+        .key = a0::test::buf("key"),
+        .val = a0::test::buf("val"),
     }};
 
     a0_packet_t pkt;
-    REQUIRE(a0_packet_build(1, headers, buf(data), make_alloc(), &pkt) == A0_OK);
+    REQUIRE(a0_packet_build(1, headers, a0::test::buf(data), a0::test::allocator(), &pkt) == A0_OK);
 
     return pkt;
-  }
-
-  void free_packet(a0_packet_t pkt) {
-    free(pkt.ptr);
-  }
-
-  a0_alloc_t make_alloc() {
-    a0_alloc_t alloc;
-    alloc.fn = [](void*, size_t size, a0_buf_t* buf) {
-      buf->size = size;
-      buf->ptr = (uint8_t*)malloc(size);
-    };
-    return alloc;
   }
 };
 
@@ -65,13 +52,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
     a0_publisher_t pub;
     REQUIRE(a0_publisher_init(&pub, shmobj) == A0_OK);
 
-    a0_packet_t pkt = malloc_packet("msg #0");
-    REQUIRE(a0_pub(&pub, pkt) == A0_OK);
-    free_packet(pkt);
-
-    pkt = malloc_packet("msg #1");
-    REQUIRE(a0_pub(&pub, pkt) == A0_OK);
-    free_packet(pkt);
+    REQUIRE(a0_pub(&pub, make_packet("msg #0")) == A0_OK);
+    REQUIRE(a0_pub(&pub, make_packet("msg #1")) == A0_OK);
 
     REQUIRE(a0_publisher_close(&pub) == A0_OK);
   }
@@ -82,21 +64,13 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
         a0_subscriber_sync_init(&sub, shmobj, A0_READ_START_EARLIEST, A0_READ_NEXT_SEQUENTIAL) ==
         A0_OK);
 
-    uint8_t space[200];
-    a0_alloc_t alloc;
-    alloc.user_data = space;
-    alloc.fn = [](void* data, size_t size, a0_packet_t* pkt) {
-      pkt->size = size;
-      pkt->ptr = (uint8_t*)data;
-    };
-
     {
       bool has_next;
       REQUIRE(a0_subscriber_sync_has_next(&sub, &has_next) == A0_OK);
       REQUIRE(has_next);
 
       a0_packet_t pkt;
-      REQUIRE(a0_subscriber_sync_next(&sub, alloc, &pkt) == A0_OK);
+      REQUIRE(a0_subscriber_sync_next(&sub, a0::test::allocator(), &pkt) == A0_OK);
       REQUIRE(pkt.size < 200);
 
       size_t num_headers;
@@ -107,7 +81,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       for (size_t i = 0; i < num_headers; i++) {
         a0_packet_header_t pkt_hdr;
         REQUIRE(a0_packet_header(pkt, i, &pkt_hdr) == A0_OK);
-        hdrs[str(pkt_hdr.key)] = str(pkt_hdr.val);
+        hdrs[a0::test::str(pkt_hdr.key)] = a0::test::str(pkt_hdr.val);
       }
       REQUIRE(hdrs.count("key"));
       REQUIRE(hdrs.count("a0_id"));
@@ -116,7 +90,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       a0_buf_t payload;
       REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
 
-      REQUIRE(str(payload) == "msg #0");
+      REQUIRE(a0::test::str(payload) == "msg #0");
 
       REQUIRE(hdrs["key"] == "val");
       REQUIRE(hdrs["a0_id"].size() == 36);
@@ -133,13 +107,13 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       REQUIRE(has_next);
 
       a0_packet_t pkt;
-      REQUIRE(a0_subscriber_sync_next(&sub, alloc, &pkt) == A0_OK);
+      REQUIRE(a0_subscriber_sync_next(&sub, a0::test::allocator(), &pkt) == A0_OK);
       REQUIRE(pkt.size < 200);
 
       a0_buf_t payload;
       REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
 
-      REQUIRE(str(payload) == "msg #1");
+      REQUIRE(a0::test::str(payload) == "msg #1");
     }
 
     {
@@ -156,27 +130,19 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
     REQUIRE(a0_subscriber_sync_init(&sub, shmobj, A0_READ_START_LATEST, A0_READ_NEXT_RECENT) ==
             A0_OK);
 
-    uint8_t space[200];
-    a0_alloc_t alloc;
-    alloc.user_data = space;
-    alloc.fn = [](void* data, size_t size, a0_packet_t* pkt) {
-      pkt->size = size;
-      pkt->ptr = (uint8_t*)data;
-    };
-
     {
       bool has_next;
       REQUIRE(a0_subscriber_sync_has_next(&sub, &has_next) == A0_OK);
       REQUIRE(has_next);
 
       a0_packet_t pkt;
-      REQUIRE(a0_subscriber_sync_next(&sub, alloc, &pkt) == A0_OK);
+      REQUIRE(a0_subscriber_sync_next(&sub, a0::test::allocator(), &pkt) == A0_OK);
       REQUIRE(pkt.size < 200);
 
       a0_buf_t payload;
       REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
 
-      REQUIRE(str(payload) == "msg #1");
+      REQUIRE(a0::test::str(payload) == "msg #1");
     }
 
     {
@@ -194,28 +160,13 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
     a0_publisher_t pub;
     REQUIRE(a0_publisher_init(&pub, shmobj) == A0_OK);
 
-    a0_packet_t pkt = malloc_packet("msg #0");
-    REQUIRE(a0_pub(&pub, pkt) == A0_OK);
-    free_packet(pkt);
-
-    pkt = malloc_packet("msg #1");
-    REQUIRE(a0_pub(&pub, pkt) == A0_OK);
-    free_packet(pkt);
+    REQUIRE(a0_pub(&pub, make_packet("msg #0")) == A0_OK);
+    REQUIRE(a0_pub(&pub, make_packet("msg #1")) == A0_OK);
 
     REQUIRE(a0_publisher_close(&pub) == A0_OK);
   }
 
   {
-    uint8_t space[200];
-    a0_alloc_t alloc = {
-        .user_data = space,
-        .fn =
-            [](void* data, size_t size, a0_packet_t* pkt) {
-              pkt->size = size;
-              pkt->ptr = (uint8_t*)data;
-            },
-    };
-
     struct data_t {
       size_t msg_cnt{0};
       bool closed{false};
@@ -233,10 +184,10 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
               REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
 
               if (data->msg_cnt == 0) {
-                REQUIRE(str(payload) == "msg #0");
+                REQUIRE(a0::test::str(payload) == "msg #0");
               }
               if (data->msg_cnt == 1) {
-                REQUIRE(str(payload) == "msg #1");
+                REQUIRE(a0::test::str(payload) == "msg #1");
               }
 
               data->msg_cnt++;
@@ -249,7 +200,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
                                shmobj,
                                A0_READ_START_EARLIEST,
                                A0_READ_NEXT_SEQUENTIAL,
-                               alloc,
+                               a0::test::allocator(),
                                cb) == A0_OK);
     {
       std::unique_lock<std::mutex> lk{data.mu};
@@ -293,9 +244,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
       REQUIRE(a0_publisher_init(&pub, shmobj) == A0_OK);
 
       for (int j = 0; j < NUM_PACKETS; j++) {
-        const auto pkt = malloc_packet(a0::strutil::fmt("pub %d msg %d", i, j));
+        const auto pkt = make_packet(a0::strutil::fmt("pub %d msg %d", i, j));
         REQUIRE(a0_pub(&pub, pkt) == 0);
-        free_packet(pkt);
       }
 
       REQUIRE(a0_publisher_close(&pub) == A0_OK);
@@ -312,16 +262,6 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
   REQUIRE(a0_subscriber_sync_init(&sub, shmobj, A0_READ_START_EARLIEST, A0_READ_NEXT_SEQUENTIAL) ==
           A0_OK);
 
-  uint8_t space[200];
-  a0_alloc_t alloc = {
-      .user_data = space,
-      .fn =
-          [](void* data, size_t size, a0_packet_t* pkt) {
-            pkt->size = size;
-            pkt->ptr = (uint8_t*)data;
-          },
-  };
-
   while (true) {
     a0_packet_t pkt;
     bool has_next = false;
@@ -330,12 +270,12 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
     if (!has_next) {
       break;
     }
-    REQUIRE(a0_subscriber_sync_next(&sub, alloc, &pkt) == A0_OK);
+    REQUIRE(a0_subscriber_sync_next(&sub, a0::test::allocator(), &pkt) == A0_OK);
 
     a0_buf_t payload;
     REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
 
-    msgs.insert(str(payload));
+    msgs.insert(a0::test::str(payload));
   }
 
   REQUIRE(a0_subscriber_sync_close(&sub) == A0_OK);

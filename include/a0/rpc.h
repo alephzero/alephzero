@@ -19,23 +19,16 @@ typedef struct a0_rpc_server_s {
   a0_rpc_server_impl_t* _impl;
 } a0_rpc_server_t;
 
-typedef struct a0_rpc_request_s {
-  // Note: do NOT reply with this packet. The id is not unique!
-  a0_packet_t pkt;
-} a0_rpc_request_t;
-
-typedef struct a0_rpc_server_onrequest_s {
-  void* user_data;
-  void (*fn)(void* user_data, a0_rpc_request_t);
-} a0_rpc_server_onrequest_t;
-
 errno_t a0_rpc_server_init(a0_rpc_server_t*,
-                           a0_shmobj_t request_shmobj,
-                           a0_shmobj_t response_shmobj,
+                           a0_shmobj_t,
                            a0_alloc_t,
-                           a0_rpc_server_onrequest_t);
+                           a0_packet_callback_t onrequest,
+                           a0_packet_callback_t oncancel);
 errno_t a0_rpc_server_close(a0_rpc_server_t*, a0_callback_t);
-errno_t a0_rpc_reply(a0_rpc_server_t*, a0_rpc_request_t, a0_packet_t);
+// The first packet, `req` is the one that triggered the onrequest callback.
+// The second packet, `resp` is the one you wish to respond with.
+// Note: do NOT respond with the request packet. The ids MUST be unique!
+errno_t a0_rpc_reply(a0_rpc_server_t*, a0_packet_t req, a0_packet_t resp);
 
 ////////////
 // Client //
@@ -47,12 +40,11 @@ typedef struct a0_rpc_client_s {
   a0_rpc_client_impl_t* _impl;
 } a0_rpc_client_t;
 
-errno_t a0_rpc_client_init(a0_rpc_client_t*,
-                           a0_shmobj_t request_shmobj,
-                           a0_shmobj_t response_shmobj,
-                           a0_alloc_t);
+errno_t a0_rpc_client_init(a0_rpc_client_t*, a0_shmobj_t, a0_alloc_t);
 errno_t a0_rpc_client_close(a0_rpc_client_t*, a0_callback_t);
 errno_t a0_rpc_send(a0_rpc_client_t*, a0_packet_t, a0_packet_callback_t);
+// Note: use the same packet that was provided to a0_rpc_send.
+errno_t a0_rpc_cancel(a0_rpc_client_t*, a0_packet_t);
 
 #ifdef __cplusplus
 }

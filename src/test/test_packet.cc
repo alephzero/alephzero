@@ -11,19 +11,19 @@ TEST_CASE("Test packet") {
   size_t num_headers = 3;
   a0_packet_header_t headers[num_headers];
   headers[0] = {
-      .key = buf("key0"),
-      .val = buf("val0"),
+      .key = a0::test::buf("key0"),
+      .val = a0::test::buf("val0"),
   };
   headers[1] = {
       .key = a0_packet_dep_key(),
-      .val = buf("00000000-0000-0000-0000-000000000000"),
+      .val = a0::test::buf("00000000-0000-0000-0000-000000000000"),
   };
   headers[2] = {
       .key = a0_packet_dep_key(),
-      .val = buf("00000000-0000-0000-0000-000000000001"),
+      .val = a0::test::buf("00000000-0000-0000-0000-000000000001"),
   };
 
-  a0_buf_t payload_buf = buf("Hello, World!");
+  a0_buf_t payload_buf = a0::test::buf("Hello, World!");
 
   REQUIRE(payload_buf.size == 13);
   uint8_t write_buf[226];
@@ -46,7 +46,7 @@ TEST_CASE("Test packet") {
   for (size_t i = 0; i < read_num_header; i++) {
     a0_packet_header_t hdr;
     REQUIRE(a0_packet_header(pkt, i, &hdr) == A0_OK);
-    read_hdrs[str(hdr.key)].push_back(str(hdr.val));
+    read_hdrs[a0::test::str(hdr.key)].push_back(a0::test::str(hdr.val));
   }
   REQUIRE(read_hdrs["key0"][0] == "val0");
   REQUIRE(read_hdrs["a0_dep"].size() == 2);
@@ -58,6 +58,6 @@ TEST_CASE("Test packet") {
 
   a0_buf_t read_payload;
   REQUIRE(a0_packet_payload(pkt, &read_payload) == A0_OK);
-  CHECK(str(read_payload).size() == str(payload_buf).size());
-  REQUIRE(str(read_payload) == "Hello, World!");
+  CHECK(a0::test::str(read_payload).size() == a0::test::str(payload_buf).size());
+  REQUIRE(a0::test::str(read_payload) == "Hello, World!");
 }

@@ -41,7 +41,7 @@ inline a0_alloc_t stream_allocator(a0_locked_stream_t* lk) {
           [](void* data, size_t size, a0_buf_t* out) {
             a0_stream_frame_t frame;
             a0_stream_alloc(*(a0_locked_stream_t*)data, size, &frame);
-            *out = a0::buf(frame);
+            *out = buf(frame);
           },
   };
 }
@@ -57,7 +57,7 @@ struct stream_thread {
     std::mutex mu;
 
     bool handle_first_pkt() {
-      a0::sync_stream_t ss{&stream};
+      sync_stream_t ss{&stream};
       return ss.with_lock([&](a0_locked_stream_t slk) {
         if (a0_stream_await(slk, a0_stream_nonempty)) {
           return false;
@@ -70,7 +70,7 @@ struct stream_thread {
     }
 
     bool handle_next_pkt() {
-      a0::sync_stream_t ss{&stream};
+      sync_stream_t ss{&stream};
       return ss.with_lock([&](a0_locked_stream_t slk) {
         if (a0_stream_await(slk, a0_stream_has_next)) {
           return false;
