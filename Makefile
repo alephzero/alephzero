@@ -48,15 +48,15 @@ all:
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -MMD -c $^ -o $@
+	$(CC) $(CFLAGS) -MMD -c $< -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -MMD -c $^ -o $@
+	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
 
 $(OBJ_DIR)/test/%.o: $(SRC_DIR)/test/%.cc
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) $(TEST_CXXFLAGS) -MMD -c $^ -o $@
+	$(CXX) $(CXXFLAGS) $(TEST_CXXFLAGS) -MMD -c $< -o $@
 
 $(BIN_DIR)/test: $(TEST_OBJ) $(OBJ)
 	@mkdir -p $(@D)

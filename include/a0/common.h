@@ -1,8 +1,10 @@
 #ifndef A0_COMMON_H
 #define A0_COMMON_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,6 +18,10 @@ typedef struct a0_buf_s {
   uint8_t* ptr;
   size_t size;
 } a0_buf_t;
+
+inline bool a0_buf_eq(a0_buf_t left, a0_buf_t right) {
+  return left.size == right.size && !memcmp(left.ptr, right.ptr, left.size);
+}
 
 typedef struct a0_callback_s {
   void* user_data;

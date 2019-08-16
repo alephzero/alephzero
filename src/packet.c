@@ -65,7 +65,7 @@ errno_t a0_packet_find_header(a0_packet_t pkt, a0_buf_t key, a0_buf_t* val_out) 
   for (size_t i = 0; i < num_hdrs; i++) {
     a0_packet_header_t hdr;
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_header(pkt, i, &hdr));
-    if (key.size == hdr.key.size && !memcmp(key.ptr, (char*)hdr.key.ptr, key.size)) {
+    if (a0_buf_eq(key, hdr.key)) {
       *val_out = hdr.val;
       return A0_OK;
     }
@@ -134,10 +134,15 @@ errno_t a0_packet_build(size_t num_headers,
                         a0_alloc_t alloc,
                         a0_packet_t* out) {
   bool has_id = false;
+
+  a0_buf_t id_buf = {
+    .ptr = (uint8_t*)kIdKey,
+    .size = strlen(kIdKey),
+  };
+
   // TODO: Verify at most one id.
   for (size_t i = 0; i < num_headers; i++) {
-    if (strlen(kIdKey) == headers[i].key.size &&
-        !memcmp(kIdKey, (char*)headers[i].key.ptr, strlen(kIdKey))) {
+    if (a0_buf_eq(id_buf, headers[i].key)) {
       has_id = true;
       break;
     }

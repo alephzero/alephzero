@@ -147,31 +147,37 @@ errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_rpc_request_t request, a0_packe
     return ESHUTDOWN;
   }
 
-  // TODO: Ensure request.pkt != pkt.
+  a0_buf_t request_id;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(request.pkt, &request_id));
+
+  a0_buf_t response_id;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(pkt, &response_id));
+
+  // TODO: Is there a better way?
+  if (a0_buf_eq(request_id, response_id)) {
+    return EINVAL;
+  }
 
   constexpr size_t num_extra_headers = 2;
   a0_packet_header_t extra_headers[num_extra_headers];
+
+  extra_headers[0].key = a0_rpc_request_id_key();
+  extra_headers[0].val = request_id;
 
   static const char clock_key[] = "a0_pub_clock";
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
-  extra_headers[0].key = a0_buf_t{
+  extra_headers[1].key = a0_buf_t{
       .ptr = (uint8_t*)clock_key,
       .size = strlen(clock_key),
   };
-  extra_headers[0].val = a0_buf_t{
+  extra_headers[1].val = a0_buf_t{
       .ptr = (uint8_t*)&clock_val,
       .size = sizeof(uint64_t),
   };
 
   // TODO: Add sequence numbers.
-
-  a0_buf_t request_val;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(request.pkt, &request_val));
-
-  extra_headers[1].key = a0_rpc_request_id_key();
-  extra_headers[1].val = request_val;
 
   // TODO: Check impl and stream still valid?
   a0::sync_stream_t ss{&server->_impl->response_stream};
