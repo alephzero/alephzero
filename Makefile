@@ -6,7 +6,7 @@ LIB_DIR = lib
 BIN_DIR = bin
 
 CFLAGS += -Wall -Wextra -fPIC -Iinclude
-CXXFLAGS += -Wall -Wextra -fPIC -Iinclude -std=c++17 -D_GLIBCXX_USE_CXX11_ABI=0
+CXXFLAGS += -Wall -Wextra -fPIC -Iinclude -Ithird_party/json/single_include -std=c++17 -D_GLIBCXX_USE_CXX11_ABI=0
 LDLIBS += -lm -lpthread -lrt
 
 SRC_C := $(wildcard $(SRC_DIR)/*.c)
@@ -23,7 +23,6 @@ TEST_SRC_CXX := $(wildcard $(SRC_DIR)/test/*.cc)
 TEST_OBJ := $(TEST_SRC_C:$(SRC_DIR)/test/%.c=$(OBJ_DIR)/test/%.o)
 TEST_OBJ += $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cc=$(OBJ_DIR)/test/%.o)
 
-TEST_CFLAGS += -I. -Itest -Ithird_party/doctest/doctest
 TEST_CXXFLAGS += -I. -Itest -Ithird_party/doctest/doctest
 TEST_LDLIBS += -lm
 
@@ -49,36 +48,32 @@ all:
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -MMD -c $< -o $@
+	$(CC) $(CFLAGS) -MMD -c $^ -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
-
-$(OBJ_DIR)/test/%.o: $(SRC_DIR)/test/%.c
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(TEST_CFLAGS) -MMD -c $< -o $@
+	$(CXX) $(CXXFLAGS) -MMD -c $^ -o $@
 
 $(OBJ_DIR)/test/%.o: $(SRC_DIR)/test/%.cc
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) $(TEST_CXXFLAGS) -MMD -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(TEST_CXXFLAGS) -MMD -c $^ -o $@
 
 $(BIN_DIR)/test: $(TEST_OBJ) $(OBJ)
 	@mkdir -p $(@D)
-	$(CXX) $(TEST_OBJ) $(OBJ) $(LDLIBS) $(TEST_LDLIBS) -o $@
+	$(CXX) $^ $(LDLIBS) $(TEST_LDLIBS) -o $@
 
 $(LIB_DIR)/lib$(A0).a: $(OBJ)
 	@mkdir -p $(@D)
-	$(AR) r $@ $(OBJ)
+	$(AR) r $@ $^
 
 $(LIB_DIR)/lib$(A0).so: $(OBJ)
 	@mkdir -p $(@D)
-	$(CXX) -shared -o $@ $(OBJ)
+	$(CXX) -shared -o $@ $^
 
 install: $(LIB_DIR)/lib$(A0).a $(LIB_DIR)/lib$(A0).so
 	rm -rf $(DESTDIR)$(PREFIX)/include/a0/
 	mkdir -p $(DESTDIR)$(PREFIX)/include/a0/
-	cp -r include/a0/* $(DESTDIR)$(PREFIX)/include/a0/
+	cp include/a0/* $(DESTDIR)$(PREFIX)/include/a0/
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/
 	cp -f $(LIB_DIR)/lib$(A0).* $(DESTDIR)$(PREFIX)/lib/
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/pkgconfig/
