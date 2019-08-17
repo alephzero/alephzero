@@ -48,8 +48,8 @@ std::string str(a0_buf_t buf) {
 A0_STATIC_INLINE
 a0_buf_t buf(const char* str) {
   return a0_buf_t{
-    .ptr = (uint8_t*)str,
-    .size = strlen(str),
+      .ptr = (uint8_t*)str,
+      .size = strlen(str),
   };
 }
 
@@ -61,13 +61,15 @@ struct a0_rpc_server_impl_s {
   a0::stream_thread worker;
 
   bool started_empty{false};
+
+  std::function<void()> managed_finalizer;
 };
 
-errno_t a0_rpc_server_init(a0_rpc_server_t* server,
-                           a0_shmobj_t shmobj,
-                           a0_alloc_t alloc,
-                           a0_packet_callback_t onrequest,
-                           a0_packet_callback_t oncancel) {
+errno_t a0_rpc_server_init_unmanaged(a0_rpc_server_t* server,
+                                     a0_shmobj_t shmobj,
+                                     a0_alloc_t alloc,
+                                     a0_packet_callback_t onrequest,
+                                     a0_packet_callback_t oncancel) {
   server->_impl = new a0_rpc_server_impl_t;
 
   auto on_stream_init = [server](a0_locked_stream_t slk, a0_stream_init_status_t) -> errno_t {
@@ -128,11 +130,21 @@ errno_t a0_rpc_server_close(a0_rpc_server_t* server, a0_callback_t onclose) {
     return ESHUTDOWN;
   }
 
+  std::function<void()> fin = std::move(server->_impl->managed_finalizer);
+
   auto worker_ = server->_impl->worker;
   delete server->_impl;
   server->_impl = nullptr;
 
-  worker_.close(onclose);
+  worker_.close([fin, onclose]() {
+    if (onclose.fn) {
+      onclose.fn(onclose.user_data);
+    }
+    if (fin) {
+      fin();
+    }
+  });
+
   return A0_OK;
 }
 
@@ -186,6 +198,10 @@ errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_packet_t req, a0_packet_t resp)
   });
 }
 
+void a0_rpc_server_managed_finalizer(a0_rpc_server_t* server, std::function<void()> fn) {
+  server->_impl->managed_finalizer = std::move(fn);
+}
+
 //////////////
 //  Client  //
 //////////////
@@ -205,11 +221,13 @@ struct a0_rpc_client_impl_s {
 
   std::shared_ptr<rpc_state> state;
   bool started_empty{false};
+
+  std::function<void()> managed_finalizer;
 };
 
-errno_t a0_rpc_client_init(a0_rpc_client_t* client,
-                           a0_shmobj_t shmobj,
-                           a0_alloc_t alloc) {
+errno_t a0_rpc_client_init_unmanaged(a0_rpc_client_t* client,
+                                     a0_shmobj_t shmobj,
+                                     a0_alloc_t alloc) {
   client->_impl = new a0_rpc_client_impl_t;
   client->_impl->state = std::make_shared<rpc_state>();
 
@@ -294,6 +312,8 @@ errno_t a0_rpc_client_close(a0_rpc_client_t* client, a0_callback_t onclose) {
     return ESHUTDOWN;
   }
 
+  std::function<void()> fin = std::move(client->_impl->managed_finalizer);
+
   {
     std::unique_lock<std::mutex> lk{client->_impl->state->mu};
     client->_impl->state->closing = true;
@@ -303,7 +323,14 @@ errno_t a0_rpc_client_close(a0_rpc_client_t* client, a0_callback_t onclose) {
   delete client->_impl;
   client->_impl = nullptr;
 
-  worker_.close(onclose);
+  worker_.close([fin, onclose]() {
+    if (onclose.fn) {
+      onclose.fn(onclose.user_data);
+    }
+    if (fin) {
+      fin();
+    }
+  });
 
   return A0_OK;
 }
@@ -392,4 +419,8 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, a0_packet_t pkt) {
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
     return A0_OK;
   });
+}
+
+void a0_rpc_client_managed_finalizer(a0_rpc_client_t* client, std::function<void()> fn) {
+  client->_impl->managed_finalizer = std::move(fn);
 }

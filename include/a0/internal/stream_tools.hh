@@ -53,7 +53,7 @@ struct stream_thread {
     std::function<void(a0_locked_stream_t)> on_stream_nonempty;
     std::function<void(a0_locked_stream_t)> on_stream_hasnext;
 
-    a0_callback_t onclose;
+    std::function<void()> onclose;
     std::mutex mu;
 
     bool handle_first_pkt() {
@@ -90,8 +90,8 @@ struct stream_thread {
 
       {
         std::unique_lock<std::mutex> lk{mu};
-        if (onclose.fn) {
-          onclose.fn(onclose.user_data);
+        if (onclose) {
+          onclose();
         }
       }
     }
@@ -123,7 +123,7 @@ struct stream_thread {
     return A0_OK;
   }
 
-  errno_t close(a0_callback_t onclose) {
+  errno_t close(std::function<void()> onclose) {
     if (!state) {
       return ESHUTDOWN;
     }
