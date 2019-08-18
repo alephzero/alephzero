@@ -12,95 +12,63 @@ using json = nlohmann::json;
 
 namespace {
 
-struct subscriber_def {
-  std::string container;
-  std::string topic;
-  a0_subscriber_read_start_t read_start;
-  a0_subscriber_read_next_t read_next;
-};
-
-void to_json(json& j, const subscriber_def& def) {
-  j = json{{"container", def.container}, {"topic", def.topic}};
-
-  if (def.read_start == A0_READ_START_EARLIEST) {
-    j["read_start"] = "EARLIEST";
-  } else if (def.read_start == A0_READ_START_LATEST) {
-    j["read_start"] = "LATEST";
-  } else if (def.read_start == A0_READ_START_NEW) {
-    j["read_start"] = "NEW";
-  } else {
-    throw;
-  }
-
-  if (def.read_next == A0_READ_NEXT_SEQUENTIAL) {
-    j["read_next"] = "SEQUENTIAL";
-  } else if (def.read_next == A0_READ_NEXT_RECENT) {
-    j["read_next"] = "RECENT";
-  } else {
-    throw;
-  }
-}
-
-void from_json(const json& j, subscriber_def& def) {
-  j.at("container").get_to(def.container);
-  j.at("topic").get_to(def.topic);
-
-  std::string read_start_str;
-  j.at("read_start").get_to(read_start_str);
-
-  if (read_start_str == "EARLIEST") {
-    def.read_start = A0_READ_START_EARLIEST;
-  } else if (read_start_str == "LATEST") {
-    def.read_start = A0_READ_START_LATEST;
-  } else if (read_start_str == "NEW") {
-    def.read_start = A0_READ_START_NEW;
-  } else {
-    throw;
-  }
-
-  std::string read_next_str;
-  j.at("read_next").get_to(read_next_str);
-
-  if (read_next_str == "SEQUENTIAL") {
-    def.read_next = A0_READ_NEXT_SEQUENTIAL;
-  } else if (read_next_str == "RECENT") {
-    def.read_next = A0_READ_NEXT_RECENT;
-  } else {
-    throw;
-  }
-}
-
-struct rpc_client_def {
+struct topic_map_val {
   std::string container;
   std::string topic;
 };
 
-void to_json(json& j, const rpc_client_def& def) {
-  j = json{{"container", def.container}, {"topic", def.topic}};
+void to_json(json& j, const topic_map_val& val) {
+  j = json{{"container", val.container}, {"topic", val.topic}};
 }
 
-void from_json(const json& j, rpc_client_def& def) {
-  j.at("container").get_to(def.container);
-  j.at("topic").get_to(def.topic);
+void from_json(const json& j, topic_map_val& val) {
+  j.at("container").get_to(val.container);
+  j.at("topic").get_to(val.topic);
 }
 
 struct alephzero_options {
   std::string container;
 
-  std::unordered_map<std::string, subscriber_def> subscriber_defs;
-  std::unordered_map<std::string, rpc_client_def> rpc_client_defs;
+  std::unordered_map<std::string, topic_map_val> subscriber_maps;
+  std::unordered_map<std::string, topic_map_val> rpc_client_maps;
 };
 
 void to_json(json& j, const alephzero_options& opts) {
   j = json{{"container", opts.container},
-           {"subscriber_defs", opts.subscriber_defs},
-           {"rpc_client_defs", opts.rpc_client_defs}};
+           {"subscriber_maps", opts.subscriber_maps},
+           {"rpc_client_maps", opts.rpc_client_maps}};
 }
 
 void from_json(const json& j, alephzero_options& opts) {
   j.at("container").get_to(opts.container);
-  j.at("subscriber_defs").get_to(opts.subscriber_defs);
-  j.at("rpc_client_defs").get_to(opts.rpc_client_defs);
+  j.at("subscriber_maps").get_to(opts.subscriber_maps);
+  j.at("rpc_client_maps").get_to(opts.rpc_client_maps);
+}
+
+a0_alloc_t new_alloc() {
+  auto* heap_buf = new a0_buf_t;
+  heap_buf->ptr = (uint8_t*)malloc(1);
+  heap_buf->size = 1;
+
+  return a0_alloc_t{
+      .user_data = heap_buf,
+      .fn =
+          [](void* user_data, size_t size, a0_buf_t* out) {
+            auto* heap_buf = (a0_buf_t*)user_data;
+            if (heap_buf->size < size) {
+              heap_buf->ptr = (uint8_t*)realloc(heap_buf->ptr, size);
+              heap_buf->size = size;
+            }
+            out->ptr = heap_buf->ptr;
+            out->size = size;
+          },
+  };
+}
+
+void delete_alloc(a0_alloc_t alloc) {
+  auto* heap_buf = (a0_buf_t*)alloc.user_data;
+  free(heap_buf->ptr);
+  delete heap_buf;
 }
 
 }  // namespace
@@ -169,78 +137,118 @@ errno_t a0_alephzero_init_explicit(a0_alephzero_t* alephzero, a0_alephzero_optio
   auto* opts = &alephzero->_impl->opts;
 
   opts->container = copts.container;
-  for (size_t i = 0; i < copts.num_subscriber_defs; i++) {
-    opts->subscriber_defs[copts.subscriber_defs[i].name] = {
-        .container = copts.subscriber_defs[i].container,
-        .topic = copts.subscriber_defs[i].topic,
-        .read_start = copts.subscriber_defs[i].read_start,
-        .read_next = copts.subscriber_defs[i].read_next,
+  for (size_t i = 0; i < copts.num_subscriber_maps; i++) {
+    opts->subscriber_maps[copts.subscriber_maps[i].name] = {
+        .container = copts.subscriber_maps[i].container,
+        .topic = copts.subscriber_maps[i].topic,
     };
   }
-  for (size_t i = 0; i < copts.num_rpc_client_defs; i++) {
-    opts->rpc_client_defs[copts.rpc_client_defs[i].name] = {
-        .container = copts.rpc_client_defs[i].container,
-        .topic = copts.rpc_client_defs[i].topic,
+  for (size_t i = 0; i < copts.num_rpc_client_maps; i++) {
+    opts->rpc_client_maps[copts.rpc_client_maps[i].name] = {
+        .container = copts.rpc_client_maps[i].container,
+        .topic = copts.rpc_client_maps[i].topic,
     };
   }
 
   return A0_OK;
 }
 
-errno_t a0_alephzero_close(a0_alephzero_t*);
+errno_t a0_alephzero_close(a0_alephzero_t* alephzero) {
+  if (!alephzero || !alephzero->_impl) {
+    return ESHUTDOWN;
+  }
+
+  {
+    std::unique_lock<std::mutex> lk{alephzero->_impl->shmobj_mu};
+    if (!alephzero->_impl->open_shmobj.empty()) {
+      return EBUSY;
+    }
+  }
+
+  delete alephzero->_impl;
+  alephzero->_impl = nullptr;
+
+  return A0_OK;
+}
 
 void a0_publisher_managed_finalizer(a0_publisher_t*, std::function<void()>);
+void a0_subscriber_sync_zc_managed_finalizer(a0_subscriber_sync_zc_t*, std::function<void()>);
 void a0_subscriber_sync_managed_finalizer(a0_subscriber_sync_t*, std::function<void()>);
-void a0_subscriber_zero_copy_managed_finalizer(a0_subscriber_zero_copy_t*, std::function<void()>);
+void a0_subscriber_zc_managed_finalizer(a0_subscriber_zc_t*, std::function<void()>);
 void a0_subscriber_managed_finalizer(a0_subscriber_t*, std::function<void()>);
 void a0_rpc_server_managed_finalizer(a0_rpc_server_t*, std::function<void()>);
 void a0_rpc_client_managed_finalizer(a0_rpc_client_t*, std::function<void()>);
 
-errno_t a0_publisher_init(a0_publisher_t* publisher, a0_alephzero_t alephzero, const char* name) {
+errno_t a0_publisher_init(a0_publisher_t* pub, a0_alephzero_t alephzero, const char* name) {
   auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", alephzero._impl->opts.container.c_str(), name);
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_publisher_init_unmanaged(publisher, shmobj));
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_publisher_init_unmanaged(pub, shmobj));
 
-  a0_publisher_managed_finalizer(publisher, [alephzero, path]() {
+  a0_publisher_managed_finalizer(pub, [alephzero, path]() {
     alephzero._impl->decref_shmobj(path);
   });
 
   return A0_OK;
 }
 
-errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* subscriber_sync,
-                                a0_alephzero_t alephzero,
-                                const char* name) {
-  auto* def = &alephzero._impl->opts.subscriber_defs.at(name);
-  auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", def->container.c_str(), def->topic.c_str());
+errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
+                                   a0_alephzero_t alephzero,
+                                   const char* name,
+                                   a0_subscriber_read_start_t read_start,
+                                   a0_subscriber_read_next_t read_next) {
+  // TODO: Get err as errno_t.
+  auto* mapping = &alephzero._impl->opts.subscriber_maps.at(name);
+  auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", mapping->container.c_str(), mapping->topic.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   A0_INTERNAL_RETURN_ERR_ON_ERR(
-      a0_subscriber_sync_init_unmanaged(subscriber_sync, shmobj, def->read_start, def->read_next));
+      a0_subscriber_sync_zc_init_unmanaged(sub_sync_zc, shmobj, read_start, read_next));
 
-  a0_subscriber_sync_managed_finalizer(subscriber_sync, [alephzero, path]() {
+  a0_subscriber_sync_zc_managed_finalizer(sub_sync_zc, [alephzero, path]() {
     alephzero._impl->decref_shmobj(path);
   });
 
   return A0_OK;
 }
 
-errno_t a0_subscriber_zero_copy_init(a0_subscriber_zero_copy_t* subscriber_zero_copy,
-                                     a0_alephzero_t alephzero,
-                                     const char* name,
-                                     a0_zero_copy_callback_t zero_copy_callback) {
-  auto* def = &alephzero._impl->opts.subscriber_defs.at(name);
-  auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", def->container.c_str(), def->topic.c_str());
+errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
+                                a0_alephzero_t alephzero,
+                                const char* name,
+                                a0_subscriber_read_start_t read_start,
+                                a0_subscriber_read_next_t read_next) {
+  // TODO: Get err as errno_t.
+  auto* mapping = &alephzero._impl->opts.subscriber_maps.at(name);
+  auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", mapping->container.c_str(), mapping->topic.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_zero_copy_init_unmanaged(subscriber_zero_copy,
-                                                                       shmobj,
-                                                                       def->read_start,
-                                                                       def->read_next,
-                                                                       zero_copy_callback));
+  auto alloc = new_alloc();
+  A0_INTERNAL_RETURN_ERR_ON_ERR(
+      a0_subscriber_sync_init_unmanaged(sub_sync, shmobj, alloc, read_start, read_next));
 
-  a0_subscriber_zero_copy_managed_finalizer(subscriber_zero_copy, [alephzero, path]() {
+  a0_subscriber_sync_managed_finalizer(sub_sync, [alephzero, path, alloc]() {
+    alephzero._impl->decref_shmobj(path);
+    delete_alloc(alloc);
+  });
+
+  return A0_OK;
+}
+
+errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* subscriber_zc,
+                              a0_alephzero_t alephzero,
+                              const char* name,
+                              a0_subscriber_read_start_t read_start,
+                              a0_subscriber_read_next_t read_next,
+                              a0_zero_copy_callback_t zc_callback) {
+  // TODO: Get err as errno_t.
+  auto* mapping = &alephzero._impl->opts.subscriber_maps.at(name);
+  auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", mapping->container.c_str(), mapping->topic.c_str());
+  a0_shmobj_t shmobj;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
+  A0_INTERNAL_RETURN_ERR_ON_ERR(
+      a0_subscriber_zc_init_unmanaged(subscriber_zc, shmobj, read_start, read_next, zc_callback));
+
+  a0_subscriber_zc_managed_finalizer(subscriber_zc, [alephzero, path]() {
     alephzero._impl->decref_shmobj(path);
   });
 
@@ -250,21 +258,25 @@ errno_t a0_subscriber_zero_copy_init(a0_subscriber_zero_copy_t* subscriber_zero_
 errno_t a0_subscriber_init(a0_subscriber_t* subscriber,
                            a0_alephzero_t alephzero,
                            const char* name,
-                           a0_alloc_t alloc,
+                           a0_subscriber_read_start_t read_start,
+                           a0_subscriber_read_next_t read_next,
                            a0_packet_callback_t packet_callback) {
-  auto* def = &alephzero._impl->opts.subscriber_defs.at(name);
-  auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", def->container.c_str(), def->topic.c_str());
+  // TODO: Get err as errno_t.
+  auto* mapping = &alephzero._impl->opts.subscriber_maps.at(name);
+  auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", mapping->container.c_str(), mapping->topic.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
+  auto alloc = new_alloc();
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_init_unmanaged(subscriber,
                                                              shmobj,
-                                                             def->read_start,
-                                                             def->read_next,
                                                              alloc,
+                                                             read_start,
+                                                             read_next,
                                                              packet_callback));
 
-  a0_subscriber_managed_finalizer(subscriber, [alephzero, path]() {
+  a0_subscriber_managed_finalizer(subscriber, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);
+    delete_alloc(alloc);
   });
 
   return A0_OK;
@@ -273,17 +285,18 @@ errno_t a0_subscriber_init(a0_subscriber_t* subscriber,
 errno_t a0_rpc_server_init(a0_rpc_server_t* rpc_server,
                            a0_alephzero_t alephzero,
                            const char* name,
-                           a0_alloc_t alloc,
                            a0_packet_callback_t onrequest,
                            a0_packet_callback_t oncancel) {
   auto path = a0::strutil::fmt("/a0_rpc__%s__%s", alephzero._impl->opts.container.c_str(), name);
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
+  auto alloc = new_alloc();
   A0_INTERNAL_RETURN_ERR_ON_ERR(
       a0_rpc_server_init_unmanaged(rpc_server, shmobj, alloc, onrequest, oncancel));
 
-  a0_rpc_server_managed_finalizer(rpc_server, [alephzero, path]() {
+  a0_rpc_server_managed_finalizer(rpc_server, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);
+    delete_alloc(alloc);
   });
 
   return A0_OK;
@@ -291,16 +304,18 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* rpc_server,
 
 errno_t a0_rpc_client_init(a0_rpc_client_t* rpc_client,
                            a0_alephzero_t alephzero,
-                           const char* name,
-                           a0_alloc_t alloc) {
-  auto* def = &alephzero._impl->opts.rpc_client_defs.at(name);
-  auto path = a0::strutil::fmt("/a0_rpc__%s__%s", def->container.c_str(), def->topic.c_str());
+                           const char* name) {
+  // TODO: Get err as errno_t.
+  auto* mapping = &alephzero._impl->opts.rpc_client_maps.at(name);
+  auto path = a0::strutil::fmt("/a0_rpc__%s__%s", mapping->container.c_str(), mapping->topic.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
+  auto alloc = new_alloc();
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_rpc_client_init_unmanaged(rpc_client, shmobj, alloc));
 
-  a0_rpc_client_managed_finalizer(rpc_client, [alephzero, path]() {
+  a0_rpc_client_managed_finalizer(rpc_client, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);
+    delete_alloc(alloc);
   });
 
   return A0_OK;

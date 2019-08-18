@@ -126,7 +126,7 @@ errno_t a0_rpc_server_init_unmanaged(a0_rpc_server_t* server,
 }
 
 errno_t a0_rpc_server_close(a0_rpc_server_t* server, a0_callback_t onclose) {
-  if (!server->_impl) {
+  if (!server || !server->_impl) {
     return ESHUTDOWN;
   }
 

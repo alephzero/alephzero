@@ -132,7 +132,9 @@ void a0_publisher_managed_finalizer(a0_publisher_t* pub, std::function<void()> f
 //  Subscriber  //
 //////////////////
 
-struct a0_subscriber_sync_impl_s {
+// Synchronous zero-copy version.
+
+struct a0_subscriber_sync_zc_impl_s {
   a0_stream_t stream;
 
   a0_subscriber_read_start_t read_start;
@@ -143,17 +145,17 @@ struct a0_subscriber_sync_impl_s {
   std::function<void()> managed_finalizer;
 };
 
-errno_t a0_subscriber_sync_init_unmanaged(a0_subscriber_sync_t* sub_sync,
-                                          a0_shmobj_t shmobj,
-                                          a0_subscriber_read_start_t read_start,
-                                          a0_subscriber_read_next_t read_next) {
-  sub_sync->_impl = new a0_subscriber_sync_impl_t;
-  sub_sync->_impl->read_start = read_start;
-  sub_sync->_impl->read_next = read_next;
+errno_t a0_subscriber_sync_zc_init_unmanaged(a0_subscriber_sync_zc_t* sub_sync_zc,
+                                             a0_shmobj_t shmobj,
+                                             a0_subscriber_read_start_t read_start,
+                                             a0_subscriber_read_next_t read_next) {
+  sub_sync_zc->_impl = new a0_subscriber_sync_zc_impl_t;
+  sub_sync_zc->_impl->read_start = read_start;
+  sub_sync_zc->_impl->read_next = read_next;
 
   a0_stream_init_status_t init_status;
   a0_locked_stream_t slk;
-  a0_stream_init(&sub_sync->_impl->stream, shmobj, protocol_info(), &init_status, &slk);
+  a0_stream_init(&sub_sync_zc->_impl->stream, shmobj, protocol_info(), &init_status, &slk);
 
   if (init_status == A0_STREAM_CREATED) {
     // TODO: Add metadata...
@@ -168,14 +170,104 @@ errno_t a0_subscriber_sync_init_unmanaged(a0_subscriber_sync_t* sub_sync,
   return A0_OK;
 }
 
+errno_t a0_subscriber_sync_zc_close(a0_subscriber_sync_zc_t* sub_sync_zc) {
+  if (!sub_sync_zc || !sub_sync_zc->_impl) {
+    return ESHUTDOWN;
+  }
+
+  std::function<void()> fin = std::move(sub_sync_zc->_impl->managed_finalizer);
+
+  a0_stream_close(&sub_sync_zc->_impl->stream);
+  delete sub_sync_zc->_impl;
+  sub_sync_zc->_impl = nullptr;
+
+  if (fin) {
+    fin();
+  }
+
+  return A0_OK;
+}
+
+errno_t a0_subscriber_sync_zc_has_next(a0_subscriber_sync_zc_t* sub_sync_zc, bool* has_next) {
+  if (!sub_sync_zc || !sub_sync_zc->_impl) {
+    return ESHUTDOWN;
+  }
+
+  a0::sync_stream_t ss{&sub_sync_zc->_impl->stream};
+  return ss.with_lock([&](a0_locked_stream_t slk) {
+    return a0_stream_has_next(slk, has_next);
+  });
+}
+
+errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t* sub_sync_zc, a0_zero_copy_callback_t cb) {
+  if (!sub_sync_zc || !sub_sync_zc->_impl) {
+    return ESHUTDOWN;
+  }
+
+  a0::sync_stream_t ss{&sub_sync_zc->_impl->stream};
+  return ss.with_lock([&](a0_locked_stream_t slk) {
+    if (!sub_sync_zc->_impl->read_first) {
+      if (sub_sync_zc->_impl->read_start == A0_READ_START_EARLIEST) {
+        a0_stream_jump_head(slk);
+      } else if (sub_sync_zc->_impl->read_start == A0_READ_START_LATEST) {
+        a0_stream_jump_tail(slk);
+      } else if (sub_sync_zc->_impl->read_start == A0_READ_START_NEW) {
+        a0_stream_jump_tail(slk);
+      }
+    } else {
+      if (sub_sync_zc->_impl->read_next == A0_READ_NEXT_SEQUENTIAL) {
+        a0_stream_next(slk);
+      } else if (sub_sync_zc->_impl->read_next == A0_READ_NEXT_RECENT) {
+        a0_stream_jump_tail(slk);
+      }
+    }
+
+    a0_stream_frame_t frame;
+    a0_stream_frame(slk, &frame);
+    cb.fn(cb.user_data, slk, a0::buf(frame));
+    sub_sync_zc->_impl->read_first = true;
+
+    return A0_OK;
+  });
+}
+
+void a0_subscriber_sync_zc_managed_finalizer(a0_subscriber_sync_zc_t* sub_sync_zc,
+                                             std::function<void()> fn) {
+  sub_sync_zc->_impl->managed_finalizer = std::move(fn);
+}
+
+// Synchronous allocated version.
+
+struct a0_subscriber_sync_impl_s {
+  a0_subscriber_sync_zc_t sub_sync_zc;
+
+  a0_alloc_t alloc;
+
+  std::function<void()> managed_finalizer;
+};
+
+errno_t a0_subscriber_sync_init_unmanaged(a0_subscriber_sync_t* sub_sync,
+                                          a0_shmobj_t shmobj,
+                                          a0_alloc_t alloc,
+                                          a0_subscriber_read_start_t read_start,
+                                          a0_subscriber_read_next_t read_next) {
+  sub_sync->_impl = new a0_subscriber_sync_impl_t;
+
+  sub_sync->_impl->alloc = alloc;
+  return a0_subscriber_sync_zc_init_unmanaged(&sub_sync->_impl->sub_sync_zc,
+                                              shmobj,
+                                              read_start,
+                                              read_next);
+}
+
 errno_t a0_subscriber_sync_close(a0_subscriber_sync_t* sub_sync) {
-  if (!sub_sync->_impl) {
+  if (!sub_sync || !sub_sync->_impl) {
     return ESHUTDOWN;
   }
 
   std::function<void()> fin = std::move(sub_sync->_impl->managed_finalizer);
 
-  a0_stream_close(&sub_sync->_impl->stream);
+  a0_subscriber_sync_zc_close(&sub_sync->_impl->sub_sync_zc);
   delete sub_sync->_impl;
   sub_sync->_impl = nullptr;
 
@@ -191,52 +283,18 @@ errno_t a0_subscriber_sync_has_next(a0_subscriber_sync_t* sub_sync, bool* has_ne
     return ESHUTDOWN;
   }
 
-  a0::sync_stream_t ss{&sub_sync->_impl->stream};
-  return ss.with_lock([&](a0_locked_stream_t slk) {
-    return a0_stream_has_next(slk, has_next);
-  });
+  return a0_subscriber_sync_zc_has_next(&sub_sync->_impl->sub_sync_zc, has_next);
 }
 
-errno_t a0_subscriber_sync_next_zero_copy(a0_subscriber_sync_t* sub_sync,
-                                          a0_zero_copy_callback_t cb) {
+errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync, a0_packet_t* pkt) {
   if (!sub_sync || !sub_sync->_impl) {
     return ESHUTDOWN;
   }
 
-  a0::sync_stream_t ss{&sub_sync->_impl->stream};
-  return ss.with_lock([&](a0_locked_stream_t slk) {
-    if (!sub_sync->_impl->read_first) {
-      if (sub_sync->_impl->read_start == A0_READ_START_EARLIEST) {
-        a0_stream_jump_head(slk);
-      } else if (sub_sync->_impl->read_start == A0_READ_START_LATEST) {
-        a0_stream_jump_tail(slk);
-      } else if (sub_sync->_impl->read_start == A0_READ_START_NEW) {
-        a0_stream_jump_tail(slk);
-      }
-    } else {
-      if (sub_sync->_impl->read_next == A0_READ_NEXT_SEQUENTIAL) {
-        a0_stream_next(slk);
-      } else if (sub_sync->_impl->read_next == A0_READ_NEXT_RECENT) {
-        a0_stream_jump_tail(slk);
-      }
-    }
-
-    a0_stream_frame_t frame;
-    a0_stream_frame(slk, &frame);
-    cb.fn(cb.user_data, slk, a0::buf(frame));
-    sub_sync->_impl->read_first = true;
-
-    return A0_OK;
-  });
-}
-
-errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync,
-                                a0_alloc_t alloc,
-                                a0_packet_t* pkt) {
   struct data_t {
     a0_alloc_t alloc;
     a0_packet_t* pkt;
-  } data{alloc, pkt};
+  } data{sub_sync->_impl->alloc, pkt};
 
   a0_zero_copy_callback_t wrapped_cb = {
       .user_data = &data,
@@ -247,7 +305,7 @@ errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync,
             memcpy(data->pkt->ptr, pkt_zc.ptr, data->pkt->size);
           },
   };
-  return a0_subscriber_sync_next_zero_copy(sub_sync, wrapped_cb);
+  return a0_subscriber_sync_zc_next(&sub_sync->_impl->sub_sync_zc, wrapped_cb);
 }
 
 void a0_subscriber_sync_managed_finalizer(a0_subscriber_sync_t* sub_sync,
@@ -257,18 +315,18 @@ void a0_subscriber_sync_managed_finalizer(a0_subscriber_sync_t* sub_sync,
 
 // Zero-copy threaded version.
 
-struct a0_subscriber_zero_copy_impl_s {
+struct a0_subscriber_zc_impl_s {
   a0::stream_thread worker;
 
   std::function<void()> managed_finalizer;
 };
 
-errno_t a0_subscriber_zero_copy_init_unmanaged(a0_subscriber_zero_copy_t* sub_zc,
-                                               a0_shmobj_t shmobj,
-                                               a0_subscriber_read_start_t read_start,
-                                               a0_subscriber_read_next_t read_next,
-                                               a0_zero_copy_callback_t onmsg) {
-  sub_zc->_impl = new a0_subscriber_zero_copy_impl_t;
+errno_t a0_subscriber_zc_init_unmanaged(a0_subscriber_zc_t* sub_zc,
+                                        a0_shmobj_t shmobj,
+                                        a0_subscriber_read_start_t read_start,
+                                        a0_subscriber_read_next_t read_next,
+                                        a0_zero_copy_callback_t onmsg) {
+  sub_zc->_impl = new a0_subscriber_zc_impl_t;
 
   auto on_stream_init = [](a0_locked_stream_t, a0_stream_init_status_t) -> errno_t {
     // TODO
@@ -310,8 +368,8 @@ errno_t a0_subscriber_zero_copy_init_unmanaged(a0_subscriber_zero_copy_t* sub_zc
                                     on_stream_hasnext);
 }
 
-errno_t a0_subscriber_zero_copy_close(a0_subscriber_zero_copy_t* sub_zc, a0_callback_t onclose) {
-  if (!sub_zc->_impl) {
+errno_t a0_subscriber_zc_close(a0_subscriber_zc_t* sub_zc, a0_callback_t onclose) {
+  if (!sub_zc || !sub_zc->_impl) {
     return ESHUTDOWN;
   }
 
@@ -333,15 +391,14 @@ errno_t a0_subscriber_zero_copy_close(a0_subscriber_zero_copy_t* sub_zc, a0_call
   return A0_OK;
 }
 
-void a0_subscriber_zero_copy_managed_finalizer(a0_subscriber_zero_copy_t* sub_zc,
-                                               std::function<void()> fn) {
+void a0_subscriber_zc_managed_finalizer(a0_subscriber_zc_t* sub_zc, std::function<void()> fn) {
   sub_zc->_impl->managed_finalizer = std::move(fn);
 }
 
 // Normal threaded version.
 
 struct a0_subscriber_impl_s {
-  a0_subscriber_zero_copy_t sub_zc;
+  a0_subscriber_zc_t sub_zc;
 
   a0_alloc_t alloc;
   a0_packet_callback_t user_onmsg;
@@ -352,9 +409,9 @@ struct a0_subscriber_impl_s {
 
 errno_t a0_subscriber_init_unmanaged(a0_subscriber_t* sub,
                                      a0_shmobj_t shmobj,
+                                     a0_alloc_t alloc,
                                      a0_subscriber_read_start_t read_start,
                                      a0_subscriber_read_next_t read_next,
-                                     a0_alloc_t alloc,
                                      a0_packet_callback_t onmsg) {
   sub->_impl = new a0_subscriber_impl_t;
 
@@ -375,17 +432,17 @@ errno_t a0_subscriber_init_unmanaged(a0_subscriber_t* sub,
           },
   };
 
-  a0_subscriber_zero_copy_init_unmanaged(&sub->_impl->sub_zc,
-                                         shmobj,
-                                         read_start,
-                                         read_next,
-                                         wrapped_onmsg);
+  a0_subscriber_zc_init_unmanaged(&sub->_impl->sub_zc,
+                                  shmobj,
+                                  read_start,
+                                  read_next,
+                                  wrapped_onmsg);
 
   return A0_OK;
 }
 
 errno_t a0_subscriber_close(a0_subscriber_t* sub, a0_callback_t onclose) {
-  if (!sub->_impl) {
+  if (!sub || !sub->_impl) {
     return ESHUTDOWN;
   }
 
@@ -402,7 +459,7 @@ errno_t a0_subscriber_close(a0_subscriber_t* sub, a0_callback_t onclose) {
             sub->_impl = nullptr;
           },
   };
-  a0_subscriber_zero_copy_close(&sub->_impl->sub_zc, wrapped_onclose);
+  a0_subscriber_zc_close(&sub->_impl->sub_zc, wrapped_onclose);
 
   if (fin) {
     fin();

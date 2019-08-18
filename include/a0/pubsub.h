@@ -42,7 +42,25 @@ typedef enum a0_subscriber_read_next_s {
   A0_READ_NEXT_RECENT,
 } a0_subscriber_read_next_t;
 
-// Synchronous version.
+// Synchronous zero-copy version.
+
+typedef struct a0_subscriber_sync_zc_impl_s a0_subscriber_sync_zc_impl_t;
+
+typedef struct a0_subscriber_sync_zc_s {
+  a0_subscriber_sync_zc_impl_t* _impl;
+} a0_subscriber_sync_zc_t;
+
+errno_t a0_subscriber_sync_zc_init_unmanaged(a0_subscriber_sync_zc_t*,
+                                             a0_shmobj_t,
+                                             a0_subscriber_read_start_t,
+                                             a0_subscriber_read_next_t);
+
+errno_t a0_subscriber_sync_zc_close(a0_subscriber_sync_zc_t*);
+
+errno_t a0_subscriber_sync_zc_has_next(a0_subscriber_sync_zc_t*, bool*);
+errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t*, a0_zero_copy_callback_t);
+
+// Synchronous allocated version.
 
 typedef struct a0_subscriber_sync_impl_s a0_subscriber_sync_impl_t;
 
@@ -52,32 +70,32 @@ typedef struct a0_subscriber_sync_s {
 
 errno_t a0_subscriber_sync_init_unmanaged(a0_subscriber_sync_t*,
                                           a0_shmobj_t,
+                                          a0_alloc_t,
                                           a0_subscriber_read_start_t,
                                           a0_subscriber_read_next_t);
 
 errno_t a0_subscriber_sync_close(a0_subscriber_sync_t*);
 
 errno_t a0_subscriber_sync_has_next(a0_subscriber_sync_t*, bool*);
-errno_t a0_subscriber_sync_next(a0_subscriber_sync_t*, a0_alloc_t, a0_packet_t*);
-errno_t a0_subscriber_sync_next_zero_copy(a0_subscriber_sync_t*, a0_zero_copy_callback_t);
+errno_t a0_subscriber_sync_next(a0_subscriber_sync_t*, a0_packet_t*);
 
-// Zero-copy multi-threaded version.
+// Threaded zero-copy version.
 
-typedef struct a0_subscriber_zero_copy_impl_s a0_subscriber_zero_copy_impl_t;
+typedef struct a0_subscriber_zc_impl_s a0_subscriber_zc_impl_t;
 
-typedef struct a0_subscriber_zero_copy_s {
-  a0_subscriber_zero_copy_impl_t* _impl;
-} a0_subscriber_zero_copy_t;
+typedef struct a0_subscriber_zc_s {
+  a0_subscriber_zc_impl_t* _impl;
+} a0_subscriber_zc_t;
 
-errno_t a0_subscriber_zero_copy_init_unmanaged(a0_subscriber_zero_copy_t*,
-                                               a0_shmobj_t,
-                                               a0_subscriber_read_start_t,
-                                               a0_subscriber_read_next_t,
-                                               a0_zero_copy_callback_t);
+errno_t a0_subscriber_zc_init_unmanaged(a0_subscriber_zc_t*,
+                                        a0_shmobj_t,
+                                        a0_subscriber_read_start_t,
+                                        a0_subscriber_read_next_t,
+                                        a0_zero_copy_callback_t);
 
-errno_t a0_subscriber_zero_copy_close(a0_subscriber_zero_copy_t*, a0_callback_t);
+errno_t a0_subscriber_zc_close(a0_subscriber_zc_t*, a0_callback_t);
 
-// Multi-threaded version.
+// Threaded allocated version.
 
 typedef struct a0_subscriber_impl_s a0_subscriber_impl_t;
 
@@ -87,9 +105,9 @@ typedef struct a0_subscriber_s {
 
 errno_t a0_subscriber_init_unmanaged(a0_subscriber_t*,
                                      a0_shmobj_t,
+                                     a0_alloc_t,
                                      a0_subscriber_read_start_t,
                                      a0_subscriber_read_next_t,
-                                     a0_alloc_t,
                                      a0_packet_callback_t);
 
 errno_t a0_subscriber_close(a0_subscriber_t*, a0_callback_t);
