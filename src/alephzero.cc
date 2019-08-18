@@ -17,9 +17,12 @@ struct topic_map_val {
   std::string topic;
 };
 
+// Unused.
+/*
 void to_json(json& j, const topic_map_val& val) {
   j = json{{"container", val.container}, {"topic", val.topic}};
 }
+*/
 
 void from_json(const json& j, topic_map_val& val) {
   j.at("container").get_to(val.container);
@@ -33,16 +36,23 @@ struct alephzero_options {
   std::unordered_map<std::string, topic_map_val> rpc_client_maps;
 };
 
+// Unused.
+/*
 void to_json(json& j, const alephzero_options& opts) {
   j = json{{"container", opts.container},
            {"subscriber_maps", opts.subscriber_maps},
            {"rpc_client_maps", opts.rpc_client_maps}};
 }
+*/
 
 void from_json(const json& j, alephzero_options& opts) {
   j.at("container").get_to(opts.container);
-  j.at("subscriber_maps").get_to(opts.subscriber_maps);
-  j.at("rpc_client_maps").get_to(opts.rpc_client_maps);
+  if (j.count("subscriber_maps")) {
+    j.at("subscriber_maps").get_to(opts.subscriber_maps);
+  }
+  if (j.count("rpc_client_maps")) {
+    j.at("rpc_client_maps").get_to(opts.rpc_client_maps);
+  }
 }
 
 a0_alloc_t new_alloc() {
@@ -179,8 +189,11 @@ void a0_subscriber_managed_finalizer(a0_subscriber_t*, std::function<void()>);
 void a0_rpc_server_managed_finalizer(a0_rpc_server_t*, std::function<void()>);
 void a0_rpc_client_managed_finalizer(a0_rpc_client_t*, std::function<void()>);
 
+const char kPubsubTopicTemplate[] = "/a0_pubsub__%s__%s";
+const char kRpcTopicTemplate[] = "/a0_rpc__%s__%s";
+
 errno_t a0_publisher_init(a0_publisher_t* pub, a0_alephzero_t alephzero, const char* name) {
-  auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", alephzero._impl->opts.container.c_str(), name);
+  auto path = a0::strutil::fmt(kPubsubTopicTemplate, alephzero._impl->opts.container.c_str(), name);
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_publisher_init_unmanaged(pub, shmobj));
@@ -197,9 +210,12 @@ errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
                                    const char* name,
                                    a0_subscriber_read_start_t read_start,
                                    a0_subscriber_read_next_t read_next) {
-  // TODO: Get err as errno_t.
+  if (!alephzero._impl->opts.subscriber_maps.count(name)) {
+    return EINVAL;
+  }
   auto* mapping = &alephzero._impl->opts.subscriber_maps.at(name);
-  auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", mapping->container.c_str(), mapping->topic.c_str());
+  auto path =
+      a0::strutil::fmt(kPubsubTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   A0_INTERNAL_RETURN_ERR_ON_ERR(
@@ -217,9 +233,12 @@ errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
                                 const char* name,
                                 a0_subscriber_read_start_t read_start,
                                 a0_subscriber_read_next_t read_next) {
-  // TODO: Get err as errno_t.
+  if (!alephzero._impl->opts.subscriber_maps.count(name)) {
+    return EINVAL;
+  }
   auto* mapping = &alephzero._impl->opts.subscriber_maps.at(name);
-  auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", mapping->container.c_str(), mapping->topic.c_str());
+  auto path =
+      a0::strutil::fmt(kPubsubTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   auto alloc = new_alloc();
@@ -240,9 +259,12 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* subscriber_zc,
                               a0_subscriber_read_start_t read_start,
                               a0_subscriber_read_next_t read_next,
                               a0_zero_copy_callback_t zc_callback) {
-  // TODO: Get err as errno_t.
+  if (!alephzero._impl->opts.subscriber_maps.count(name)) {
+    return EINVAL;
+  }
   auto* mapping = &alephzero._impl->opts.subscriber_maps.at(name);
-  auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", mapping->container.c_str(), mapping->topic.c_str());
+  auto path =
+      a0::strutil::fmt(kPubsubTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   A0_INTERNAL_RETURN_ERR_ON_ERR(
@@ -261,9 +283,12 @@ errno_t a0_subscriber_init(a0_subscriber_t* subscriber,
                            a0_subscriber_read_start_t read_start,
                            a0_subscriber_read_next_t read_next,
                            a0_packet_callback_t packet_callback) {
-  // TODO: Get err as errno_t.
+  if (!alephzero._impl->opts.subscriber_maps.count(name)) {
+    return EINVAL;
+  }
   auto* mapping = &alephzero._impl->opts.subscriber_maps.at(name);
-  auto path = a0::strutil::fmt("/a0_pubsub__%s__%s", mapping->container.c_str(), mapping->topic.c_str());
+  auto path =
+      a0::strutil::fmt(kPubsubTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   auto alloc = new_alloc();
@@ -287,7 +312,7 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* rpc_server,
                            const char* name,
                            a0_packet_callback_t onrequest,
                            a0_packet_callback_t oncancel) {
-  auto path = a0::strutil::fmt("/a0_rpc__%s__%s", alephzero._impl->opts.container.c_str(), name);
+  auto path = a0::strutil::fmt(kRpcTopicTemplate, alephzero._impl->opts.container.c_str(), name);
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   auto alloc = new_alloc();
@@ -305,9 +330,12 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* rpc_server,
 errno_t a0_rpc_client_init(a0_rpc_client_t* rpc_client,
                            a0_alephzero_t alephzero,
                            const char* name) {
-  // TODO: Get err as errno_t.
+  if (!alephzero._impl->opts.rpc_client_maps.count(name)) {
+    return EINVAL;
+  }
   auto* mapping = &alephzero._impl->opts.rpc_client_maps.at(name);
-  auto path = a0::strutil::fmt("/a0_rpc__%s__%s", mapping->container.c_str(), mapping->topic.c_str());
+  auto path =
+      a0::strutil::fmt(kRpcTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   auto alloc = new_alloc();

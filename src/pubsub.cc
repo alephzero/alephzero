@@ -199,7 +199,8 @@ errno_t a0_subscriber_sync_zc_has_next(a0_subscriber_sync_zc_t* sub_sync_zc, boo
   });
 }
 
-errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t* sub_sync_zc, a0_zero_copy_callback_t cb) {
+errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t* sub_sync_zc,
+                                   a0_zero_copy_callback_t cb) {
   if (!sub_sync_zc || !sub_sync_zc->_impl) {
     return ESHUTDOWN;
   }
