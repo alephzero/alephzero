@@ -51,11 +51,12 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
       .fn = nullptr,
   };
 
-  REQUIRE(a0_rpc_server_init(&server, shmobj, a0::test::allocator(), onrequest, oncancel) ==
-          A0_OK);
+  REQUIRE(
+      a0_rpc_server_init_unmanaged(&server, shmobj, a0::test::allocator(), onrequest, oncancel) ==
+      A0_OK);
 
   a0_rpc_client_t client;
-  REQUIRE(a0_rpc_client_init(&client, shmobj, a0::test::allocator()) == A0_OK);
+  REQUIRE(a0_rpc_client_init_unmanaged(&client, shmobj, a0::test::allocator()) == A0_OK);
 
   struct client_onreply_data_t {
     size_t cnt{0};
@@ -80,8 +81,11 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
 
   for (int i = 0; i < 10; i++) {
     a0_packet_t pkt;
-    REQUIRE(a0_packet_build(0, nullptr, a0::test::buf(a0::strutil::fmt("msg #%d", i)), a0::test::allocator(), &pkt) ==
-            A0_OK);
+    REQUIRE(a0_packet_build(0,
+                            nullptr,
+                            a0::test::buf(a0::strutil::fmt("msg #%d", i)),
+                            a0::test::allocator(),
+                            &pkt) == A0_OK);
     REQUIRE(a0_rpc_send(&client, pkt, onreply) == A0_OK);
   }
 

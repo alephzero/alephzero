@@ -9,9 +9,11 @@ os.chdir(os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__
 
 def run_clang_format(path):
     with tempfile.NamedTemporaryFile(delete=False) as tf:
+        print(path, tf.name)
         cmd = ['docker', 'run',
                '--rm',
                '-v', os.path.realpath('.') + ':/alephzero',
+               '-v', os.path.realpath('../go') + ':/go',
                '-w', '/alephzero',
                'alephzero-clang-format', '-style', 'file', path]
         subprocess.call(
@@ -28,12 +30,14 @@ clang_format_futures = []
 def code_in(root):
     for dirpath, _, files in os.walk(root):
         for filename in sorted(files):
+            if not (filename.endswith('.h') or filename.endswith('.hh') or filename.endswith('.c') or filename.endswith('.cc')):
+                continue
             path = os.path.join(dirpath, filename)
             clang_format_futures.append(pool.apply_async(run_clang_format, (path,)))
 
 code_in('include')
 code_in('src')
-code_in('go')
+code_in('../go')
 
 for fut in clang_format_futures:
     orig_path, new_path = fut.get()

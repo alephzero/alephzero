@@ -50,7 +50,7 @@ struct PubsubFixture {
 TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
   {
     a0_publisher_t pub;
-    REQUIRE(a0_publisher_init(&pub, shmobj) == A0_OK);
+    REQUIRE(a0_publisher_init_unmanaged(&pub, shmobj) == A0_OK);
 
     REQUIRE(a0_pub(&pub, make_packet("msg #0")) == A0_OK);
     REQUIRE(a0_pub(&pub, make_packet("msg #1")) == A0_OK);
@@ -60,9 +60,11 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
   {
     a0_subscriber_sync_t sub;
-    REQUIRE(
-        a0_subscriber_sync_init(&sub, shmobj, A0_READ_START_EARLIEST, A0_READ_NEXT_SEQUENTIAL) ==
-        A0_OK);
+    REQUIRE(a0_subscriber_sync_init_unmanaged(&sub,
+                                              shmobj,
+                                              a0::test::allocator(),
+                                              A0_READ_START_EARLIEST,
+                                              A0_READ_NEXT_SEQUENTIAL) == A0_OK);
 
     {
       bool has_next;
@@ -70,7 +72,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       REQUIRE(has_next);
 
       a0_packet_t pkt;
-      REQUIRE(a0_subscriber_sync_next(&sub, a0::test::allocator(), &pkt) == A0_OK);
+      REQUIRE(a0_subscriber_sync_next(&sub, &pkt) == A0_OK);
       REQUIRE(pkt.size < 200);
 
       size_t num_headers;
@@ -107,7 +109,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       REQUIRE(has_next);
 
       a0_packet_t pkt;
-      REQUIRE(a0_subscriber_sync_next(&sub, a0::test::allocator(), &pkt) == A0_OK);
+      REQUIRE(a0_subscriber_sync_next(&sub, &pkt) == A0_OK);
       REQUIRE(pkt.size < 200);
 
       a0_buf_t payload;
@@ -127,8 +129,11 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
   {
     a0_subscriber_sync_t sub;
-    REQUIRE(a0_subscriber_sync_init(&sub, shmobj, A0_READ_START_LATEST, A0_READ_NEXT_RECENT) ==
-            A0_OK);
+    REQUIRE(a0_subscriber_sync_init_unmanaged(&sub,
+                                              shmobj,
+                                              a0::test::allocator(),
+                                              A0_READ_START_LATEST,
+                                              A0_READ_NEXT_RECENT) == A0_OK);
 
     {
       bool has_next;
@@ -136,7 +141,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       REQUIRE(has_next);
 
       a0_packet_t pkt;
-      REQUIRE(a0_subscriber_sync_next(&sub, a0::test::allocator(), &pkt) == A0_OK);
+      REQUIRE(a0_subscriber_sync_next(&sub, &pkt) == A0_OK);
       REQUIRE(pkt.size < 200);
 
       a0_buf_t payload;
@@ -158,7 +163,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
   {
     a0_publisher_t pub;
-    REQUIRE(a0_publisher_init(&pub, shmobj) == A0_OK);
+    REQUIRE(a0_publisher_init_unmanaged(&pub, shmobj) == A0_OK);
 
     REQUIRE(a0_pub(&pub, make_packet("msg #0")) == A0_OK);
     REQUIRE(a0_pub(&pub, make_packet("msg #1")) == A0_OK);
@@ -196,12 +201,12 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
     };
 
     a0_subscriber_t sub;
-    REQUIRE(a0_subscriber_init(&sub,
-                               shmobj,
-                               A0_READ_START_EARLIEST,
-                               A0_READ_NEXT_SEQUENTIAL,
-                               a0::test::allocator(),
-                               cb) == A0_OK);
+    REQUIRE(a0_subscriber_init_unmanaged(&sub,
+                                         shmobj,
+                                         a0::test::allocator(),
+                                         A0_READ_START_EARLIEST,
+                                         A0_READ_NEXT_SEQUENTIAL,
+                                         cb) == A0_OK);
     {
       std::unique_lock<std::mutex> lk{data.mu};
       data.cv.wait(lk, [&]() {
@@ -241,7 +246,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
   for (int i = 0; i < NUM_THREADS; i++) {
     threads.emplace_back([this, i]() {
       a0_publisher_t pub;
-      REQUIRE(a0_publisher_init(&pub, shmobj) == A0_OK);
+      REQUIRE(a0_publisher_init_unmanaged(&pub, shmobj) == A0_OK);
 
       for (int j = 0; j < NUM_PACKETS; j++) {
         const auto pkt = make_packet(a0::strutil::fmt("pub %d msg %d", i, j));
@@ -259,8 +264,11 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
   // Now sanity-check our values.
   std::set<std::string> msgs;
   a0_subscriber_sync_t sub;
-  REQUIRE(a0_subscriber_sync_init(&sub, shmobj, A0_READ_START_EARLIEST, A0_READ_NEXT_SEQUENTIAL) ==
-          A0_OK);
+  REQUIRE(a0_subscriber_sync_init_unmanaged(&sub,
+                                            shmobj,
+                                            a0::test::allocator(),
+                                            A0_READ_START_EARLIEST,
+                                            A0_READ_NEXT_SEQUENTIAL) == A0_OK);
 
   while (true) {
     a0_packet_t pkt;
@@ -270,7 +278,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
     if (!has_next) {
       break;
     }
-    REQUIRE(a0_subscriber_sync_next(&sub, a0::test::allocator(), &pkt) == A0_OK);
+    REQUIRE(a0_subscriber_sync_next(&sub, &pkt) == A0_OK);
 
     a0_buf_t payload;
     REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);

@@ -136,8 +136,8 @@ errno_t a0_packet_build(size_t num_headers,
   bool has_id = false;
 
   a0_buf_t id_buf = {
-    .ptr = (uint8_t*)kIdKey,
-    .size = strlen(kIdKey),
+      .ptr = (uint8_t*)kIdKey,
+      .size = strlen(kIdKey),
   };
 
   // TODO: Verify at most one id.

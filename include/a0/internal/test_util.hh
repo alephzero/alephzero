@@ -9,7 +9,8 @@
 #include <set>
 #include <string>
 
-namespace a0::test {
+namespace a0 {
+namespace test {
 
 inline std::string str(a0_buf_t buf) {
   return std::string((char*)buf.ptr, buf.size);
@@ -60,4 +61,5 @@ inline bool is_valgrind() {
   return env && std::string(env) != "0";
 }
 
-}  // namespace a0::test
+}  // namespace test
+}  // namespace a0
