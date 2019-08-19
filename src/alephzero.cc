@@ -193,7 +193,7 @@ const char kConfigTopicTemplate[] = "/a0_config__%s";
 const char kPubsubTopicTemplate[] = "/a0_pubsub__%s__%s";
 const char kRpcTopicTemplate[] = "/a0_rpc__%s__%s";
 
-errno_t a0_config_sync_init(a0_subscriber_sync_t* sub_sync, a0_alephzero_t alephzero) {
+errno_t a0_config_reader_sync_init(a0_subscriber_sync_t* sub_sync, a0_alephzero_t alephzero) {
   auto path = a0::strutil::fmt(kConfigTopicTemplate, alephzero._impl->opts.container.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
@@ -212,9 +212,9 @@ errno_t a0_config_sync_init(a0_subscriber_sync_t* sub_sync, a0_alephzero_t aleph
   return A0_OK;
 }
 
-errno_t a0_config_init(a0_subscriber_t* sub,
-                       a0_alephzero_t alephzero,
-                       a0_packet_callback_t packet_callback) {
+errno_t a0_config_reader_init(a0_subscriber_t* sub,
+                              a0_alephzero_t alephzero,
+                              a0_packet_callback_t packet_callback) {
   auto path = a0::strutil::fmt(kConfigTopicTemplate, alephzero._impl->opts.container.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));

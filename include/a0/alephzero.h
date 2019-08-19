@@ -35,8 +35,8 @@ errno_t a0_alephzero_init(a0_alephzero_t*);  // Loads options from env.
 errno_t a0_alephzero_init_explicit(a0_alephzero_t*, a0_alephzero_options_t);
 errno_t a0_alephzero_close(a0_alephzero_t*);
 
-errno_t a0_config_sync_init(a0_subscriber_sync_t*, a0_alephzero_t);
-errno_t a0_config_init(a0_subscriber_sync_t*, a0_alephzero_t, a0_packet_callback_t);
+errno_t a0_config_reader_sync_init(a0_subscriber_sync_t*, a0_alephzero_t);
+errno_t a0_config_reader_init(a0_subscriber_sync_t*, a0_alephzero_t, a0_packet_callback_t);
 
 errno_t a0_publisher_init(a0_publisher_t*, a0_alephzero_t, const char* name);
 errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t*,
