@@ -23,8 +23,8 @@ extern "C" {
 typedef a0_buf_t a0_packet_t;
 
 typedef struct a0_packet_header_s {
-  a0_buf_t key;
-  a0_buf_t val;
+  const char* key;
+  const char* val;
 } a0_packet_header_t;
 
 // The following are special keys.
@@ -32,8 +32,8 @@ typedef struct a0_packet_header_s {
 
 // No more than one id is allowed.
 // One will be added automatically if not present when building.
-a0_buf_t a0_packet_id_key();
-a0_buf_t a0_packet_dep_key();
+const char* a0_packet_id_key();
+const char* a0_packet_dep_key();
 
 // The following are packet accessors.
 
@@ -49,10 +49,10 @@ errno_t a0_packet_payload(a0_packet_t, a0_buf_t* out);
 // Get the value for the given header key.
 // Note: out points to memory in the packet buffer.
 // Note: A naive implementation would be O(N). Maybe sort the headers and bisect?
-errno_t a0_packet_find_header(a0_packet_t, a0_buf_t key, a0_buf_t* val_out);
+errno_t a0_packet_find_header(a0_packet_t, const char* key, const char** val_out);
 
 // Helper method to get the packet id.
-inline errno_t a0_packet_id(a0_packet_t pkt, a0_buf_t* id_out) {
+inline errno_t a0_packet_id(a0_packet_t pkt, const char** id_out) {
   return a0_packet_find_header(pkt, a0_packet_id_key(), id_out);
 }
 

@@ -12,6 +12,7 @@
 //  Rpc Common  //
 //////////////////
 
+static const char kPubClock[] = "a0_pub_clock";
 static const char kRpcType[] = "a0_rpc_type";
 static const char kRpcTypeRequest[] = "request";
 static const char kRpcTypeResponse[] = "response";
@@ -38,19 +39,6 @@ a0_stream_protocol_t protocol_info() {
   }();
 
   return protocol;
-}
-
-A0_STATIC_INLINE
-std::string str(a0_buf_t buf) {
-  return std::string((char*)buf.ptr, buf.size);
-}
-
-A0_STATIC_INLINE
-a0_buf_t buf(const char* str) {
-  return a0_buf_t{
-      .ptr = (uint8_t*)str,
-      .size = strlen(str),
-  };
 }
 
 //////////////
@@ -93,11 +81,11 @@ errno_t a0_rpc_server_init_unmanaged(a0_rpc_server_t* server,
 
     a0_unlock_stream(slk);
 
-    a0_buf_t rpc_type;
-    a0_packet_find_header(pkt, buf(kRpcType), &rpc_type);
-    if (a0_buf_eq(rpc_type, buf(kRpcTypeRequest))) {
+    const char* rpc_type;
+    a0_packet_find_header(pkt, kRpcType, &rpc_type);
+    if (!strcmp(rpc_type, kRpcTypeRequest)) {
       onrequest.fn(onrequest.user_data, pkt);
-    } else if (a0_buf_eq(rpc_type, buf(kRpcTypeCancel))) {
+    } else if (!strcmp(rpc_type, kRpcTypeCancel)) {
       if (oncancel.fn) {
         oncancel.fn(onrequest.user_data, pkt);
       }
@@ -153,35 +141,32 @@ errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_packet_t req, a0_packet_t resp)
     return ESHUTDOWN;
   }
 
-  a0_buf_t request_id;
+  const char* request_id;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(req, &request_id));
 
-  a0_buf_t response_id;
+  const char* response_id;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(resp, &response_id));
 
   // TODO: Is there a better way?
-  if (a0_buf_eq(request_id, response_id)) {
+  if (!strcmp(request_id, response_id)) {
     return EINVAL;
   }
 
   constexpr size_t num_extra_headers = 3;
   a0_packet_header_t extra_headers[num_extra_headers];
 
-  extra_headers[0].key = buf(kRequestId);
+  extra_headers[0].key = kRequestId;
   extra_headers[0].val = request_id;
 
-  extra_headers[1].key = buf(kRpcType);
-  extra_headers[1].val = buf(kRpcTypeResponse);
+  extra_headers[1].key = kRpcType;
+  extra_headers[1].val = kRpcTypeResponse;
 
-  static const char clock_key[] = "a0_pub_clock";
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
-  extra_headers[2].key = buf(clock_key);
-  extra_headers[2].val = a0_buf_t{
-      .ptr = (uint8_t*)&clock_val,
-      .size = sizeof(uint64_t),
-  };
+  auto clock_str = std::to_string(clock_val);
+  extra_headers[2].key = kPubClock;
+  extra_headers[2].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.
 
@@ -247,10 +232,10 @@ errno_t a0_rpc_client_init_unmanaged(a0_rpc_client_t* client,
     a0_stream_frame_t frame;
     a0_stream_frame(slk, &frame);
 
-    a0_buf_t rpc_type;
-    a0_packet_find_header(a0::buf(frame), buf(kRpcType), &rpc_type);
+    const char* rpc_type;
+    a0_packet_find_header(a0::buf(frame), kRpcType, &rpc_type);
 
-    if (!a0_buf_eq(rpc_type, buf(kRpcTypeResponse))) {
+    if (strcmp(rpc_type, kRpcTypeResponse)) {
       return;
     }
 
@@ -272,10 +257,10 @@ errno_t a0_rpc_client_init_unmanaged(a0_rpc_client_t* client,
         return;
       }
 
-      a0_buf_t request_id;
-      a0_packet_find_header(pkt, buf(kRequestId), &request_id);
+      const char* request_id;
+      a0_packet_find_header(pkt, kRequestId, &request_id);
 
-      auto key = str(request_id);
+      std::string key(request_id);
       if (strong_state->outstanding.count(key)) {
         auto callback = strong_state->outstanding[key];
         strong_state->outstanding.erase(key);
@@ -340,28 +325,25 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback
     return ESHUTDOWN;
   }
 
-  a0_buf_t id;
+  const char* id;
   a0_packet_id(pkt, &id);
   {
     std::unique_lock<std::mutex> lk{client->_impl->state->mu};
-    client->_impl->state->outstanding[str(id)] = callback;
+    client->_impl->state->outstanding[std::string(id)] = callback;
   }
 
   constexpr size_t num_extra_headers = 2;
   a0_packet_header_t extra_headers[num_extra_headers];
 
-  extra_headers[0].key = buf(kRpcType);
-  extra_headers[0].val = buf(kRpcTypeRequest);
+  extra_headers[0].key = kRpcType;
+  extra_headers[0].val = kRpcTypeRequest;
 
-  static const char clock_key[] = "a0_pub_clock";
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
-  extra_headers[1].key = buf(clock_key);
-  extra_headers[1].val = a0_buf_t{
-      .ptr = (uint8_t*)&clock_val,
-      .size = sizeof(uint64_t),
-  };
+  std::string clock_str = std::to_string(clock_val);
+  extra_headers[1].key = kPubClock;
+  extra_headers[1].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.
 
@@ -383,28 +365,25 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, a0_packet_t pkt) {
     return ESHUTDOWN;
   }
 
-  a0_buf_t id;
+  const char* id;
   a0_packet_id(pkt, &id);
   {
     std::unique_lock<std::mutex> lk{client->_impl->state->mu};
-    client->_impl->state->outstanding.erase(str(id));
+    client->_impl->state->outstanding.erase(std::string(id));
   }
 
   constexpr size_t num_extra_headers = 2;
   a0_packet_header_t extra_headers[num_extra_headers];
 
-  extra_headers[0].key = buf(kRpcType);
-  extra_headers[0].val = buf(kRpcTypeCancel);
+  extra_headers[0].key = kRpcType;
+  extra_headers[0].val = kRpcTypeCancel;
 
-  static const char clock_key[] = "a0_pub_clock";
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
-  extra_headers[1].key = buf(clock_key);
-  extra_headers[1].val = a0_buf_t{
-      .ptr = (uint8_t*)&clock_val,
-      .size = sizeof(uint64_t),
-  };
+  std::string clock_str = std::to_string(clock_val);
+  extra_headers[1].key = kPubClock;
+  extra_headers[1].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.
 

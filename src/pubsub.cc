@@ -15,6 +15,8 @@
 //  Pubsub Common  //
 /////////////////////
 
+static const char kPubClock[] = "a0_pub_clock";
+
 A0_STATIC_INLINE
 a0_stream_protocol_t protocol_info() {
   static a0_stream_protocol_t protocol = []() {
@@ -34,14 +36,6 @@ a0_stream_protocol_t protocol_info() {
   }();
 
   return protocol;
-}
-
-A0_STATIC_INLINE
-a0_buf_t buf(const char* str) {
-  return a0_buf_t{
-      .ptr = (uint8_t*)str,
-      .size = strlen(str),
-  };
 }
 
 /////////////////
@@ -100,15 +94,12 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
   constexpr size_t num_extra_headers = 1;
   a0_packet_header_t extra_headers[num_extra_headers];
 
-  static const char clock_key[] = "a0_pub_clock";
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
-  extra_headers[0].key = buf(clock_key);
-  extra_headers[0].val = a0_buf_t{
-      .ptr = (uint8_t*)&clock_val,
-      .size = sizeof(uint64_t),
-  };
+  std::string clock_str = std::to_string(clock_val);
+  extra_headers[0].key = kPubClock;
+  extra_headers[0].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.
 

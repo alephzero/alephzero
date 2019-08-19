@@ -8,20 +8,14 @@
 
 static const char kIdKey[] = "a0_id";
 static const char kDepKey[] = "a0_dep";
-static const size_t kUuidSize = 36;
+static const size_t kUuidSize = 37;
 
-a0_buf_t a0_packet_id_key() {
-  return (a0_buf_t){
-      .ptr = (uint8_t*)kIdKey,
-      .size = strlen(kIdKey),
-  };
+const char* a0_packet_id_key() {
+  return kIdKey;
 }
 
-a0_buf_t a0_packet_dep_key() {
-  return (a0_buf_t){
-      .ptr = (uint8_t*)kDepKey,
-      .size = strlen(kDepKey),
-  };
+const char* a0_packet_dep_key() {
+  return kDepKey;
 }
 
 errno_t a0_packet_num_headers(a0_packet_t pkt, size_t* out) {
@@ -33,16 +27,9 @@ errno_t a0_packet_header(a0_packet_t pkt, size_t hdr_idx, a0_packet_header_t* ou
   // TODO: Verify enough headers.
   size_t key_off = *(size_t*)(pkt.ptr + (sizeof(size_t) + (2 * hdr_idx + 0) * sizeof(size_t)));
   size_t val_off = *(size_t*)(pkt.ptr + (sizeof(size_t) + (2 * hdr_idx + 1) * sizeof(size_t)));
-  size_t next_off = *(size_t*)(pkt.ptr + (sizeof(size_t) + (2 * hdr_idx + 2) * sizeof(size_t)));
 
-  out->key = (a0_buf_t){
-      .ptr = pkt.ptr + key_off,
-      .size = val_off - key_off,
-  };
-  out->val = (a0_buf_t){
-      .ptr = pkt.ptr + val_off,
-      .size = next_off - val_off,
-  };
+  out->key = (char*)(pkt.ptr + key_off);
+  out->val = (char*)(pkt.ptr + val_off);
 
   return A0_OK;
 }
@@ -59,13 +46,13 @@ errno_t a0_packet_payload(a0_packet_t pkt, a0_buf_t* out) {
   return A0_OK;
 }
 
-errno_t a0_packet_find_header(a0_packet_t pkt, a0_buf_t key, a0_buf_t* val_out) {
+errno_t a0_packet_find_header(a0_packet_t pkt, const char* key, const char** val_out) {
   size_t num_hdrs = 0;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_num_headers(pkt, &num_hdrs));
   for (size_t i = 0; i < num_hdrs; i++) {
     a0_packet_header_t hdr;
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_header(pkt, i, &hdr));
-    if (a0_buf_eq(key, hdr.key)) {
+    if (!strcmp(key, (char*)hdr.key)) {
       *val_out = hdr.val;
       return A0_OK;
     }
@@ -92,7 +79,7 @@ static const char kHexDigits[] =
     "F0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF";
 
 A0_STATIC_INLINE
-void uuidv4(uint8_t out[36]) {
+void uuidv4(uint8_t out[37]) {
   uint32_t data[4] = {
       (uint32_t)mrand48(),
       ((uint32_t)mrand48() & 0xFF0FFFFF) | 0x00400000,
@@ -125,6 +112,7 @@ void uuidv4(uint8_t out[36]) {
   *(uint16_t*)(&out[30]) = *(uint16_t*)(&kHexDigits[bytes[13] * 2]);
   *(uint16_t*)(&out[32]) = *(uint16_t*)(&kHexDigits[bytes[14] * 2]);
   *(uint16_t*)(&out[34]) = *(uint16_t*)(&kHexDigits[bytes[15] * 2]);
+  out[36] = 0;
 #pragma GCC diagnostic pop
 }
 
@@ -135,14 +123,9 @@ errno_t a0_packet_build(size_t num_headers,
                         a0_packet_t* out) {
   bool has_id = false;
 
-  a0_buf_t id_buf = {
-      .ptr = (uint8_t*)kIdKey,
-      .size = strlen(kIdKey),
-  };
-
   // TODO: Verify at most one id.
   for (size_t i = 0; i < num_headers; i++) {
-    if (a0_buf_eq(id_buf, headers[i].key)) {
+    if (!strcmp(kIdKey, (char*)headers[i].key)) {
       has_id = true;
       break;
     }
@@ -157,11 +140,11 @@ errno_t a0_packet_build(size_t num_headers,
     size += 2 * num_headers * sizeof(size_t);  // Header offsets.
     size += sizeof(size_t);                    // Payload offset.
     if (!has_id) {
-      size += strlen(kIdKey) + kUuidSize;  // Id content, if not already in headers.
+      size += sizeof(kIdKey) + kUuidSize;  // Id content, if not already in headers.
     }
     for (size_t i = 0; i < num_headers; i++) {
-      size += headers[i].key.size;  // Key content.
-      size += headers[i].val.size;  // Val content.
+      size += strlen(headers[i].key) + 1;  // Key content.
+      size += strlen(headers[i].val) + 1;  // Val content.
     }
     size += payload.size;
 
@@ -190,8 +173,8 @@ errno_t a0_packet_build(size_t num_headers,
     idx_off += sizeof(size_t);
 
     // Id key content.
-    memcpy(out->ptr + off, kIdKey, strlen(kIdKey));
-    off += strlen(kIdKey);
+    memcpy(out->ptr + off, kIdKey, sizeof(kIdKey));
+    off += sizeof(kIdKey);
 
     // Id val offset.
     memcpy(out->ptr + idx_off, &off, sizeof(size_t));
@@ -209,20 +192,16 @@ errno_t a0_packet_build(size_t num_headers,
     idx_off += sizeof(size_t);
 
     // Header key content.
-    if (headers[i].key.size) {
-      memcpy(out->ptr + off, headers[i].key.ptr, headers[i].key.size);
-      off += headers[i].key.size;
-    }
+    memcpy(out->ptr + off, headers[i].key, strlen(headers[i].key) + 1);
+    off += strlen(headers[i].key) + 1;
 
     // Header val offset.
     memcpy(out->ptr + idx_off, &off, sizeof(size_t));
     idx_off += sizeof(size_t);
 
     // Header val content.
-    if (headers[i].val.size) {
-      memcpy(out->ptr + off, headers[i].val.ptr, headers[i].val.size);
-      off += headers[i].val.size;
-    }
+    memcpy(out->ptr + off, headers[i].val, strlen(headers[i].val) + 1);
+    off += strlen(headers[i].val) + 1;
   }
 
   memcpy(out->ptr + idx_off, &off, sizeof(size_t));
@@ -247,7 +226,7 @@ errno_t a0_packet_copy_with_additional_headers(size_t num_headers,
 
   size_t expanded_size = in.size;
   for (size_t i = 0; i < num_headers; i++) {
-    expanded_size += sizeof(size_t) + headers[i].key.size + sizeof(size_t) + headers[i].val.size;
+    expanded_size += sizeof(size_t) + strlen(headers[i].key) + 1 + sizeof(size_t) + strlen(headers[i].val) + 1;
   }
   alloc.fn(alloc.user_data, expanded_size, out);
 
@@ -278,14 +257,14 @@ errno_t a0_packet_copy_with_additional_headers(size_t num_headers,
     memcpy(out->ptr + idx_woff, &woff, sizeof(size_t));
     idx_woff += sizeof(size_t);
 
-    memcpy(out->ptr + woff, headers[i].key.ptr, headers[i].key.size);
-    woff += headers[i].key.size;
+    memcpy(out->ptr + woff, headers[i].key, strlen(headers[i].key) + 1);
+    woff += strlen(headers[i].key) + 1;
 
     memcpy(out->ptr + idx_woff, &woff, sizeof(size_t));
     idx_woff += sizeof(size_t);
 
-    memcpy(out->ptr + woff, headers[i].val.ptr, headers[i].val.size);
-    woff += headers[i].val.size;
+    memcpy(out->ptr + woff, headers[i].val, strlen(headers[i].val) + 1);
+    woff += strlen(headers[i].val) + 1;
   }
 
   // Add offsets for existing headers.

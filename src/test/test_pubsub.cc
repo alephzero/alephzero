@@ -36,8 +36,8 @@ struct PubsubFixture {
 
   a0_packet_t make_packet(std::string data) {
     a0_packet_header_t headers[1] = {{
-        .key = a0::test::buf("key"),
-        .val = a0::test::buf("val"),
+        .key = "key",
+        .val = "val",
     }};
 
     a0_packet_t pkt;
@@ -83,7 +83,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       for (size_t i = 0; i < num_headers; i++) {
         a0_packet_header_t pkt_hdr;
         REQUIRE(a0_packet_header(pkt, i, &pkt_hdr) == A0_OK);
-        hdrs[a0::test::str(pkt_hdr.key)] = a0::test::str(pkt_hdr.val);
+        hdrs[pkt_hdr.key] = pkt_hdr.val;
       }
       REQUIRE(hdrs.count("key"));
       REQUIRE(hdrs.count("a0_id"));
@@ -96,8 +96,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       REQUIRE(hdrs["key"] == "val");
       REQUIRE(hdrs["a0_id"].size() == 36);
-      REQUIRE(hdrs["a0_pub_clock"].size() == 8);
-      REQUIRE(*(uint64_t*)hdrs["a0_pub_clock"].c_str() <
+      REQUIRE(stoull(hdrs["a0_pub_clock"]) <
               std::chrono::duration_cast<std::chrono::nanoseconds>(
                   std::chrono::steady_clock::now().time_since_epoch())
                   .count());
