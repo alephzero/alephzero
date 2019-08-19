@@ -189,8 +189,50 @@ void a0_subscriber_managed_finalizer(a0_subscriber_t*, std::function<void()>);
 void a0_rpc_server_managed_finalizer(a0_rpc_server_t*, std::function<void()>);
 void a0_rpc_client_managed_finalizer(a0_rpc_client_t*, std::function<void()>);
 
+const char kConfigTopicTemplate[] = "/a0_config__%s";
 const char kPubsubTopicTemplate[] = "/a0_pubsub__%s__%s";
 const char kRpcTopicTemplate[] = "/a0_rpc__%s__%s";
+
+errno_t a0_config_sync_init(a0_subscriber_sync_t* sub_sync, a0_alephzero_t alephzero) {
+  auto path = a0::strutil::fmt(kConfigTopicTemplate, alephzero._impl->opts.container.c_str());
+  a0_shmobj_t shmobj;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
+  auto alloc = new_alloc();
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_sync_init_unmanaged(sub_sync,
+                                                                  shmobj,
+                                                                  alloc,
+                                                                  A0_READ_START_LATEST,
+                                                                  A0_READ_NEXT_RECENT));
+
+  a0_subscriber_sync_managed_finalizer(sub_sync, [alephzero, path, alloc]() {
+    alephzero._impl->decref_shmobj(path);
+    delete_alloc(alloc);
+  });
+
+  return A0_OK;
+}
+
+errno_t a0_config_init(a0_subscriber_t* sub,
+                       a0_alephzero_t alephzero,
+                       a0_packet_callback_t packet_callback) {
+  auto path = a0::strutil::fmt(kConfigTopicTemplate, alephzero._impl->opts.container.c_str());
+  a0_shmobj_t shmobj;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
+  auto alloc = new_alloc();
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_init_unmanaged(sub,
+                                                             shmobj,
+                                                             alloc,
+                                                             A0_READ_START_LATEST,
+                                                             A0_READ_NEXT_RECENT,
+                                                             packet_callback));
+
+  a0_subscriber_managed_finalizer(sub, [alephzero, path, alloc]() {
+    alephzero._impl->decref_shmobj(path);
+    delete_alloc(alloc);
+  });
+
+  return A0_OK;
+}
 
 errno_t a0_publisher_init(a0_publisher_t* pub, a0_alephzero_t alephzero, const char* name) {
   auto path = a0::strutil::fmt(kPubsubTopicTemplate, alephzero._impl->opts.container.c_str(), name);
@@ -253,7 +295,7 @@ errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
   return A0_OK;
 }
 
-errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* subscriber_zc,
+errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
                               a0_alephzero_t alephzero,
                               const char* name,
                               a0_subscriber_read_start_t read_start,
@@ -268,16 +310,16 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* subscriber_zc,
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   A0_INTERNAL_RETURN_ERR_ON_ERR(
-      a0_subscriber_zc_init_unmanaged(subscriber_zc, shmobj, read_start, read_next, zc_callback));
+      a0_subscriber_zc_init_unmanaged(sub_zc, shmobj, read_start, read_next, zc_callback));
 
-  a0_subscriber_zc_managed_finalizer(subscriber_zc, [alephzero, path]() {
+  a0_subscriber_zc_managed_finalizer(sub_zc, [alephzero, path]() {
     alephzero._impl->decref_shmobj(path);
   });
 
   return A0_OK;
 }
 
-errno_t a0_subscriber_init(a0_subscriber_t* subscriber,
+errno_t a0_subscriber_init(a0_subscriber_t* sub,
                            a0_alephzero_t alephzero,
                            const char* name,
                            a0_subscriber_read_start_t read_start,
@@ -292,14 +334,10 @@ errno_t a0_subscriber_init(a0_subscriber_t* subscriber,
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   auto alloc = new_alloc();
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_init_unmanaged(subscriber,
-                                                             shmobj,
-                                                             alloc,
-                                                             read_start,
-                                                             read_next,
-                                                             packet_callback));
+  A0_INTERNAL_RETURN_ERR_ON_ERR(
+      a0_subscriber_init_unmanaged(sub, shmobj, alloc, read_start, read_next, packet_callback));
 
-  a0_subscriber_managed_finalizer(subscriber, [alephzero, path, alloc]() {
+  a0_subscriber_managed_finalizer(sub, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);
     delete_alloc(alloc);
   });
