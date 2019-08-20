@@ -14,6 +14,7 @@ def run_clang_format(path):
                '--rm',
                '-v', os.path.realpath('.') + ':/alephzero',
                '-v', os.path.realpath('../go') + ':/go',
+               '-v', os.path.realpath('../py') + ':/py',
                '-w', '/alephzero',
                'alephzero-clang-format', '-style', 'file', path]
         subprocess.call(
@@ -38,6 +39,7 @@ def code_in(root):
 code_in('include')
 code_in('src')
 code_in('../go')
+code_in('../py')
 
 for fut in clang_format_futures:
     orig_path, new_path = fut.get()
