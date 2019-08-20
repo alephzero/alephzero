@@ -1,4 +1,4 @@
-prefix=/usr/local
+prefix=/usr
 exec_prefix=${prefix}
 includedir=${prefix}/include
 libdir=${prefix}/lib

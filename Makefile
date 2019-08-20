@@ -36,7 +36,7 @@ else
 endif
 
 ifeq ($(PREFIX),)
-    PREFIX := /usr/local
+    PREFIX := /usr
 endif
 
 .PHONY: all clean install test uninstall valgrind
