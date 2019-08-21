@@ -125,11 +125,11 @@ errno_t a0_rpc_server_close(a0_rpc_server_t* server, a0_callback_t onclose) {
   server->_impl = nullptr;
 
   worker_.close([fin, onclose]() {
-    if (onclose.fn) {
-      onclose.fn(onclose.user_data);
-    }
     if (fin) {
       fin();
+    }
+    if (onclose.fn) {
+      onclose.fn(onclose.user_data);
     }
   });
 
@@ -309,11 +309,11 @@ errno_t a0_rpc_client_close(a0_rpc_client_t* client, a0_callback_t onclose) {
   client->_impl = nullptr;
 
   worker_.close([fin, onclose]() {
-    if (onclose.fn) {
-      onclose.fn(onclose.user_data);
-    }
     if (fin) {
       fin();
+    }
+    if (onclose.fn) {
+      onclose.fn(onclose.user_data);
     }
   });
 

@@ -234,8 +234,6 @@ struct a0_subscriber_sync_impl_s {
   a0_subscriber_sync_zc_t sub_sync_zc;
 
   a0_alloc_t alloc;
-
-  std::function<void()> managed_finalizer;
 };
 
 errno_t a0_subscriber_sync_init_unmanaged(a0_subscriber_sync_t* sub_sync,
@@ -257,15 +255,9 @@ errno_t a0_subscriber_sync_close(a0_subscriber_sync_t* sub_sync) {
     return ESHUTDOWN;
   }
 
-  std::function<void()> fin = std::move(sub_sync->_impl->managed_finalizer);
-
   a0_subscriber_sync_zc_close(&sub_sync->_impl->sub_sync_zc);
   delete sub_sync->_impl;
   sub_sync->_impl = nullptr;
-
-  if (fin) {
-    fin();
-  }
 
   return A0_OK;
 }
@@ -302,7 +294,7 @@ errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync, a0_packet_t* pkt
 
 void a0_subscriber_sync_managed_finalizer(a0_subscriber_sync_t* sub_sync,
                                           std::function<void()> fn) {
-  sub_sync->_impl->managed_finalizer = std::move(fn);
+  a0_subscriber_sync_zc_managed_finalizer(&sub_sync->_impl->sub_sync_zc, std::move(fn));
 }
 
 // Zero-copy threaded version.
@@ -372,11 +364,11 @@ errno_t a0_subscriber_zc_close(a0_subscriber_zc_t* sub_zc, a0_callback_t onclose
   sub_zc->_impl = nullptr;
 
   worker_.close([fin, onclose]() {
-    if (onclose.fn) {
-      onclose.fn(onclose.user_data);
-    }
     if (fin) {
       fin();
+    }
+    if (onclose.fn) {
+      onclose.fn(onclose.user_data);
     }
   });
 
@@ -393,10 +385,7 @@ struct a0_subscriber_impl_s {
   a0_subscriber_zc_t sub_zc;
 
   a0_alloc_t alloc;
-  a0_packet_callback_t user_onmsg;
-  a0_callback_t user_onclose;
-
-  std::function<void()> managed_finalizer;
+  a0_packet_callback_t onmsg;
 };
 
 errno_t a0_subscriber_init_unmanaged(a0_subscriber_t* sub,
@@ -408,7 +397,7 @@ errno_t a0_subscriber_init_unmanaged(a0_subscriber_t* sub,
   sub->_impl = new a0_subscriber_impl_t;
 
   sub->_impl->alloc = alloc;
-  sub->_impl->user_onmsg = onmsg;
+  sub->_impl->onmsg = onmsg;
 
   a0_zero_copy_callback_t wrapped_onmsg = {
       .user_data = sub->_impl,
@@ -419,7 +408,7 @@ errno_t a0_subscriber_init_unmanaged(a0_subscriber_t* sub,
             impl->alloc.fn(impl->alloc.user_data, pkt_zc.size, &pkt);
             memcpy(pkt.ptr, pkt_zc.ptr, pkt.size);
             a0_unlock_stream(slk);
-            impl->user_onmsg.fn(impl->user_onmsg.user_data, pkt);
+            impl->onmsg.fn(impl->onmsg.user_data, pkt);
             a0_lock_stream(slk.stream, &slk);
           },
   };
@@ -438,28 +427,13 @@ errno_t a0_subscriber_close(a0_subscriber_t* sub, a0_callback_t onclose) {
     return ESHUTDOWN;
   }
 
-  std::function<void()> fin = std::move(sub->_impl->managed_finalizer);
-
-  sub->_impl->user_onclose = onclose;
-  a0_callback_t wrapped_onclose = {
-      .user_data = sub,
-      .fn =
-          [](void* data) {
-            auto* sub = (a0_subscriber_t*)data;
-            sub->_impl->user_onclose.fn(sub->_impl->user_onclose.user_data);
-            delete sub->_impl;
-            sub->_impl = nullptr;
-          },
-  };
-  a0_subscriber_zc_close(&sub->_impl->sub_zc, wrapped_onclose);
-
-  if (fin) {
-    fin();
-  }
+  a0_subscriber_zc_close(&sub->_impl->sub_zc, onclose);
+  delete sub->_impl;
+  sub->_impl = nullptr;
 
   return A0_OK;
 }
 
 void a0_subscriber_managed_finalizer(a0_subscriber_t* sub, std::function<void()> fn) {
-  sub->_impl->managed_finalizer = std::move(fn);
+  a0_subscriber_zc_managed_finalizer(&sub->_impl->sub_zc, std::move(fn));
 }
