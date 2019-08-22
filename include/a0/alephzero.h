@@ -66,7 +66,7 @@ errno_t a0_rpc_server_init(a0_rpc_server_t*,
                            a0_alephzero_t,
                            const char* name,
                            a0_packet_callback_t onrequest,
-                           a0_packet_callback_t oncancel);
+                           a0_packet_id_callback_t oncancel);
 errno_t a0_rpc_client_init(a0_rpc_client_t*, a0_alephzero_t, const char* name);
 
 #ifdef __cplusplus

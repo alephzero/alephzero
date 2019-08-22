@@ -35,6 +35,10 @@ typedef struct a0_packet_header_s {
 const char* a0_packet_id_key();
 const char* a0_packet_dep_key();
 
+// Packet ids are human-readable uuidv4.
+#define A0_PACKET_ID_SIZE 36
+typedef char a0_packet_id_t[A0_PACKET_ID_SIZE];
+
 // The following are packet accessors.
 
 // Get the number of headers in the packet.
@@ -51,10 +55,8 @@ errno_t a0_packet_payload(a0_packet_t, a0_buf_t* out);
 // Note: A naive implementation would be O(N). Maybe sort the headers and bisect?
 errno_t a0_packet_find_header(a0_packet_t, const char* key, const char** val_out);
 
-// Helper method to get the packet id.
-inline errno_t a0_packet_id(a0_packet_t pkt, const char** id_out) {
-  return a0_packet_find_header(pkt, a0_packet_id_key(), id_out);
-}
+// Get the packet id.
+errno_t a0_packet_id(a0_packet_t pkt, a0_packet_id_t* out);
 
 // The following build or modify packets.
 
@@ -71,6 +73,11 @@ typedef struct a0_packet_callback_s {
   void* user_data;
   void (*fn)(void* user_data, a0_packet_t);
 } a0_packet_callback_t;
+
+typedef struct a0_packet_id_callback_s {
+  void* user_data;
+  void (*fn)(void* user_data, a0_packet_id_t);
+} a0_packet_id_callback_t;
 
 // The format of a packet is described here.
 // It is recommended to not worry about this too much, and just use a0_packet_build.

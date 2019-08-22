@@ -52,9 +52,16 @@ TEST_CASE("Test packet") {
   REQUIRE(read_hdrs["a0_dep"].size() == 2);
   REQUIRE(read_hdrs.count("a0_id"));
 
-  const char* id;
+  a0_packet_id_t id;
   REQUIRE(a0_packet_id(pkt, &id) == A0_OK);
-  REQUIRE(strlen(id) == 36);
+  for (int i = 0; i < 36; i++) {
+    if (i == 8 || i == 13 || i == 18 || i == 23) {
+      REQUIRE(id[i] == '-');
+    } else {
+      bool is_alphanum = isalpha(id[i]) || isdigit(id[i]);
+      REQUIRE(is_alphanum);
+    }
+  }
 
   a0_buf_t read_payload;
   REQUIRE(a0_packet_payload(pkt, &read_payload) == A0_OK);

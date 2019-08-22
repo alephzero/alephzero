@@ -99,7 +99,7 @@ TEST_CASE_FIXTURE(AlephZeroFixture, "Test alephzero pubsub") {
       }
       REQUIRE(hdrs.count("key"));
       REQUIRE(hdrs.count("a0_id"));
-      REQUIRE(hdrs.count("a0_pub_clock"));
+      REQUIRE(hdrs.count("a0_send_clock"));
 
       a0_buf_t payload;
       REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
@@ -108,7 +108,7 @@ TEST_CASE_FIXTURE(AlephZeroFixture, "Test alephzero pubsub") {
 
       REQUIRE(hdrs["key"] == "val");
       REQUIRE(hdrs["a0_id"].size() == 36);
-      REQUIRE(stoull(hdrs["a0_pub_clock"]) <
+      REQUIRE(stoull(hdrs["a0_send_clock"]) <
               std::chrono::duration_cast<std::chrono::nanoseconds>(
                   std::chrono::steady_clock::now().time_since_epoch())
                   .count());

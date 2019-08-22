@@ -55,31 +55,10 @@ void from_json(const json& j, alephzero_options& opts) {
   }
 }
 
-a0_alloc_t new_alloc() {
-  auto* heap_buf = new a0_buf_t;
-  heap_buf->ptr = (uint8_t*)malloc(1);
-  heap_buf->size = 1;
-
-  return a0_alloc_t{
-      .user_data = heap_buf,
-      .fn =
-          [](void* user_data, size_t size, a0_buf_t* out) {
-            auto* heap_buf = (a0_buf_t*)user_data;
-            if (heap_buf->size < size) {
-              heap_buf->ptr = (uint8_t*)realloc(heap_buf->ptr, size);
-              heap_buf->size = size;
-            }
-            out->ptr = heap_buf->ptr;
-            out->size = size;
-          },
-  };
-}
-
-void delete_alloc(a0_alloc_t alloc) {
-  auto* heap_buf = (a0_buf_t*)alloc.user_data;
-  free(heap_buf->ptr);
-  delete heap_buf;
-}
+struct a0_refcnt_shmobj_t {
+  a0_shmobj_t shmobj;
+  int refcnt;
+};
 
 }  // namespace
 
@@ -88,7 +67,7 @@ struct a0_alephzero_impl_s {
 
   // TODO: Read default and path specific shmobj_options from config.
   a0_shmobj_options_t default_shmobj_options;
-  std::unordered_map<std::string, std::pair<int, a0_shmobj_t>> open_shmobj;
+  std::unordered_map<std::string, a0_refcnt_shmobj_t> refcnt_shmobj;
   std::mutex shmobj_mu;
 
   a0_alephzero_impl_s() {
@@ -98,24 +77,24 @@ struct a0_alephzero_impl_s {
   errno_t incref_shmobj(std::string path, a0_shmobj_t* out) {
     std::unique_lock<std::mutex> lk{shmobj_mu};
 
-    if (!open_shmobj.count(path)) {
+    if (!refcnt_shmobj.count(path)) {
       A0_INTERNAL_RETURN_ERR_ON_ERR(
-          a0_shmobj_open(path.c_str(), &default_shmobj_options, &open_shmobj[path].second));
+          a0_shmobj_open(path.c_str(), &default_shmobj_options, &refcnt_shmobj[path].shmobj));
     }
 
-    open_shmobj[path].first++;
-    *out = open_shmobj[path].second;
+    refcnt_shmobj[path].refcnt++;
+    *out = refcnt_shmobj[path].shmobj;
     return A0_OK;
   }
 
   void decref_shmobj(std::string path) {
     std::unique_lock<std::mutex> lk{shmobj_mu};
 
-    if (open_shmobj.count(path)) {
-      open_shmobj[path].first--;
-      if (open_shmobj[path].first <= 0) {
-        a0_shmobj_close(&open_shmobj[path].second);
-        open_shmobj.erase(path);
+    if (refcnt_shmobj.count(path)) {
+      refcnt_shmobj[path].refcnt--;
+      if (refcnt_shmobj[path].refcnt <= 0) {
+        a0_shmobj_close(&refcnt_shmobj[path].shmobj);
+        refcnt_shmobj.erase(path);
       }
     }
   }
@@ -170,7 +149,7 @@ errno_t a0_alephzero_close(a0_alephzero_t* alephzero) {
 
   {
     std::unique_lock<std::mutex> lk{alephzero->_impl->shmobj_mu};
-    if (!alephzero->_impl->open_shmobj.empty()) {
+    if (!alephzero->_impl->refcnt_shmobj.empty()) {
       return EBUSY;
     }
   }
@@ -197,7 +176,7 @@ errno_t a0_config_reader_sync_init(a0_subscriber_sync_t* sub_sync, a0_alephzero_
   auto path = a0::strutil::fmt(kConfigTopicTemplate, alephzero._impl->opts.container.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
-  auto alloc = new_alloc();
+  auto alloc = a0_realloc_allocator();
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_sync_init_unmanaged(sub_sync,
                                                                   shmobj,
                                                                   alloc,
@@ -206,7 +185,7 @@ errno_t a0_config_reader_sync_init(a0_subscriber_sync_t* sub_sync, a0_alephzero_
 
   a0_subscriber_sync_managed_finalizer(sub_sync, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);
-    delete_alloc(alloc);
+    a0_free_realloc_allocator(alloc);
   });
 
   return A0_OK;
@@ -218,7 +197,7 @@ errno_t a0_config_reader_init(a0_subscriber_t* sub,
   auto path = a0::strutil::fmt(kConfigTopicTemplate, alephzero._impl->opts.container.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
-  auto alloc = new_alloc();
+  auto alloc = a0_realloc_allocator();
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_init_unmanaged(sub,
                                                              shmobj,
                                                              alloc,
@@ -228,7 +207,7 @@ errno_t a0_config_reader_init(a0_subscriber_t* sub,
 
   a0_subscriber_managed_finalizer(sub, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);
-    delete_alloc(alloc);
+    a0_free_realloc_allocator(alloc);
   });
 
   return A0_OK;
@@ -283,13 +262,13 @@ errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
       a0::strutil::fmt(kPubsubTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
-  auto alloc = new_alloc();
+  auto alloc = a0_realloc_allocator();
   A0_INTERNAL_RETURN_ERR_ON_ERR(
       a0_subscriber_sync_init_unmanaged(sub_sync, shmobj, alloc, read_start, read_next));
 
   a0_subscriber_sync_managed_finalizer(sub_sync, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);
-    delete_alloc(alloc);
+    a0_free_realloc_allocator(alloc);
   });
 
   return A0_OK;
@@ -333,13 +312,13 @@ errno_t a0_subscriber_init(a0_subscriber_t* sub,
       a0::strutil::fmt(kPubsubTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
-  auto alloc = new_alloc();
+  auto alloc = a0_realloc_allocator();
   A0_INTERNAL_RETURN_ERR_ON_ERR(
       a0_subscriber_init_unmanaged(sub, shmobj, alloc, read_start, read_next, packet_callback));
 
   a0_subscriber_managed_finalizer(sub, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);
-    delete_alloc(alloc);
+    a0_free_realloc_allocator(alloc);
   });
 
   return A0_OK;
@@ -349,17 +328,17 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* rpc_server,
                            a0_alephzero_t alephzero,
                            const char* name,
                            a0_packet_callback_t onrequest,
-                           a0_packet_callback_t oncancel) {
+                           a0_packet_id_callback_t oncancel) {
   auto path = a0::strutil::fmt(kRpcTopicTemplate, alephzero._impl->opts.container.c_str(), name);
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
-  auto alloc = new_alloc();
+  auto alloc = a0_realloc_allocator();
   A0_INTERNAL_RETURN_ERR_ON_ERR(
       a0_rpc_server_init_unmanaged(rpc_server, shmobj, alloc, onrequest, oncancel));
 
   a0_rpc_server_managed_finalizer(rpc_server, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);
-    delete_alloc(alloc);
+    a0_free_realloc_allocator(alloc);
   });
 
   return A0_OK;
@@ -376,12 +355,12 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* rpc_client,
       a0::strutil::fmt(kRpcTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
-  auto alloc = new_alloc();
+  auto alloc = a0_realloc_allocator();
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_rpc_client_init_unmanaged(rpc_client, shmobj, alloc));
 
   a0_rpc_client_managed_finalizer(rpc_client, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);
-    delete_alloc(alloc);
+    a0_free_realloc_allocator(alloc);
   });
 
   return A0_OK;

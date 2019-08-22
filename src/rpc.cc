@@ -12,13 +12,12 @@
 //  Rpc Common  //
 //////////////////
 
-static const char kPubClock[] = "a0_pub_clock";
 static const char kRpcType[] = "a0_rpc_type";
 static const char kRpcTypeRequest[] = "request";
 static const char kRpcTypeResponse[] = "response";
 static const char kRpcTypeCancel[] = "cancel";
 
-static const char kRequestId[] = "a0_request_id";
+static const char kRequestId[] = "a0_req_id";
 
 A0_STATIC_INLINE
 a0_stream_protocol_t protocol_info() {
@@ -57,7 +56,7 @@ errno_t a0_rpc_server_init_unmanaged(a0_rpc_server_t* server,
                                      a0_shmobj_t shmobj,
                                      a0_alloc_t alloc,
                                      a0_packet_callback_t onrequest,
-                                     a0_packet_callback_t oncancel) {
+                                     a0_packet_id_callback_t oncancel) {
   server->_impl = new a0_rpc_server_impl_t;
 
   auto on_stream_init = [server](a0_locked_stream_t slk, a0_stream_init_status_t) -> errno_t {
@@ -87,7 +86,9 @@ errno_t a0_rpc_server_init_unmanaged(a0_rpc_server_t* server,
       onrequest.fn(onrequest.user_data, pkt);
     } else if (!strcmp(rpc_type, kRpcTypeCancel)) {
       if (oncancel.fn) {
-        oncancel.fn(onrequest.user_data, pkt);
+        a0_packet_id_t id;
+        a0_packet_id(pkt, &id);
+        oncancel.fn(oncancel.user_data, id);
       }
     }
 
@@ -136,19 +137,16 @@ errno_t a0_rpc_server_close(a0_rpc_server_t* server, a0_callback_t onclose) {
   return A0_OK;
 }
 
-errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_packet_t req, a0_packet_t resp) {
+errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_packet_id_t req_id, a0_packet_t resp) {
   if (!server->_impl) {
     return ESHUTDOWN;
   }
 
-  const char* request_id;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(req, &request_id));
-
-  const char* response_id;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(resp, &response_id));
+  a0_packet_id_t resp_id;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(resp, &resp_id));
 
   // TODO: Is there a better way?
-  if (!strcmp(request_id, response_id)) {
+  if (!strcmp(req_id, resp_id)) {
     return EINVAL;
   }
 
@@ -156,7 +154,7 @@ errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_packet_t req, a0_packet_t resp)
   a0_packet_header_t extra_headers[num_extra_headers];
 
   extra_headers[0].key = kRequestId;
-  extra_headers[0].val = request_id;
+  extra_headers[0].val = req_id;
 
   extra_headers[1].key = kRpcType;
   extra_headers[1].val = kRpcTypeResponse;
@@ -165,7 +163,7 @@ errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_packet_t req, a0_packet_t resp)
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   auto clock_str = std::to_string(clock_val);
-  extra_headers[2].key = kPubClock;
+  extra_headers[2].key = kSendClock;
   extra_headers[2].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.
@@ -178,8 +176,7 @@ errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_packet_t req, a0_packet_t resp)
                                            resp,
                                            a0::stream_allocator(&slk),
                                            nullptr);
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
-    return A0_OK;
+    return a0_stream_commit(slk);
   });
 }
 
@@ -257,10 +254,10 @@ errno_t a0_rpc_client_init_unmanaged(a0_rpc_client_t* client,
         return;
       }
 
-      const char* request_id;
-      a0_packet_find_header(pkt, kRequestId, &request_id);
+      const char* req_id;
+      a0_packet_find_header(pkt, kRequestId, &req_id);
 
-      std::string key(request_id);
+      std::string key(req_id, A0_PACKET_ID_SIZE);
       if (strong_state->outstanding.count(key)) {
         auto callback = strong_state->outstanding[key];
         strong_state->outstanding.erase(key);
@@ -325,11 +322,11 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback
     return ESHUTDOWN;
   }
 
-  const char* id;
+  a0_packet_id_t id;
   a0_packet_id(pkt, &id);
   {
     std::unique_lock<std::mutex> lk{client->_impl->state->mu};
-    client->_impl->state->outstanding[std::string(id)] = callback;
+    client->_impl->state->outstanding[std::string(id, A0_PACKET_ID_SIZE)] = callback;
   }
 
   constexpr size_t num_extra_headers = 2;
@@ -342,7 +339,7 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   std::string clock_str = std::to_string(clock_val);
-  extra_headers[1].key = kPubClock;
+  extra_headers[1].key = kSendClock;
   extra_headers[1].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.
@@ -360,43 +357,43 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback
   });
 }
 
-errno_t a0_rpc_cancel(a0_rpc_client_t* client, a0_packet_t pkt) {
+errno_t a0_rpc_cancel(a0_rpc_client_t* client, a0_packet_id_t req_id) {
   if (!client->_impl || !client->_impl->state) {
     return ESHUTDOWN;
   }
 
-  const char* id;
-  a0_packet_id(pkt, &id);
   {
     std::unique_lock<std::mutex> lk{client->_impl->state->mu};
-    client->_impl->state->outstanding.erase(std::string(id));
+    client->_impl->state->outstanding.erase(std::string(req_id));
   }
 
-  constexpr size_t num_extra_headers = 2;
-  a0_packet_header_t extra_headers[num_extra_headers];
+  constexpr size_t num_headers = 3;
+  a0_packet_header_t headers[num_headers];
 
-  extra_headers[0].key = kRpcType;
-  extra_headers[0].val = kRpcTypeCancel;
+  headers[0].key = kRpcType;
+  headers[0].val = kRpcTypeCancel;
+
+  headers[1].key = kRequestId;
+  headers[1].val = req_id;
 
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   std::string clock_str = std::to_string(clock_val);
-  extra_headers[1].key = kPubClock;
-  extra_headers[1].val = clock_str.c_str();
+  headers[2].key = kSendClock;
+  headers[2].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.
 
   // TODO: Check impl and state still valid?
   a0::sync_stream_t ss{&client->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_packet_copy_with_additional_headers(num_extra_headers,
-                                           extra_headers,
-                                           pkt,
-                                           a0::stream_allocator(&slk),
-                                           nullptr);
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
-    return A0_OK;
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_build(num_headers,
+                                                  headers,
+                                                  a0_buf_t{.ptr = nullptr, .size = 0},
+                                                  a0::stream_allocator(&slk),
+                                                  nullptr));
+    return a0_stream_commit(slk);
   });
 }
 

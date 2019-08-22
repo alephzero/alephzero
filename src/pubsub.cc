@@ -15,8 +15,6 @@
 //  Pubsub Common  //
 /////////////////////
 
-static const char kPubClock[] = "a0_pub_clock";
-
 A0_STATIC_INLINE
 a0_stream_protocol_t protocol_info() {
   static a0_stream_protocol_t protocol = []() {
@@ -98,7 +96,7 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   std::string clock_str = std::to_string(clock_val);
-  extra_headers[0].key = kPubClock;
+  extra_headers[0].key = kSendClock;
   extra_headers[0].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.
@@ -110,8 +108,7 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
                                            pkt,
                                            a0::stream_allocator(&slk),
                                            nullptr);
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_commit(slk));
-    return A0_OK;
+    return a0_stream_commit(slk);
   });
 }
 

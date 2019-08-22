@@ -6,6 +6,8 @@
 #include <mutex>
 #include <thread>
 
+static const char kSendClock[] = "a0_send_clock";
+
 namespace a0 {
 
 inline a0_buf_t buf(a0_stream_frame_t frame) {

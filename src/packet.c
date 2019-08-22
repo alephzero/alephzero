@@ -59,11 +59,30 @@ errno_t a0_packet_find_header(a0_packet_t pkt, const char* key, const char** val
   return ENOKEY;
 }
 
+errno_t a0_packet_id(a0_packet_t pkt, a0_packet_id_t* out) {
+  size_t num_hdrs = 0;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_num_headers(pkt, &num_hdrs));
+  for (size_t i = 0; i < num_hdrs; i++) {
+    a0_packet_header_t hdr;
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_header(pkt, i, &hdr));
+    if (!strcmp(a0_packet_id_key(), (char*)hdr.key)) {
+      memcpy(*out, hdr.val, A0_PACKET_ID_SIZE);
+      return A0_OK;
+    }
+  }
+  return ENOKEY;
+}
+
 errno_t a0_packet_build(size_t num_headers,
                         a0_packet_header_t* headers,
                         a0_buf_t payload,
                         a0_alloc_t alloc,
                         a0_packet_t* out) {
+  a0_packet_t unused_pkt;
+  if (!out) {
+    out = &unused_pkt;
+  }
+
   bool has_id = false;
 
   // TODO: Verify at most one id.
