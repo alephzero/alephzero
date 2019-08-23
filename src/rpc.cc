@@ -49,8 +49,6 @@ struct a0_rpc_server_impl_s {
   a0::stream_thread worker;
 
   bool started_empty{false};
-
-  std::function<void()> managed_finalizer;
 };
 
 errno_t a0_rpc_server_init(a0_rpc_server_t* server,
@@ -120,16 +118,11 @@ errno_t a0_rpc_server_close(a0_rpc_server_t* server, a0_callback_t onclose) {
     return ESHUTDOWN;
   }
 
-  std::function<void()> fin = std::move(server->_impl->managed_finalizer);
-
   auto worker_ = server->_impl->worker;
   delete server->_impl;
   server->_impl = nullptr;
 
-  worker_.close([fin, onclose]() {
-    if (fin) {
-      fin();
-    }
+  worker_.close([onclose]() {
     if (onclose.fn) {
       onclose.fn(onclose.user_data);
     }
@@ -215,10 +208,6 @@ errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_packet_id_t req_id, a0_packet_t
   });
 }
 
-void a0_rpc_server_managed_finalizer(a0_rpc_server_t* server, std::function<void()> fn) {
-  server->_impl->managed_finalizer = std::move(fn);
-}
-
 //////////////
 //  Client  //
 //////////////
@@ -238,8 +227,6 @@ struct a0_rpc_client_impl_s {
 
   std::shared_ptr<rpc_state> state;
   bool started_empty{false};
-
-  std::function<void()> managed_finalizer;
 };
 
 errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_shmobj_t shmobj, a0_alloc_t alloc) {
@@ -327,8 +314,6 @@ errno_t a0_rpc_client_close(a0_rpc_client_t* client, a0_callback_t onclose) {
     return ESHUTDOWN;
   }
 
-  std::function<void()> fin = std::move(client->_impl->managed_finalizer);
-
   {
     std::unique_lock<std::mutex> lk{client->_impl->state->mu};
     client->_impl->state->closing = true;
@@ -338,10 +323,7 @@ errno_t a0_rpc_client_close(a0_rpc_client_t* client, a0_callback_t onclose) {
   delete client->_impl;
   client->_impl = nullptr;
 
-  worker_.close([fin, onclose]() {
-    if (fin) {
-      fin();
-    }
+  worker_.close([onclose]() {
     if (onclose.fn) {
       onclose.fn(onclose.user_data);
     }
@@ -462,8 +444,4 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, a0_packet_id_t req_id) {
                                                   nullptr));
     return a0_stream_commit(slk);
   });
-}
-
-void a0_rpc_client_managed_finalizer(a0_rpc_client_t* client, std::function<void()> fn) {
-  client->_impl->managed_finalizer = std::move(fn);
 }

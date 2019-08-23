@@ -41,8 +41,6 @@ a0_stream_protocol_t protocol_info() {
 
 struct a0_publisher_impl_s {
   a0_stream_t stream;
-
-  std::function<void()> managed_finalizer;
 };
 
 errno_t a0_publisher_init(a0_publisher_t* pub, a0_shmobj_t shmobj) {
@@ -70,15 +68,9 @@ errno_t a0_publisher_close(a0_publisher_t* pub) {
     return ESHUTDOWN;
   }
 
-  std::function<void()> fin = std::move(pub->_impl->managed_finalizer);
-
   a0_stream_close(&pub->_impl->stream);
   delete pub->_impl;
   pub->_impl = nullptr;
-
-  if (fin) {
-    fin();
-  }
 
   return A0_OK;
 }
@@ -111,10 +103,6 @@ errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
   });
 }
 
-void a0_publisher_managed_finalizer(a0_publisher_t* pub, std::function<void()> fn) {
-  pub->_impl->managed_finalizer = std::move(fn);
-}
-
 //////////////////
 //  Subscriber  //
 //////////////////
@@ -128,8 +116,6 @@ struct a0_subscriber_sync_zc_impl_s {
   a0_subscriber_iter_t sub_iter;
 
   bool read_first{false};
-
-  std::function<void()> managed_finalizer;
 };
 
 errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
@@ -162,15 +148,9 @@ errno_t a0_subscriber_sync_zc_close(a0_subscriber_sync_zc_t* sub_sync_zc) {
     return ESHUTDOWN;
   }
 
-  std::function<void()> fin = std::move(sub_sync_zc->_impl->managed_finalizer);
-
   a0_stream_close(&sub_sync_zc->_impl->stream);
   delete sub_sync_zc->_impl;
   sub_sync_zc->_impl = nullptr;
-
-  if (fin) {
-    fin();
-  }
 
   return A0_OK;
 }
@@ -217,11 +197,6 @@ errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t* sub_sync_zc,
 
     return A0_OK;
   });
-}
-
-void a0_subscriber_sync_zc_managed_finalizer(a0_subscriber_sync_zc_t* sub_sync_zc,
-                                             std::function<void()> fn) {
-  sub_sync_zc->_impl->managed_finalizer = std::move(fn);
 }
 
 // Synchronous allocated version.
@@ -285,17 +260,10 @@ errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync, a0_packet_t* pkt
   return a0_subscriber_sync_zc_next(&sub_sync->_impl->sub_sync_zc, wrapped_cb);
 }
 
-void a0_subscriber_sync_managed_finalizer(a0_subscriber_sync_t* sub_sync,
-                                          std::function<void()> fn) {
-  a0_subscriber_sync_zc_managed_finalizer(&sub_sync->_impl->sub_sync_zc, std::move(fn));
-}
-
 // Zero-copy threaded version.
 
 struct a0_subscriber_zc_impl_s {
   a0::stream_thread worker;
-
-  std::function<void()> managed_finalizer;
 };
 
 errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
@@ -350,16 +318,11 @@ errno_t a0_subscriber_zc_close(a0_subscriber_zc_t* sub_zc, a0_callback_t onclose
     return ESHUTDOWN;
   }
 
-  std::function<void()> fin = std::move(sub_zc->_impl->managed_finalizer);
-
   auto worker_ = sub_zc->_impl->worker;
   delete sub_zc->_impl;
   sub_zc->_impl = nullptr;
 
-  worker_.close([fin, onclose]() {
-    if (fin) {
-      fin();
-    }
+  worker_.close([onclose]() {
     if (onclose.fn) {
       onclose.fn(onclose.user_data);
     }
@@ -400,10 +363,6 @@ errno_t a0_subscriber_zc_await_close(a0_subscriber_zc_t* sub_zc) {
   });
 
   return A0_OK;
-}
-
-void a0_subscriber_zc_managed_finalizer(a0_subscriber_zc_t* sub_zc, std::function<void()> fn) {
-  sub_zc->_impl->managed_finalizer = std::move(fn);
 }
 
 // Normal threaded version.
@@ -465,8 +424,4 @@ errno_t a0_subscriber_await_close(a0_subscriber_t* sub) {
   sub->_impl = nullptr;
 
   return err;
-}
-
-void a0_subscriber_managed_finalizer(a0_subscriber_t* sub, std::function<void()> fn) {
-  a0_subscriber_zc_managed_finalizer(&sub->_impl->sub_zc, std::move(fn));
 }
