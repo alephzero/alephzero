@@ -72,11 +72,12 @@ TEST_CASE_FIXTURE(TopicManagerFixture, "Test topic manager pubsub") {
     a0_shmobj_t shmobj;
     REQUIRE(a0_topic_manager_subscriber_topic(&topic_manager, "sub_topic", &shmobj) == A0_OK);
 
-    a0_alloc_t alloc = a0_realloc_allocator();
-
     a0_subscriber_sync_t sub;
-    REQUIRE(a0_subscriber_sync_init(&sub, shmobj, alloc, A0_INIT_MOST_RECENT, A0_ITER_NEWEST) ==
-            A0_OK);
+    REQUIRE(a0_subscriber_sync_init(&sub,
+                                    shmobj,
+                                    a0::test::allocator(),
+                                    A0_INIT_MOST_RECENT,
+                                    A0_ITER_NEWEST) == A0_OK);
 
     {
       bool has_next;
@@ -100,7 +101,6 @@ TEST_CASE_FIXTURE(TopicManagerFixture, "Test topic manager pubsub") {
     }
 
     REQUIRE(a0_subscriber_sync_close(&sub) == A0_OK);
-    a0_free_realloc_allocator(alloc);
     REQUIRE(a0_topic_manager_unref(&topic_manager, shmobj) == A0_OK);
   }
 
