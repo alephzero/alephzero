@@ -31,16 +31,16 @@ errno_t a0_pub(a0_publisher_t*, a0_packet_t);
 // Subscriber //
 ////////////////
 
-typedef enum a0_subscriber_read_start_s {
+typedef enum a0_subscriber_init_s {
   A0_READ_START_EARLIEST,
-  A0_READ_START_LATEST,
-  A0_READ_START_NEW,
-} a0_subscriber_read_start_t;
+  A0_INIT_MOST_RECENT,
+  A0_INIT_AWAIT_NEW,
+} a0_subscriber_init_t;
 
-typedef enum a0_subscriber_read_next_s {
-  A0_READ_NEXT_SEQUENTIAL,
-  A0_READ_NEXT_RECENT,
-} a0_subscriber_read_next_t;
+typedef enum a0_subscriber_iter_s {
+  A0_ITER_NEXT,
+  A0_ITER_NEWEST,
+} a0_subscriber_iter_t;
 
 // Synchronous zero-copy version.
 
@@ -52,8 +52,8 @@ typedef struct a0_subscriber_sync_zc_s {
 
 errno_t a0_subscriber_sync_zc_init_unmanaged(a0_subscriber_sync_zc_t*,
                                              a0_shmobj_t,
-                                             a0_subscriber_read_start_t,
-                                             a0_subscriber_read_next_t);
+                                             a0_subscriber_init_t,
+                                             a0_subscriber_iter_t);
 
 errno_t a0_subscriber_sync_zc_close(a0_subscriber_sync_zc_t*);
 
@@ -71,8 +71,8 @@ typedef struct a0_subscriber_sync_s {
 errno_t a0_subscriber_sync_init_unmanaged(a0_subscriber_sync_t*,
                                           a0_shmobj_t,
                                           a0_alloc_t,
-                                          a0_subscriber_read_start_t,
-                                          a0_subscriber_read_next_t);
+                                          a0_subscriber_init_t,
+                                          a0_subscriber_iter_t);
 
 errno_t a0_subscriber_sync_close(a0_subscriber_sync_t*);
 
@@ -89,8 +89,8 @@ typedef struct a0_subscriber_zc_s {
 
 errno_t a0_subscriber_zc_init_unmanaged(a0_subscriber_zc_t*,
                                         a0_shmobj_t,
-                                        a0_subscriber_read_start_t,
-                                        a0_subscriber_read_next_t,
+                                        a0_subscriber_init_t,
+                                        a0_subscriber_iter_t,
                                         a0_zero_copy_callback_t);
 
 errno_t a0_subscriber_zc_close(a0_subscriber_zc_t*, a0_callback_t);
@@ -106,8 +106,8 @@ typedef struct a0_subscriber_s {
 errno_t a0_subscriber_init_unmanaged(a0_subscriber_t*,
                                      a0_shmobj_t,
                                      a0_alloc_t,
-                                     a0_subscriber_read_start_t,
-                                     a0_subscriber_read_next_t,
+                                     a0_subscriber_init_t,
+                                     a0_subscriber_iter_t,
                                      a0_packet_callback_t);
 
 errno_t a0_subscriber_close(a0_subscriber_t*, a0_callback_t);

@@ -180,8 +180,8 @@ errno_t a0_config_reader_sync_init(a0_subscriber_sync_t* sub_sync, a0_alephzero_
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_sync_init_unmanaged(sub_sync,
                                                                   shmobj,
                                                                   alloc,
-                                                                  A0_READ_START_LATEST,
-                                                                  A0_READ_NEXT_RECENT));
+                                                                  A0_INIT_MOST_RECENT,
+                                                                  A0_ITER_NEWEST));
 
   a0_subscriber_sync_managed_finalizer(sub_sync, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);
@@ -201,8 +201,8 @@ errno_t a0_config_reader_init(a0_subscriber_t* sub,
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_init_unmanaged(sub,
                                                              shmobj,
                                                              alloc,
-                                                             A0_READ_START_LATEST,
-                                                             A0_READ_NEXT_RECENT,
+                                                             A0_INIT_MOST_RECENT,
+                                                             A0_ITER_NEWEST,
                                                              packet_callback));
 
   a0_subscriber_managed_finalizer(sub, [alephzero, path, alloc]() {
@@ -229,8 +229,8 @@ errno_t a0_publisher_init(a0_publisher_t* pub, a0_alephzero_t alephzero, const c
 errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
                                    a0_alephzero_t alephzero,
                                    const char* name,
-                                   a0_subscriber_read_start_t read_start,
-                                   a0_subscriber_read_next_t read_next) {
+                                   a0_subscriber_init_t sub_init,
+                                   a0_subscriber_iter_t sub_iter) {
   if (!alephzero._impl->opts.subscriber_maps.count(name)) {
     return EINVAL;
   }
@@ -240,7 +240,7 @@ errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   A0_INTERNAL_RETURN_ERR_ON_ERR(
-      a0_subscriber_sync_zc_init_unmanaged(sub_sync_zc, shmobj, read_start, read_next));
+      a0_subscriber_sync_zc_init_unmanaged(sub_sync_zc, shmobj, sub_init, sub_iter));
 
   a0_subscriber_sync_zc_managed_finalizer(sub_sync_zc, [alephzero, path]() {
     alephzero._impl->decref_shmobj(path);
@@ -252,8 +252,8 @@ errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
 errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
                                 a0_alephzero_t alephzero,
                                 const char* name,
-                                a0_subscriber_read_start_t read_start,
-                                a0_subscriber_read_next_t read_next) {
+                                a0_subscriber_init_t sub_init,
+                                a0_subscriber_iter_t sub_iter) {
   if (!alephzero._impl->opts.subscriber_maps.count(name)) {
     return EINVAL;
   }
@@ -264,7 +264,7 @@ errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   auto alloc = a0_realloc_allocator();
   A0_INTERNAL_RETURN_ERR_ON_ERR(
-      a0_subscriber_sync_init_unmanaged(sub_sync, shmobj, alloc, read_start, read_next));
+      a0_subscriber_sync_init_unmanaged(sub_sync, shmobj, alloc, sub_init, sub_iter));
 
   a0_subscriber_sync_managed_finalizer(sub_sync, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);
@@ -277,8 +277,8 @@ errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
 errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
                               a0_alephzero_t alephzero,
                               const char* name,
-                              a0_subscriber_read_start_t read_start,
-                              a0_subscriber_read_next_t read_next,
+                              a0_subscriber_init_t sub_init,
+                              a0_subscriber_iter_t sub_iter,
                               a0_zero_copy_callback_t zc_callback) {
   if (!alephzero._impl->opts.subscriber_maps.count(name)) {
     return EINVAL;
@@ -289,7 +289,7 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
   a0_shmobj_t shmobj;
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   A0_INTERNAL_RETURN_ERR_ON_ERR(
-      a0_subscriber_zc_init_unmanaged(sub_zc, shmobj, read_start, read_next, zc_callback));
+      a0_subscriber_zc_init_unmanaged(sub_zc, shmobj, sub_init, sub_iter, zc_callback));
 
   a0_subscriber_zc_managed_finalizer(sub_zc, [alephzero, path]() {
     alephzero._impl->decref_shmobj(path);
@@ -301,8 +301,8 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
 errno_t a0_subscriber_init(a0_subscriber_t* sub,
                            a0_alephzero_t alephzero,
                            const char* name,
-                           a0_subscriber_read_start_t read_start,
-                           a0_subscriber_read_next_t read_next,
+                           a0_subscriber_init_t sub_init,
+                           a0_subscriber_iter_t sub_iter,
                            a0_packet_callback_t packet_callback) {
   if (!alephzero._impl->opts.subscriber_maps.count(name)) {
     return EINVAL;
@@ -314,7 +314,7 @@ errno_t a0_subscriber_init(a0_subscriber_t* sub,
   A0_INTERNAL_RETURN_ERR_ON_ERR(alephzero._impl->incref_shmobj(path, &shmobj));
   auto alloc = a0_realloc_allocator();
   A0_INTERNAL_RETURN_ERR_ON_ERR(
-      a0_subscriber_init_unmanaged(sub, shmobj, alloc, read_start, read_next, packet_callback));
+      a0_subscriber_init_unmanaged(sub, shmobj, alloc, sub_init, sub_iter, packet_callback));
 
   a0_subscriber_managed_finalizer(sub, [alephzero, path, alloc]() {
     alephzero._impl->decref_shmobj(path);

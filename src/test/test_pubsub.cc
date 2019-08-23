@@ -64,7 +64,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
                                               shmobj,
                                               a0::test::allocator(),
                                               A0_READ_START_EARLIEST,
-                                              A0_READ_NEXT_SEQUENTIAL) == A0_OK);
+                                              A0_ITER_NEXT) == A0_OK);
 
     {
       bool has_next;
@@ -131,8 +131,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
     REQUIRE(a0_subscriber_sync_init_unmanaged(&sub,
                                               shmobj,
                                               a0::test::allocator(),
-                                              A0_READ_START_LATEST,
-                                              A0_READ_NEXT_RECENT) == A0_OK);
+                                              A0_INIT_MOST_RECENT,
+                                              A0_ITER_NEWEST) == A0_OK);
 
     {
       bool has_next;
@@ -204,7 +204,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
                                          shmobj,
                                          a0::test::allocator(),
                                          A0_READ_START_EARLIEST,
-                                         A0_READ_NEXT_SEQUENTIAL,
+                                         A0_ITER_NEXT,
                                          cb) == A0_OK);
     {
       std::unique_lock<std::mutex> lk{data.mu};
@@ -267,7 +267,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
                                             shmobj,
                                             a0::test::allocator(),
                                             A0_READ_START_EARLIEST,
-                                            A0_READ_NEXT_SEQUENTIAL) == A0_OK);
+                                            A0_ITER_NEXT) == A0_OK);
 
   while (true) {
     a0_packet_t pkt;

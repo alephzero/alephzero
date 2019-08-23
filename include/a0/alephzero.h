@@ -42,24 +42,24 @@ errno_t a0_publisher_init(a0_publisher_t*, a0_alephzero_t, const char* name);
 errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t*,
                                    a0_alephzero_t,
                                    const char* name,
-                                   a0_subscriber_read_start_t,
-                                   a0_subscriber_read_next_t);
+                                   a0_subscriber_init_t,
+                                   a0_subscriber_iter_t);
 errno_t a0_subscriber_sync_init(a0_subscriber_sync_t*,
                                 a0_alephzero_t,
                                 const char* name,
-                                a0_subscriber_read_start_t,
-                                a0_subscriber_read_next_t);
+                                a0_subscriber_init_t,
+                                a0_subscriber_iter_t);
 errno_t a0_subscriber_zc_init(a0_subscriber_zc_t*,
                               a0_alephzero_t,
                               const char* name,
-                              a0_subscriber_read_start_t,
-                              a0_subscriber_read_next_t,
+                              a0_subscriber_init_t,
+                              a0_subscriber_iter_t,
                               a0_zero_copy_callback_t);
 errno_t a0_subscriber_init(a0_subscriber_t*,
                            a0_alephzero_t,
                            const char* name,
-                           a0_subscriber_read_start_t,
-                           a0_subscriber_read_next_t,
+                           a0_subscriber_init_t,
+                           a0_subscriber_iter_t,
                            a0_packet_callback_t);
 
 errno_t a0_rpc_server_init(a0_rpc_server_t*,

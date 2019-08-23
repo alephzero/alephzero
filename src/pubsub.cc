@@ -125,8 +125,8 @@ void a0_publisher_managed_finalizer(a0_publisher_t* pub, std::function<void()> f
 struct a0_subscriber_sync_zc_impl_s {
   a0_stream_t stream;
 
-  a0_subscriber_read_start_t read_start;
-  a0_subscriber_read_next_t read_next;
+  a0_subscriber_init_t sub_init;
+  a0_subscriber_iter_t sub_iter;
 
   bool read_first{false};
 
@@ -135,11 +135,11 @@ struct a0_subscriber_sync_zc_impl_s {
 
 errno_t a0_subscriber_sync_zc_init_unmanaged(a0_subscriber_sync_zc_t* sub_sync_zc,
                                              a0_shmobj_t shmobj,
-                                             a0_subscriber_read_start_t read_start,
-                                             a0_subscriber_read_next_t read_next) {
+                                             a0_subscriber_init_t sub_init,
+                                             a0_subscriber_iter_t sub_iter) {
   sub_sync_zc->_impl = new a0_subscriber_sync_zc_impl_t;
-  sub_sync_zc->_impl->read_start = read_start;
-  sub_sync_zc->_impl->read_next = read_next;
+  sub_sync_zc->_impl->sub_init = sub_init;
+  sub_sync_zc->_impl->sub_iter = sub_iter;
 
   a0_stream_init_status_t init_status;
   a0_locked_stream_t slk;
@@ -196,17 +196,17 @@ errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t* sub_sync_zc,
   a0::sync_stream_t ss{&sub_sync_zc->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     if (!sub_sync_zc->_impl->read_first) {
-      if (sub_sync_zc->_impl->read_start == A0_READ_START_EARLIEST) {
+      if (sub_sync_zc->_impl->sub_init == A0_READ_START_EARLIEST) {
         a0_stream_jump_head(slk);
-      } else if (sub_sync_zc->_impl->read_start == A0_READ_START_LATEST) {
+      } else if (sub_sync_zc->_impl->sub_init == A0_INIT_MOST_RECENT) {
         a0_stream_jump_tail(slk);
-      } else if (sub_sync_zc->_impl->read_start == A0_READ_START_NEW) {
+      } else if (sub_sync_zc->_impl->sub_init == A0_INIT_AWAIT_NEW) {
         a0_stream_jump_tail(slk);
       }
     } else {
-      if (sub_sync_zc->_impl->read_next == A0_READ_NEXT_SEQUENTIAL) {
+      if (sub_sync_zc->_impl->sub_iter == A0_ITER_NEXT) {
         a0_stream_next(slk);
-      } else if (sub_sync_zc->_impl->read_next == A0_READ_NEXT_RECENT) {
+      } else if (sub_sync_zc->_impl->sub_iter == A0_ITER_NEWEST) {
         a0_stream_jump_tail(slk);
       }
     }
@@ -236,15 +236,15 @@ struct a0_subscriber_sync_impl_s {
 errno_t a0_subscriber_sync_init_unmanaged(a0_subscriber_sync_t* sub_sync,
                                           a0_shmobj_t shmobj,
                                           a0_alloc_t alloc,
-                                          a0_subscriber_read_start_t read_start,
-                                          a0_subscriber_read_next_t read_next) {
+                                          a0_subscriber_init_t sub_init,
+                                          a0_subscriber_iter_t sub_iter) {
   sub_sync->_impl = new a0_subscriber_sync_impl_t;
 
   sub_sync->_impl->alloc = alloc;
   return a0_subscriber_sync_zc_init_unmanaged(&sub_sync->_impl->sub_sync_zc,
                                               shmobj,
-                                              read_start,
-                                              read_next);
+                                              sub_init,
+                                              sub_iter);
 }
 
 errno_t a0_subscriber_sync_close(a0_subscriber_sync_t* sub_sync) {
@@ -304,8 +304,8 @@ struct a0_subscriber_zc_impl_s {
 
 errno_t a0_subscriber_zc_init_unmanaged(a0_subscriber_zc_t* sub_zc,
                                         a0_shmobj_t shmobj,
-                                        a0_subscriber_read_start_t read_start,
-                                        a0_subscriber_read_next_t read_next,
+                                        a0_subscriber_init_t sub_init,
+                                        a0_subscriber_iter_t sub_iter,
                                         a0_zero_copy_callback_t onmsg) {
   sub_zc->_impl = new a0_subscriber_zc_impl_t;
 
@@ -320,22 +320,22 @@ errno_t a0_subscriber_zc_init_unmanaged(a0_subscriber_zc_t* sub_zc,
     onmsg.fn(onmsg.user_data, slk, a0::buf(frame));
   };
 
-  auto on_stream_nonempty = [read_start, read_current_packet](a0_locked_stream_t slk) {
-    if (read_start == A0_READ_START_EARLIEST) {
+  auto on_stream_nonempty = [sub_init, read_current_packet](a0_locked_stream_t slk) {
+    if (sub_init == A0_READ_START_EARLIEST) {
       a0_stream_jump_head(slk);
       read_current_packet(slk);
-    } else if (read_start == A0_READ_START_LATEST) {
+    } else if (sub_init == A0_INIT_MOST_RECENT) {
       a0_stream_jump_tail(slk);
       read_current_packet(slk);
-    } else if (read_start == A0_READ_START_NEW) {
+    } else if (sub_init == A0_INIT_AWAIT_NEW) {
       a0_stream_jump_tail(slk);
     }
   };
 
-  auto on_stream_hasnext = [read_next, read_current_packet](a0_locked_stream_t slk) {
-    if (read_next == A0_READ_NEXT_SEQUENTIAL) {
+  auto on_stream_hasnext = [sub_iter, read_current_packet](a0_locked_stream_t slk) {
+    if (sub_iter == A0_ITER_NEXT) {
       a0_stream_next(slk);
-    } else if (read_next == A0_READ_NEXT_RECENT) {
+    } else if (sub_iter == A0_ITER_NEWEST) {
       a0_stream_jump_tail(slk);
     }
 
@@ -388,8 +388,8 @@ struct a0_subscriber_impl_s {
 errno_t a0_subscriber_init_unmanaged(a0_subscriber_t* sub,
                                      a0_shmobj_t shmobj,
                                      a0_alloc_t alloc,
-                                     a0_subscriber_read_start_t read_start,
-                                     a0_subscriber_read_next_t read_next,
+                                     a0_subscriber_init_t sub_init,
+                                     a0_subscriber_iter_t sub_iter,
                                      a0_packet_callback_t onmsg) {
   sub->_impl = new a0_subscriber_impl_t;
 
@@ -410,11 +410,7 @@ errno_t a0_subscriber_init_unmanaged(a0_subscriber_t* sub,
           },
   };
 
-  a0_subscriber_zc_init_unmanaged(&sub->_impl->sub_zc,
-                                  shmobj,
-                                  read_start,
-                                  read_next,
-                                  wrapped_onmsg);
+  a0_subscriber_zc_init_unmanaged(&sub->_impl->sub_zc, shmobj, sub_init, sub_iter, wrapped_onmsg);
 
   return A0_OK;
 }
