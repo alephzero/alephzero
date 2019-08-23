@@ -29,34 +29,6 @@ struct RpcFixture {
   }
 };
 
-struct CloseHelper {
-  bool closed{false};
-  std::mutex mu;
-  std::condition_variable cv;
-
-  a0_callback_t callback() {
-    return (a0_callback_t){
-        .user_data = this,
-        .fn =
-            [](void* user_data) {
-              auto* self = (CloseHelper*)user_data;
-              {
-                std::unique_lock<std::mutex> lk{self->mu};
-                self->closed = true;
-              }
-              self->cv.notify_all();
-            },
-    };
-  }
-
-  void await_callback() {
-    std::unique_lock<std::mutex> lk{mu};
-    cv.wait(lk, [&]() {
-      return closed;
-    });
-  }
-};
-
 TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
   struct data_t {
     size_t reply_cnt{0};
@@ -98,12 +70,10 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
           },
   };
 
-  REQUIRE(
-      a0_rpc_server_init_unmanaged(&server, shmobj, a0::test::allocator(), onrequest, oncancel) ==
-      A0_OK);
+  REQUIRE(a0_rpc_server_init(&server, shmobj, a0::test::allocator(), onrequest, oncancel) == A0_OK);
 
   a0_rpc_client_t client;
-  REQUIRE(a0_rpc_client_init_unmanaged(&client, shmobj, a0::test::allocator()) == A0_OK);
+  REQUIRE(a0_rpc_client_init(&client, shmobj, a0::test::allocator()) == A0_OK);
 
   a0_packet_callback_t onreply = {
       .user_data = &data,
