@@ -55,7 +55,7 @@ TEST_CASE_FIXTURE(TopicManagerFixture, "Test topic manager pubsub") {
 
   {
     a0_shmobj_t shmobj;
-    REQUIRE(a0_topic_manager_publisher_topic(&topic_manager, "pub_topic", &shmobj) == A0_OK);
+    REQUIRE(a0_topic_manager_open_publisher_topic(&topic_manager, "pub_topic", &shmobj) == A0_OK);
 
     a0_publisher_t pub;
     REQUIRE(a0_publisher_init(&pub, shmobj) == A0_OK);
@@ -65,12 +65,12 @@ TEST_CASE_FIXTURE(TopicManagerFixture, "Test topic manager pubsub") {
 
     REQUIRE(a0_publisher_close(&pub) == A0_OK);
 
-    REQUIRE(a0_topic_manager_unref(&topic_manager, shmobj) == A0_OK);
+    REQUIRE(a0_topic_manager_close_topic(&topic_manager, shmobj) == A0_OK);
   }
 
   {
     a0_shmobj_t shmobj;
-    REQUIRE(a0_topic_manager_subscriber_topic(&topic_manager, "sub_topic", &shmobj) == A0_OK);
+    REQUIRE(a0_topic_manager_open_subscriber_topic(&topic_manager, "sub_topic", &shmobj) == A0_OK);
 
     a0_subscriber_sync_t sub;
     REQUIRE(a0_subscriber_sync_init(&sub,
@@ -101,7 +101,7 @@ TEST_CASE_FIXTURE(TopicManagerFixture, "Test topic manager pubsub") {
     }
 
     REQUIRE(a0_subscriber_sync_close(&sub) == A0_OK);
-    REQUIRE(a0_topic_manager_unref(&topic_manager, shmobj) == A0_OK);
+    REQUIRE(a0_topic_manager_close_topic(&topic_manager, shmobj) == A0_OK);
   }
 
   REQUIRE(a0_topic_manager_close(&topic_manager) == A0_OK);

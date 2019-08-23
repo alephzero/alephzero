@@ -35,13 +35,13 @@ errno_t a0_topic_manager_init(a0_topic_manager_t*, a0_topic_manager_options_t);
 errno_t a0_topic_manager_init_jsonstr(a0_topic_manager_t*, const char*);
 errno_t a0_topic_manager_close(a0_topic_manager_t*);
 
-errno_t a0_topic_manager_config_topic(a0_topic_manager_t*, a0_shmobj_t* out);
-errno_t a0_topic_manager_publisher_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
-errno_t a0_topic_manager_subscriber_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
-errno_t a0_topic_manager_rpc_server_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
-errno_t a0_topic_manager_rpc_client_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
+errno_t a0_topic_manager_open_config_topic(a0_topic_manager_t*, a0_shmobj_t* out);
+errno_t a0_topic_manager_open_publisher_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
+errno_t a0_topic_manager_open_subscriber_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
+errno_t a0_topic_manager_open_rpc_server_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
+errno_t a0_topic_manager_open_rpc_client_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
 
-errno_t a0_topic_manager_unref(a0_topic_manager_t*, a0_shmobj_t);
+errno_t a0_topic_manager_close_topic(a0_topic_manager_t*, a0_shmobj_t);
 
 #ifdef __cplusplus
 }
