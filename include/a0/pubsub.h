@@ -32,7 +32,7 @@ errno_t a0_pub(a0_publisher_t*, a0_packet_t);
 ////////////////
 
 typedef enum a0_subscriber_init_s {
-  A0_READ_START_EARLIEST,
+  A0_INIT_OLDEST,
   A0_INIT_MOST_RECENT,
   A0_INIT_AWAIT_NEW,
 } a0_subscriber_init_t;

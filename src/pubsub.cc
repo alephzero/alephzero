@@ -196,7 +196,7 @@ errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t* sub_sync_zc,
   a0::sync_stream_t ss{&sub_sync_zc->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     if (!sub_sync_zc->_impl->read_first) {
-      if (sub_sync_zc->_impl->sub_init == A0_READ_START_EARLIEST) {
+      if (sub_sync_zc->_impl->sub_init == A0_INIT_OLDEST) {
         a0_stream_jump_head(slk);
       } else if (sub_sync_zc->_impl->sub_init == A0_INIT_MOST_RECENT) {
         a0_stream_jump_tail(slk);
@@ -321,7 +321,7 @@ errno_t a0_subscriber_zc_init_unmanaged(a0_subscriber_zc_t* sub_zc,
   };
 
   auto on_stream_nonempty = [sub_init, read_current_packet](a0_locked_stream_t slk) {
-    if (sub_init == A0_READ_START_EARLIEST) {
+    if (sub_init == A0_INIT_OLDEST) {
       a0_stream_jump_head(slk);
       read_current_packet(slk);
     } else if (sub_init == A0_INIT_MOST_RECENT) {

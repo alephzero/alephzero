@@ -63,7 +63,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
     REQUIRE(a0_subscriber_sync_init_unmanaged(&sub,
                                               shmobj,
                                               a0::test::allocator(),
-                                              A0_READ_START_EARLIEST,
+                                              A0_INIT_OLDEST,
                                               A0_ITER_NEXT) == A0_OK);
 
     {
@@ -203,7 +203,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
     REQUIRE(a0_subscriber_init_unmanaged(&sub,
                                          shmobj,
                                          a0::test::allocator(),
-                                         A0_READ_START_EARLIEST,
+                                         A0_INIT_OLDEST,
                                          A0_ITER_NEXT,
                                          cb) == A0_OK);
     {
@@ -266,7 +266,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
   REQUIRE(a0_subscriber_sync_init_unmanaged(&sub,
                                             shmobj,
                                             a0::test::allocator(),
-                                            A0_READ_START_EARLIEST,
+                                            A0_INIT_OLDEST,
                                             A0_ITER_NEXT) == A0_OK);
 
   while (true) {

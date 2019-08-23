@@ -72,11 +72,8 @@ TEST_CASE_FIXTURE(AlephZeroFixture, "Test alephzero pubsub") {
 
   {
     a0_subscriber_sync_t sub;
-    REQUIRE(a0_subscriber_sync_init(&sub,
-                                    alephzero,
-                                    "sub_topic",
-                                    A0_READ_START_EARLIEST,
-                                    A0_ITER_NEXT) == A0_OK);
+    REQUIRE(a0_subscriber_sync_init(&sub, alephzero, "sub_topic", A0_INIT_OLDEST, A0_ITER_NEXT) ==
+            A0_OK);
 
     {
       bool has_next;
