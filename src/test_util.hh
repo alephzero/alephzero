@@ -2,12 +2,12 @@
 
 #include <a0/common.h>
 
-#include <a0/internal/stream_tools.hh>
-
 #include <map>
 #include <mutex>
 #include <set>
 #include <string>
+
+#include "src/stream_tools.hh"
 
 namespace a0 {
 namespace test {

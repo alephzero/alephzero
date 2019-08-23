@@ -1,7 +1,5 @@
 #include <a0/stream.h>
 
-#include <a0/internal/macros.h>
-
 #include <limits.h>
 #include <linux/futex.h>
 #include <stdalign.h>
@@ -10,6 +8,8 @@
 #include <string.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+
+#include "macros.h"
 
 const uint64_t A0_STREAM_MAGIC = 0x616c65667a65726f;
 typedef uintptr_t stream_off_t;  // ptr offset from start of shmobj.

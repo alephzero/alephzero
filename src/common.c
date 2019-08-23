@@ -1,8 +1,8 @@
 #include <a0/alloc.h>
 
-#include <a0/internal/macros.h>
-
 #include <stdlib.h>
+
+#include "macros.h"
 
 A0_STATIC_INLINE
 void a0_malloc_allocator_impl(void* unused, size_t size, a0_buf_t* out) {

@@ -1,13 +1,13 @@
 #include <a0/rpc.h>
 
-#include <a0/internal/macros.h>
-#include <a0/internal/packet_tools.h>
-#include <a0/internal/stream_tools.hh>
-
 #include <string.h>
 
 #include <condition_variable>
 #include <unordered_map>
+
+#include "macros.h"
+#include "packet_tools.h"
+#include "stream_tools.hh"
 
 //////////////////
 //  Rpc Common  //

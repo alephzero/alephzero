@@ -1,14 +1,14 @@
 #include <a0/rpc.h>
 
-#include <a0/internal/strutil.hh>
-#include <a0/internal/test_util.hh>
-
 #include <doctest.h>
 
 #include <condition_variable>
 #include <functional>
 #include <map>
 #include <mutex>
+
+#include "src/strutil.hh"
+#include "src/test_util.hh"
 
 static const char kTestShm[] = "/test.shm";
 

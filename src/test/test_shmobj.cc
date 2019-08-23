@@ -1,10 +1,10 @@
 #include <a0/shmobj.h>
 
-#include <a0/internal/test_util.hh>
-
 #include <doctest.h>
 #include <errno.h>
 #include <math.h>
+
+#include "src/test_util.hh"
 
 static const char* kTestShm = "/test.shm";
 

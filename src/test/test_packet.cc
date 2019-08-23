@@ -1,11 +1,11 @@
 #include <a0/packet.h>
 
-#include <a0/internal/test_util.hh>
-
 #include <doctest.h>
 
 #include <map>
 #include <vector>
+
+#include "src/test_util.hh"
 
 TEST_CASE("Test packet") {
   size_t num_headers = 3;

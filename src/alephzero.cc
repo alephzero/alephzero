@@ -1,12 +1,12 @@
 #include <a0/alephzero.h>
 
-#include <a0/internal/macros.h>
-#include <a0/internal/strutil.hh>
-
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
+
+#include "macros.h"
+#include "strutil.hh"
 
 using json = nlohmann::json;
 

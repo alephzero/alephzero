@@ -1,11 +1,11 @@
 #include <a0/shmobj.h>
 
-#include <a0/internal/macros.h>
-
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include "macros.h"
 
 errno_t a0_shmobj_open(const char* path, const a0_shmobj_options_t* opts, a0_shmobj_t* out) {
   out->fd = shm_open(path, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);

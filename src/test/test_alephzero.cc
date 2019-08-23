@@ -4,9 +4,6 @@
 #include <a0/pubsub.h>
 #include <a0/shmobj.h>
 
-#include <a0/internal/strutil.hh>
-#include <a0/internal/test_util.hh>
-
 #include <doctest.h>
 #include <string.h>
 
@@ -16,6 +13,9 @@
 #include <set>
 #include <thread>
 #include <vector>
+
+#include "src/strutil.hh"
+#include "src/test_util.hh"
 
 struct AlephZeroFixture {
   AlephZeroFixture() {

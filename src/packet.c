@@ -1,10 +1,10 @@
 #include <a0/packet.h>
 
-#include <a0/internal/macros.h>
-#include <a0/internal/rand.h>
-
 #include <stdio.h>
 #include <string.h>
+
+#include "macros.h"
+#include "rand.h"
 
 static const char kIdKey[] = "a0_id";
 static const char kDepKey[] = "a0_dep";

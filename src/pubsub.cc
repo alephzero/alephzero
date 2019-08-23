@@ -1,16 +1,16 @@
 #include <a0/pubsub.h>
 
-#include <a0/internal/macros.h>
-#include <a0/internal/packet_tools.h>
-#include <a0/internal/stream_tools.hh>
-#include <a0/internal/strutil.hh>
-
 #include <string.h>
 
 #include <condition_variable>
 #include <mutex>
 #include <random>
 #include <thread>
+
+#include "macros.h"
+#include "packet_tools.h"
+#include "stream_tools.hh"
+#include "strutil.hh"
 
 /////////////////////
 //  Pubsub Common  //

@@ -1,12 +1,12 @@
 #ifndef A0_INTERNAL_RAND_H
 #define A0_INTERNAL_RAND_H
 
-#include <a0/internal/macros.h>
-
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+#include "macros.h"
 
 #ifdef __cplusplus
 extern "C" {

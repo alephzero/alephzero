@@ -1,11 +1,11 @@
 #include <a0/stream.h>
 
-#include <a0/internal/stream_debug.h>
-#include <a0/internal/test_util.hh>
-
 #include <doctest.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "src/stream_debug.h"
+#include "src/test_util.hh"
 
 static const char kTestShm[] = "/test.shm";
 static const char kProtocolName[] = "my_protocol";
