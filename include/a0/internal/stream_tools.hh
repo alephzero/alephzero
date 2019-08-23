@@ -1,5 +1,6 @@
 #pragma once
 
+#include <a0/alloc.h>
 #include <a0/stream.h>
 
 #include <functional>

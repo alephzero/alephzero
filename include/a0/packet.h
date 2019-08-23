@@ -1,6 +1,7 @@
 #ifndef A0_PACKET_H
 #define A0_PACKET_H
 
+#include <a0/alloc.h>
 #include <a0/common.h>
 
 #ifdef __cplusplus
