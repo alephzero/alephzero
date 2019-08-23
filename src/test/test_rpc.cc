@@ -146,11 +146,6 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
     });
   }
 
-  CloseHelper client_close_helper;
-  REQUIRE(a0_rpc_client_close(&client, client_close_helper.callback()) == A0_OK);
-  client_close_helper.await_callback();
-
-  CloseHelper server_close_helper;
-  REQUIRE(a0_rpc_server_close(&server, server_close_helper.callback()) == A0_OK);
-  server_close_helper.await_callback();
+  REQUIRE(a0_rpc_client_await_close(&client) == A0_OK);
+  REQUIRE(a0_rpc_server_await_close(&server) == A0_OK);
 }

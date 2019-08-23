@@ -6,6 +6,7 @@
 
 #include <string.h>
 
+#include <condition_variable>
 #include <unordered_map>
 
 //////////////////
@@ -132,6 +133,40 @@ errno_t a0_rpc_server_close(a0_rpc_server_t* server, a0_callback_t onclose) {
     if (onclose.fn) {
       onclose.fn(onclose.user_data);
     }
+  });
+
+  return A0_OK;
+}
+
+errno_t a0_rpc_server_await_close(a0_rpc_server_t* server) {
+  if (!server || !server->_impl) {
+    return ESHUTDOWN;
+  }
+
+  struct data_t {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool closed{false};
+  } data;
+
+  a0_callback_t cb = {
+      .user_data = &data,
+      .fn =
+          [](void* user_data) {
+            auto* data = (data_t*)user_data;
+            {
+              std::unique_lock<std::mutex> lk(data->mu);
+              data->closed = true;
+            }
+            data->cv.notify_one();
+          },
+  };
+
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_rpc_server_close(server, cb));
+
+  std::unique_lock<std::mutex> lk(data.mu);
+  data.cv.wait(lk, [&]() {
+    return data.closed;
   });
 
   return A0_OK;
@@ -312,6 +347,40 @@ errno_t a0_rpc_client_close(a0_rpc_client_t* client, a0_callback_t onclose) {
     if (onclose.fn) {
       onclose.fn(onclose.user_data);
     }
+  });
+
+  return A0_OK;
+}
+
+errno_t a0_rpc_client_await_close(a0_rpc_client_t* client) {
+  if (!client || !client->_impl) {
+    return ESHUTDOWN;
+  }
+
+  struct data_t {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool closed{false};
+  } data;
+
+  a0_callback_t cb = {
+      .user_data = &data,
+      .fn =
+          [](void* user_data) {
+            auto* data = (data_t*)user_data;
+            {
+              std::unique_lock<std::mutex> lk(data->mu);
+              data->closed = true;
+            }
+            data->cv.notify_one();
+          },
+  };
+
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_rpc_client_close(client, cb));
+
+  std::unique_lock<std::mutex> lk(data.mu);
+  data.cv.wait(lk, [&]() {
+    return data.closed;
   });
 
   return A0_OK;

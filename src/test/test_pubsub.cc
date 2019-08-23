@@ -173,7 +173,6 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
   {
     struct data_t {
       size_t msg_cnt{0};
-      bool closed{false};
       std::mutex mu;
       std::condition_variable cv;
     } data;
@@ -213,23 +212,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
       });
     }
 
-    a0_callback_t close_cb = {
-        .user_data = &data,
-        .fn =
-            [](void* vp) {
-              auto* data = (data_t*)vp;
-              data->closed = true;
-              data->cv.notify_all();
-            },
-    };
-
-    REQUIRE(a0_subscriber_close(&sub, close_cb) == A0_OK);
-    {
-      std::unique_lock<std::mutex> lk{data.mu};
-      data.cv.wait(lk, [&]() {
-        return data.closed;
-      });
-    }
+    REQUIRE(a0_subscriber_await_close(&sub) == A0_OK);
   }
 }
 

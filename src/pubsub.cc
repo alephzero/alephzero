@@ -7,6 +7,7 @@
 
 #include <string.h>
 
+#include <condition_variable>
 #include <mutex>
 #include <random>
 #include <thread>
@@ -372,6 +373,40 @@ errno_t a0_subscriber_zc_close(a0_subscriber_zc_t* sub_zc, a0_callback_t onclose
   return A0_OK;
 }
 
+errno_t a0_subscriber_zc_await_close(a0_subscriber_zc_t* sub_zc) {
+  if (!sub_zc || !sub_zc->_impl) {
+    return ESHUTDOWN;
+  }
+
+  struct data_t {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool closed{false};
+  } data;
+
+  a0_callback_t cb = {
+      .user_data = &data,
+      .fn =
+          [](void* user_data) {
+            auto* data = (data_t*)user_data;
+            {
+              std::unique_lock<std::mutex> lk(data->mu);
+              data->closed = true;
+            }
+            data->cv.notify_one();
+          },
+  };
+
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_zc_close(sub_zc, cb));
+
+  std::unique_lock<std::mutex> lk(data.mu);
+  data.cv.wait(lk, [&]() {
+    return data.closed;
+  });
+
+  return A0_OK;
+}
+
 void a0_subscriber_zc_managed_finalizer(a0_subscriber_zc_t* sub_zc, std::function<void()> fn) {
   sub_zc->_impl->managed_finalizer = std::move(fn);
 }
@@ -410,9 +445,11 @@ errno_t a0_subscriber_init_unmanaged(a0_subscriber_t* sub,
           },
   };
 
-  a0_subscriber_zc_init_unmanaged(&sub->_impl->sub_zc, shmobj, sub_init, sub_iter, wrapped_onmsg);
-
-  return A0_OK;
+  return a0_subscriber_zc_init_unmanaged(&sub->_impl->sub_zc,
+                                         shmobj,
+                                         sub_init,
+                                         sub_iter,
+                                         wrapped_onmsg);
 }
 
 errno_t a0_subscriber_close(a0_subscriber_t* sub, a0_callback_t onclose) {
@@ -420,11 +457,23 @@ errno_t a0_subscriber_close(a0_subscriber_t* sub, a0_callback_t onclose) {
     return ESHUTDOWN;
   }
 
-  a0_subscriber_zc_close(&sub->_impl->sub_zc, onclose);
+  auto err = a0_subscriber_zc_close(&sub->_impl->sub_zc, onclose);
   delete sub->_impl;
   sub->_impl = nullptr;
 
-  return A0_OK;
+  return err;
+}
+
+errno_t a0_subscriber_await_close(a0_subscriber_t* sub) {
+  if (!sub || !sub->_impl) {
+    return ESHUTDOWN;
+  }
+
+  auto err = a0_subscriber_zc_await_close(&sub->_impl->sub_zc);
+  delete sub->_impl;
+  sub->_impl = nullptr;
+
+  return err;
 }
 
 void a0_subscriber_managed_finalizer(a0_subscriber_t* sub, std::function<void()> fn) {
