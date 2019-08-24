@@ -37,7 +37,7 @@ const char* a0_packet_id_key();
 const char* a0_packet_dep_key();
 
 // Packet ids are human-readable uuidv4.
-#define A0_PACKET_ID_SIZE 36
+#define A0_PACKET_ID_SIZE 37
 typedef char a0_packet_id_t[A0_PACKET_ID_SIZE];
 
 // The following are packet accessors.

@@ -102,7 +102,7 @@ errno_t a0_packet_build(size_t num_headers,
     size += 2 * num_headers * sizeof(size_t);  // Header offsets.
     size += sizeof(size_t);                    // Payload offset.
     if (!has_id) {
-      size += sizeof(kIdKey) + kUuidSize;  // Id content, if not already in headers.
+      size += sizeof(kIdKey) + A0_PACKET_ID_SIZE;  // Id content, if not already in headers.
     }
     for (size_t i = 0; i < num_headers; i++) {
       size += strlen(headers[i].key) + 1;  // Key content.

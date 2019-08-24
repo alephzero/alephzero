@@ -413,7 +413,7 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, a0_packet_id_t req_id) {
 
   {
     std::unique_lock<std::mutex> lk{client->_impl->state->mu};
-    client->_impl->state->outstanding.erase(std::string(req_id));
+    client->_impl->state->outstanding.erase(std::string(req_id, A0_PACKET_ID_SIZE));
   }
 
   constexpr size_t num_headers = 3;

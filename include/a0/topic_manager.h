@@ -41,8 +41,6 @@ errno_t a0_topic_manager_open_subscriber_topic(a0_topic_manager_t*, const char*,
 errno_t a0_topic_manager_open_rpc_server_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
 errno_t a0_topic_manager_open_rpc_client_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
 
-errno_t a0_topic_manager_close_topic(a0_topic_manager_t*, a0_shmobj_t);
-
 #ifdef __cplusplus
 }
 #endif
