@@ -277,10 +277,9 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_shmobj_t shmobj, a0_alloc
       const char* req_id;
       a0_packet_find_header(pkt, kRequestId, &req_id);
 
-      std::string key(req_id, A0_PACKET_ID_SIZE);
-      if (strong_state->outstanding.count(key)) {
-        auto callback = strong_state->outstanding[key];
-        strong_state->outstanding.erase(key);
+      if (strong_state->outstanding.count(req_id)) {
+        auto callback = strong_state->outstanding[req_id];
+        strong_state->outstanding.erase(req_id);
 
         lk.unlock();
         callback.fn(callback.user_data, pkt);
@@ -375,7 +374,7 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback
   a0_packet_id(pkt, &id);
   {
     std::unique_lock<std::mutex> lk{client->_impl->state->mu};
-    client->_impl->state->outstanding[std::string(id, A0_PACKET_ID_SIZE)] = callback;
+    client->_impl->state->outstanding[id] = callback;
   }
 
   constexpr size_t num_extra_headers = 2;
@@ -413,7 +412,7 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, a0_packet_id_t req_id) {
 
   {
     std::unique_lock<std::mutex> lk{client->_impl->state->mu};
-    client->_impl->state->outstanding.erase(std::string(req_id, A0_PACKET_ID_SIZE));
+    client->_impl->state->outstanding.erase(req_id);
   }
 
   constexpr size_t num_headers = 3;
