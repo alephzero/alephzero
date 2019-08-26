@@ -97,8 +97,8 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
   auto on_stream_nonempty = [server, handle_pkt](a0_locked_stream_t slk) {
     if (server->_impl->started_empty) {
       a0_stream_jump_head(slk);
+      handle_pkt(slk);
     }
-    handle_pkt(slk);
   };
 
   auto on_stream_hasnext = [handle_pkt](a0_locked_stream_t slk) {
