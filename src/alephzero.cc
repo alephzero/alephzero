@@ -37,20 +37,6 @@ struct CDeleter {
   }
 };
 
-// template <typename C>
-// std::function<void(C*)> throw_err(std::function<errno_t(C*)> fn) {
-//   return [fn](C* c) {
-//     check(fn(c));
-//   };
-// }
-
-// template <typename C>
-// std::function<void(C*)> ignore_err(std::function<errno_t(C*)> fn) {
-//   return [fn](C* c) {
-//     fn(c);
-//   };
-// }
-
 }  // namespace
 
 ShmObj::ShmObj(const std::string& path) {
@@ -66,41 +52,6 @@ ShmObj::ShmObj(const std::string& path, const Options& opts) {
 }
 void ShmObj::unlink(const std::string& path) {
   check(a0_shmobj_unlink(path.c_str()));
-}
-
-TopicManager::TopicManager(const std::string& json) {
-  c = c_shared<a0_topic_manager_t>(a0_topic_manager_close);
-  check(a0_topic_manager_init_jsonstr(&*c, json.c_str()));
-}
-
-ShmObj TopicManager::config_topic() {
-  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
-  check(a0_topic_manager_open_config_topic(&*c, &*shmobj.c));
-  return shmobj;
-}
-
-ShmObj TopicManager::publisher_topic(const std::string& name) {
-  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
-  check(a0_topic_manager_open_publisher_topic(&*c, name.c_str(), &*shmobj.c));
-  return shmobj;
-}
-
-ShmObj TopicManager::subscriber_topic(const std::string& name) {
-  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
-  check(a0_topic_manager_open_subscriber_topic(&*c, name.c_str(), &*shmobj.c));
-  return shmobj;
-}
-
-ShmObj TopicManager::rpc_server_topic(const std::string& name) {
-  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
-  check(a0_topic_manager_open_rpc_server_topic(&*c, name.c_str(), &*shmobj.c));
-  return shmobj;
-}
-
-ShmObj TopicManager::rpc_client_topic(const std::string& name) {
-  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
-  check(a0_topic_manager_open_rpc_client_topic(&*c, name.c_str(), &*shmobj.c));
-  return shmobj;
 }
 
 const a0_packet_t Packet::c() const {
@@ -376,6 +327,41 @@ void RpcClient::send(const Packet& pkt, std::function<void(Packet)> fn) {
 
 void RpcClient::cancel(const std::string& id) {
   check(a0_rpc_cancel(&*c, id.c_str()));
+}
+
+TopicManager::TopicManager(const std::string& json) {
+  c = c_shared<a0_topic_manager_t>(a0_topic_manager_close);
+  check(a0_topic_manager_init_jsonstr(&*c, json.c_str()));
+}
+
+ShmObj TopicManager::config_topic() {
+  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
+  check(a0_topic_manager_open_config_topic(&*c, &*shmobj.c));
+  return shmobj;
+}
+
+ShmObj TopicManager::publisher_topic(const std::string& name) {
+  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
+  check(a0_topic_manager_open_publisher_topic(&*c, name.c_str(), &*shmobj.c));
+  return shmobj;
+}
+
+ShmObj TopicManager::subscriber_topic(const std::string& name) {
+  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
+  check(a0_topic_manager_open_subscriber_topic(&*c, name.c_str(), &*shmobj.c));
+  return shmobj;
+}
+
+ShmObj TopicManager::rpc_server_topic(const std::string& name) {
+  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
+  check(a0_topic_manager_open_rpc_server_topic(&*c, name.c_str(), &*shmobj.c));
+  return shmobj;
+}
+
+ShmObj TopicManager::rpc_client_topic(const std::string& name) {
+  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
+  check(a0_topic_manager_open_rpc_client_topic(&*c, name.c_str(), &*shmobj.c));
+  return shmobj;
 }
 
 }  // namespace a0

@@ -21,19 +21,6 @@ struct ShmObj {
   static void unlink(const std::string& path);
 };
 
-struct TopicManager {
-  std::shared_ptr<a0_topic_manager_t> c;
-
-  // TODO: TopicManager(const Options&);
-  TopicManager(const std::string& json);
-
-  ShmObj config_topic();
-  ShmObj publisher_topic(const std::string&);
-  ShmObj subscriber_topic(const std::string&);
-  ShmObj rpc_server_topic(const std::string&);
-  ShmObj rpc_client_topic(const std::string&);
-};
-
 struct Packet {
   std::string mem;
   const a0_packet_t c() const;
@@ -89,6 +76,19 @@ struct RpcClient {
 
   void send(const Packet&, std::function<void(Packet)>);
   void cancel(const std::string&);
+};
+
+struct TopicManager {
+  std::shared_ptr<a0_topic_manager_t> c;
+
+  // TODO: TopicManager(const Options&);
+  TopicManager(const std::string& json);
+
+  ShmObj config_topic();
+  ShmObj publisher_topic(const std::string&);
+  ShmObj subscriber_topic(const std::string&);
+  ShmObj rpc_server_topic(const std::string&);
+  ShmObj rpc_client_topic(const std::string&);
 };
 
 }  // namespace a0;
