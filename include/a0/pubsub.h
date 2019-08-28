@@ -25,7 +25,7 @@ typedef struct a0_publisher_s {
 
 errno_t a0_publisher_init(a0_publisher_t*, a0_shmobj_t);
 errno_t a0_publisher_close(a0_publisher_t*);
-errno_t a0_pub(a0_publisher_t*, a0_packet_t);
+errno_t a0_pub(a0_publisher_t*, const a0_packet_t);
 
 ////////////////
 // Subscriber //

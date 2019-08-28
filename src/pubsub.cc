@@ -75,7 +75,7 @@ errno_t a0_publisher_close(a0_publisher_t* pub) {
   return A0_OK;
 }
 
-errno_t a0_pub(a0_publisher_t* pub, a0_packet_t pkt) {
+errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
   if (!pub || !pub->_impl) {
     return ESHUTDOWN;
   }

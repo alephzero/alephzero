@@ -144,7 +144,7 @@ errno_t a0_rpc_server_close(a0_rpc_server_t* server) {
   return A0_OK;
 }
 
-errno_t a0_rpc_reply(a0_rpc_server_t* server, a0_packet_id_t req_id, a0_packet_t resp) {
+errno_t a0_rpc_reply(a0_rpc_server_t* server, const a0_packet_id_t req_id, const a0_packet_t resp) {
   if (!server->_impl) {
     return ESHUTDOWN;
   }
@@ -323,7 +323,7 @@ errno_t a0_rpc_client_close(a0_rpc_client_t* client) {
   return A0_OK;
 }
 
-errno_t a0_rpc_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback_t callback) {
+errno_t a0_rpc_send(a0_rpc_client_t* client, const a0_packet_t pkt, a0_packet_callback_t callback) {
   if (!client->_impl || !client->_impl->state) {
     return ESHUTDOWN;
   }
@@ -363,7 +363,7 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback
   });
 }
 
-errno_t a0_rpc_cancel(a0_rpc_client_t* client, a0_packet_id_t req_id) {
+errno_t a0_rpc_cancel(a0_rpc_client_t* client, const a0_packet_id_t req_id) {
   if (!client->_impl || !client->_impl->state) {
     return ESHUTDOWN;
   }

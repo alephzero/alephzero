@@ -1,35 +1,30 @@
 #include <alephzero.h>
 
+#include <functional>
+#include <memory>
+#include <string>
+#include <vector>
+
 namespace a0 {
 
-class ShmObj {
- public:
+struct ShmObj {
   std::shared_ptr<a0_shmobj_t> c;
 
-  struct Options {};
+  struct Options {
+    off_t size;
+  };
 
+  ShmObj() = default;
   ShmObj(const std::string& path);
   ShmObj(const std::string& path, const Options&);
 
   static void unlink(const std::string& path);
 };
 
-class TopicManager {
- public:
+struct TopicManager {
   std::shared_ptr<a0_topic_manager_t> c;
 
-  struct FullTopic {
-    std::string container;
-    std::string topic;
-  };
-  struct Options {
-    std::string container;
-
-    std::unordered_map<std::string, FullTopic> subscriber_maps;
-    std::unordered_map<std::string, FullTopic> rpc_client_maps;
-  };
-
-  TopicManager(const Options&);
+  // TODO: TopicManager(const Options&);
   TopicManager(const std::string& json);
 
   ShmObj config_topic();
@@ -39,23 +34,22 @@ class TopicManager {
   ShmObj rpc_client_topic(const std::string&);
 };
 
-class Packet {
+struct Packet {
   std::string mem;
+  const a0_packet_t c() const;
 
- public:
   static Packet build(const std::vector<std::pair<std::string, std::string>>& hdrs,
                       const std::string& payload);
 
-  size_t num_headers();
-  std::pair<std::string, std::string> header(size_t idx);
-  std::string payload();
+  size_t num_headers() const;
+  std::pair<std::string, std::string> header(size_t idx) const;
+  std::string payload() const;
 
-  std::unique_ptr<std::string> find_header(const std::string& key);
-  std::string id();
+  std::unique_ptr<std::string> find_header(const std::string& key) const;
+  std::string id() const;
 };
 
-class Publisher {
- public:
+struct Publisher {
   std::shared_ptr<a0_publisher_t> c;
 
   Publisher(ShmObj);
@@ -63,8 +57,7 @@ class Publisher {
   void pub(const Packet&);
 };
 
-class SubscriberSync {
- public:
+struct SubscriberSync {
   std::shared_ptr<a0_subscriber_sync_t> c;
 
   SubscriberSync(ShmObj, a0_subscriber_init_t, a0_subscriber_iter_t);
@@ -73,34 +66,30 @@ class SubscriberSync {
   Packet next();
 };
 
-class Subscriber {
- public:
+struct Subscriber {
   std::shared_ptr<a0_subscriber_t> c;
 
   Subscriber(ShmObj, a0_subscriber_init_t, a0_subscriber_iter_t, std::function<void(Packet)>);
   void async_close(std::function<void()>);
 };
 
-class RpcServer {
- public:
+struct RpcServer {
   std::shared_ptr<a0_rpc_server_t> c;
 
-  RpcServer(ShmObj, std::function<void(Packet)> onrequest, std::function<void(a0_packet_id_t)> oncancel);
+  RpcServer(ShmObj, std::function<void(Packet)> onrequest, std::function<void(std::string)> oncancel);
   void async_close(std::function<void()>);
 
-  void reply(a0_packet_id_t, const Packet&);
+  void reply(const std::string&, const Packet&);
 };
 
-class RpcClient {
- public:
+struct RpcClient {
   std::shared_ptr<a0_rpc_client_t> c;
 
   RpcClient(ShmObj);
   void async_close(std::function<void()>);
 
-  void send_cb(const Packet&, std::function<void(Packet)>);
-  std::future<Packet> send_fut(const Packet&);
-  void cancel(a0_packet_id_t);
+  void send(const Packet&, std::function<void(Packet)>);
+  void cancel(const std::string&);
 };
 
 }  // namespace a0;
