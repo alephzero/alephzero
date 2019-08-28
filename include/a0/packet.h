@@ -51,10 +51,14 @@ errno_t a0_packet_header(a0_packet_t, size_t hdr_idx, a0_packet_header_t* out);
 // Get the packet payload.
 // Note: out points to memory in the packet buffer.
 errno_t a0_packet_payload(a0_packet_t, a0_buf_t* out);
-// Get the value for the given header key.
+// Get the value for the first header, after start_search_idx, with the given key.
 // Note: out points to memory in the packet buffer.
 // Note: A naive implementation would be O(N). Maybe sort the headers and bisect?
-errno_t a0_packet_find_header(a0_packet_t, const char* key, const char** val_out);
+errno_t a0_packet_find_header(a0_packet_t,
+                              const char* key,
+                              size_t start_search_idx,
+                              const char** val_out,
+                              size_t* idx_out);
 
 // Get the packet id.
 errno_t a0_packet_id(a0_packet_t pkt, a0_packet_id_t* out);

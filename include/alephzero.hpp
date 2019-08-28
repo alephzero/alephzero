@@ -45,7 +45,6 @@ struct Packet {
   std::pair<std::string, std::string> header(size_t idx) const;
   std::string payload() const;
 
-  std::unique_ptr<std::string> find_header(const std::string& key) const;
   std::string id() const;
 };
 

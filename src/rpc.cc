@@ -80,7 +80,7 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
     a0_unlock_stream(slk);
 
     const char* rpc_type;
-    a0_packet_find_header(pkt, kRpcType, &rpc_type);
+    a0_packet_find_header(pkt, kRpcType, 0, &rpc_type, nullptr);
     if (!strcmp(rpc_type, kRpcTypeRequest)) {
       onrequest.fn(onrequest.user_data, pkt);
     } else if (!strcmp(rpc_type, kRpcTypeCancel)) {
@@ -229,7 +229,7 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_shmobj_t shmobj, a0_alloc
     a0_stream_frame(slk, &frame);
 
     const char* rpc_type;
-    a0_packet_find_header(a0::buf(frame), kRpcType, &rpc_type);
+    a0_packet_find_header(a0::buf(frame), kRpcType, 0, &rpc_type, nullptr);
 
     if (strcmp(rpc_type, kRpcTypeResponse)) {
       return;
@@ -254,7 +254,7 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_shmobj_t shmobj, a0_alloc
       }
 
       const char* req_id;
-      a0_packet_find_header(pkt, kRequestId, &req_id);
+      a0_packet_find_header(pkt, kRequestId, 0, &req_id, nullptr);
 
       if (strong_state->outstanding.count(req_id)) {
         auto callback = strong_state->outstanding[req_id];

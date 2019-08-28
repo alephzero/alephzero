@@ -45,14 +45,23 @@ errno_t a0_packet_payload(a0_packet_t pkt, a0_buf_t* out) {
   return A0_OK;
 }
 
-errno_t a0_packet_find_header(a0_packet_t pkt, const char* key, const char** val_out) {
+errno_t a0_packet_find_header(a0_packet_t pkt,
+                              const char* key,
+                              size_t start_search_idx,
+                              const char** val_out,
+                              size_t* idx_out) {
   size_t num_hdrs = 0;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_num_headers(pkt, &num_hdrs));
-  for (size_t i = 0; i < num_hdrs; i++) {
+  for (size_t i = start_search_idx; i < num_hdrs; i++) {
     a0_packet_header_t hdr;
     A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_header(pkt, i, &hdr));
     if (!strcmp(key, (char*)hdr.key)) {
-      *val_out = hdr.val;
+      if (val_out) {
+        *val_out = hdr.val;
+      }
+      if (idx_out) {
+        *idx_out = i;
+      }
       return A0_OK;
     }
   }
@@ -60,17 +69,10 @@ errno_t a0_packet_find_header(a0_packet_t pkt, const char* key, const char** val
 }
 
 errno_t a0_packet_id(a0_packet_t pkt, a0_packet_id_t* out) {
-  size_t num_hdrs = 0;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_num_headers(pkt, &num_hdrs));
-  for (size_t i = 0; i < num_hdrs; i++) {
-    a0_packet_header_t hdr;
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_header(pkt, i, &hdr));
-    if (!strcmp(a0_packet_id_key(), (char*)hdr.key)) {
-      memcpy(*out, hdr.val, A0_PACKET_ID_SIZE);
-      return A0_OK;
-    }
-  }
-  return ENOKEY;
+  const char* val;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_find_header(pkt, a0_packet_id_key(), 0, &val, NULL));
+  memcpy(*out, val, A0_PACKET_ID_SIZE);
+  return A0_OK;
 }
 
 errno_t a0_packet_build(size_t num_headers,
