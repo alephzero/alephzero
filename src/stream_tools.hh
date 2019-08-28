@@ -3,6 +3,7 @@
 #include <a0/alloc.h>
 #include <a0/stream.h>
 
+#include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -52,6 +53,7 @@ inline a0_alloc_t stream_allocator(a0_locked_stream_t* lk) {
 struct stream_thread {
   struct state_t {
     a0_stream_t stream;
+    std::thread::id t_id;
 
     std::function<void(a0_locked_stream_t)> on_stream_nonempty;
     std::function<void(a0_locked_stream_t)> on_stream_hasnext;
@@ -122,11 +124,12 @@ struct stream_thread {
     std::thread t([state_ = state]() {
       state_->thread_main();
     });
+    state->t_id = t.get_id();
     t.detach();
     return A0_OK;
   }
 
-  errno_t close(std::function<void()> onclose) {
+  errno_t async_close(std::function<void()> onclose) {
     if (!state) {
       return ESHUTDOWN;
     }
@@ -138,6 +141,34 @@ struct stream_thread {
     a0_stream_close(&state->stream);
 
     state = nullptr;
+    return A0_OK;
+  }
+
+  errno_t await_close() {
+    if (!state) {
+      return ESHUTDOWN;
+    }
+    if (std::this_thread::get_id() == state->t_id) {
+      return EDEADLK;
+    }
+
+    std::mutex mu;
+    std::condition_variable cv;
+    bool closed{false};
+
+    async_close([&]() {
+      {
+        std::unique_lock<std::mutex> lk(mu);
+        closed = true;
+      }
+      cv.notify_one();
+    });
+
+    std::unique_lock<std::mutex> lk(mu);
+    cv.wait(lk, [&]() {
+      return closed;
+    });
+
     return A0_OK;
   }
 };

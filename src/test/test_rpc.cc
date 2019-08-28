@@ -116,6 +116,6 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
     });
   }
 
-  REQUIRE(a0_rpc_client_await_close(&client) == A0_OK);
-  REQUIRE(a0_rpc_server_await_close(&server) == A0_OK);
+  REQUIRE(a0_rpc_client_close(&client) == A0_OK);
+  REQUIRE(a0_rpc_server_close(&server) == A0_OK);
 }

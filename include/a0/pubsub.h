@@ -93,8 +93,8 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t*,
                               a0_subscriber_iter_t,
                               a0_zero_copy_callback_t);
 
-errno_t a0_subscriber_zc_close(a0_subscriber_zc_t*, a0_callback_t);
-errno_t a0_subscriber_zc_await_close(a0_subscriber_zc_t*);
+errno_t a0_subscriber_zc_close(a0_subscriber_zc_t*);
+errno_t a0_subscriber_zc_async_close(a0_subscriber_zc_t*, a0_callback_t);
 
 // Threaded allocated version.
 
@@ -111,8 +111,8 @@ errno_t a0_subscriber_init(a0_subscriber_t*,
                            a0_subscriber_iter_t,
                            a0_packet_callback_t);
 
-errno_t a0_subscriber_close(a0_subscriber_t*, a0_callback_t);
-errno_t a0_subscriber_await_close(a0_subscriber_t*);
+errno_t a0_subscriber_close(a0_subscriber_t*);
+errno_t a0_subscriber_async_close(a0_subscriber_t*, a0_callback_t);
 
 #ifdef __cplusplus
 }

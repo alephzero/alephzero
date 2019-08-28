@@ -209,7 +209,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
       });
     }
 
-    REQUIRE(a0_subscriber_await_close(&sub) == A0_OK);
+    REQUIRE(a0_subscriber_close(&sub) == A0_OK);
   }
 }
 

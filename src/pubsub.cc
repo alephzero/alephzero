@@ -313,7 +313,7 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
                                     on_stream_hasnext);
 }
 
-errno_t a0_subscriber_zc_close(a0_subscriber_zc_t* sub_zc, a0_callback_t onclose) {
+errno_t a0_subscriber_zc_async_close(a0_subscriber_zc_t* sub_zc, a0_callback_t onclose) {
   if (!sub_zc || !sub_zc->_impl) {
     return ESHUTDOWN;
   }
@@ -322,7 +322,7 @@ errno_t a0_subscriber_zc_close(a0_subscriber_zc_t* sub_zc, a0_callback_t onclose
   delete sub_zc->_impl;
   sub_zc->_impl = nullptr;
 
-  worker_.close([onclose]() {
+  worker_.async_close([onclose]() {
     if (onclose.fn) {
       onclose.fn(onclose.user_data);
     }
@@ -331,36 +331,15 @@ errno_t a0_subscriber_zc_close(a0_subscriber_zc_t* sub_zc, a0_callback_t onclose
   return A0_OK;
 }
 
-errno_t a0_subscriber_zc_await_close(a0_subscriber_zc_t* sub_zc) {
+errno_t a0_subscriber_zc_close(a0_subscriber_zc_t* sub_zc) {
   if (!sub_zc || !sub_zc->_impl) {
     return ESHUTDOWN;
   }
 
-  struct data_t {
-    std::mutex mu;
-    std::condition_variable cv;
-    bool closed{false};
-  } data;
-
-  a0_callback_t cb = {
-      .user_data = &data,
-      .fn =
-          [](void* user_data) {
-            auto* data = (data_t*)user_data;
-            {
-              std::unique_lock<std::mutex> lk(data->mu);
-              data->closed = true;
-            }
-            data->cv.notify_one();
-          },
-  };
-
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_zc_close(sub_zc, cb));
-
-  std::unique_lock<std::mutex> lk(data.mu);
-  data.cv.wait(lk, [&]() {
-    return data.closed;
-  });
+  auto worker_ = sub_zc->_impl->worker;
+  delete sub_zc->_impl;
+  sub_zc->_impl = nullptr;
+  worker_.await_close();
 
   return A0_OK;
 }
@@ -402,24 +381,24 @@ errno_t a0_subscriber_init(a0_subscriber_t* sub,
   return a0_subscriber_zc_init(&sub->_impl->sub_zc, shmobj, sub_init, sub_iter, wrapped_onmsg);
 }
 
-errno_t a0_subscriber_close(a0_subscriber_t* sub, a0_callback_t onclose) {
+errno_t a0_subscriber_close(a0_subscriber_t* sub) {
   if (!sub || !sub->_impl) {
     return ESHUTDOWN;
   }
 
-  auto err = a0_subscriber_zc_close(&sub->_impl->sub_zc, onclose);
+  auto err = a0_subscriber_zc_close(&sub->_impl->sub_zc);
   delete sub->_impl;
   sub->_impl = nullptr;
 
   return err;
 }
 
-errno_t a0_subscriber_await_close(a0_subscriber_t* sub) {
+errno_t a0_subscriber_async_close(a0_subscriber_t* sub, a0_callback_t onclose) {
   if (!sub || !sub->_impl) {
     return ESHUTDOWN;
   }
 
-  auto err = a0_subscriber_zc_await_close(&sub->_impl->sub_zc);
+  auto err = a0_subscriber_zc_async_close(&sub->_impl->sub_zc, onclose);
   delete sub->_impl;
   sub->_impl = nullptr;
 
