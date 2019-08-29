@@ -49,7 +49,7 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
             if (!strcmp((const char*)payload.ptr, "reply")) {
               a0_packet_t pkt;
               REQUIRE(a0_packet_build(0, nullptr, payload, a0::test::allocator(), &pkt) == A0_OK);
-              REQUIRE(a0_rpc_reply(&req, pkt) == A0_OK);
+              REQUIRE(a0_rpc_reply(req, pkt) == A0_OK);
             }
           },
   };

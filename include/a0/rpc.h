@@ -21,7 +21,7 @@ typedef struct a0_rpc_server_s {
 
 typedef struct a0_rpc_request_s {
   a0_rpc_server_t* server;
-  const a0_packet_t pkt;
+  a0_packet_t pkt;
 } a0_rpc_request_t;
 
 typedef struct a0_rpc_request_callback_s {
@@ -37,7 +37,7 @@ errno_t a0_rpc_server_init(a0_rpc_server_t*,
 errno_t a0_rpc_server_close(a0_rpc_server_t*);
 errno_t a0_rpc_server_async_close(a0_rpc_server_t*, a0_callback_t);
 // Note: do NOT respond with the request packet. The ids MUST be unique!
-errno_t a0_rpc_reply(a0_rpc_request_t*, const a0_packet_t resp);
+errno_t a0_rpc_reply(a0_rpc_request_t, const a0_packet_t resp);
 
 ////////////
 // Client //

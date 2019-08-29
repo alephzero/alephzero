@@ -215,7 +215,7 @@ Packet RpcRequest::pkt() {
 }
 
 void RpcRequest::reply(const Packet& pkt) {
-  check(a0_rpc_reply(&*c, pkt.c()));
+  check(a0_rpc_reply(*c, pkt.c()));
 }
 
 RpcServer::RpcServer(ShmObj shmobj,
