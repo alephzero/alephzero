@@ -37,21 +37,19 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
     std::condition_variable cv;
   } data;
 
-  a0_rpc_server_t server;
-
-  a0_packet_callback_t onrequest = {
-      .user_data = &server,
+  a0_rpc_request_callback_t onrequest = {
+      .user_data = nullptr,
       .fn =
-          [](void* user_data, a0_packet_t req) {
+          [](void*, a0_rpc_request_t req) {
             a0_packet_id_t req_id;
-            REQUIRE(a0_packet_id(req, &req_id) == A0_OK);
+            REQUIRE(a0_packet_id(req.pkt, &req_id) == A0_OK);
 
             a0_buf_t payload;
-            REQUIRE(a0_packet_payload(req, &payload) == A0_OK);
+            REQUIRE(a0_packet_payload(req.pkt, &payload) == A0_OK);
             if (!strcmp((const char*)payload.ptr, "reply")) {
               a0_packet_t pkt;
               REQUIRE(a0_packet_build(0, nullptr, payload, a0::test::allocator(), &pkt) == A0_OK);
-              REQUIRE(a0_rpc_reply((a0_rpc_server_t*)user_data, req_id, pkt) == A0_OK);
+              REQUIRE(a0_rpc_reply(&req, pkt) == A0_OK);
             }
           },
   };
@@ -70,6 +68,7 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
           },
   };
 
+  a0_rpc_server_t server;
   REQUIRE(a0_rpc_server_init(&server, shmobj, a0::test::allocator(), onrequest, oncancel) == A0_OK);
 
   a0_rpc_client_t client;

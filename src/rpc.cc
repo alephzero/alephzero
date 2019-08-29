@@ -54,7 +54,7 @@ struct a0_rpc_server_impl_s {
 errno_t a0_rpc_server_init(a0_rpc_server_t* server,
                            a0_shmobj_t shmobj,
                            a0_alloc_t alloc,
-                           a0_packet_callback_t onrequest,
+                           a0_rpc_request_callback_t onrequest,
                            a0_packet_id_callback_t oncancel) {
   server->_impl = new a0_rpc_server_impl_t;
 
@@ -69,7 +69,7 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
     return A0_OK;
   };
 
-  auto handle_pkt = [alloc, onrequest, oncancel](a0_locked_stream_t slk) {
+  auto handle_pkt = [alloc, onrequest, oncancel, server](a0_locked_stream_t slk) {
     a0_stream_frame_t frame;
     a0_stream_frame(slk, &frame);
 
@@ -82,7 +82,10 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
     const char* rpc_type;
     a0_packet_find_header(pkt, kRpcType, 0, &rpc_type, nullptr);
     if (!strcmp(rpc_type, kRpcTypeRequest)) {
-      onrequest.fn(onrequest.user_data, pkt);
+      onrequest.fn(onrequest.user_data, a0_rpc_request_t{
+          .server = server,
+          .pkt = pkt,
+      });
     } else if (!strcmp(rpc_type, kRpcTypeCancel)) {
       if (oncancel.fn) {
         a0_packet_id_t id;
@@ -144,10 +147,13 @@ errno_t a0_rpc_server_close(a0_rpc_server_t* server) {
   return A0_OK;
 }
 
-errno_t a0_rpc_reply(a0_rpc_server_t* server, const a0_packet_id_t req_id, const a0_packet_t resp) {
-  if (!server->_impl) {
+errno_t a0_rpc_reply(a0_rpc_request_t* req, const a0_packet_t resp) {
+  if (!req || !req->server->_impl) {
     return ESHUTDOWN;
   }
+
+  a0_packet_id_t req_id;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(req->pkt, &req_id));
 
   a0_packet_id_t resp_id;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(resp, &resp_id));
@@ -176,7 +182,7 @@ errno_t a0_rpc_reply(a0_rpc_server_t* server, const a0_packet_id_t req_id, const
   // TODO: Add sequence numbers.
 
   // TODO: Check impl, worker, state, and stream are still valid?
-  a0::sync_stream_t ss{&server->_impl->worker.state->stream};
+  a0::sync_stream_t ss{&req->server->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     a0_packet_copy_with_additional_headers(num_extra_headers,
                                            extra_headers,

@@ -203,13 +203,28 @@ void Subscriber::async_close(std::function<void()> fn) {
   c = nullptr;
 }
 
+RpcServer RpcRequest::server() {
+  RpcServer server;
+  // Note: this does not extend the server lifetime.
+  server.c = std::shared_ptr<a0_rpc_server_t>(c->server, [](a0_rpc_server_t*) {});
+  return server;
+}
+
+Packet RpcRequest::pkt() {
+  return Packet{std::string((char*)c->pkt.ptr, c->pkt.size)};
+}
+
+void RpcRequest::reply(const Packet& pkt) {
+  check(a0_rpc_reply(&*c, pkt.c()));
+}
+
 RpcServer::RpcServer(ShmObj shmobj,
-                     std::function<void(Packet)> onrequest,
+                     std::function<void(RpcRequest)> onrequest,
                      std::function<void(std::string)> oncancel) {
   CDeleter<a0_rpc_server_t> deleter;
   deleter.also.push_back([shmobj]() {});
 
-  auto heap_onrequest = new std::function<void(Packet)>(std::move(onrequest));
+  auto heap_onrequest = new std::function<void(RpcRequest)>(std::move(onrequest));
   deleter.also.push_back([heap_onrequest]() {
     delete heap_onrequest;
   });
@@ -219,12 +234,12 @@ RpcServer::RpcServer(ShmObj shmobj,
     delete heap_oncancel;
   });
 
-  a0_packet_callback_t c_onrequest = {
+  a0_rpc_request_callback_t c_onrequest = {
       .user_data = heap_onrequest,
       .fn =
-          [](void* user_data, a0_packet_t c_pkt) {
-            (*(std::function<void(Packet)>*)user_data)(
-                Packet{std::string((char*)c_pkt.ptr, c_pkt.size)});
+          [](void* user_data, a0_rpc_request_t c_req) {
+            (*(std::function<void(RpcRequest)>*)user_data)(
+                RpcRequest{std::make_shared<a0_rpc_request_t>(c_req)});
           },
   };
   a0_packet_id_callback_t c_oncancel = {
@@ -267,10 +282,6 @@ void RpcServer::async_close(std::function<void()> fn) {
 
   check(a0_rpc_server_async_close(&*c, callback));
   c = nullptr;
-}
-
-void RpcServer::reply(const std::string& id, const Packet& pkt) {
-  check(a0_rpc_reply(&*c, id.c_str(), pkt.c()));
 }
 
 RpcClient::RpcClient(ShmObj shmobj) {

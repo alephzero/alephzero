@@ -38,6 +38,7 @@ struct Packet {
 struct Publisher {
   std::shared_ptr<a0_publisher_t> c;
 
+  Publisher() = default;
   Publisher(ShmObj);
 
   void pub(const Packet&);
@@ -46,6 +47,7 @@ struct Publisher {
 struct SubscriberSync {
   std::shared_ptr<a0_subscriber_sync_t> c;
 
+  SubscriberSync() = default;
   SubscriberSync(ShmObj, a0_subscriber_init_t, a0_subscriber_iter_t);
 
   bool has_next();
@@ -55,22 +57,34 @@ struct SubscriberSync {
 struct Subscriber {
   std::shared_ptr<a0_subscriber_t> c;
 
+  Subscriber() = default;
   Subscriber(ShmObj, a0_subscriber_init_t, a0_subscriber_iter_t, std::function<void(Packet)>);
   void async_close(std::function<void()>);
+};
+
+struct RpcServer;
+
+struct RpcRequest {
+  std::shared_ptr<a0_rpc_request_t> c;
+
+  RpcServer server();
+  Packet pkt();
+
+  void reply(const Packet&);
 };
 
 struct RpcServer {
   std::shared_ptr<a0_rpc_server_t> c;
 
-  RpcServer(ShmObj, std::function<void(Packet)> onrequest, std::function<void(std::string)> oncancel);
+  RpcServer() = default;
+  RpcServer(ShmObj, std::function<void(RpcRequest)> onrequest, std::function<void(std::string)> oncancel);
   void async_close(std::function<void()>);
-
-  void reply(const std::string&, const Packet&);
 };
 
 struct RpcClient {
   std::shared_ptr<a0_rpc_client_t> c;
 
+  RpcClient() = default;
   RpcClient(ShmObj);
   void async_close(std::function<void()>);
 
