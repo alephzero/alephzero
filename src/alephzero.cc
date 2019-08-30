@@ -54,18 +54,49 @@ void ShmObj::unlink(const std::string& path) {
   check(a0_shmobj_unlink(path.c_str()));
 }
 
-const a0_packet_t Packet::c() const {
-  return a0_packet_t{.ptr = (uint8_t*)mem.data(), .size = mem.size()};
+size_t PacketView::num_headers() const {
+  size_t out;
+  check(a0_packet_num_headers(c, &out));
+  return out;
 }
 
-Packet Packet::build(const std::vector<std::pair<std::string, std::string>>& hdrs,
-                     const std::string& payload) {
-  Packet pkt;
+std::pair<std::string_view, std::string_view> PacketView::header(size_t idx) const {
+  a0_packet_header_t c_hdr;
+  check(a0_packet_header(c, idx, &c_hdr));
+  return {c_hdr.key, c_hdr.val};
+}
+
+std::string_view PacketView::payload() const {
+  a0_buf_t c_payload;
+  check(a0_packet_payload(c, &c_payload));
+  return std::string_view((char*)c_payload.ptr, c_payload.size);
+}
+
+std::string PacketView::id() const {
+  a0_packet_id_t c_id;
+  check(a0_packet_id(c, &c_id));
+  return c_id;
+}
+
+const a0_packet_t Packet::c() const {
+  return a0_packet_t{.ptr = (uint8_t*)mem.data(), .size = mem.size()};
+
+}
+
+Packet::Packet(PacketView packet_view) {
+  mem.resize(packet_view.c.size);
+  memcpy(mem.data(), packet_view.c.ptr, packet_view.c.size);
+}
+
+Packet::Packet(std::string_view payload) : Packet({}, payload) {}
+
+Packet::Packet(const std::vector<std::pair<std::string_view, std::string_view>>& hdrs,
+               std::string_view payload) {
   a0_alloc_t alloc = {
-      .user_data = &pkt,
+      .user_data = &mem,
       .fn =
           [](void* user_data, size_t size, a0_buf_t* out) {
-            auto* mem = &((Packet*)user_data)->mem;
+            auto* mem = (std::vector<uint8_t>*)user_data;
             mem->resize(size);
             *out = {
                 .ptr = (uint8_t*)mem->data(),
@@ -76,7 +107,7 @@ Packet Packet::build(const std::vector<std::pair<std::string, std::string>>& hdr
 
   std::vector<a0_packet_header_t> c_hdrs;
   for (auto&& hdr : hdrs) {
-    c_hdrs.push_back({hdr.first.c_str(), hdr.second.c_str()});
+    c_hdrs.push_back({hdr.first.data(), hdr.second.data()});
   }
 
   check(a0_packet_build(c_hdrs.size(),
@@ -87,7 +118,6 @@ Packet Packet::build(const std::vector<std::pair<std::string, std::string>>& hdr
                         },
                         alloc,
                         nullptr));
-  return pkt;
 }
 
 size_t Packet::num_headers() const {
@@ -96,16 +126,16 @@ size_t Packet::num_headers() const {
   return out;
 }
 
-std::pair<std::string, std::string> Packet::header(size_t idx) const {
+std::pair<std::string_view, std::string_view> Packet::header(size_t idx) const {
   a0_packet_header_t c_hdr;
   check(a0_packet_header(c(), idx, &c_hdr));
   return {c_hdr.key, c_hdr.val};
 }
 
-std::string Packet::payload() const {
+std::string_view Packet::payload() const {
   a0_buf_t c_payload;
   check(a0_packet_payload(c(), &c_payload));
-  return std::string((char*)c_payload.ptr, c_payload.size);
+  return std::string_view((char*)c_payload.ptr, c_payload.size);
 }
 
 std::string Packet::id() const {
@@ -123,6 +153,10 @@ Publisher::Publisher(ShmObj shmobj) {
 
 void Publisher::pub(const Packet& pkt) {
   check(a0_pub(&*c, pkt.c()));
+}
+
+void Publisher::pub(std::string_view payload) {
+  pub(Packet(payload));
 }
 
 SubscriberSync::SubscriberSync(ShmObj shmobj,
@@ -143,26 +177,27 @@ bool SubscriberSync::has_next() {
   return has_next;
 }
 
-Packet SubscriberSync::next() {
+PacketView SubscriberSync::next() {
   a0_packet_t c_pkt;
   check(a0_subscriber_sync_next(&*c, &c_pkt));
-  return Packet{std::string((char*)c_pkt.ptr, c_pkt.size)};
+  return PacketView{.c = c_pkt};
 }
 
 Subscriber::Subscriber(ShmObj shmobj,
                        a0_subscriber_init_t init,
                        a0_subscriber_iter_t iter,
-                       std::function<void(Packet)> fn) {
+                       std::function<void(PacketView)> fn) {
   CDeleter<a0_subscriber_t> deleter;
   deleter.also.push_back([shmobj]() {});
 
-  auto heap_fn = new std::function<void(Packet)>(std::move(fn));
+  auto heap_fn = new std::function<void(PacketView)>(std::move(fn));
   a0_packet_callback_t callback = {
       .user_data = heap_fn,
       .fn =
           [](void* user_data, a0_packet_t c_pkt) {
-            (*(std::function<void(Packet)>*)user_data)(
-                Packet{std::string((char*)c_pkt.ptr, c_pkt.size)});
+            (*(std::function<void(PacketView)>*)user_data)(
+                PacketView{.c = c_pkt}
+            );
           },
   };
   deleter.also.push_back([heap_fn]() {
@@ -210,12 +245,16 @@ RpcServer RpcRequest::server() {
   return server;
 }
 
-Packet RpcRequest::pkt() {
-  return Packet{std::string((char*)c->pkt.ptr, c->pkt.size)};
+PacketView RpcRequest::pkt() {
+  return PacketView{.c = c->pkt};
 }
 
 void RpcRequest::reply(const Packet& pkt) {
   check(a0_rpc_reply(*c, pkt.c()));
+}
+
+void RpcRequest::reply(std::string_view payload) {
+  reply(Packet(payload));
 }
 
 RpcServer::RpcServer(ShmObj shmobj,
@@ -322,18 +361,22 @@ void RpcClient::async_close(std::function<void()> fn) {
   c = nullptr;
 }
 
-void RpcClient::send(const Packet& pkt, std::function<void(Packet)> fn) {
-  auto heap_fn = new std::function<void(Packet)>(std::move(fn));
+void RpcClient::send(const Packet& pkt, std::function<void(PacketView)> fn) {
+  auto heap_fn = new std::function<void(PacketView)>(std::move(fn));
   a0_packet_callback_t callback = {
       .user_data = heap_fn,
       .fn =
           [](void* user_data, a0_packet_t c_pkt) {
-            auto* fn = (std::function<void(Packet)>*)user_data;
-            (*fn)(Packet{std::string((char*)c_pkt.ptr, c_pkt.size)});
+            auto* fn = (std::function<void(PacketView)>*)user_data;
+            (*fn)(PacketView{.c = c_pkt});
             delete fn;
           },
   };
   check(a0_rpc_send(&*c, pkt.c(), callback));
+}
+
+void RpcClient::send(std::string_view payload, std::function<void(PacketView)> fn) {
+  send(Packet(payload), std::move(fn));
 }
 
 void RpcClient::cancel(const std::string& id) {
