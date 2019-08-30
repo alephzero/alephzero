@@ -82,10 +82,11 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
     const char* rpc_type;
     a0_packet_find_header(pkt, kRpcType, 0, &rpc_type, nullptr);
     if (!strcmp(rpc_type, kRpcTypeRequest)) {
-      onrequest.fn(onrequest.user_data, a0_rpc_request_t{
-          .server = server,
-          .pkt = pkt,
-      });
+      onrequest.fn(onrequest.user_data,
+                   a0_rpc_request_t{
+                       .server = server,
+                       .pkt = pkt,
+                   });
     } else if (!strcmp(rpc_type, kRpcTypeCancel)) {
       if (oncancel.fn) {
         a0_packet_id_t id;

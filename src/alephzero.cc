@@ -75,8 +75,8 @@ Packet Packet::build(const std::vector<std::pair<std::string, std::string>>& hdr
   };
 
   std::vector<a0_packet_header_t> c_hdrs;
-  for (auto&& [k, v] : hdrs) {
-    c_hdrs.push_back({k.c_str(), v.c_str()});
+  for (auto&& hdr : hdrs) {
+    c_hdrs.push_back({hdr.first.c_str(), hdr.second.c_str()});
   }
 
   check(a0_packet_build(c_hdrs.size(),
