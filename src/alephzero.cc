@@ -80,7 +80,6 @@ std::string PacketView::id() const {
 
 const a0_packet_t Packet::c() const {
   return a0_packet_t{.ptr = (uint8_t*)mem.data(), .size = mem.size()};
-
 }
 
 Packet::Packet(PacketView packet_view) {
@@ -195,9 +194,7 @@ Subscriber::Subscriber(ShmObj shmobj,
       .user_data = heap_fn,
       .fn =
           [](void* user_data, a0_packet_t c_pkt) {
-            (*(std::function<void(PacketView)>*)user_data)(
-                PacketView{.c = c_pkt}
-            );
+            (*(std::function<void(PacketView)>*)user_data)(PacketView{.c = c_pkt});
           },
   };
   deleter.also.push_back([heap_fn]() {
