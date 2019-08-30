@@ -15,8 +15,6 @@ struct ShmObj {
   };
 
   ShmObj() = default;
-  ShmObj(const ShmObj&) = default;
-  ShmObj(ShmObj&&) noexcept = default;
   ShmObj(const std::string& path);
   ShmObj(const std::string& path, const Options&);
 
@@ -41,8 +39,6 @@ struct Publisher {
   std::shared_ptr<a0_publisher_t> c;
 
   Publisher() = default;
-  Publisher(const Publisher&) = default;
-  Publisher(Publisher&&) noexcept = default;
   Publisher(ShmObj);
 
   void pub(const Packet&);
@@ -52,8 +48,6 @@ struct SubscriberSync {
   std::shared_ptr<a0_subscriber_sync_t> c;
 
   SubscriberSync() = default;
-  SubscriberSync(const SubscriberSync&) = default;
-  SubscriberSync(SubscriberSync&&) noexcept = default;
   SubscriberSync(ShmObj, a0_subscriber_init_t, a0_subscriber_iter_t);
 
   bool has_next();
@@ -64,8 +58,6 @@ struct Subscriber {
   std::shared_ptr<a0_subscriber_t> c;
 
   Subscriber() = default;
-  Subscriber(const Subscriber&) = default;
-  Subscriber(Subscriber&&) noexcept = default;
   Subscriber(ShmObj, a0_subscriber_init_t, a0_subscriber_iter_t, std::function<void(Packet)>);
   void async_close(std::function<void()>);
 };
@@ -85,8 +77,6 @@ struct RpcServer {
   std::shared_ptr<a0_rpc_server_t> c;
 
   RpcServer() = default;
-  RpcServer(const RpcServer&) = default;
-  RpcServer(RpcServer&&) noexcept = default;
   RpcServer(ShmObj, std::function<void(RpcRequest)> onrequest, std::function<void(std::string)> oncancel);
   void async_close(std::function<void()>);
 };
@@ -95,8 +85,6 @@ struct RpcClient {
   std::shared_ptr<a0_rpc_client_t> c;
 
   RpcClient() = default;
-  RpcClient(const RpcClient&) = default;
-  RpcClient(RpcClient&&) noexcept = default;
   RpcClient(ShmObj);
   void async_close(std::function<void()>);
 
