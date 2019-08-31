@@ -6,3 +6,7 @@
 #include <a0/shmobj.h>
 #include <a0/stream.h>
 #include <a0/topic_manager.h>
+
+#ifdef __cplusplus
+#include <a0/alephzero.hpp>
+#endif

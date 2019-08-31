@@ -74,8 +74,7 @@ install: $(LIB_DIR)/lib$(A0).a $(LIB_DIR)/lib$(A0).so
 	rm -rf $(DESTDIR)$(PREFIX)/include/a0/
 	mkdir -p $(DESTDIR)$(PREFIX)/include/a0/
 	cp include/a0/*.h $(DESTDIR)$(PREFIX)/include/a0/
-	cp include/alephzero.h $(DESTDIR)$(PREFIX)/include/alephzero.h
-	cp include/alephzero.hpp $(DESTDIR)$(PREFIX)/include/alephzero.hpp
+	cp include/a0.h $(DESTDIR)$(PREFIX)/include/a0.h
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/
 	cp -f $(LIB_DIR)/lib$(A0).* $(DESTDIR)$(PREFIX)/lib/
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/pkgconfig/
@@ -84,8 +83,7 @@ install: $(LIB_DIR)/lib$(A0).a $(LIB_DIR)/lib$(A0).so
 uninstall:
 	rm -rf                                        \
 	  $(DESTDIR)$(PREFIX)/include/a0/             \
-	  $(DESTDIR)$(PREFIX)/include/alephzero.h     \
-	  $(DESTDIR)$(PREFIX)/include/alephzero.hpp   \
+	  $(DESTDIR)$(PREFIX)/include/a0.h            \
 	  $(DESTDIR)$(PREFIX)/lib/lib$(A0).*          \
 	  $(DESTDIR)$(PREFIX)/lib/pkgconfig/$(A0).pc
 
