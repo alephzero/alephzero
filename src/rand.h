@@ -58,9 +58,6 @@ void uuidv4(uint8_t out[kUuidSize]) {
 
   uint8_t* bytes = (uint8_t*)data;
 
-// GCC 5.4.0 complains about this.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
   *(uint16_t*)(&out[0]) = *(uint16_t*)(&kHexDigits[bytes[0] * 2]);
   *(uint16_t*)(&out[2]) = *(uint16_t*)(&kHexDigits[bytes[1] * 2]);
   *(uint16_t*)(&out[4]) = *(uint16_t*)(&kHexDigits[bytes[2] * 2]);
@@ -82,7 +79,6 @@ void uuidv4(uint8_t out[kUuidSize]) {
   *(uint16_t*)(&out[32]) = *(uint16_t*)(&kHexDigits[bytes[14] * 2]);
   *(uint16_t*)(&out[34]) = *(uint16_t*)(&kHexDigits[bytes[15] * 2]);
   out[36] = 0;
-#pragma GCC diagnostic pop
 }
 
 #ifdef __cplusplus

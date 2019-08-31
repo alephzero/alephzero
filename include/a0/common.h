@@ -19,10 +19,6 @@ typedef struct a0_buf_s {
   size_t size;
 } a0_buf_t;
 
-inline bool a0_buf_eq(a0_buf_t left, a0_buf_t right) {
-  return left.size == right.size && !memcmp(left.ptr, right.ptr, left.size);
-}
-
 typedef struct a0_callback_s {
   void* user_data;
   void (*fn)(void* user_data);

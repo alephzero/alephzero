@@ -220,7 +220,7 @@ void Subscriber::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_subscriber_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{c, std::move(fn)};
+  auto heap_data = new data_t{std::move(c), std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -231,8 +231,7 @@ void Subscriber::async_close(std::function<void()> fn) {
           },
   };
 
-  check(a0_subscriber_async_close(&*c, callback));
-  c = nullptr;
+  check(a0_subscriber_async_close(&*heap_data->c, callback));
 }
 
 RpcServer RpcRequest::server() {
@@ -305,7 +304,7 @@ void RpcServer::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_rpc_server_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{c, std::move(fn)};
+  auto heap_data = new data_t{std::move(c), std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -316,8 +315,7 @@ void RpcServer::async_close(std::function<void()> fn) {
           },
   };
 
-  check(a0_rpc_server_async_close(&*c, callback));
-  c = nullptr;
+  check(a0_rpc_server_async_close(&*heap_data->c, callback));
 }
 
 RpcClient::RpcClient(ShmObj shmobj) {
@@ -343,7 +341,7 @@ void RpcClient::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_rpc_client_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{c, std::move(fn)};
+  auto heap_data = new data_t{std::move(c), std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -354,8 +352,7 @@ void RpcClient::async_close(std::function<void()> fn) {
           },
   };
 
-  check(a0_rpc_client_async_close(&*c, callback));
-  c = nullptr;
+  check(a0_rpc_client_async_close(&*heap_data->c, callback));
 }
 
 void RpcClient::send(const Packet& pkt, std::function<void(PacketView)> fn) {
