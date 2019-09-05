@@ -35,11 +35,14 @@ else
     CXXFLAGS += -O2
 endif
 
+cov: CFLAGS += -fprofile-arcs -ftest-coverage
+cov: LDLIBS += -lgcov
+
 ifeq ($(PREFIX),)
     PREFIX := /usr
 endif
 
-.PHONY: all clean install test uninstall valgrind
+.PHONY: all clean cov install test uninstall valgrind
 
 all:
 	@echo "TODO"
@@ -90,6 +93,10 @@ uninstall:
 test: $(BIN_DIR)/test
 	$(BIN_DIR)/test
 
+cov: $(BIN_DIR)/test
+	$(BIN_DIR)/test
+	gcov -o $(OBJ_DIR) -r -jkmr $(SRC_DIR)/*
+
 valgrind: $(BIN_DIR)/test
 	@command -v valgrind >/dev/null 2>&1 || {                   \
 		echo "\e[01;31mError: valgrind is not installed\e[0m";  \
@@ -98,4 +105,4 @@ valgrind: $(BIN_DIR)/test
 	RUNNING_ON_VALGRIND=1 valgrind --tool=memcheck --leak-check=yes ./bin/test
 
 clean:
-	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/
+	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ *.gcov
