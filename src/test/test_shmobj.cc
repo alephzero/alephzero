@@ -48,3 +48,11 @@ TEST_CASE_FIXTURE(ShmObjTestFixture, "Test shared memory objects") {
     REQUIRE(a0_shmobj_close(&shmobj) == A0_OK);
   }
 }
+
+TEST_CASE_FIXTURE(ShmObjTestFixture, "Test shared memory bad path") {
+  a0_shmobj_options_t shmopt;
+  shmopt.size = 16 * 1024 * 1024;
+
+  a0_shmobj_t shmobj;
+  REQUIRE(a0_shmobj_open("/foo/bar", &shmopt, &shmobj) == EINVAL);
+}
