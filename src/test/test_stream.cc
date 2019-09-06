@@ -595,7 +595,11 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
       std::quick_exit(0);
     }
   }
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  if (a0::test::is_valgrind()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  } else {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
 
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
