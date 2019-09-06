@@ -429,6 +429,9 @@ errno_t a0_stream_alloc(a0_locked_stream_t lk, size_t size, a0_stream_frame_t* f
   frame_hdr->off = off;
   frame_hdr->data_size = size;
 
+  if (!state->off_head) {
+    state->off_head = off;
+  }
   if (state->off_tail) {
     a0_stream_frame_hdr_t* tail_frame_hdr =
         (a0_stream_frame_hdr_t*)((uint8_t*)hdr + state->off_tail);

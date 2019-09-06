@@ -325,7 +325,6 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
   REQUIRE(a0_stream_close(&stream) == A0_OK);
 }
 
-
 TEST_CASE_FIXTURE(StreamTestFixture, "Test stream wrap around") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
@@ -335,11 +334,11 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream wrap around") {
   REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
   memcpy(protocol_metadata.ptr, "protocol metadata", 17);
 
-  std::string long_str(1 * 1024, 'a');  // 1kB string
+  std::string data(1 * 1024, 'a');  // 1kB string
   for (int i = 0; i < 20; i++) {
     a0_stream_frame_t first_frame;
-    REQUIRE(a0_stream_alloc(lk, long_str.size(), &first_frame) == A0_OK);
-    memcpy(first_frame.data, long_str.c_str(), long_str.size());
+    REQUIRE(a0_stream_alloc(lk, data.size(), &first_frame) == A0_OK);
+    memcpy(first_frame.data, data.c_str(), data.size());
   }
 
   REQUIRE(a0_stream_commit(lk) == A0_OK);
@@ -388,6 +387,61 @@ Frame
 -- seq    = 20
 -- next @ = 2336
 -- size   = 1024
+-- data   = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaa...'
+=========================
+)");
+
+  REQUIRE(a0_unlock_stream(lk) == A0_OK);
+  REQUIRE(a0_stream_close(&stream) == A0_OK);
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "Test stream large alloc") {
+  a0_stream_t stream;
+  a0_stream_init_status_t init_status;
+  a0_locked_stream_t lk;
+  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  a0_buf_t protocol_metadata;
+  REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
+  memcpy(protocol_metadata.ptr, "protocol metadata", 17);
+
+  std::string long_str(3 * 1024, 'a');  // 3kB string
+  for (int i = 0; i < 5; i++) {
+    a0_stream_frame_t first_frame;
+    REQUIRE(a0_stream_alloc(lk, long_str.size(), &first_frame) == A0_OK);
+    memcpy(first_frame.data, long_str.c_str(), long_str.size());
+    REQUIRE(a0_stream_commit(lk) == A0_OK);
+  }
+
+  require_debugstr(lk, R"(
+=========================
+HEADER
+-------------------------
+-- shmobj_size = 4096
+-------------------------
+Committed state
+-- seq    = [5, 5]
+-- head @ = 224
+-- tail @ = 224
+-------------------------
+Working state
+-- seq    = [5, 5]
+-- head @ = 224
+-- tail @ = 224
+=========================
+PROTOCOL INFO
+-------------------------
+-- name          = 'my_protocol'
+-- semver        = 1.2.3
+-- metadata size = 17
+-- metadata      = 'protocol metadata'
+=========================
+DATA
+-------------------------
+Frame
+-- @      = 224
+-- seq    = 5
+-- next @ = 0
+-- size   = 3072
 -- data   = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaa...'
 =========================
 )");
