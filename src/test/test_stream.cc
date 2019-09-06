@@ -28,6 +28,13 @@ struct StreamTestFixture {
     a0_shmobj_unlink(kTestShm);
   }
 
+  void require_debugstr(a0_locked_stream_t lk, const std::string& expected) {
+    a0_buf_t debugstr;
+    a0_stream_debugstr(lk, &debugstr);
+    REQUIRE(a0::test::str(debugstr) == expected);
+    free(debugstr.ptr);
+  }
+
   a0_shmobj_options_t shmopt;
   a0_shmobj_t shmobj;
   a0_stream_protocol_t protocol;
@@ -70,10 +77,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
   REQUIRE(read_protocol.patch_version == 3);
   REQUIRE(read_protocol.metadata_size == 17);
 
-  {
-    a0_buf_t debugstr;
-    a0_stream_debugstr(lk, &debugstr);
-    REQUIRE(a0::test::str(debugstr) == R"(
+  require_debugstr(lk, R"(
 =========================
 HEADER
 -------------------------
@@ -99,8 +103,6 @@ PROTOCOL INFO
 DATA
 =========================
 )");
-    free(debugstr.ptr);
-  }
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);
@@ -119,10 +121,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   REQUIRE(a0_stream_empty(lk, &is_empty) == A0_OK);
   REQUIRE(is_empty);
 
-  {
-    a0_buf_t debugstr;
-    a0_stream_debugstr(lk, &debugstr);
-    REQUIRE(a0::test::str(debugstr) == R"(
+  require_debugstr(lk, R"(
 =========================
 HEADER
 -------------------------
@@ -148,8 +147,6 @@ PROTOCOL INFO
 DATA
 =========================
 )");
-    free(debugstr.ptr);
-  }
 
   a0_stream_frame_t first_frame;
   REQUIRE(a0_stream_alloc(lk, 10, &first_frame) == A0_OK);
@@ -160,10 +157,7 @@ DATA
   REQUIRE(a0_stream_alloc(lk, 40, &second_frame) == A0_OK);
   memcpy(second_frame.data, "0123456789012345678901234567890123456789", 40);
 
-  {
-    a0_buf_t debugstr;
-    a0_stream_debugstr(lk, &debugstr);
-    REQUIRE(a0::test::str(debugstr) == R"(
+  require_debugstr(lk, R"(
 =========================
 HEADER
 -------------------------
@@ -203,15 +197,10 @@ Frame (not committed)
 -- data   = '01234567890123456789012345678...'
 =========================
 )");
-    free(debugstr.ptr);
-  }
 
   REQUIRE(a0_stream_commit(lk) == A0_OK);
 
-  {
-    a0_buf_t debugstr;
-    a0_stream_debugstr(lk, &debugstr);
-    REQUIRE(a0::test::str(debugstr) == R"(
+  require_debugstr(lk, R"(
 =========================
 HEADER
 -------------------------
@@ -251,8 +240,6 @@ Frame
 -- data   = '01234567890123456789012345678...'
 =========================
 )");
-    free(debugstr.ptr);
-  }
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);
@@ -340,17 +327,13 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
 
 void fork_sleep_push(a0_stream_t* stream, const std::string& str) {
   if (!fork()) {
-    // Sleep for 1ms.
-    struct timespec ts;
-    ts.tv_sec = 0;
-    ts.tv_nsec = 1e6;  // 1ms
-    nanosleep(&ts, (struct timespec*)NULL);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
     a0_locked_stream_t lk;
     REQUIRE(a0_lock_stream(stream, &lk) == A0_OK);
 
     a0_stream_frame_t frame;
-    REQUIRE(a0_stream_alloc(lk, 3, &frame) == A0_OK);
+    REQUIRE(a0_stream_alloc(lk, str.size(), &frame) == A0_OK);
     memcpy(frame.data, str.c_str(), str.size());
     REQUIRE(a0_stream_commit(lk) == A0_OK);
 
@@ -393,6 +376,132 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream await") {
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "DEF");
+
+  REQUIRE(a0_unlock_stream(lk) == A0_OK);
+  REQUIRE(a0_stream_close(&stream) == A0_OK);
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
+  if (!fork()) {
+    a0_stream_t stream;
+    a0_stream_init_status_t init_status;
+    a0_locked_stream_t lk;
+    REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+    REQUIRE(init_status == A0_STREAM_CREATED);
+    a0_buf_t protocol_metadata;
+    REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
+    memcpy(protocol_metadata.ptr, "protocol metadata", 17);
+    REQUIRE(a0_unlock_stream(lk) == A0_OK);
+
+    // Write one frame successfully.
+    {
+      a0_locked_stream_t lk;
+      REQUIRE(a0_lock_stream(&stream, &lk) == A0_OK);
+
+      a0_stream_frame_t frame;
+      REQUIRE(a0_stream_alloc(lk, 3, &frame) == A0_OK);
+      memcpy(frame.data, "YES", 3);
+      REQUIRE(a0_stream_commit(lk) == A0_OK);
+
+      REQUIRE(a0_unlock_stream(lk) == A0_OK);
+    }
+
+
+    // Write one frame unsuccessfully.
+    {
+      a0_locked_stream_t lk;
+      REQUIRE(a0_lock_stream(&stream, &lk) == A0_OK);
+
+      a0_stream_frame_t frame;
+      REQUIRE(a0_stream_alloc(lk, 2, &frame) == A0_OK);
+      memcpy(frame.data, "NO", 2);
+
+      require_debugstr(lk, R"(
+=========================
+HEADER
+-------------------------
+-- shmobj_size = 4096
+-------------------------
+Committed state
+-- seq    = [1, 1]
+-- head @ = 224
+-- tail @ = 224
+-------------------------
+Working state
+-- seq    = [1, 2]
+-- head @ = 224
+-- tail @ = 272
+=========================
+PROTOCOL INFO
+-------------------------
+-- name          = 'my_protocol'
+-- semver        = 1.2.3
+-- metadata size = 17
+-- metadata      = 'protocol metadata'
+=========================
+DATA
+-------------------------
+Frame
+-- @      = 224
+-- seq    = 1
+-- next @ = 272
+-- size   = 3
+-- data   = 'YES'
+-------------------------
+Frame (not committed)
+-- @      = 272
+-- seq    = 2
+-- next @ = 0
+-- size   = 2
+-- data   = 'NO'
+=========================
+)");
+
+      // Exit without cleaning resources.
+      std::quick_exit(0);
+    }
+  }
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  a0_stream_t stream;
+  a0_stream_init_status_t init_status;
+  a0_locked_stream_t lk;
+  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(init_status == A0_STREAM_PROTOCOL_MATCH);
+
+  require_debugstr(lk, R"(
+=========================
+HEADER
+-------------------------
+-- shmobj_size = 4096
+-------------------------
+Committed state
+-- seq    = [1, 1]
+-- head @ = 224
+-- tail @ = 224
+-------------------------
+Working state
+-- seq    = [1, 1]
+-- head @ = 224
+-- tail @ = 224
+=========================
+PROTOCOL INFO
+-------------------------
+-- name          = 'my_protocol'
+-- semver        = 1.2.3
+-- metadata size = 17
+-- metadata      = 'protocol metadata'
+=========================
+DATA
+-------------------------
+Frame
+-- @      = 224
+-- seq    = 1
+-- next @ = 272
+-- size   = 3
+-- data   = 'YES'
+=========================
+)");
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);

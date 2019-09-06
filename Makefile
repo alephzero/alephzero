@@ -35,7 +35,8 @@ else
     CXXFLAGS += -O2
 endif
 
-cov: CFLAGS += -fprofile-arcs -ftest-coverage
+cov: CFLAGS += -fprofile-arcs -ftest-coverage --coverage
+cov: CXXFLAGS += -fprofile-arcs -ftest-coverage --coverage
 cov: LDLIBS += -lgcov
 
 ifeq ($(PREFIX),)
@@ -94,8 +95,12 @@ test: $(BIN_DIR)/test
 	$(BIN_DIR)/test
 
 cov: $(BIN_DIR)/test
+	@mkdir -p cov/web
 	$(BIN_DIR)/test
-	gcov -o $(OBJ_DIR) -r -jkmr $(SRC_DIR)/*
+	gcov -o $(OBJ_DIR) -jkmr $(SRC_DIR)/*
+	lcov --capture --quiet --directory . --no-external --output-file cov/coverage.info
+	genhtml cov/coverage.info --output-directory cov/web
+	(cd cov/web ; python3 -m http.server)
 
 valgrind: $(BIN_DIR)/test
 	@command -v valgrind >/dev/null 2>&1 || {                   \
@@ -105,4 +110,4 @@ valgrind: $(BIN_DIR)/test
 	RUNNING_ON_VALGRIND=1 valgrind --tool=memcheck --leak-check=yes ./bin/test
 
 clean:
-	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ *.gcov
+	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ cov/ *.gcov

@@ -29,11 +29,11 @@ static const char kJsonConfig[] = R"({
 
 struct TopicManagerFixture {
   TopicManagerFixture() {
-    a0_shmobj_unlink("/a0_pubsub__pub_container__pub_topic");
+    a0_shmobj_unlink("/a0_pubsub__container__pub_topic");
   }
 
   ~TopicManagerFixture() {
-    a0_shmobj_unlink("/a0_pubsub__pub_container__pub_topic");
+    a0_shmobj_unlink("/a0_pubsub__container__pub_topic");
   }
 
   a0_packet_t make_packet(std::string data) {
