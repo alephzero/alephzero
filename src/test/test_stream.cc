@@ -78,30 +78,31 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
   REQUIRE(read_protocol.metadata_size == 17);
 
   require_debugstr(lk, R"(
-=========================
-HEADER
--------------------------
--- shmobj_size = 4096
--------------------------
-Committed state
--- seq    = [0, 0]
--- head @ = 0
--- tail @ = 0
--------------------------
-Working state
--- seq    = [0, 0]
--- head @ = 0
--- tail @ = 0
-=========================
-PROTOCOL INFO
--------------------------
--- name          = 'my_protocol'
--- semver        = 1.2.3
--- metadata size = 17
--- metadata      = 'protocol metadata'
-=========================
-DATA
-=========================
+{
+  "header": {
+    "shmobj_size": 4096,
+    "committed_state": {
+      "seq_low": 0,
+      "seq_high": 0,
+      "off_head": 0,
+      "off_tail": 0
+    },
+    "working_state": {
+      "seq_low": 0,
+      "seq_high": 0,
+      "off_head": 0,
+      "off_tail": 0
+    }
+  },
+  "protocol": {
+    "name": "my_protocol",
+    "semver": "1.2.3",
+    "metadata_size": 17,
+    "metadata": "protocol metadata"
+  },
+  "data": [
+  ]
+}
 )");
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
@@ -122,30 +123,31 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   REQUIRE(is_empty);
 
   require_debugstr(lk, R"(
-=========================
-HEADER
--------------------------
--- shmobj_size = 4096
--------------------------
-Committed state
--- seq    = [0, 0]
--- head @ = 0
--- tail @ = 0
--------------------------
-Working state
--- seq    = [0, 0]
--- head @ = 0
--- tail @ = 0
-=========================
-PROTOCOL INFO
--------------------------
--- name          = 'my_protocol'
--- semver        = 1.2.3
--- metadata size = 17
--- metadata      = 'protocol metadata'
-=========================
-DATA
-=========================
+{
+  "header": {
+    "shmobj_size": 4096,
+    "committed_state": {
+      "seq_low": 0,
+      "seq_high": 0,
+      "off_head": 0,
+      "off_tail": 0
+    },
+    "working_state": {
+      "seq_low": 0,
+      "seq_high": 0,
+      "off_head": 0,
+      "off_tail": 0
+    }
+  },
+  "protocol": {
+    "name": "my_protocol",
+    "semver": "1.2.3",
+    "metadata_size": 17,
+    "metadata": "protocol metadata"
+  },
+  "data": [
+  ]
+}
 )");
 
   a0_stream_frame_t first_frame;
@@ -158,87 +160,90 @@ DATA
   memcpy(second_frame.data, "0123456789012345678901234567890123456789", 40);
 
   require_debugstr(lk, R"(
-=========================
-HEADER
--------------------------
--- shmobj_size = 4096
--------------------------
-Committed state
--- seq    = [1, 1]
--- head @ = 224
--- tail @ = 224
--------------------------
-Working state
--- seq    = [1, 2]
--- head @ = 224
--- tail @ = 272
-=========================
-PROTOCOL INFO
--------------------------
--- name          = 'my_protocol'
--- semver        = 1.2.3
--- metadata size = 17
--- metadata      = 'protocol metadata'
-=========================
-DATA
--------------------------
-Frame
--- @      = 224
--- seq    = 1
--- next @ = 272
--- size   = 10
--- data   = '0123456789'
--------------------------
-Frame (not committed)
--- @      = 272
--- seq    = 2
--- next @ = 0
--- size   = 40
--- data   = '01234567890123456789012345678...'
-=========================
+{
+  "header": {
+    "shmobj_size": 4096,
+    "committed_state": {
+      "seq_low": 1,
+      "seq_high": 1,
+      "off_head": 224,
+      "off_tail": 224
+    },
+    "working_state": {
+      "seq_low": 1,
+      "seq_high": 2,
+      "off_head": 224,
+      "off_tail": 272
+    }
+  },
+  "protocol": {
+    "name": "my_protocol",
+    "semver": "1.2.3",
+    "metadata_size": 17,
+    "metadata": "protocol metadata"
+  },
+  "data": [
+    {
+      "off": 224,
+      "seq": 1,
+      "next_off": 272,
+      "data_size": 10,
+      "data": "0123456789"
+    },
+    {
+      "committed": false,
+      "off": 272,
+      "seq": 2,
+      "next_off": 0,
+      "data_size": 40,
+      "data": "01234567890123456789012345678..."
+    }
+  ]
+}
 )");
 
   REQUIRE(a0_stream_commit(lk) == A0_OK);
 
   require_debugstr(lk, R"(
-=========================
-HEADER
--------------------------
--- shmobj_size = 4096
--------------------------
-Committed state
--- seq    = [1, 2]
--- head @ = 224
--- tail @ = 272
--------------------------
-Working state
--- seq    = [1, 2]
--- head @ = 224
--- tail @ = 272
-=========================
-PROTOCOL INFO
--------------------------
--- name          = 'my_protocol'
--- semver        = 1.2.3
--- metadata size = 17
--- metadata      = 'protocol metadata'
-=========================
-DATA
--------------------------
-Frame
--- @      = 224
--- seq    = 1
--- next @ = 272
--- size   = 10
--- data   = '0123456789'
--------------------------
-Frame
--- @      = 272
--- seq    = 2
--- next @ = 0
--- size   = 40
--- data   = '01234567890123456789012345678...'
-=========================
+{
+  "header": {
+    "shmobj_size": 4096,
+    "committed_state": {
+      "seq_low": 1,
+      "seq_high": 2,
+      "off_head": 224,
+      "off_tail": 272
+    },
+    "working_state": {
+      "seq_low": 1,
+      "seq_high": 2,
+      "off_head": 224,
+      "off_tail": 272
+    }
+  },
+  "protocol": {
+    "name": "my_protocol",
+    "semver": "1.2.3",
+    "metadata_size": 17,
+    "metadata": "protocol metadata"
+  },
+  "data": [
+    {
+      "off": 224,
+      "seq": 1,
+      "next_off": 272,
+      "data_size": 10,
+      "data": "0123456789"
+    },
+    {
+      "off": 272,
+      "seq": 2,
+      "next_off": 0,
+      "data_size": 40,
+      "data": "01234567890123456789012345678..."
+    }
+  ]
+}
 )");
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
@@ -344,51 +349,52 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream wrap around") {
   REQUIRE(a0_stream_commit(lk) == A0_OK);
 
   require_debugstr(lk, R"(
-=========================
-HEADER
--------------------------
--- shmobj_size = 4096
--------------------------
-Committed state
--- seq    = [18, 20]
--- head @ = 2336
--- tail @ = 1280
--------------------------
-Working state
--- seq    = [18, 20]
--- head @ = 2336
--- tail @ = 1280
-=========================
-PROTOCOL INFO
--------------------------
--- name          = 'my_protocol'
--- semver        = 1.2.3
--- metadata size = 17
--- metadata      = 'protocol metadata'
-=========================
-DATA
--------------------------
-Frame
--- @      = 2336
--- seq    = 18
--- next @ = 224
--- size   = 1024
--- data   = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaa...'
--------------------------
-Frame
--- @      = 224
--- seq    = 19
--- next @ = 1280
--- size   = 1024
--- data   = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaa...'
--------------------------
-Frame
--- @      = 1280
--- seq    = 20
--- next @ = 2336
--- size   = 1024
--- data   = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaa...'
-=========================
+{
+  "header": {
+    "shmobj_size": 4096,
+    "committed_state": {
+      "seq_low": 18,
+      "seq_high": 20,
+      "off_head": 2336,
+      "off_tail": 1280
+    },
+    "working_state": {
+      "seq_low": 18,
+      "seq_high": 20,
+      "off_head": 2336,
+      "off_tail": 1280
+    }
+  },
+  "protocol": {
+    "name": "my_protocol",
+    "semver": "1.2.3",
+    "metadata_size": 17,
+    "metadata": "protocol metadata"
+  },
+  "data": [
+    {
+      "off": 2336,
+      "seq": 18,
+      "next_off": 224,
+      "data_size": 1024,
+      "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+    },
+    {
+      "off": 224,
+      "seq": 19,
+      "next_off": 1280,
+      "data_size": 1024,
+      "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+    },
+    {
+      "off": 1280,
+      "seq": 20,
+      "next_off": 2336,
+      "data_size": 1024,
+      "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+    }
+  ]
+}
 )");
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
@@ -413,37 +419,38 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream large alloc") {
   }
 
   require_debugstr(lk, R"(
-=========================
-HEADER
--------------------------
--- shmobj_size = 4096
--------------------------
-Committed state
--- seq    = [5, 5]
--- head @ = 224
--- tail @ = 224
--------------------------
-Working state
--- seq    = [5, 5]
--- head @ = 224
--- tail @ = 224
-=========================
-PROTOCOL INFO
--------------------------
--- name          = 'my_protocol'
--- semver        = 1.2.3
--- metadata size = 17
--- metadata      = 'protocol metadata'
-=========================
-DATA
--------------------------
-Frame
--- @      = 224
--- seq    = 5
--- next @ = 0
--- size   = 3072
--- data   = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaa...'
-=========================
+{
+  "header": {
+    "shmobj_size": 4096,
+    "committed_state": {
+      "seq_low": 5,
+      "seq_high": 5,
+      "off_head": 224,
+      "off_tail": 224
+    },
+    "working_state": {
+      "seq_low": 5,
+      "seq_high": 5,
+      "off_head": 224,
+      "off_tail": 224
+    }
+  },
+  "protocol": {
+    "name": "my_protocol",
+    "semver": "1.2.3",
+    "metadata_size": 17,
+    "metadata": "protocol metadata"
+  },
+  "data": [
+    {
+      "off": 224,
+      "seq": 5,
+      "next_off": 0,
+      "data_size": 3072,
+      "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+    }
+  ]
+}
 )");
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
@@ -542,44 +549,46 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
       memcpy(frame.data, "NO", 2);
 
       require_debugstr(lk, R"(
-=========================
-HEADER
--------------------------
--- shmobj_size = 4096
--------------------------
-Committed state
--- seq    = [1, 1]
--- head @ = 224
--- tail @ = 224
--------------------------
-Working state
--- seq    = [1, 2]
--- head @ = 224
--- tail @ = 272
-=========================
-PROTOCOL INFO
--------------------------
--- name          = 'my_protocol'
--- semver        = 1.2.3
--- metadata size = 17
--- metadata      = 'protocol metadata'
-=========================
-DATA
--------------------------
-Frame
--- @      = 224
--- seq    = 1
--- next @ = 272
--- size   = 3
--- data   = 'YES'
--------------------------
-Frame (not committed)
--- @      = 272
--- seq    = 2
--- next @ = 0
--- size   = 2
--- data   = 'NO'
-=========================
+{
+  "header": {
+    "shmobj_size": 4096,
+    "committed_state": {
+      "seq_low": 1,
+      "seq_high": 1,
+      "off_head": 224,
+      "off_tail": 224
+    },
+    "working_state": {
+      "seq_low": 1,
+      "seq_high": 2,
+      "off_head": 224,
+      "off_tail": 272
+    }
+  },
+  "protocol": {
+    "name": "my_protocol",
+    "semver": "1.2.3",
+    "metadata_size": 17,
+    "metadata": "protocol metadata"
+  },
+  "data": [
+    {
+      "off": 224,
+      "seq": 1,
+      "next_off": 272,
+      "data_size": 3,
+      "data": "YES"
+    },
+    {
+      "committed": false,
+      "off": 272,
+      "seq": 2,
+      "next_off": 0,
+      "data_size": 2,
+      "data": "NO"
+    }
+  ]
+}
 )");
 
       // Exit without cleaning resources.
@@ -595,37 +604,38 @@ Frame (not committed)
   REQUIRE(init_status == A0_STREAM_PROTOCOL_MATCH);
 
   require_debugstr(lk, R"(
-=========================
-HEADER
--------------------------
--- shmobj_size = 4096
--------------------------
-Committed state
--- seq    = [1, 1]
--- head @ = 224
--- tail @ = 224
--------------------------
-Working state
--- seq    = [1, 1]
--- head @ = 224
--- tail @ = 224
-=========================
-PROTOCOL INFO
--------------------------
--- name          = 'my_protocol'
--- semver        = 1.2.3
--- metadata size = 17
--- metadata      = 'protocol metadata'
-=========================
-DATA
--------------------------
-Frame
--- @      = 224
--- seq    = 1
--- next @ = 272
--- size   = 3
--- data   = 'YES'
-=========================
+{
+  "header": {
+    "shmobj_size": 4096,
+    "committed_state": {
+      "seq_low": 1,
+      "seq_high": 1,
+      "off_head": 224,
+      "off_tail": 224
+    },
+    "working_state": {
+      "seq_low": 1,
+      "seq_high": 1,
+      "off_head": 224,
+      "off_tail": 224
+    }
+  },
+  "protocol": {
+    "name": "my_protocol",
+    "semver": "1.2.3",
+    "metadata_size": 17,
+    "metadata": "protocol metadata"
+  },
+  "data": [
+    {
+      "off": 224,
+      "seq": 1,
+      "next_off": 272,
+      "data_size": 3,
+      "data": "YES"
+    }
+  ]
+}
 )");
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);

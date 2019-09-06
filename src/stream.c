@@ -481,68 +481,67 @@ void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
 
   FILE* ss = open_memstream((char**)&out->ptr, &out->size);
   // clang-format off
-  fprintf(ss, "\n=========================\n");
-  fprintf(ss, "HEADER\n");
-  fprintf(ss, "-------------------------\n");
-  fprintf(ss, "-- shmobj_size = %lu\n", hdr->shmobj_size);
-  fprintf(ss, "-------------------------\n");
-  fprintf(ss, "Committed state\n");
-  fprintf(ss, "-- seq    = [%lu, %lu]\n", committed_state->seq_low, committed_state->seq_high);
-  fprintf(ss, "-- head @ = %lu\n", committed_state->off_head);
-  fprintf(ss, "-- tail @ = %lu\n", committed_state->off_tail);
-  fprintf(ss, "-------------------------\n");
-  fprintf(ss, "Working state\n");
-  fprintf(ss, "-- seq    = [%lu, %lu]\n", working_state->seq_low, working_state->seq_high);
-  fprintf(ss, "-- head @ = %lu\n", working_state->off_head);
-  fprintf(ss, "-- tail @ = %lu\n", working_state->off_tail);
-  fprintf(ss, "=========================\n");
-  fprintf(ss, "PROTOCOL INFO\n");
-  fprintf(ss, "-------------------------\n");
-  fprintf(ss, "-- name          = '%.*s'\n", (int)hdr->protocol_name_size, (char*)hdr + a0_stream_protocol_name_off(hdr));
-  fprintf(ss, "-- semver        = %d.%d.%d\n", hdr->protocol_major_version, hdr->protocol_minor_version, hdr->protocol_patch_version);
-  fprintf(ss, "-- metadata size = %lu\n", hdr->protocol_metadata_size);
-  // clang-format on
-
-  fprintf(ss, "-- metadata      = '");
-  a0_buf_t data = {
+  fprintf(ss, "\n{\n");
+  fprintf(ss, "  \"header\": {\n");
+  fprintf(ss, "    \"shmobj_size\": %lu,\n", hdr->shmobj_size);
+  fprintf(ss, "    \"committed_state\": {\n");
+  fprintf(ss, "      \"seq_low\": %lu,\n", committed_state->seq_low);
+  fprintf(ss, "      \"seq_high\": %lu,\n", committed_state->seq_high);
+  fprintf(ss, "      \"off_head\": %lu,\n", committed_state->off_head);
+  fprintf(ss, "      \"off_tail\": %lu\n", committed_state->off_tail);
+  fprintf(ss, "    },\n");
+  fprintf(ss, "    \"working_state\": {\n");
+  fprintf(ss, "      \"seq_low\": %lu,\n", working_state->seq_low);
+  fprintf(ss, "      \"seq_high\": %lu,\n", working_state->seq_high);
+  fprintf(ss, "      \"off_head\": %lu,\n", working_state->off_head);
+  fprintf(ss, "      \"off_tail\": %lu\n", working_state->off_tail);
+  fprintf(ss, "    }\n");
+  fprintf(ss, "  },\n");
+  fprintf(ss, "  \"protocol\": {\n");
+  fprintf(ss, "    \"name\": \"%s\",\n", (char*)hdr + a0_stream_protocol_name_off(hdr));
+  fprintf(ss, "    \"semver\": \"%d.%d.%d\",\n", hdr->protocol_major_version, hdr->protocol_minor_version, hdr->protocol_patch_version);
+  fprintf(ss, "    \"metadata_size\": %ld,\n", hdr->protocol_metadata_size);
+  a0_buf_t metadata = {
       .ptr = (uint8_t*)hdr + a0_strem_protocol_metadata_off(hdr),
       .size = hdr->protocol_metadata_size,
   };
-  write_limited(ss, data);
-  fprintf(ss, "'\n");
+  fprintf(ss, "    \"metadata\": \"");  write_limited(ss, metadata); fprintf(ss, "\"\n");
+  fprintf(ss, "  },\n");
+  fprintf(ss, "  \"data\": [\n");
+  // clang-format on
 
-  fprintf(ss, "=========================\n");
-  fprintf(ss, "DATA\n");
   if (working_state->off_head) {
     uint64_t off = working_state->off_head;
     a0_stream_frame_hdr_t* frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + off);
     uint64_t seq = frame_hdr->seq;
     while (seq <= working_state->seq_high) {
       frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + off);
-      fprintf(ss, "-------------------------\n");
+      fprintf(ss, "    {\n");
       if (seq > committed_state->seq_high) {
-        fprintf(ss, "Frame (not committed)\n");
-      } else {
-        fprintf(ss, "Frame\n");
+        fprintf(ss, "      \"committed\": false,\n");
       }
-      fprintf(ss, "-- @      = %lu\n", frame_hdr->off);
-      fprintf(ss, "-- seq    = %lu\n", frame_hdr->seq);
-      fprintf(ss, "-- next @ = %lu\n", frame_hdr->next_off);
-      fprintf(ss, "-- size   = %lu\n", frame_hdr->data_size);
-
-      fprintf(ss, "-- data   = '");
+      fprintf(ss, "      \"off\": %lu,\n", frame_hdr->off);
+      fprintf(ss, "      \"seq\": %lu,\n", frame_hdr->seq);
+      fprintf(ss, "      \"next_off\": %lu,\n", frame_hdr->next_off);
+      fprintf(ss, "      \"data_size\": %lu,\n", frame_hdr->data_size);
       a0_buf_t data = {
           .ptr = (uint8_t*)hdr + frame_hdr->off + sizeof(a0_stream_frame_hdr_t),
           .size = frame_hdr->data_size,
       };
-      write_limited(ss, data);
-      fprintf(ss, "'\n");
+      fprintf(ss, "      \"data\": \"");  write_limited(ss, data); fprintf(ss, "\"\n");
 
       off = frame_hdr->next_off;
       seq++;
+
+      if (seq <= working_state->seq_high) {
+        fprintf(ss, "    },\n");
+      } else {
+        fprintf(ss, "    }\n");
+      }
     }
   }
-  fprintf(ss, "=========================\n");
+  fprintf(ss, "  ]\n");
+  fprintf(ss, "}\n");
   fflush(ss);
   fclose(ss);
 }
