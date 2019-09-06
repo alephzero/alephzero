@@ -85,27 +85,19 @@ errno_t a0_packet_build(size_t num_headers,
     out = &unused_pkt;
   }
 
-  bool has_id = false;
-
-  // TODO: Verify at most one id.
   for (size_t i = 0; i < num_headers; i++) {
-    if (!strcmp(kIdKey, (char*)headers[i].key)) {
-      has_id = true;
-      break;
+    if (A0_UNLIKELY(!strcmp(kIdKey, (char*)headers[i].key))) {
+      return EINVAL;
     }
   }
 
   // Alloc out space.
   {
     size_t size = sizeof(size_t);  // Num headers.
-    if (!has_id) {
-      size += 2 * sizeof(size_t);  // Id offsets, if not already in headers.
-    }
+    size += 2 * sizeof(size_t);  // Id offsets, if not already in headers.
     size += 2 * num_headers * sizeof(size_t);  // Header offsets.
     size += sizeof(size_t);                    // Payload offset.
-    if (!has_id) {
-      size += sizeof(kIdKey) + A0_PACKET_ID_SIZE;  // Id content, if not already in headers.
-    }
+    size += sizeof(kIdKey) + A0_PACKET_ID_SIZE;  // Id content, if not already in headers.
     for (size_t i = 0; i < num_headers; i++) {
       size += strlen(headers[i].key) + 1;  // Key content.
       size += strlen(headers[i].val) + 1;  // Val content.
@@ -115,10 +107,7 @@ errno_t a0_packet_build(size_t num_headers,
     alloc.fn(alloc.user_data, size, out);
   }
 
-  size_t total_headers = num_headers;
-  if (!has_id) {
-    total_headers++;
-  }
+  size_t total_headers = num_headers + 1;  // +1 for id
 
   size_t off = 0;
 
@@ -129,25 +118,21 @@ errno_t a0_packet_build(size_t num_headers,
   size_t idx_off = off;
   off += 2 * total_headers * sizeof(size_t) + sizeof(size_t);
 
-  // Add an id if needed.
+  // Id key offset.
+  memcpy(out->ptr + idx_off, &off, sizeof(size_t));
+  idx_off += sizeof(size_t);
 
-  if (!has_id) {
-    // Id key offset.
-    memcpy(out->ptr + idx_off, &off, sizeof(size_t));
-    idx_off += sizeof(size_t);
+  // Id key content.
+  memcpy(out->ptr + off, kIdKey, sizeof(kIdKey));
+  off += sizeof(kIdKey);
 
-    // Id key content.
-    memcpy(out->ptr + off, kIdKey, sizeof(kIdKey));
-    off += sizeof(kIdKey);
+  // Id val offset.
+  memcpy(out->ptr + idx_off, &off, sizeof(size_t));
+  idx_off += sizeof(size_t);
 
-    // Id val offset.
-    memcpy(out->ptr + idx_off, &off, sizeof(size_t));
-    idx_off += sizeof(size_t);
-
-    // Id val content.
-    uuidv4(out->ptr + off);
-    off += kUuidSize;
-  }
+  // Id val content.
+  uuidv4(out->ptr + off);
+  off += kUuidSize;
 
   // For each header.
   for (size_t i = 0; i < num_headers; i++) {
