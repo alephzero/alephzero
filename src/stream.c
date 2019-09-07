@@ -25,9 +25,7 @@ typedef struct a0_stream_hdr_s {
   uint64_t magic;
 
   pthread_mutex_t mu;
-  // This should be a pthread_cond_t, but that's broken (╯°□°)╯︵ ┻━┻
-  // https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=884776
-  uint32_t fu_cond_var;
+  pthread_cond_t cv;
 
   a0_stream_state_t state_pages[2];
   uint32_t committed_page_idx;
@@ -104,9 +102,6 @@ errno_t a0_stream_init(a0_stream_t* stream,
   memset(stream, 0, sizeof(a0_stream_t));
   stream->_shmobj = shmobj;
 
-  pthread_mutex_init(&stream->_await_mu, NULL);
-  pthread_cond_init(&stream->_await_cv, NULL);
-
   a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)shmobj.ptr;
   if (hdr->magic != A0_STREAM_MAGIC) {
     // TODO: fcntl with F_SETLKW and check double-check magic.
@@ -140,6 +135,14 @@ errno_t a0_stream_init(a0_stream_t* stream,
     pthread_mutex_init(&hdr->mu, &mu_attr);
     pthread_mutexattr_destroy(&mu_attr);
 
+    pthread_condattr_t cv_attr;
+    pthread_condattr_init(&cv_attr);
+
+    pthread_condattr_setpshared(&cv_attr, PTHREAD_PROCESS_SHARED);
+
+    pthread_cond_init(&hdr->cv, &cv_attr);
+    pthread_condattr_destroy(&cv_attr);
+
     hdr->magic = A0_STREAM_MAGIC;
     *status_out = A0_STREAM_CREATED;
     a0_lock_stream(stream, lk_out);
@@ -165,20 +168,21 @@ errno_t a0_stream_init(a0_stream_t* stream,
 errno_t a0_stream_close(a0_stream_t* stream) {
   a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)stream->_shmobj.ptr;
 
-  pthread_mutex_lock(&stream->_await_mu);
+  a0_locked_stream_t lk;
+  a0_lock_stream(stream, &lk);
 
   if (!stream->_closing) {
     stream->_closing = true;
 
-    hdr->fu_cond_var++;
-    a0_futex_notify_change(&hdr->fu_cond_var);
+    pthread_cond_broadcast(&hdr->cv);
 
     while (stream->_await_cnt) {
-      pthread_cond_wait(&stream->_await_cv, &stream->_await_mu);
+      pthread_cond_wait(&hdr->cv, &hdr->mu);
     }
   }
 
-  pthread_mutex_unlock(&stream->_await_mu);
+  a0_unlock_stream(lk);
+
   return A0_OK;
 }
 
@@ -191,8 +195,10 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
   if (lock_status == EOWNERDEAD) {
     // Always consistent by design.
     lock_status = pthread_mutex_consistent(&hdr->mu);
-    hdr->fu_cond_var++;
-    a0_futex_notify_change(&hdr->fu_cond_var);
+    pthread_cond_broadcast(&hdr->cv);
+  } else if (lock_status == EDEADLK) {
+    // TODO: Why does this happen?
+    lock_status = A0_OK;
   }
 
   *a0_stream_working_page(*lk_out) = *a0_stream_committed_page(*lk_out);
@@ -301,29 +307,21 @@ errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_
     return err;
   }
 
-  pthread_mutex_lock(&lk.stream->_await_mu);
   lk.stream->_await_cnt++;
-  pthread_mutex_unlock(&lk.stream->_await_mu);
 
-  uint32_t old_val = hdr->fu_cond_var;
   while (!lk.stream->_closing) {
     err = pred(lk, &sat);
     if (err || sat) {
       break;
     }
-    pthread_mutex_unlock(&hdr->mu);
-    a0_futex_await_change(&hdr->fu_cond_var, old_val);
-    pthread_mutex_lock(&hdr->mu);
-    old_val = hdr->fu_cond_var;
+    pthread_cond_wait(&hdr->cv, &hdr->mu);
   }
   if (!err && lk.stream->_closing) {
     err = ESHUTDOWN;
   }
 
-  pthread_mutex_lock(&lk.stream->_await_mu);
   lk.stream->_await_cnt--;
-  pthread_mutex_unlock(&lk.stream->_await_mu);
-  pthread_cond_broadcast(&lk.stream->_await_cv);
+  pthread_cond_broadcast(&hdr->cv);
 
   return err;
 }
@@ -453,8 +451,7 @@ errno_t a0_stream_commit(a0_locked_stream_t lk) {
   hdr->committed_page_idx = !hdr->committed_page_idx;
   *a0_stream_working_page(lk) = *a0_stream_committed_page(lk);
 
-  hdr->fu_cond_var++;
-  a0_futex_notify_change(&hdr->fu_cond_var);
+  pthread_cond_broadcast(&hdr->cv);
 
   return A0_OK;
 }

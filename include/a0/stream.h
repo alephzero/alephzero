@@ -9,16 +9,12 @@
 extern "C" {
 #endif
 
-// Note: This object should not be copied or moved.
 typedef struct a0_stream_s {
   a0_shmobj_t _shmobj;
   uint64_t _seq;
   uint64_t _off;
   bool _closing;
-
   uint32_t _await_cnt;
-  pthread_mutex_t _await_mu;
-  pthread_cond_t _await_cv;
 } a0_stream_t;
 
 typedef struct a0_stream_protocol_s {

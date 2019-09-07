@@ -78,5 +78,6 @@ TEST_CASE("Test packet build with id") {
       .val = "some_id",
   };
   a0_buf_t payload_buf = a0::test::buf("Hello, World!");
-  REQUIRE(a0_packet_build(num_headers, headers, payload_buf, a0::test::allocator(), nullptr) == EINVAL);
+  REQUIRE(a0_packet_build(num_headers, headers, payload_buf, a0::test::allocator(), nullptr) ==
+          EINVAL);
 }

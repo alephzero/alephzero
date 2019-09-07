@@ -157,10 +157,8 @@ struct stream_thread {
     bool closed{false};
 
     async_close([&]() {
-      {
-        std::unique_lock<std::mutex> lk(mu);
-        closed = true;
-      }
+      std::unique_lock<std::mutex> lk(mu);
+      closed = true;
       cv.notify_one();
     });
 

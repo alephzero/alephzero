@@ -93,10 +93,10 @@ errno_t a0_packet_build(size_t num_headers,
 
   // Alloc out space.
   {
-    size_t size = sizeof(size_t);  // Num headers.
-    size += 2 * sizeof(size_t);  // Id offsets, if not already in headers.
-    size += 2 * num_headers * sizeof(size_t);  // Header offsets.
-    size += sizeof(size_t);                    // Payload offset.
+    size_t size = sizeof(size_t);                // Num headers.
+    size += 2 * sizeof(size_t);                  // Id offsets, if not already in headers.
+    size += 2 * num_headers * sizeof(size_t);    // Header offsets.
+    size += sizeof(size_t);                      // Payload offset.
     size += sizeof(kIdKey) + A0_PACKET_ID_SIZE;  // Id content, if not already in headers.
     for (size_t i = 0; i < num_headers; i++) {
       size += strlen(headers[i].key) + 1;  // Key content.

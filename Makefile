@@ -5,8 +5,8 @@ OBJ_DIR = obj
 LIB_DIR = lib
 BIN_DIR = bin
 
-CFLAGS += -Wall -Wextra -fPIC -Iinclude
-CXXFLAGS += -Wall -Wextra -fPIC -Iinclude -Ithird_party/json/single_include -std=c++17 -D_GLIBCXX_USE_CXX11_ABI=0
+CXFLAGS += -Wall -Wextra -fPIC -Iinclude
+CXXFLAGS += -Ithird_party/json/single_include -std=c++17 -D_GLIBCXX_USE_CXX11_ABI=0
 LDLIBS += -lm -lpthread -lrt
 
 SRC_C := $(wildcard $(SRC_DIR)/*.c)
@@ -27,20 +27,25 @@ TEST_CXXFLAGS += -I. -Itest -Ithird_party/doctest/doctest
 TEST_LDLIBS += -lm
 
 DEBUG ?= 0
-ifeq ($(DEBUG), 1)
-    CFLAGS += -O0 -g3 -ggdb3
-    CXXFLAGS += -O0 -g3 -ggdb3
-else
-    CFLAGS += -O2
-    CXXFLAGS += -O2
+ifneq ($(DEBUG), 1)
+	REQUIRE_DEBUG := $(filter $(MAKECMDGOALS),cov tsan)
+	DEBUG = $(if $(REQUIRE_DEBUG), 1, 0)
 endif
 
-cov: CFLAGS += -fprofile-arcs -ftest-coverage --coverage
-cov: CXXFLAGS += -fprofile-arcs -ftest-coverage --coverage
+cov: CXFLAGS += -fprofile-arcs -ftest-coverage --coverage
 cov: LDLIBS += -lgcov
 
+tsan: CXFLAGS += -fsanitize=thread
+tsan: LDLIBS += -fsanitize=thread
+
+ifeq ($(DEBUG), 1)
+	CXFLAGS += -O0 -g3 -ggdb3 -DDEBUG
+else
+	CXFLAGS += -O2
+endif
+
 ifeq ($(PREFIX),)
-    PREFIX := /usr
+	PREFIX := /usr
 endif
 
 .PHONY: all clean cov install test uninstall valgrind
@@ -52,15 +57,15 @@ all:
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -MMD -c $< -o $@
+	$(CC) $(CFLAGS) $(CXFLAGS) -MMD -c $< -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
+	$(CXX) $(CXFLAGS) $(CXXFLAGS) -MMD -c $< -o $@
 
 $(OBJ_DIR)/test/%.o: $(SRC_DIR)/test/%.cc
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) $(TEST_CXXFLAGS) -MMD -c $< -o $@
+	$(CXX) $(CXFLAGS) $(CXXFLAGS) $(TEST_CXXFLAGS) -MMD -c $< -o $@
 
 $(BIN_DIR)/test: $(TEST_OBJ) $(OBJ)
 	@mkdir -p $(@D)
@@ -92,6 +97,9 @@ uninstall:
 	  $(DESTDIR)$(PREFIX)/lib/pkgconfig/$(A0).pc
 
 test: $(BIN_DIR)/test
+	$(BIN_DIR)/test
+
+tsan: $(BIN_DIR)/test
 	$(BIN_DIR)/test
 
 cov: $(BIN_DIR)/test

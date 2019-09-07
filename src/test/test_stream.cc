@@ -1,7 +1,10 @@
 #include <a0/stream.h>
 
 #include <doctest.h>
+#include <signal.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "src/stream_debug.h"
@@ -166,14 +169,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 224,
-      "off_tail": 224
+      "off_head": 256,
+      "off_tail": 256
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 224,
-      "off_tail": 272
+      "off_head": 256,
+      "off_tail": 304
     }
   },
   "protocol": {
@@ -184,15 +187,15 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   },
   "data": [
     {
-      "off": 224,
+      "off": 256,
       "seq": 1,
-      "next_off": 272,
+      "next_off": 304,
       "data_size": 10,
       "data": "0123456789"
     },
     {
       "committed": false,
-      "off": 272,
+      "off": 304,
       "seq": 2,
       "next_off": 0,
       "data_size": 40,
@@ -211,14 +214,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 224,
-      "off_tail": 272
+      "off_head": 256,
+      "off_tail": 304
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 224,
-      "off_tail": 272
+      "off_head": 256,
+      "off_tail": 304
     }
   },
   "protocol": {
@@ -229,14 +232,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   },
   "data": [
     {
-      "off": 224,
+      "off": 256,
       "seq": 1,
-      "next_off": 272,
+      "next_off": 304,
       "data_size": 10,
       "data": "0123456789"
     },
     {
-      "off": 272,
+      "off": 304,
       "seq": 2,
       "next_off": 0,
       "data_size": 40,
@@ -355,14 +358,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream wrap around") {
     "committed_state": {
       "seq_low": 18,
       "seq_high": 20,
-      "off_head": 2336,
-      "off_tail": 1280
+      "off_head": 2368,
+      "off_tail": 1312
     },
     "working_state": {
       "seq_low": 18,
       "seq_high": 20,
-      "off_head": 2336,
-      "off_tail": 1280
+      "off_head": 2368,
+      "off_tail": 1312
     }
   },
   "protocol": {
@@ -373,23 +376,23 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream wrap around") {
   },
   "data": [
     {
-      "off": 2336,
+      "off": 2368,
       "seq": 18,
-      "next_off": 224,
+      "next_off": 256,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     },
     {
-      "off": 224,
+      "off": 256,
       "seq": 19,
-      "next_off": 1280,
+      "next_off": 1312,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     },
     {
-      "off": 1280,
+      "off": 1312,
       "seq": 20,
-      "next_off": 2336,
+      "next_off": 2368,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     }
@@ -425,14 +428,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream large alloc") {
     "committed_state": {
       "seq_low": 5,
       "seq_high": 5,
-      "off_head": 224,
-      "off_tail": 224
+      "off_head": 256,
+      "off_tail": 256
     },
     "working_state": {
       "seq_low": 5,
       "seq_high": 5,
-      "off_head": 224,
-      "off_tail": 224
+      "off_head": 256,
+      "off_tail": 256
     }
   },
   "protocol": {
@@ -443,7 +446,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream large alloc") {
   },
   "data": [
     {
-      "off": 224,
+      "off": 256,
       "seq": 5,
       "next_off": 0,
       "data_size": 3072,
@@ -538,7 +541,6 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
       REQUIRE(a0_unlock_stream(lk) == A0_OK);
     }
 
-
     // Write one frame unsuccessfully.
     {
       a0_locked_stream_t lk;
@@ -555,14 +557,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 224,
-      "off_tail": 224
+      "off_head": 256,
+      "off_tail": 256
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 224,
-      "off_tail": 272
+      "off_head": 256,
+      "off_tail": 304
     }
   },
   "protocol": {
@@ -573,15 +575,15 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
   },
   "data": [
     {
-      "off": 224,
+      "off": 256,
       "seq": 1,
-      "next_off": 272,
+      "next_off": 304,
       "data_size": 3,
       "data": "YES"
     },
     {
       "committed": false,
-      "off": 272,
+      "off": 304,
       "seq": 2,
       "next_off": 0,
       "data_size": 2,
@@ -614,14 +616,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 224,
-      "off_tail": 224
+      "off_head": 256,
+      "off_tail": 256
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 224,
-      "off_tail": 224
+      "off_head": 256,
+      "off_tail": 256
     }
   },
   "protocol": {
@@ -632,15 +634,87 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
   },
   "data": [
     {
-      "off": 224,
+      "off": 256,
       "seq": 1,
-      "next_off": 272,
+      "next_off": 304,
       "data_size": 3,
       "data": "YES"
     }
   ]
 }
 )");
+
+  REQUIRE(a0_unlock_stream(lk) == A0_OK);
+  REQUIRE(a0_stream_close(&stream) == A0_OK);
+}
+
+std::string random_string(size_t length) {
+  auto randchar = []() -> char {
+    const char charset[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+    const size_t max_index = (sizeof(charset) - 1);
+    return charset[rand() % max_index];
+  };
+  std::string str(length, 0);
+  std::generate_n(str.begin(), length, randchar);
+  return str;
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust fuzz") {
+  int child_pid = fork();
+  if (!child_pid) {
+    a0_stream_t stream;
+    a0_stream_init_status_t init_status;
+    a0_locked_stream_t lk;
+    REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+    REQUIRE(init_status == A0_STREAM_CREATED);
+    a0_buf_t protocol_metadata;
+    REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
+    memcpy(protocol_metadata.ptr, "protocol metadata", 17);
+    REQUIRE(a0_unlock_stream(lk) == A0_OK);
+
+    while (true) {
+      a0_locked_stream_t lk;
+      REQUIRE(a0_lock_stream(&stream, &lk) == A0_OK);
+
+      auto str = random_string(rand() % 1024);
+
+      a0_stream_frame_t frame;
+      REQUIRE(a0_stream_alloc(lk, str.size(), &frame) == A0_OK);
+      memcpy(frame.data, str.c_str(), str.size());
+      REQUIRE(a0_stream_commit(lk) == A0_OK);
+
+      REQUIRE(a0_unlock_stream(lk) == A0_OK);
+    }
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  kill(child_pid, SIGKILL);
+  int wstatus;
+  REQUIRE(waitpid(child_pid, &wstatus, 0) == child_pid);
+
+  a0_stream_t stream;
+  a0_stream_init_status_t init_status;
+  a0_locked_stream_t lk;
+  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(init_status == A0_STREAM_PROTOCOL_MATCH);
+
+  REQUIRE(a0_lock_stream(&stream, &lk) == A0_OK);
+
+  {
+    a0_stream_frame_t frame;
+    REQUIRE(a0_stream_alloc(lk, 11, &frame) == A0_OK);
+    memcpy(frame.data, "Still Works", 11);
+    REQUIRE(a0_stream_commit(lk) == A0_OK);
+  }
+
+  REQUIRE(a0_stream_jump_head(lk) == A0_OK);
+  REQUIRE(a0_stream_jump_tail(lk) == A0_OK);
+  a0_stream_frame_t frame;
+  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE(a0::test::str(frame) == "Still Works");
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);

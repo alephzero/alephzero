@@ -193,6 +193,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
                 REQUIRE(a0::test::str(payload) == "msg #1");
               }
 
+              std::unique_lock<std::mutex> lk{data->mu};
               data->msg_cnt++;
               data->cv.notify_all();
             },
