@@ -105,7 +105,7 @@ tsan: $(BIN_DIR)/test
 cov: $(BIN_DIR)/test
 	@mkdir -p cov/web
 	$(BIN_DIR)/test
-	gcov -o $(OBJ_DIR) -bjkmr $(SRC_DIR)/*
+	gcov -o $(OBJ_DIR) -bmr $(SRC_DIR)/*
 	lcov --capture --quiet --rc lcov_branch_coverage=1 --directory . --no-external --output-file cov/tmp.info
 	lcov --rc lcov_branch_coverage=1 --remove cov/tmp.info "*/third_party/*" "*/test/*" > cov/coverage.info
 	genhtml cov/coverage.info --branch-coverage --output-directory cov/web
