@@ -1,12 +1,10 @@
 #include <a0/stream.h>
 
 #include <limits.h>
-#include <linux/futex.h>
 #include <stdalign.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "macros.h"
@@ -70,28 +68,6 @@ stream_off_t a0_strem_protocol_metadata_off(a0_stream_hdr_t* hdr) {
 A0_STATIC_INLINE
 stream_off_t a0_stream_workspace_off(a0_stream_hdr_t* hdr) {
   return a0_max_align(a0_strem_protocol_metadata_off(hdr) + hdr->protocol_metadata_size);
-}
-
-A0_STATIC_INLINE
-errno_t a0_futex(uint32_t* uaddr,
-                 uint32_t futex_op,
-                 uint32_t val,
-                 const struct timespec* timeout,
-                 uint32_t* uaddr2,
-                 uint32_t val3) {
-  A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(
-      syscall(SYS_futex, uaddr, futex_op, val, timeout, uaddr2, val3));
-  return A0_OK;
-}
-
-A0_STATIC_INLINE
-errno_t a0_futex_await_change(uint32_t* uaddr, uint32_t old_val) {
-  return a0_futex(uaddr, FUTEX_WAIT, old_val, NULL, NULL, 0);
-}
-
-A0_STATIC_INLINE
-errno_t a0_futex_notify_change(uint32_t* uaddr) {
-  return a0_futex(uaddr, FUTEX_WAKE, INT_MAX, NULL, NULL, 0);
 }
 
 errno_t a0_stream_init(a0_stream_t* stream,
@@ -196,9 +172,6 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
     // Always consistent by design.
     lock_status = pthread_mutex_consistent(&hdr->mu);
     pthread_cond_broadcast(&hdr->cv);
-  } else if (lock_status == EDEADLK) {
-    // TODO: Why does this happen?
-    lock_status = A0_OK;
   }
 
   *a0_stream_working_page(*lk_out) = *a0_stream_committed_page(*lk_out);

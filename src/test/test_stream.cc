@@ -690,27 +690,29 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust fuzz") {
     }
   }
 
+  // Wait for child to run for a while, then violently kill it.
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   kill(child_pid, SIGKILL);
   int wstatus;
   REQUIRE(waitpid(child_pid, &wstatus, 0) == child_pid);
 
+  // Connect to the stream.
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
   REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
   REQUIRE(init_status == A0_STREAM_PROTOCOL_MATCH);
+  REQUIRE(a0_unlock_stream(lk) == A0_OK);
 
+  // Make sure the stream is still functinal.
+  // We can still grab the lock, write, and read from the stream.
   REQUIRE(a0_lock_stream(&stream, &lk) == A0_OK);
-
   {
     a0_stream_frame_t frame;
     REQUIRE(a0_stream_alloc(lk, 11, &frame) == A0_OK);
     memcpy(frame.data, "Still Works", 11);
     REQUIRE(a0_stream_commit(lk) == A0_OK);
   }
-
-  REQUIRE(a0_stream_jump_head(lk) == A0_OK);
   REQUIRE(a0_stream_jump_tail(lk) == A0_OK);
   a0_stream_frame_t frame;
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
