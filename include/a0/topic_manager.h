@@ -1,8 +1,12 @@
 #ifndef A0_TOPIC_MANAGER_H
 #define A0_TOPIC_MANAGER_H
 
-#include <a0/common.h>
-#include <a0/shm.h>
+#include <a0/common.h>  // for errno_t, A0_OK
+#include <a0/shm.h>     // for a0_shm_open, a0_shm_t, a0_shm_options_t
+
+#include <errno.h>  // for EINVAL, ESHUTDOWN
+
+#include <utility>  // for move
 
 #ifdef __cplusplus
 extern "C" {

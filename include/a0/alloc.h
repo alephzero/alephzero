@@ -1,7 +1,9 @@
 #ifndef A0_ALLOC_H
 #define A0_ALLOC_H
 
-#include <a0/common.h>
+#include <a0/common.h>  // for a0_buf_t
+
+#include <stddef.h>  // for size_t
 
 #ifdef __cplusplus
 extern "C" {

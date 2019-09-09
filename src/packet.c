@@ -1,10 +1,14 @@
+#include <a0/alloc.h>   // for a0_alloc_t
+#include <a0/common.h>  // for A0_OK, a0_buf_t, errno_t
 #include <a0/packet.h>
 
-#include <stdio.h>
-#include <string.h>
+#include <errno.h>   // for EINVAL, ENOKEY
+#include <stdint.h>  // for uint8_t
+#include <stdio.h>   // for size_t, NULL
+#include <string.h>  // for memcpy, strlen, strcmp
 
-#include "macros.h"
-#include "rand.h"
+#include "macros.h"  // for A0_INTERNAL_RETURN_ERR_ON_ERR, A0_UNLIKELY
+#include "rand.h"    // for uuidv4, kUuidSize
 
 static const char kIdKey[] = "a0_id";
 static const char kDepKey[] = "a0_dep";

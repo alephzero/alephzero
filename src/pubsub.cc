@@ -1,14 +1,20 @@
+#include <a0/alloc.h>   // for a0_alloc_t
+#include <a0/common.h>  // for errno_t, A0_OK, a0_buf_t, a0_callback_t
+#include <a0/packet.h>  // for a0_packet_t, a0_packet_callback_t, a0_pac...
 #include <a0/pubsub.h>
+#include <a0/stream.h>  // for a0_stream_jump_tail, a0_locked_stream_t
 
-#include <string.h>
+#include <errno.h>   // for ESHUTDOWN
+#include <sched.h>   // for memcpy
+#include <stdint.h>  // for uint64_t, uint8_t
+#include <string.h>  // for strlen, size_t
 
-#include <condition_variable>
-#include <mutex>
+#include <chrono>  // for nanoseconds, duration_cast, duration, ste...
+#include <string>  // for to_string, string
 
-#include "macros.h"
-#include "packet_tools.h"
-#include "stream_tools.hh"
-#include "strutil.hh"
+#include "macros.h"         // for A0_STATIC_INLINE
+#include "packet_tools.h"   // for a0_packet_copy_with_additional_headers
+#include "stream_tools.hh"  // for buf, sync_stream_t, stream_thread, stream...
 
 /////////////////////
 //  Pubsub Common  //
@@ -43,12 +49,12 @@ struct a0_publisher_impl_s {
   a0_stream_t stream;
 };
 
-errno_t a0_publisher_init(a0_publisher_t* pub, a0_shm_t shm) {
+errno_t a0_publisher_init(a0_publisher_t* pub, a0_buf_t arena) {
   pub->_impl = new a0_publisher_impl_t;
 
   a0_stream_init_status_t init_status;
   a0_locked_stream_t slk;
-  a0_stream_init(&pub->_impl->stream, shm, protocol_info(), &init_status, &slk);
+  a0_stream_init(&pub->_impl->stream, arena, protocol_info(), &init_status, &slk);
 
   if (init_status == A0_STREAM_CREATED) {
     // TODO: Add metadata...
@@ -119,7 +125,7 @@ struct a0_subscriber_sync_zc_impl_s {
 };
 
 errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
-                                   a0_shm_t shm,
+                                   a0_buf_t arena,
                                    a0_subscriber_init_t sub_init,
                                    a0_subscriber_iter_t sub_iter) {
   sub_sync_zc->_impl = new a0_subscriber_sync_zc_impl_t;
@@ -128,7 +134,7 @@ errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
 
   a0_stream_init_status_t init_status;
   a0_locked_stream_t slk;
-  a0_stream_init(&sub_sync_zc->_impl->stream, shm, protocol_info(), &init_status, &slk);
+  a0_stream_init(&sub_sync_zc->_impl->stream, arena, protocol_info(), &init_status, &slk);
 
   if (init_status == A0_STREAM_CREATED) {
     // TODO: Add metadata...
@@ -208,14 +214,14 @@ struct a0_subscriber_sync_impl_s {
 };
 
 errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
-                                a0_shm_t shm,
+                                a0_buf_t arena,
                                 a0_alloc_t alloc,
                                 a0_subscriber_init_t sub_init,
                                 a0_subscriber_iter_t sub_iter) {
   sub_sync->_impl = new a0_subscriber_sync_impl_t;
 
   sub_sync->_impl->alloc = alloc;
-  return a0_subscriber_sync_zc_init(&sub_sync->_impl->sub_sync_zc, shm, sub_init, sub_iter);
+  return a0_subscriber_sync_zc_init(&sub_sync->_impl->sub_sync_zc, arena, sub_init, sub_iter);
 }
 
 errno_t a0_subscriber_sync_close(a0_subscriber_sync_t* sub_sync) {
@@ -267,7 +273,7 @@ struct a0_subscriber_zc_impl_s {
 };
 
 errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
-                              a0_shm_t shm,
+                              a0_buf_t arena,
                               a0_subscriber_init_t sub_init,
                               a0_subscriber_iter_t sub_iter,
                               a0_zero_copy_callback_t onmsg) {
@@ -306,7 +312,7 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
     read_current_packet(slk);
   };
 
-  return sub_zc->_impl->worker.init(shm,
+  return sub_zc->_impl->worker.init(arena,
                                     protocol_info(),
                                     on_stream_init,
                                     on_stream_nonempty,
@@ -354,7 +360,7 @@ struct a0_subscriber_impl_s {
 };
 
 errno_t a0_subscriber_init(a0_subscriber_t* sub,
-                           a0_shm_t shm,
+                           a0_buf_t arena,
                            a0_alloc_t alloc,
                            a0_subscriber_init_t sub_init,
                            a0_subscriber_iter_t sub_iter,
@@ -378,7 +384,7 @@ errno_t a0_subscriber_init(a0_subscriber_t* sub,
           },
   };
 
-  return a0_subscriber_zc_init(&sub->_impl->sub_zc, shm, sub_init, sub_iter, wrapped_onmsg);
+  return a0_subscriber_zc_init(&sub->_impl->sub_zc, arena, sub_init, sub_iter, wrapped_onmsg);
 }
 
 errno_t a0_subscriber_close(a0_subscriber_t* sub) {

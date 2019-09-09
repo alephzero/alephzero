@@ -104,7 +104,7 @@ struct stream_thread {
 
   std::shared_ptr<state_t> state;
 
-  errno_t init(a0_shm_t shm,
+  errno_t init(a0_buf_t arena,
                a0_stream_protocol_t stream_protocol,
                std::function<errno_t(a0_locked_stream_t, a0_stream_init_status_t)> on_stream_init,
                std::function<void(a0_locked_stream_t)> on_stream_nonempty,
@@ -115,7 +115,7 @@ struct stream_thread {
 
     a0_stream_init_status_t init_status;
     a0_locked_stream_t slk;
-    a0_stream_init(&state->stream, shm, stream_protocol, &init_status, &slk);
+    a0_stream_init(&state->stream, arena, stream_protocol, &init_status, &slk);
     errno_t err = on_stream_init(slk, init_status);
     a0_unlock_stream(slk);
     if (err) {

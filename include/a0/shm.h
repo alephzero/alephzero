@@ -3,7 +3,6 @@
 
 #include <a0/common.h>
 
-#include <stdbool.h>
 #include <sys/stat.h>
 
 #ifdef __cplusplus
@@ -17,9 +16,8 @@ typedef struct a0_shm_options_s {
 } a0_shm_options_t;
 
 typedef struct a0_shm_s {
-  int fd;
-  stat_t stat;
-  uint8_t* ptr;
+  const char* path;  // memcpy-ed in a0_shm_open.
+  a0_buf_t buf;
 } a0_shm_t;
 
 // Note: a0_shm_options_t may be only by NULL if the file already exists.

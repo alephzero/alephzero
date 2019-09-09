@@ -25,25 +25,26 @@ TEST_CASE_FIXTURE(ShmObjTestFixture, "Test shared memory objects") {
   a0_shm_options_t shmopt;
   shmopt.size = 16 * 1024 * 1024;
   REQUIRE(a0_shm_open(kTestShm, &shmopt, &shm) == A0_OK);
-  REQUIRE(shm.stat.st_size == shmopt.size);
+  REQUIRE(!strcmp(shm.path, kTestShm));
+  REQUIRE(shm.buf.size == shmopt.size);
 
   REQUIRE(a0_shm_close(&shm) == A0_OK);
 
   REQUIRE(a0_shm_open(kTestShm, nullptr, &shm) == A0_OK);
-  REQUIRE(shm.stat.st_size == shmopt.size);
+  REQUIRE(shm.buf.size == shmopt.size);
 
   REQUIRE(a0_shm_close(&shm) == A0_OK);
 
   shmopt.size = 32 * 1024 * 1024;
   REQUIRE(a0_shm_open(kTestShm, &shmopt, &shm) == A0_OK);
-  REQUIRE(shm.stat.st_size == shmopt.size);
+  REQUIRE(shm.buf.size == shmopt.size);
 
   REQUIRE(a0_shm_close(&shm) == A0_OK);
 
   if (!a0::test::is_valgrind()) {
     shmopt.size = pow(2, 46);
     REQUIRE(a0_shm_open(kTestShm, &shmopt, &shm) == A0_OK);
-    REQUIRE(shm.stat.st_size == shmopt.size);
+    REQUIRE(shm.buf.size == shmopt.size);
 
     REQUIRE(a0_shm_close(&shm) == A0_OK);
   }

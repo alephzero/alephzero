@@ -1,16 +1,18 @@
 #ifndef A0_STREAM_H
 #define A0_STREAM_H
 
-#include <a0/shm.h>
+#include <a0/common.h>  // for errno_t, a0_buf_t
 
-#include <pthread.h>
+#include <stdbool.h>  // for bool
+#include <stddef.h>   // for size_t
+#include <stdint.h>   // for uint64_t, uint32_t, uint8_t
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct a0_stream_s {
-  a0_shm_t _shm;
+  a0_buf_t _arena;
   uint64_t _seq;
   uint64_t _off;
   bool _closing;
@@ -48,7 +50,7 @@ typedef struct a0_locked_stream_s {
 } a0_locked_stream_t;
 
 errno_t a0_stream_init(a0_stream_t*,
-                       a0_shm_t,
+                       a0_buf_t arena,
                        a0_stream_protocol_t,
                        a0_stream_init_status_t* status_out,
                        a0_locked_stream_t* lk_out);

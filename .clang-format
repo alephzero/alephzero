@@ -11,13 +11,12 @@ BinPackArguments:                    false
 
 IncludeBlocks:       Regroup
 IncludeCategories:
-  - Regex:           '^<a0/internal/.*\.h*>'
-    Priority:        2
-  - Regex:           '^<a0/.*\.h*>'
+  - Regex:           '^<a0/.*\.(h|hpp)>'
     Priority:        1
-  - Regex:           '^<.*\.h*>'
-    Priority:        3
+  - Regex:           '^<.*\.(h|hh|hpp)>'
+    Priority:        2
   - Regex:           '^<.*'
-    Priority:        4
+    Priority:        3
   - Regex:           '.*'
-    Priority:        5
+    Priority:        4
+SortIncludes: true

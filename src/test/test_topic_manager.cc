@@ -58,7 +58,7 @@ TEST_CASE_FIXTURE(TopicManagerFixture, "Test topic manager pubsub") {
     REQUIRE(a0_topic_manager_open_publisher_topic(&topic_manager, "pub_topic", &shm) == A0_OK);
 
     a0_publisher_t pub;
-    REQUIRE(a0_publisher_init(&pub, shm) == A0_OK);
+    REQUIRE(a0_publisher_init(&pub, shm.buf) == A0_OK);
 
     REQUIRE(a0_pub(&pub, make_packet("msg #0")) == A0_OK);
     REQUIRE(a0_pub(&pub, make_packet("msg #1")) == A0_OK);
@@ -74,7 +74,7 @@ TEST_CASE_FIXTURE(TopicManagerFixture, "Test topic manager pubsub") {
 
     a0_subscriber_sync_t sub;
     REQUIRE(a0_subscriber_sync_init(&sub,
-                                    shm,
+                                    shm.buf,
                                     a0::test::allocator(),
                                     A0_INIT_MOST_RECENT,
                                     A0_ITER_NEWEST) == A0_OK);

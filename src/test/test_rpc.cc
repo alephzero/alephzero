@@ -1,4 +1,5 @@
 #include <a0/rpc.h>
+#include <a0/shm.h>
 
 #include <doctest.h>
 
@@ -69,10 +70,11 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE(a0_rpc_server_init(&server, shm, a0::test::allocator(), onrequest, oncancel) == A0_OK);
+  REQUIRE(a0_rpc_server_init(&server, shm.buf, a0::test::allocator(), onrequest, oncancel) ==
+          A0_OK);
 
   a0_rpc_client_t client;
-  REQUIRE(a0_rpc_client_init(&client, shm, a0::test::allocator()) == A0_OK);
+  REQUIRE(a0_rpc_client_init(&client, shm.buf, a0::test::allocator()) == A0_OK);
 
   a0_packet_callback_t onreply = {
       .user_data = &data,

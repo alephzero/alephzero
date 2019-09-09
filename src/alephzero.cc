@@ -1,5 +1,16 @@
 #include <a0/alephzero.hpp>
-#include <system_error>
+#include <a0/alloc.h>          // for a0_free_realloc_allocator, a0_realloc_...
+#include <a0/common.h>         // for a0_buf_t, a0_callback_t, errno_t
+#include <a0/packet.h>         // for a0_packet_header_t, a0_packet_t, a0_pa...
+#include <a0/pubsub.h>         // for a0_subscriber_t, a0_publisher_t, a0_su...
+#include <a0/rpc.h>            // for a0_rpc_request_t, a0_rpc_server_t, a0_...
+#include <a0/shm.h>            // for a0_shm_t, a0_shm_close, a0_shm_open
+#include <a0/topic_manager.h>  // for a0_topic_manager_t, a0_topic_manager_i...
+
+#include <sched.h>  // for memcpy
+
+#include <cstdint>       // for uint8_t
+#include <system_error>  // for generic_category, system_error
 
 namespace a0 {
 namespace {
@@ -43,6 +54,7 @@ Shm::Shm(const std::string& path) {
   c = c_shared<a0_shm_t>(a0_shm_close);
   check(a0_shm_open(path.c_str(), nullptr, &*c));
 }
+
 Shm::Shm(const std::string& path, const Options& opts) {
   a0_shm_options_t c_shm_opts{
       .size = opts.size,
@@ -50,6 +62,11 @@ Shm::Shm(const std::string& path, const Options& opts) {
   c = c_shared<a0_shm_t>(a0_shm_close);
   check(a0_shm_open(path.c_str(), &c_shm_opts, &*c));
 }
+
+std::string Shm::path() const {
+  return c->path;
+}
+
 void Shm::unlink(const std::string& path) {
   check(a0_shm_unlink(path.c_str()));
 }
@@ -147,7 +164,7 @@ Publisher::Publisher(Shm shm) {
   c = c_shared<a0_publisher_t>([shm](a0_publisher_t* pub) {
     return a0_publisher_close(pub);
   });
-  check(a0_publisher_init(&*c, *shm.c));
+  check(a0_publisher_init(&*c, shm.c->buf));
 }
 
 void Publisher::pub(const Packet& pkt) {
@@ -158,16 +175,14 @@ void Publisher::pub(std::string_view payload) {
   pub(Packet(payload));
 }
 
-SubscriberSync::SubscriberSync(Shm shm,
-                               a0_subscriber_init_t init,
-                               a0_subscriber_iter_t iter) {
+SubscriberSync::SubscriberSync(Shm shm, a0_subscriber_init_t init, a0_subscriber_iter_t iter) {
   auto alloc = a0_realloc_allocator();
   c = c_shared<a0_subscriber_sync_t>([shm, alloc](a0_subscriber_sync_t* sub_sync) {
     auto err = a0_subscriber_sync_close(sub_sync);
     a0_free_realloc_allocator(alloc);
     return err;
   });
-  check(a0_subscriber_sync_init(&*c, *shm.c, alloc, init, iter));
+  check(a0_subscriber_sync_init(&*c, shm.c->buf, alloc, init, iter));
 }
 
 bool SubscriberSync::has_next() {
@@ -209,7 +224,7 @@ Subscriber::Subscriber(Shm shm,
   deleter.primary = a0_subscriber_close;
 
   c = c_shared<a0_subscriber_t>(deleter);
-  check(a0_subscriber_init(&*c, *shm.c, alloc, init, iter, callback));
+  check(a0_subscriber_init(&*c, shm.c->buf, alloc, init, iter, callback));
 }
 
 void Subscriber::async_close(std::function<void()> fn) {
@@ -293,7 +308,7 @@ RpcServer::RpcServer(Shm shm,
   deleter.primary = a0_rpc_server_close;
 
   c = c_shared<a0_rpc_server_t>(deleter);
-  check(a0_rpc_server_init(&*c, *shm.c, alloc, c_onrequest, c_oncancel));
+  check(a0_rpc_server_init(&*c, shm.c->buf, alloc, c_onrequest, c_oncancel));
 }
 
 void RpcServer::async_close(std::function<void()> fn) {
@@ -330,7 +345,7 @@ RpcClient::RpcClient(Shm shm) {
   deleter.primary = a0_rpc_client_close;
 
   c = c_shared<a0_rpc_client_t>(deleter);
-  check(a0_rpc_client_init(&*c, *shm.c, alloc));
+  check(a0_rpc_client_init(&*c, shm.c->buf, alloc));
 }
 
 void RpcClient::async_close(std::function<void()> fn) {

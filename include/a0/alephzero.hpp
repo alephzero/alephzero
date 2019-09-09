@@ -1,17 +1,17 @@
-#include <a0/alloc.h>
-#include <a0/common.h>
-#include <a0/packet.h>
-#include <a0/pubsub.h>
-#include <a0/rpc.h>
-#include <a0/shm.h>
-#include <a0/stream.h>
-#include <a0/topic_manager.h>
-
-#include <functional>
-#include <memory>
-#include <string>
-#include <string_view>
-#include <vector>
+#include <a0/packet.h>         // for a0_packet_t
+#include <a0/pubsub.h>         // for a0_subscriber_init_t, a0_subscriber_it...
+#include <a0/rpc.h>            // for a0_rpc_client_t, a0_rpc_request_t, a0_...
+#include <a0/shm.h>            // for a0_shm_t
+#include <a0/topic_manager.h>  // for a0_topic_manager_t
+#include <stddef.h>            // for size_t
+#include <stdint.h>            // for uint8_t
+#include <sys/types.h>         // for off_t
+#include <functional>          // for function
+#include <memory>              // for shared_ptr
+#include <string>              // for string
+#include <string_view>         // for string_view
+#include <utility>             // for pair
+#include <vector>              // for vector
 
 namespace a0 {
 
@@ -25,6 +25,8 @@ struct Shm {
   Shm() = default;
   Shm(const std::string& path);
   Shm(const std::string& path, const Options&);
+
+  std::string path() const;
 
   static void unlink(const std::string& path);
 };
