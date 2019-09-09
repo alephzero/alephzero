@@ -15,9 +15,9 @@ static const char kProtocolName[] = "my_protocol";
 
 struct StreamTestFixture {
   StreamTestFixture() {
-    a0_shmobj_unlink(kTestShm);
+    a0_shm_unlink(kTestShm);
     shmopt.size = 4096;
-    a0_shmobj_open(kTestShm, &shmopt, &shmobj);
+    a0_shm_open(kTestShm, &shmopt, &shm);
 
     protocol.name.ptr = (uint8_t*)kProtocolName;
     protocol.name.size = strlen(kProtocolName);
@@ -27,8 +27,8 @@ struct StreamTestFixture {
     protocol.metadata_size = 17;
   }
   ~StreamTestFixture() {
-    a0_shmobj_close(&shmobj);
-    a0_shmobj_unlink(kTestShm);
+    a0_shm_close(&shm);
+    a0_shm_unlink(kTestShm);
   }
 
   void require_debugstr(a0_locked_stream_t lk, const std::string& expected) {
@@ -38,30 +38,30 @@ struct StreamTestFixture {
     free(debugstr.ptr);
   }
 
-  a0_shmobj_options_t shmopt;
-  a0_shmobj_t shmobj;
+  a0_shm_options_t shmopt;
+  a0_shm_t shm;
   a0_stream_protocol_t protocol;
 };
 
 TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
-  REQUIRE(*(uint64_t*)shmobj.ptr != 0x616c65667a65726f);
+  REQUIRE(*(uint64_t*)shm.ptr != 0x616c65667a65726f);
 
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
 
-  REQUIRE(*(uint64_t*)shmobj.ptr == 0x616c65667a65726f);
+  REQUIRE(*(uint64_t*)shm.ptr == 0x616c65667a65726f);
   REQUIRE(init_status == A0_STREAM_CREATED);
 
-  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
   REQUIRE(init_status == A0_STREAM_PROTOCOL_MATCH);
 
   a0_buf_t protocol_metadata;
   protocol.patch_version++;
-  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
   REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
   REQUIRE(protocol_metadata.size == 17);
   REQUIRE((uintptr_t)protocol_metadata.ptr % alignof(max_align_t) == 0);
@@ -83,7 +83,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shmobj_size": 4096,
+    "shm_size": 4096,
     "committed_state": {
       "seq_low": 0,
       "seq_high": 0,
@@ -116,7 +116,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
   a0_buf_t protocol_metadata;
   REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
   memcpy(protocol_metadata.ptr, "protocol metadata", 17);
@@ -128,7 +128,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shmobj_size": 4096,
+    "shm_size": 4096,
     "committed_state": {
       "seq_low": 0,
       "seq_high": 0,
@@ -165,7 +165,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shmobj_size": 4096,
+    "shm_size": 4096,
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
@@ -210,7 +210,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shmobj_size": 4096,
+    "shm_size": 4096,
     "committed_state": {
       "seq_low": 1,
       "seq_high": 2,
@@ -259,7 +259,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
     a0_stream_t stream;
     a0_stream_init_status_t init_status;
     a0_locked_stream_t lk;
-    REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+    REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
     a0_buf_t protocol_metadata;
     REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
     memcpy(protocol_metadata.ptr, "protocol metadata", 17);
@@ -285,7 +285,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
 
   bool is_empty;
   REQUIRE(a0_stream_empty(lk, &is_empty) == A0_OK);
@@ -337,7 +337,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream wrap around") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
   a0_buf_t protocol_metadata;
   REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
   memcpy(protocol_metadata.ptr, "protocol metadata", 17);
@@ -354,7 +354,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream wrap around") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shmobj_size": 4096,
+    "shm_size": 4096,
     "committed_state": {
       "seq_low": 18,
       "seq_high": 20,
@@ -408,7 +408,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream large alloc") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
   a0_buf_t protocol_metadata;
   REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
   memcpy(protocol_metadata.ptr, "protocol metadata", 17);
@@ -424,7 +424,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream large alloc") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shmobj_size": 4096,
+    "shm_size": 4096,
     "committed_state": {
       "seq_low": 5,
       "seq_high": 5,
@@ -483,7 +483,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream await") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
   a0_buf_t protocol_metadata;
   REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
   memcpy(protocol_metadata.ptr, "protocol metadata", 17);
@@ -521,7 +521,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
     a0_stream_t stream;
     a0_stream_init_status_t init_status;
     a0_locked_stream_t lk;
-    REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+    REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
     REQUIRE(init_status == A0_STREAM_CREATED);
     a0_buf_t protocol_metadata;
     REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
@@ -553,7 +553,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
       require_debugstr(lk, R"(
 {
   "header": {
-    "shmobj_size": 4096,
+    "shm_size": 4096,
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
@@ -606,13 +606,13 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
   REQUIRE(init_status == A0_STREAM_PROTOCOL_MATCH);
 
   require_debugstr(lk, R"(
 {
   "header": {
-    "shmobj_size": 4096,
+    "shm_size": 4096,
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
@@ -668,7 +668,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust fuzz") {
     a0_stream_t stream;
     a0_stream_init_status_t init_status;
     a0_locked_stream_t lk;
-    REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+    REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
     REQUIRE(init_status == A0_STREAM_CREATED);
     a0_buf_t protocol_metadata;
     REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
@@ -700,7 +700,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust fuzz") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shmobj, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE(a0_stream_init(&stream, shm, protocol, &init_status, &lk) == A0_OK);
   REQUIRE(init_status == A0_STREAM_PROTOCOL_MATCH);
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
 

@@ -1,4 +1,4 @@
-#include <a0/shmobj.h>
+#include <a0/shm.h>
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -7,7 +7,7 @@
 
 #include "macros.h"
 
-errno_t a0_shmobj_open(const char* path, const a0_shmobj_options_t* opts, a0_shmobj_t* out) {
+errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts, a0_shm_t* out) {
   out->fd = shm_open(path, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
   A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(out->fd);
   A0_INTERNAL_CLEANUP_ON_MINUS_ONE(fstat(out->fd, &out->stat));
@@ -38,17 +38,17 @@ cleanup:;
   return err;
 }
 
-errno_t a0_shmobj_unlink(const char* path) {
+errno_t a0_shm_unlink(const char* path) {
   A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(shm_unlink(path));
   return A0_OK;
 }
 
-errno_t a0_shmobj_close(a0_shmobj_t* shmobj) {
-  if (shmobj->ptr) {
-    A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(munmap(shmobj->ptr, shmobj->stat.st_size));
+errno_t a0_shm_close(a0_shm_t* shm) {
+  if (shm->ptr) {
+    A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(munmap(shm->ptr, shm->stat.st_size));
   }
-  if (shmobj->fd) {
-    A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(close(shmobj->fd));
+  if (shm->fd) {
+    A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(close(shm->fd));
   }
   return A0_OK;
 }

@@ -10,7 +10,7 @@
 #include "macros.h"
 
 const uint64_t A0_STREAM_MAGIC = 0x616c65667a65726f;
-typedef uintptr_t stream_off_t;  // ptr offset from start of shmobj.
+typedef uintptr_t stream_off_t;  // ptr offset from start of shm.
 
 typedef struct a0_stream_state_s {
   uint64_t seq_low;
@@ -28,7 +28,7 @@ typedef struct a0_stream_hdr_s {
   a0_stream_state_t state_pages[2];
   uint32_t committed_page_idx;
 
-  size_t shmobj_size;
+  size_t shm_size;
   size_t protocol_name_size;
   size_t protocol_metadata_size;
 
@@ -39,13 +39,13 @@ typedef struct a0_stream_hdr_s {
 
 A0_STATIC_INLINE
 a0_stream_state_t* a0_stream_committed_page(a0_locked_stream_t lk) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shm.ptr;
   return &hdr->state_pages[hdr->committed_page_idx];
 }
 
 A0_STATIC_INLINE
 a0_stream_state_t* a0_stream_working_page(a0_locked_stream_t lk) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shm.ptr;
   return &hdr->state_pages[!hdr->committed_page_idx];
 }
 
@@ -71,14 +71,14 @@ stream_off_t a0_stream_workspace_off(a0_stream_hdr_t* hdr) {
 }
 
 errno_t a0_stream_init(a0_stream_t* stream,
-                       a0_shmobj_t shmobj,
+                       a0_shm_t shm,
                        a0_stream_protocol_t protocol,
                        a0_stream_init_status_t* status_out,
                        a0_locked_stream_t* lk_out) {
   memset(stream, 0, sizeof(a0_stream_t));
-  stream->_shmobj = shmobj;
+  stream->_shm = shm;
 
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)shm.ptr;
   if (hdr->magic != A0_STREAM_MAGIC) {
     // TODO: fcntl with F_SETLKW and check double-check magic.
 
@@ -86,13 +86,13 @@ errno_t a0_stream_init(a0_stream_t* stream,
     stream_off_t protocol_metadata_off = a0_max_align(protocol_name_off + protocol.name.size);
     stream_off_t workspace_off = a0_max_align(protocol_metadata_off + protocol.metadata_size);
 
-    if (workspace_off >= (uint64_t)stream->_shmobj.stat.st_size) {
+    if (workspace_off >= (uint64_t)stream->_shm.stat.st_size) {
       return ENOMEM;
     }
 
     memset((uint8_t*)hdr, 0, sizeof(a0_stream_hdr_t));
 
-    hdr->shmobj_size = stream->_shmobj.stat.st_size;
+    hdr->shm_size = stream->_shm.stat.st_size;
     hdr->protocol_name_size = protocol.name.size;
     hdr->protocol_metadata_size = protocol.metadata_size;
     hdr->protocol_major_version = protocol.major_version;
@@ -142,7 +142,7 @@ errno_t a0_stream_init(a0_stream_t* stream,
 }
 
 errno_t a0_stream_close(a0_stream_t* stream) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)stream->_shm.ptr;
 
   a0_locked_stream_t lk;
   a0_lock_stream(stream, &lk);
@@ -163,7 +163,7 @@ errno_t a0_stream_close(a0_stream_t* stream) {
 }
 
 errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)stream->_shm.ptr;
 
   lk_out->stream = stream;
 
@@ -181,7 +181,7 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
 
 errno_t a0_unlock_stream(a0_locked_stream_t lk) {
   *a0_stream_working_page(lk) = *a0_stream_committed_page(lk);
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shm.ptr;
   pthread_mutex_unlock(&hdr->mu);
   return A0_OK;
 }
@@ -189,7 +189,7 @@ errno_t a0_unlock_stream(a0_locked_stream_t lk) {
 errno_t a0_stream_protocol(a0_locked_stream_t lk,
                            a0_stream_protocol_t* protocol_out,
                            a0_buf_t* metadata_out) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shm.ptr;
   if (protocol_out) {
     protocol_out->name.ptr = (uint8_t*)hdr + a0_stream_protocol_name_off(hdr);
     protocol_out->name.size = hdr->protocol_name_size;
@@ -259,7 +259,7 @@ errno_t a0_stream_next(a0_locked_stream_t lk) {
     return EAGAIN;
   }
 
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shm.ptr;
   a0_stream_frame_hdr_t* frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
   lk.stream->_seq++;
   lk.stream->_off = frame_hdr->next_off;
@@ -268,7 +268,7 @@ errno_t a0_stream_next(a0_locked_stream_t lk) {
 }
 
 errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_t, bool*)) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shm.ptr;
 
   if (lk.stream->_closing) {
     return ESHUTDOWN;
@@ -300,7 +300,7 @@ errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_
 }
 
 errno_t a0_stream_frame(a0_locked_stream_t lk, a0_stream_frame_t* frame_out) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shm.ptr;
   a0_stream_state_t* state = a0_stream_working_page(lk);
 
   if (lk.stream->_seq < state->seq_low) {
@@ -332,7 +332,7 @@ bool a0_stream_frame_intersects(stream_off_t frame1_start,
 
 A0_STATIC_INLINE
 bool a0_stream_head_interval(a0_locked_stream_t lk, stream_off_t* head_off, size_t* head_size) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shm.ptr;
 
   bool empty;
   a0_stream_empty(lk, &empty);
@@ -348,7 +348,7 @@ bool a0_stream_head_interval(a0_locked_stream_t lk, stream_off_t* head_off, size
 
 A0_STATIC_INLINE
 void a0_stream_remove_head(a0_locked_stream_t lk) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shm.ptr;
   a0_stream_state_t* state = a0_stream_working_page(lk);
 
   a0_stream_frame_hdr_t* head_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + state->off_head);
@@ -364,7 +364,7 @@ void a0_stream_remove_head(a0_locked_stream_t lk) {
 }
 
 errno_t a0_stream_alloc(a0_locked_stream_t lk, size_t size, a0_stream_frame_t* frame_out) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shm.ptr;
 
   a0_stream_state_t* state = a0_stream_working_page(lk);
 
@@ -376,12 +376,12 @@ errno_t a0_stream_alloc(a0_locked_stream_t lk, size_t size, a0_stream_frame_t* f
     state->off_head = off;
   } else {
     off = a0_max_align(a0_stream_frame_end(hdr, state->off_tail));
-    if (off + frame_size >= hdr->shmobj_size) {
+    if (off + frame_size >= hdr->shm_size) {
       off = a0_stream_workspace_off(hdr);
     }
   }
 
-  if (off + frame_size >= hdr->shmobj_size) {
+  if (off + frame_size >= hdr->shm_size) {
     return EOVERFLOW;
   }
 
@@ -420,7 +420,7 @@ errno_t a0_stream_alloc(a0_locked_stream_t lk, size_t size, a0_stream_frame_t* f
 }
 
 errno_t a0_stream_commit(a0_locked_stream_t lk) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shm.ptr;
   hdr->committed_page_idx = !hdr->committed_page_idx;
   *a0_stream_working_page(lk) = *a0_stream_committed_page(lk);
 
@@ -444,7 +444,7 @@ void write_limited(FILE* f, a0_buf_t str) {
 }
 
 void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shmobj.ptr;
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_shm.ptr;
 
   a0_stream_state_t* committed_state = a0_stream_committed_page(lk);
   a0_stream_state_t* working_state = a0_stream_working_page(lk);
@@ -453,7 +453,7 @@ void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
   // clang-format off
   fprintf(ss, "\n{\n");
   fprintf(ss, "  \"header\": {\n");
-  fprintf(ss, "    \"shmobj_size\": %lu,\n", hdr->shmobj_size);
+  fprintf(ss, "    \"shm_size\": %lu,\n", hdr->shm_size);
   fprintf(ss, "    \"committed_state\": {\n");
   fprintf(ss, "      \"seq_low\": %lu,\n", committed_state->seq_low);
   fprintf(ss, "      \"seq_high\": %lu,\n", committed_state->seq_high);

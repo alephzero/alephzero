@@ -52,7 +52,7 @@ struct a0_rpc_server_impl_s {
 };
 
 errno_t a0_rpc_server_init(a0_rpc_server_t* server,
-                           a0_shmobj_t shmobj,
+                           a0_shm_t shm,
                            a0_alloc_t alloc,
                            a0_rpc_request_callback_t onrequest,
                            a0_packet_id_callback_t oncancel) {
@@ -110,7 +110,7 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
     handle_pkt(slk);
   };
 
-  return server->_impl->worker.init(shmobj,
+  return server->_impl->worker.init(shm,
                                     protocol_info(),
                                     on_stream_init,
                                     on_stream_nonempty,
@@ -215,7 +215,7 @@ struct a0_rpc_client_impl_s {
   bool started_empty{false};
 };
 
-errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_shmobj_t shmobj, a0_alloc_t alloc) {
+errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_shm_t shm, a0_alloc_t alloc) {
   client->_impl = new a0_rpc_client_impl_t;
   client->_impl->state = std::make_shared<rpc_state>();
 
@@ -287,7 +287,7 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_shmobj_t shmobj, a0_alloc
     handle_pkt(slk);
   };
 
-  return client->_impl->worker.init(shmobj,
+  return client->_impl->worker.init(shm,
                                     protocol_info(),
                                     on_stream_init,
                                     on_stream_nonempty,

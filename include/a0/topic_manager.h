@@ -2,7 +2,7 @@
 #define A0_TOPIC_MANAGER_H
 
 #include <a0/common.h>
-#include <a0/shmobj.h>
+#include <a0/shm.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,11 +35,11 @@ errno_t a0_topic_manager_init(a0_topic_manager_t*, a0_topic_manager_options_t);
 errno_t a0_topic_manager_init_jsonstr(a0_topic_manager_t*, const char*);
 errno_t a0_topic_manager_close(a0_topic_manager_t*);
 
-errno_t a0_topic_manager_open_config_topic(a0_topic_manager_t*, a0_shmobj_t* out);
-errno_t a0_topic_manager_open_publisher_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
-errno_t a0_topic_manager_open_subscriber_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
-errno_t a0_topic_manager_open_rpc_server_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
-errno_t a0_topic_manager_open_rpc_client_topic(a0_topic_manager_t*, const char*, a0_shmobj_t* out);
+errno_t a0_topic_manager_open_config_topic(a0_topic_manager_t*, a0_shm_t* out);
+errno_t a0_topic_manager_open_publisher_topic(a0_topic_manager_t*, const char*, a0_shm_t* out);
+errno_t a0_topic_manager_open_subscriber_topic(a0_topic_manager_t*, const char*, a0_shm_t* out);
+errno_t a0_topic_manager_open_rpc_server_topic(a0_topic_manager_t*, const char*, a0_shm_t* out);
+errno_t a0_topic_manager_open_rpc_client_topic(a0_topic_manager_t*, const char*, a0_shm_t* out);
 
 #ifdef __cplusplus
 }

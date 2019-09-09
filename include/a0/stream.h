@@ -1,7 +1,7 @@
 #ifndef A0_STREAM_H
 #define A0_STREAM_H
 
-#include <a0/shmobj.h>
+#include <a0/shm.h>
 
 #include <pthread.h>
 
@@ -10,7 +10,7 @@ extern "C" {
 #endif
 
 typedef struct a0_stream_s {
-  a0_shmobj_t _shmobj;
+  a0_shm_t _shm;
   uint64_t _seq;
   uint64_t _off;
   bool _closing;
@@ -48,7 +48,7 @@ typedef struct a0_locked_stream_s {
 } a0_locked_stream_t;
 
 errno_t a0_stream_init(a0_stream_t*,
-                       a0_shmobj_t,
+                       a0_shm_t,
                        a0_stream_protocol_t,
                        a0_stream_init_status_t* status_out,
                        a0_locked_stream_t* lk_out);
@@ -71,7 +71,7 @@ errno_t a0_stream_has_next(a0_locked_stream_t, bool*);
 errno_t a0_stream_next(a0_locked_stream_t);
 
 // Await until the given predicate is satisfied.
-// The predicate is checked when an event occurs on any stream wrapping shmobj.
+// The predicate is checked when an event occurs on any stream wrapping shm.
 // TODO: should pred take user_data?
 errno_t a0_stream_await(a0_locked_stream_t, errno_t (*pred)(a0_locked_stream_t, bool*));
 

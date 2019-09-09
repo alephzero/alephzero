@@ -23,7 +23,7 @@ typedef struct a0_publisher_s {
   a0_publisher_impl_t* _impl;
 } a0_publisher_t;
 
-errno_t a0_publisher_init(a0_publisher_t*, a0_shmobj_t);
+errno_t a0_publisher_init(a0_publisher_t*, a0_shm_t);
 errno_t a0_publisher_close(a0_publisher_t*);
 errno_t a0_pub(a0_publisher_t*, const a0_packet_t);
 
@@ -51,7 +51,7 @@ typedef struct a0_subscriber_sync_zc_s {
 } a0_subscriber_sync_zc_t;
 
 errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t*,
-                                   a0_shmobj_t,
+                                   a0_shm_t,
                                    a0_subscriber_init_t,
                                    a0_subscriber_iter_t);
 
@@ -69,7 +69,7 @@ typedef struct a0_subscriber_sync_s {
 } a0_subscriber_sync_t;
 
 errno_t a0_subscriber_sync_init(a0_subscriber_sync_t*,
-                                a0_shmobj_t,
+                                a0_shm_t,
                                 a0_alloc_t,
                                 a0_subscriber_init_t,
                                 a0_subscriber_iter_t);
@@ -88,7 +88,7 @@ typedef struct a0_subscriber_zc_s {
 } a0_subscriber_zc_t;
 
 errno_t a0_subscriber_zc_init(a0_subscriber_zc_t*,
-                              a0_shmobj_t,
+                              a0_shm_t,
                               a0_subscriber_init_t,
                               a0_subscriber_iter_t,
                               a0_zero_copy_callback_t);
@@ -105,7 +105,7 @@ typedef struct a0_subscriber_s {
 } a0_subscriber_t;
 
 errno_t a0_subscriber_init(a0_subscriber_t*,
-                           a0_shmobj_t,
+                           a0_shm_t,
                            a0_alloc_t,
                            a0_subscriber_init_t,
                            a0_subscriber_iter_t,
