@@ -6,8 +6,6 @@
 
 #include <errno.h>  // for EINVAL, ESHUTDOWN
 
-#include <utility>  // for move
-
 #ifdef __cplusplus
 extern "C" {
 #endif
