@@ -1,5 +1,16 @@
 #include <a0/alephzero.hpp>
-#include <system_error>
+#include <a0/alloc.h>          // for a0_free_realloc_allocator, a0_realloc_...
+#include <a0/common.h>         // for a0_buf_t, a0_callback_t, errno_t
+#include <a0/packet.h>         // for a0_packet_header_t, a0_packet_t, a0_pa...
+#include <a0/pubsub.h>         // for a0_subscriber_t, a0_publisher_t, a0_su...
+#include <a0/rpc.h>            // for a0_rpc_request_t, a0_rpc_server_t, a0_...
+#include <a0/shm.h>            // for a0_shm_t, a0_shm_close, a0_shm_open
+#include <a0/topic_manager.h>  // for a0_topic_manager_t, a0_topic_manager_i...
+
+#include <sched.h>  // for memcpy
+
+#include <cstdint>       // for uint8_t
+#include <system_error>  // for generic_category, system_error
 
 namespace a0 {
 namespace {
@@ -39,19 +50,25 @@ struct CDeleter {
 
 }  // namespace
 
-ShmObj::ShmObj(const std::string& path) {
-  c = c_shared<a0_shmobj_t>(a0_shmobj_close);
-  check(a0_shmobj_open(path.c_str(), nullptr, &*c));
+Shm::Shm(const std::string& path) {
+  c = c_shared<a0_shm_t>(a0_shm_close);
+  check(a0_shm_open(path.c_str(), nullptr, &*c));
 }
-ShmObj::ShmObj(const std::string& path, const Options& opts) {
-  a0_shmobj_options_t c_shmobj_opts{
+
+Shm::Shm(const std::string& path, const Options& opts) {
+  a0_shm_options_t c_shm_opts{
       .size = opts.size,
   };
-  c = c_shared<a0_shmobj_t>(a0_shmobj_close);
-  check(a0_shmobj_open(path.c_str(), &c_shmobj_opts, &*c));
+  c = c_shared<a0_shm_t>(a0_shm_close);
+  check(a0_shm_open(path.c_str(), &c_shm_opts, &*c));
 }
-void ShmObj::unlink(const std::string& path) {
-  check(a0_shmobj_unlink(path.c_str()));
+
+std::string Shm::path() const {
+  return c->path;
+}
+
+void Shm::unlink(const std::string& path) {
+  check(a0_shm_unlink(path.c_str()));
 }
 
 size_t PacketView::num_headers() const {
@@ -143,11 +160,11 @@ std::string Packet::id() const {
   return c_id;
 }
 
-Publisher::Publisher(ShmObj shmobj) {
-  c = c_shared<a0_publisher_t>([shmobj](a0_publisher_t* pub) {
+Publisher::Publisher(Shm shm) {
+  c = c_shared<a0_publisher_t>([shm](a0_publisher_t* pub) {
     return a0_publisher_close(pub);
   });
-  check(a0_publisher_init(&*c, *shmobj.c));
+  check(a0_publisher_init(&*c, shm.c->buf));
 }
 
 void Publisher::pub(const Packet& pkt) {
@@ -158,16 +175,14 @@ void Publisher::pub(std::string_view payload) {
   pub(Packet(payload));
 }
 
-SubscriberSync::SubscriberSync(ShmObj shmobj,
-                               a0_subscriber_init_t init,
-                               a0_subscriber_iter_t iter) {
+SubscriberSync::SubscriberSync(Shm shm, a0_subscriber_init_t init, a0_subscriber_iter_t iter) {
   auto alloc = a0_realloc_allocator();
-  c = c_shared<a0_subscriber_sync_t>([shmobj, alloc](a0_subscriber_sync_t* sub_sync) {
+  c = c_shared<a0_subscriber_sync_t>([shm, alloc](a0_subscriber_sync_t* sub_sync) {
     auto err = a0_subscriber_sync_close(sub_sync);
     a0_free_realloc_allocator(alloc);
     return err;
   });
-  check(a0_subscriber_sync_init(&*c, *shmobj.c, alloc, init, iter));
+  check(a0_subscriber_sync_init(&*c, shm.c->buf, alloc, init, iter));
 }
 
 bool SubscriberSync::has_next() {
@@ -182,12 +197,12 @@ PacketView SubscriberSync::next() {
   return PacketView{.c = c_pkt};
 }
 
-Subscriber::Subscriber(ShmObj shmobj,
+Subscriber::Subscriber(Shm shm,
                        a0_subscriber_init_t init,
                        a0_subscriber_iter_t iter,
                        std::function<void(PacketView)> fn) {
   CDeleter<a0_subscriber_t> deleter;
-  deleter.also.push_back([shmobj]() {});
+  deleter.also.push_back([shm]() {});
 
   auto heap_fn = new std::function<void(PacketView)>(std::move(fn));
   a0_packet_callback_t callback = {
@@ -209,7 +224,7 @@ Subscriber::Subscriber(ShmObj shmobj,
   deleter.primary = a0_subscriber_close;
 
   c = c_shared<a0_subscriber_t>(deleter);
-  check(a0_subscriber_init(&*c, *shmobj.c, alloc, init, iter, callback));
+  check(a0_subscriber_init(&*c, shm.c->buf, alloc, init, iter, callback));
 }
 
 void Subscriber::async_close(std::function<void()> fn) {
@@ -253,11 +268,11 @@ void RpcRequest::reply(std::string_view payload) {
   reply(Packet(payload));
 }
 
-RpcServer::RpcServer(ShmObj shmobj,
+RpcServer::RpcServer(Shm shm,
                      std::function<void(RpcRequest)> onrequest,
                      std::function<void(std::string)> oncancel) {
   CDeleter<a0_rpc_server_t> deleter;
-  deleter.also.push_back([shmobj]() {});
+  deleter.also.push_back([shm]() {});
 
   auto heap_onrequest = new std::function<void(RpcRequest)>(std::move(onrequest));
   deleter.also.push_back([heap_onrequest]() {
@@ -293,7 +308,7 @@ RpcServer::RpcServer(ShmObj shmobj,
   deleter.primary = a0_rpc_server_close;
 
   c = c_shared<a0_rpc_server_t>(deleter);
-  check(a0_rpc_server_init(&*c, *shmobj.c, alloc, c_onrequest, c_oncancel));
+  check(a0_rpc_server_init(&*c, shm.c->buf, alloc, c_onrequest, c_oncancel));
 }
 
 void RpcServer::async_close(std::function<void()> fn) {
@@ -318,9 +333,9 @@ void RpcServer::async_close(std::function<void()> fn) {
   check(a0_rpc_server_async_close(&*heap_data->c, callback));
 }
 
-RpcClient::RpcClient(ShmObj shmobj) {
+RpcClient::RpcClient(Shm shm) {
   CDeleter<a0_rpc_client_t> deleter;
-  deleter.also.push_back([shmobj]() {});
+  deleter.also.push_back([shm]() {});
 
   auto alloc = a0_realloc_allocator();
   deleter.also.push_back([alloc]() {
@@ -330,7 +345,7 @@ RpcClient::RpcClient(ShmObj shmobj) {
   deleter.primary = a0_rpc_client_close;
 
   c = c_shared<a0_rpc_client_t>(deleter);
-  check(a0_rpc_client_init(&*c, *shmobj.c, alloc));
+  check(a0_rpc_client_init(&*c, shm.c->buf, alloc));
 }
 
 void RpcClient::async_close(std::function<void()> fn) {
@@ -382,34 +397,34 @@ TopicManager::TopicManager(const std::string& json) {
   check(a0_topic_manager_init_jsonstr(&*c, json.c_str()));
 }
 
-ShmObj TopicManager::config_topic() {
-  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
-  check(a0_topic_manager_open_config_topic(&*c, &*shmobj.c));
-  return shmobj;
+Shm TopicManager::config_topic() {
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  check(a0_topic_manager_open_config_topic(&*c, &*shm.c));
+  return shm;
 }
 
-ShmObj TopicManager::publisher_topic(const std::string& name) {
-  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
-  check(a0_topic_manager_open_publisher_topic(&*c, name.c_str(), &*shmobj.c));
-  return shmobj;
+Shm TopicManager::publisher_topic(const std::string& name) {
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  check(a0_topic_manager_open_publisher_topic(&*c, name.c_str(), &*shm.c));
+  return shm;
 }
 
-ShmObj TopicManager::subscriber_topic(const std::string& name) {
-  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
-  check(a0_topic_manager_open_subscriber_topic(&*c, name.c_str(), &*shmobj.c));
-  return shmobj;
+Shm TopicManager::subscriber_topic(const std::string& name) {
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  check(a0_topic_manager_open_subscriber_topic(&*c, name.c_str(), &*shm.c));
+  return shm;
 }
 
-ShmObj TopicManager::rpc_server_topic(const std::string& name) {
-  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
-  check(a0_topic_manager_open_rpc_server_topic(&*c, name.c_str(), &*shmobj.c));
-  return shmobj;
+Shm TopicManager::rpc_server_topic(const std::string& name) {
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  check(a0_topic_manager_open_rpc_server_topic(&*c, name.c_str(), &*shm.c));
+  return shm;
 }
 
-ShmObj TopicManager::rpc_client_topic(const std::string& name) {
-  auto shmobj = to_cpp<ShmObj>(c_shared<a0_shmobj_t>(a0_shmobj_close));
-  check(a0_topic_manager_open_rpc_client_topic(&*c, name.c_str(), &*shmobj.c));
-  return shmobj;
+Shm TopicManager::rpc_client_topic(const std::string& name) {
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  check(a0_topic_manager_open_rpc_client_topic(&*c, name.c_str(), &*shm.c));
+  return shm;
 }
 
 }  // namespace a0

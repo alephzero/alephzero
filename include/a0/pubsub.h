@@ -1,8 +1,10 @@
 #ifndef A0_PUBSUB_H
 #define A0_PUBSUB_H
 
-#include <a0/packet.h>
-#include <a0/stream.h>
+#include <a0/alloc.h>   // for a0_alloc_t
+#include <a0/common.h>  // for errno_t, a0_buf_t, a0_callback_t
+#include <a0/packet.h>  // for a0_packet_t, a0_packet_callback_t
+#include <a0/stream.h>  // for a0_locked_stream_t
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,7 +25,7 @@ typedef struct a0_publisher_s {
   a0_publisher_impl_t* _impl;
 } a0_publisher_t;
 
-errno_t a0_publisher_init(a0_publisher_t*, a0_shmobj_t);
+errno_t a0_publisher_init(a0_publisher_t*, a0_buf_t arena);
 errno_t a0_publisher_close(a0_publisher_t*);
 errno_t a0_pub(a0_publisher_t*, const a0_packet_t);
 
@@ -51,7 +53,7 @@ typedef struct a0_subscriber_sync_zc_s {
 } a0_subscriber_sync_zc_t;
 
 errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t*,
-                                   a0_shmobj_t,
+                                   a0_buf_t arena,
                                    a0_subscriber_init_t,
                                    a0_subscriber_iter_t);
 
@@ -69,7 +71,7 @@ typedef struct a0_subscriber_sync_s {
 } a0_subscriber_sync_t;
 
 errno_t a0_subscriber_sync_init(a0_subscriber_sync_t*,
-                                a0_shmobj_t,
+                                a0_buf_t arena,
                                 a0_alloc_t,
                                 a0_subscriber_init_t,
                                 a0_subscriber_iter_t);
@@ -88,7 +90,7 @@ typedef struct a0_subscriber_zc_s {
 } a0_subscriber_zc_t;
 
 errno_t a0_subscriber_zc_init(a0_subscriber_zc_t*,
-                              a0_shmobj_t,
+                              a0_buf_t arena,
                               a0_subscriber_init_t,
                               a0_subscriber_iter_t,
                               a0_zero_copy_callback_t);
@@ -105,7 +107,7 @@ typedef struct a0_subscriber_s {
 } a0_subscriber_t;
 
 errno_t a0_subscriber_init(a0_subscriber_t*,
-                           a0_shmobj_t,
+                           a0_buf_t arena,
                            a0_alloc_t,
                            a0_subscriber_init_t,
                            a0_subscriber_iter_t,

@@ -1,4 +1,5 @@
 #include <a0/rpc.h>
+#include <a0/shm.h>
 
 #include <doctest.h>
 
@@ -13,19 +14,19 @@
 static const char kTestShm[] = "/test.shm";
 
 struct RpcFixture {
-  a0_shmobj_t shmobj;
+  a0_shm_t shm;
 
   RpcFixture() {
-    a0_shmobj_unlink(kTestShm);
+    a0_shm_unlink(kTestShm);
 
-    a0_shmobj_options_t shmopt;
+    a0_shm_options_t shmopt;
     shmopt.size = 16 * 1024 * 1024;
-    a0_shmobj_open(kTestShm, &shmopt, &shmobj);
+    a0_shm_open(kTestShm, &shmopt, &shm);
   }
 
   ~RpcFixture() {
-    a0_shmobj_close(&shmobj);
-    a0_shmobj_unlink(kTestShm);
+    a0_shm_close(&shm);
+    a0_shm_unlink(kTestShm);
   }
 };
 
@@ -69,10 +70,11 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE(a0_rpc_server_init(&server, shmobj, a0::test::allocator(), onrequest, oncancel) == A0_OK);
+  REQUIRE(a0_rpc_server_init(&server, shm.buf, a0::test::allocator(), onrequest, oncancel) ==
+          A0_OK);
 
   a0_rpc_client_t client;
-  REQUIRE(a0_rpc_client_init(&client, shmobj, a0::test::allocator()) == A0_OK);
+  REQUIRE(a0_rpc_client_init(&client, shm.buf, a0::test::allocator()) == A0_OK);
 
   a0_packet_callback_t onreply = {
       .user_data = &data,

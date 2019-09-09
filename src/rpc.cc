@@ -1,13 +1,23 @@
-#include <a0/rpc.h>
+#include <a0/alloc.h>   // for a0_alloc_t
+#include <a0/common.h>  // for errno_t, a0_callback_t, A0_OK, a0_buf_t
+#include <a0/packet.h>  // for a0_packet_header_t, a0_packet_id, a0_pack...
+#include <a0/rpc.h>     // for a0_rpc_client_t, a0_rpc_client_impl_t
+#include <a0/stream.h>  // for a0_locked_stream_t, a0_stream_commit, a0_...
 
-#include <string.h>
+#include <errno.h>   // for ESHUTDOWN, EINVAL
+#include <sched.h>   // for memcpy
+#include <stdint.h>  // for uint64_t, uint8_t
+#include <string.h>  // for strcmp, size_t, strlen
 
-#include <condition_variable>
-#include <unordered_map>
+#include <chrono>         // for nanoseconds, duration_cast, duration, ste...
+#include <memory>         // for shared_ptr, __shared_ptr_access, make_shared
+#include <mutex>          // for mutex, unique_lock
+#include <string>         // for string, to_string, basic_string
+#include <unordered_map>  // for unordered_map, unordered_map<>::mapped_type
 
-#include "macros.h"
-#include "packet_tools.h"
-#include "stream_tools.hh"
+#include "macros.h"         // for A0_INTERNAL_RETURN_ERR_ON_ERR, A0_STATIC_...
+#include "packet_tools.h"   // for a0_packet_copy_with_additional_headers
+#include "stream_tools.hh"  // for stream_thread, stream_allocator, stream_t...
 
 //////////////////
 //  Rpc Common  //
@@ -52,7 +62,7 @@ struct a0_rpc_server_impl_s {
 };
 
 errno_t a0_rpc_server_init(a0_rpc_server_t* server,
-                           a0_shmobj_t shmobj,
+                           a0_buf_t arena,
                            a0_alloc_t alloc,
                            a0_rpc_request_callback_t onrequest,
                            a0_packet_id_callback_t oncancel) {
@@ -110,7 +120,7 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
     handle_pkt(slk);
   };
 
-  return server->_impl->worker.init(shmobj,
+  return server->_impl->worker.init(arena,
                                     protocol_info(),
                                     on_stream_init,
                                     on_stream_nonempty,
@@ -215,7 +225,7 @@ struct a0_rpc_client_impl_s {
   bool started_empty{false};
 };
 
-errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_shmobj_t shmobj, a0_alloc_t alloc) {
+errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_buf_t arena, a0_alloc_t alloc) {
   client->_impl = new a0_rpc_client_impl_t;
   client->_impl->state = std::make_shared<rpc_state>();
 
@@ -287,7 +297,7 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_shmobj_t shmobj, a0_alloc
     handle_pkt(slk);
   };
 
-  return client->_impl->worker.init(shmobj,
+  return client->_impl->worker.init(arena,
                                     protocol_info(),
                                     on_stream_init,
                                     on_stream_nonempty,

@@ -1,30 +1,32 @@
-#include <a0/alloc.h>
-#include <a0/common.h>
-#include <a0/packet.h>
-#include <a0/pubsub.h>
-#include <a0/rpc.h>
-#include <a0/shmobj.h>
-#include <a0/stream.h>
-#include <a0/topic_manager.h>
-
-#include <functional>
-#include <memory>
-#include <string>
-#include <string_view>
-#include <vector>
+#include <a0/packet.h>         // for a0_packet_t
+#include <a0/pubsub.h>         // for a0_subscriber_init_t, a0_subscriber_it...
+#include <a0/rpc.h>            // for a0_rpc_client_t, a0_rpc_request_t, a0_...
+#include <a0/shm.h>            // for a0_shm_t
+#include <a0/topic_manager.h>  // for a0_topic_manager_t
+#include <stddef.h>            // for size_t
+#include <stdint.h>            // for uint8_t
+#include <sys/types.h>         // for off_t
+#include <functional>          // for function
+#include <memory>              // for shared_ptr
+#include <string>              // for string
+#include <string_view>         // for string_view
+#include <utility>             // for pair
+#include <vector>              // for vector
 
 namespace a0 {
 
-struct ShmObj {
-  std::shared_ptr<a0_shmobj_t> c;
+struct Shm {
+  std::shared_ptr<a0_shm_t> c;
 
   struct Options {
     off_t size;
   };
 
-  ShmObj() = default;
-  ShmObj(const std::string& path);
-  ShmObj(const std::string& path, const Options&);
+  Shm() = default;
+  Shm(const std::string& path);
+  Shm(const std::string& path, const Options&);
+
+  std::string path() const;
 
   static void unlink(const std::string& path);
 };
@@ -60,7 +62,7 @@ struct Publisher {
   std::shared_ptr<a0_publisher_t> c;
 
   Publisher() = default;
-  Publisher(ShmObj);
+  Publisher(Shm);
 
   void pub(const Packet&);
   void pub(std::string_view);
@@ -70,7 +72,7 @@ struct SubscriberSync {
   std::shared_ptr<a0_subscriber_sync_t> c;
 
   SubscriberSync() = default;
-  SubscriberSync(ShmObj, a0_subscriber_init_t, a0_subscriber_iter_t);
+  SubscriberSync(Shm, a0_subscriber_init_t, a0_subscriber_iter_t);
 
   bool has_next();
   PacketView next();
@@ -80,7 +82,7 @@ struct Subscriber {
   std::shared_ptr<a0_subscriber_t> c;
 
   Subscriber() = default;
-  Subscriber(ShmObj, a0_subscriber_init_t, a0_subscriber_iter_t, std::function<void(PacketView)>);
+  Subscriber(Shm, a0_subscriber_init_t, a0_subscriber_iter_t, std::function<void(PacketView)>);
   void async_close(std::function<void()>);
 };
 
@@ -100,7 +102,7 @@ struct RpcServer {
   std::shared_ptr<a0_rpc_server_t> c;
 
   RpcServer() = default;
-  RpcServer(ShmObj, std::function<void(RpcRequest)> onrequest, std::function<void(std::string)> oncancel);
+  RpcServer(Shm, std::function<void(RpcRequest)> onrequest, std::function<void(std::string)> oncancel);
   void async_close(std::function<void()>);
 };
 
@@ -108,7 +110,7 @@ struct RpcClient {
   std::shared_ptr<a0_rpc_client_t> c;
 
   RpcClient() = default;
-  RpcClient(ShmObj);
+  RpcClient(Shm);
   void async_close(std::function<void()>);
 
   void send(const Packet&, std::function<void(PacketView)>);
@@ -123,11 +125,11 @@ struct TopicManager {
   // TODO: TopicManager(const Options&);
   TopicManager(const std::string& json);
 
-  ShmObj config_topic();
-  ShmObj publisher_topic(const std::string&);
-  ShmObj subscriber_topic(const std::string&);
-  ShmObj rpc_server_topic(const std::string&);
-  ShmObj rpc_client_topic(const std::string&);
+  Shm config_topic();
+  Shm publisher_topic(const std::string&);
+  Shm subscriber_topic(const std::string&);
+  Shm rpc_server_topic(const std::string&);
+  Shm rpc_client_topic(const std::string&);
 };
 
 }  // namespace a0;

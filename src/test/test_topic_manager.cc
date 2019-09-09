@@ -1,7 +1,7 @@
 #include <a0/common.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
-#include <a0/shmobj.h>
+#include <a0/shm.h>
 #include <a0/topic_manager.h>
 
 #include <doctest.h>
@@ -29,11 +29,11 @@ static const char kJsonConfig[] = R"({
 
 struct TopicManagerFixture {
   TopicManagerFixture() {
-    a0_shmobj_unlink("/a0_pubsub__container__pub_topic");
+    a0_shm_unlink("/a0_pubsub__container__pub_topic");
   }
 
   ~TopicManagerFixture() {
-    a0_shmobj_unlink("/a0_pubsub__container__pub_topic");
+    a0_shm_unlink("/a0_pubsub__container__pub_topic");
   }
 
   a0_packet_t make_packet(std::string data) {
@@ -54,27 +54,27 @@ TEST_CASE_FIXTURE(TopicManagerFixture, "Test topic manager pubsub") {
   REQUIRE(a0_topic_manager_init_jsonstr(&topic_manager, kJsonConfig) == A0_OK);
 
   {
-    a0_shmobj_t shmobj;
-    REQUIRE(a0_topic_manager_open_publisher_topic(&topic_manager, "pub_topic", &shmobj) == A0_OK);
+    a0_shm_t shm;
+    REQUIRE(a0_topic_manager_open_publisher_topic(&topic_manager, "pub_topic", &shm) == A0_OK);
 
     a0_publisher_t pub;
-    REQUIRE(a0_publisher_init(&pub, shmobj) == A0_OK);
+    REQUIRE(a0_publisher_init(&pub, shm.buf) == A0_OK);
 
     REQUIRE(a0_pub(&pub, make_packet("msg #0")) == A0_OK);
     REQUIRE(a0_pub(&pub, make_packet("msg #1")) == A0_OK);
 
     REQUIRE(a0_publisher_close(&pub) == A0_OK);
 
-    REQUIRE(a0_shmobj_close(&shmobj) == A0_OK);
+    REQUIRE(a0_shm_close(&shm) == A0_OK);
   }
 
   {
-    a0_shmobj_t shmobj;
-    REQUIRE(a0_topic_manager_open_subscriber_topic(&topic_manager, "sub_topic", &shmobj) == A0_OK);
+    a0_shm_t shm;
+    REQUIRE(a0_topic_manager_open_subscriber_topic(&topic_manager, "sub_topic", &shm) == A0_OK);
 
     a0_subscriber_sync_t sub;
     REQUIRE(a0_subscriber_sync_init(&sub,
-                                    shmobj,
+                                    shm.buf,
                                     a0::test::allocator(),
                                     A0_INIT_MOST_RECENT,
                                     A0_ITER_NEWEST) == A0_OK);
@@ -101,7 +101,7 @@ TEST_CASE_FIXTURE(TopicManagerFixture, "Test topic manager pubsub") {
     }
 
     REQUIRE(a0_subscriber_sync_close(&sub) == A0_OK);
-    REQUIRE(a0_shmobj_close(&shmobj) == A0_OK);
+    REQUIRE(a0_shm_close(&shm) == A0_OK);
   }
 
   REQUIRE(a0_topic_manager_close(&topic_manager) == A0_OK);
