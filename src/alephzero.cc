@@ -68,7 +68,13 @@ std::string Shm::path() const {
 }
 
 void Shm::unlink(const std::string& path) {
-  check(a0_shm_unlink(path.c_str()));
+  auto err = a0_shm_unlink(path.c_str());
+  // Ignore "No such file or directory" errors.
+  if (err == ENOENT) {
+    return;
+  }
+
+  check(err);
 }
 
 size_t PacketView::num_headers() const {
@@ -160,12 +166,63 @@ std::string Packet::id() const {
   return c_id;
 }
 
+TopicManager::TopicManager(const std::string& json) {
+  c = c_shared<a0_topic_manager_t>(a0_topic_manager_close);
+  check(a0_topic_manager_init_jsonstr(&*c, json.c_str()));
+}
+
+Shm TopicManager::config_topic() {
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  check(a0_topic_manager_open_config_topic(&*c, &*shm.c));
+  return shm;
+}
+
+Shm TopicManager::publisher_topic(const std::string& name) {
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  check(a0_topic_manager_open_publisher_topic(&*c, name.c_str(), &*shm.c));
+  return shm;
+}
+
+Shm TopicManager::subscriber_topic(const std::string& name) {
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  check(a0_topic_manager_open_subscriber_topic(&*c, name.c_str(), &*shm.c));
+  return shm;
+}
+
+Shm TopicManager::rpc_server_topic(const std::string& name) {
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  check(a0_topic_manager_open_rpc_server_topic(&*c, name.c_str(), &*shm.c));
+  return shm;
+}
+
+Shm TopicManager::rpc_client_topic(const std::string& name) {
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  check(a0_topic_manager_open_rpc_client_topic(&*c, name.c_str(), &*shm.c));
+  return shm;
+}
+
+TopicManager& global_topic_manager() {
+  static TopicManager tm;
+  return tm;
+}
+
+void InitGlobalTopicManager(TopicManager tm) {
+  global_topic_manager() = std::move(tm);
+}
+
+void InitGlobalTopicManager(const std::string& json) {
+  InitGlobalTopicManager(TopicManager(json));
+}
+
 Publisher::Publisher(Shm shm) {
   c = c_shared<a0_publisher_t>([shm](a0_publisher_t* pub) {
     return a0_publisher_close(pub);
   });
   check(a0_publisher_init(&*c, shm.c->buf));
 }
+
+Publisher::Publisher(const std::string& topic)
+    : Publisher(global_topic_manager().publisher_topic(topic)) {}
 
 void Publisher::pub(const Packet& pkt) {
   check(a0_pub(&*c, pkt.c()));
@@ -184,6 +241,11 @@ SubscriberSync::SubscriberSync(Shm shm, a0_subscriber_init_t init, a0_subscriber
   });
   check(a0_subscriber_sync_init(&*c, shm.c->buf, alloc, init, iter));
 }
+
+SubscriberSync::SubscriberSync(const std::string& topic,
+                               a0_subscriber_init_t init,
+                               a0_subscriber_iter_t iter)
+    : SubscriberSync(global_topic_manager().subscriber_topic(topic), init, iter) {}
 
 bool SubscriberSync::has_next() {
   bool has_next;
@@ -226,6 +288,12 @@ Subscriber::Subscriber(Shm shm,
   c = c_shared<a0_subscriber_t>(deleter);
   check(a0_subscriber_init(&*c, shm.c->buf, alloc, init, iter, callback));
 }
+
+Subscriber::Subscriber(const std::string& topic,
+                       a0_subscriber_init_t init,
+                       a0_subscriber_iter_t iter,
+                       std::function<void(PacketView)> fn)
+    : Subscriber(global_topic_manager().subscriber_topic(topic), init, iter, std::move(fn)) {}
 
 void Subscriber::async_close(std::function<void()> fn) {
   auto* deleter = std::get_deleter<CDeleter<a0_subscriber_t>>(c);
@@ -311,6 +379,13 @@ RpcServer::RpcServer(Shm shm,
   check(a0_rpc_server_init(&*c, shm.c->buf, alloc, c_onrequest, c_oncancel));
 }
 
+RpcServer::RpcServer(const std::string& topic,
+                     std::function<void(RpcRequest)> onrequest,
+                     std::function<void(std::string)> oncancel)
+    : RpcServer(global_topic_manager().rpc_server_topic(topic),
+                std::move(onrequest),
+                std::move(oncancel)) {}
+
 void RpcServer::async_close(std::function<void()> fn) {
   auto* deleter = std::get_deleter<CDeleter<a0_rpc_server_t>>(c);
   deleter->primary = nullptr;
@@ -347,6 +422,9 @@ RpcClient::RpcClient(Shm shm) {
   c = c_shared<a0_rpc_client_t>(deleter);
   check(a0_rpc_client_init(&*c, shm.c->buf, alloc));
 }
+
+RpcClient::RpcClient(const std::string& topic)
+    : RpcClient(global_topic_manager().rpc_client_topic(topic)) {}
 
 void RpcClient::async_close(std::function<void()> fn) {
   auto* deleter = std::get_deleter<CDeleter<a0_rpc_client_t>>(c);
@@ -390,41 +468,6 @@ void RpcClient::send(std::string_view payload, std::function<void(PacketView)> f
 
 void RpcClient::cancel(const std::string& id) {
   check(a0_rpc_cancel(&*c, id.c_str()));
-}
-
-TopicManager::TopicManager(const std::string& json) {
-  c = c_shared<a0_topic_manager_t>(a0_topic_manager_close);
-  check(a0_topic_manager_init_jsonstr(&*c, json.c_str()));
-}
-
-Shm TopicManager::config_topic() {
-  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
-  check(a0_topic_manager_open_config_topic(&*c, &*shm.c));
-  return shm;
-}
-
-Shm TopicManager::publisher_topic(const std::string& name) {
-  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
-  check(a0_topic_manager_open_publisher_topic(&*c, name.c_str(), &*shm.c));
-  return shm;
-}
-
-Shm TopicManager::subscriber_topic(const std::string& name) {
-  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
-  check(a0_topic_manager_open_subscriber_topic(&*c, name.c_str(), &*shm.c));
-  return shm;
-}
-
-Shm TopicManager::rpc_server_topic(const std::string& name) {
-  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
-  check(a0_topic_manager_open_rpc_server_topic(&*c, name.c_str(), &*shm.c));
-  return shm;
-}
-
-Shm TopicManager::rpc_client_topic(const std::string& name) {
-  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
-  check(a0_topic_manager_open_rpc_client_topic(&*c, name.c_str(), &*shm.c));
-  return shm;
 }
 
 }  // namespace a0

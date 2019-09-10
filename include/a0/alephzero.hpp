@@ -58,11 +58,30 @@ struct Packet {
   std::string id() const;
 };
 
+struct TopicManager {
+  std::shared_ptr<a0_topic_manager_t> c;
+
+  TopicManager() = default;
+  // TODO: TopicManager(const Options&);
+  TopicManager(const std::string& json);
+
+  Shm config_topic();
+  Shm publisher_topic(const std::string&);
+  Shm subscriber_topic(const std::string&);
+  Shm rpc_server_topic(const std::string&);
+  Shm rpc_client_topic(const std::string&);
+};
+
+void InitGlobalTopicManager(TopicManager);
+void InitGlobalTopicManager(const std::string& json);
+
 struct Publisher {
   std::shared_ptr<a0_publisher_t> c;
 
   Publisher() = default;
   Publisher(Shm);
+  // User-friendly constructor that uses GlobalTopicManager publisher_topic for shm.
+  Publisher(const std::string&);
 
   void pub(const Packet&);
   void pub(std::string_view);
@@ -73,6 +92,8 @@ struct SubscriberSync {
 
   SubscriberSync() = default;
   SubscriberSync(Shm, a0_subscriber_init_t, a0_subscriber_iter_t);
+  // User-friendly constructor that uses GlobalTopicManager subscriber_topic for shm.
+  SubscriberSync(const std::string&, a0_subscriber_init_t, a0_subscriber_iter_t);
 
   bool has_next();
   PacketView next();
@@ -83,6 +104,8 @@ struct Subscriber {
 
   Subscriber() = default;
   Subscriber(Shm, a0_subscriber_init_t, a0_subscriber_iter_t, std::function<void(PacketView)>);
+  // User-friendly constructor that uses GlobalTopicManager subscriber_topic for shm.
+  Subscriber(const std::string&, a0_subscriber_init_t, a0_subscriber_iter_t, std::function<void(PacketView)>);  // Uses GlobalTopicManager.
   void async_close(std::function<void()>);
 };
 
@@ -103,6 +126,8 @@ struct RpcServer {
 
   RpcServer() = default;
   RpcServer(Shm, std::function<void(RpcRequest)> onrequest, std::function<void(std::string)> oncancel);
+  // User-friendly constructor that uses GlobalTopicManager rpc_server_topic for shm.
+  RpcServer(const std::string&, std::function<void(RpcRequest)> onrequest, std::function<void(std::string)> oncancel);
   void async_close(std::function<void()>);
 };
 
@@ -111,25 +136,13 @@ struct RpcClient {
 
   RpcClient() = default;
   RpcClient(Shm);
+  // User-friendly constructor that uses GlobalTopicManager rpc_client_topic for shm.
+  RpcClient(const std::string&);
   void async_close(std::function<void()>);
 
   void send(const Packet&, std::function<void(PacketView)>);
   void send(std::string_view, std::function<void(PacketView)>);
   void cancel(const std::string&);
-};
-
-struct TopicManager {
-  std::shared_ptr<a0_topic_manager_t> c;
-
-  TopicManager() = default;
-  // TODO: TopicManager(const Options&);
-  TopicManager(const std::string& json);
-
-  Shm config_topic();
-  Shm publisher_topic(const std::string&);
-  Shm subscriber_topic(const std::string&);
-  Shm rpc_server_topic(const std::string&);
-  Shm rpc_client_topic(const std::string&);
 };
 
 }  // namespace a0;

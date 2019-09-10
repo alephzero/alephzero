@@ -8,7 +8,7 @@
 #include <mutex>
 #include <thread>
 
-static const char kSendClock[] = "a0_send_clock";
+static const char kSendClock[] = "a0_clock";
 
 namespace a0 {
 
