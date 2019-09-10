@@ -28,15 +28,21 @@ TEST_LDLIBS += -lm
 
 DEBUG ?= 0
 ifneq ($(DEBUG), 1)
-	REQUIRE_DEBUG := $(filter $(MAKECMDGOALS),cov tsan)
+	REQUIRE_DEBUG := $(filter $(MAKECMDGOALS),asan tsan ubsan cov)
 	DEBUG = $(if $(REQUIRE_DEBUG), 1, 0)
 endif
 
 cov: CXFLAGS += -fprofile-arcs -ftest-coverage --coverage
 cov: LDLIBS += -lgcov
 
+asan: CXFLAGS += -fsanitize=address -fsanitize=leak
+asan: LDLIBS += -fsanitize=address -fsanitize=leak
+
 tsan: CXFLAGS += -fsanitize=thread
 tsan: LDLIBS += -fsanitize=thread
+
+ubsan: CXFLAGS += -fsanitize=undefined
+ubsan: LDLIBS += -fsanitize=undefined -lubsan
 
 ifeq ($(DEBUG), 1)
 	CXFLAGS += -O0 -g3 -ggdb3 -DDEBUG
@@ -99,8 +105,8 @@ uninstall:
 test: $(BIN_DIR)/test
 	$(BIN_DIR)/test
 
-tsan: $(BIN_DIR)/test
-	$(BIN_DIR)/test
+asan tsan ubsan: $(BIN_DIR)/test
+	RUNNING_ON_VALGRIND=1 $(BIN_DIR)/test
 
 cov: $(BIN_DIR)/test
 	@mkdir -p cov/web
