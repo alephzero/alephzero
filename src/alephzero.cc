@@ -168,7 +168,7 @@ std::string Packet::id() const {
 
 TopicManager::TopicManager(const std::string& json) {
   c = c_shared<a0_topic_manager_t>(a0_topic_manager_close);
-  check(a0_topic_manager_init_jsonstr(&*c, json.c_str()));
+  check(a0_topic_manager_init(&*c, json.c_str()));
 }
 
 Shm TopicManager::config_topic() {

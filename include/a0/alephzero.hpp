@@ -62,7 +62,6 @@ struct TopicManager {
   std::shared_ptr<a0_topic_manager_t> c;
 
   TopicManager() = default;
-  // TODO: TopicManager(const Options&);
   TopicManager(const std::string& json);
 
   Shm config_topic();

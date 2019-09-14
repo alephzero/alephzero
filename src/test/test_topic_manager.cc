@@ -51,7 +51,7 @@ struct TopicManagerFixture {
 
 TEST_CASE_FIXTURE(TopicManagerFixture, "Test topic manager pubsub") {
   a0_topic_manager_t topic_manager;
-  REQUIRE(a0_topic_manager_init_jsonstr(&topic_manager, kJsonConfig) == A0_OK);
+  REQUIRE(a0_topic_manager_init(&topic_manager, kJsonConfig) == A0_OK);
 
   {
     a0_shm_t shm;

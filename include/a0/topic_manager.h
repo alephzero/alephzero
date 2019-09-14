@@ -10,22 +10,30 @@
 extern "C" {
 #endif
 
-typedef struct a0_topic_map_s {
-  const char* name;
-
-  const char* container;
-  const char* topic;
-} a0_topic_map_t;
-
-typedef struct a0_topic_manager_options_s {
-  const char* container;
-
-  size_t num_subscriber_maps;
-  a0_topic_map_t* subscriber_maps;
-
-  size_t num_rpc_client_maps;
-  a0_topic_map_t* rpc_client_maps;
-} a0_topic_manager_options_t;
+// Topic manager schema:
+// {
+//   "type": "object",
+//   "properties": {
+//     "container": { "type": "string" },
+//   },
+//   "patternProperties": {
+//     "subscriber_maps|rpc_client_maps": {
+//       "type": "object",
+//       "patternProperties": {
+//         ".*": {
+//           "type": "object",
+//           "properties": {
+//             "container": { "type": "string" },
+//             "topic": { "type": "string" }
+//           },
+//           "required": [ "container", "topic" ]
+//         }
+//       }
+//     },
+//   },
+//   "additionalProperties": false,
+//   "required": [ "container" ]
+// }
 
 typedef struct a0_topic_manager_impl_s a0_topic_manager_impl_t;
 
@@ -33,8 +41,7 @@ typedef struct a0_topic_manager_s {
   a0_topic_manager_impl_t* _impl;
 } a0_topic_manager_t;
 
-errno_t a0_topic_manager_init(a0_topic_manager_t*, a0_topic_manager_options_t);
-errno_t a0_topic_manager_init_jsonstr(a0_topic_manager_t*, const char*);
+errno_t a0_topic_manager_init(a0_topic_manager_t*, const char* json);
 errno_t a0_topic_manager_close(a0_topic_manager_t*);
 
 errno_t a0_topic_manager_open_config_topic(a0_topic_manager_t*, a0_shm_t* out);
