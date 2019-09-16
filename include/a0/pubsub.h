@@ -116,6 +116,18 @@ errno_t a0_subscriber_init(a0_subscriber_t*,
 errno_t a0_subscriber_close(a0_subscriber_t*);
 errno_t a0_subscriber_async_close(a0_subscriber_t*, a0_callback_t);
 
+// One-off reader.
+
+// Defaults to blocking mode.
+// Pass O_NDELAY or O_NONBLOCK to flags to run non-blocking.
+// If non-blocking and stream is empty, returns EAGAIN.
+
+errno_t a0_subscriber_read_one(a0_buf_t arena,
+                               a0_alloc_t,
+                               a0_subscriber_init_t,
+                               int flags,
+                               a0_packet_t*);
+
 #ifdef __cplusplus
 }
 #endif

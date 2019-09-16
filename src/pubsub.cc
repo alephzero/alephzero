@@ -1,20 +1,23 @@
 #include <a0/alloc.h>   // for a0_alloc_t
 #include <a0/common.h>  // for errno_t, A0_OK, a0_buf_t, a0_callback_t
-#include <a0/packet.h>  // for a0_packet_t, a0_packet_callback_t, a0_pac...
-#include <a0/pubsub.h>
+#include <a0/packet.h>  // for a0_packet_t, a0_packet_callback_t, a0_...
+#include <a0/pubsub.h>  // for a0_subscriber_sync_zc_t, a0_subscriber...
 #include <a0/stream.h>  // for a0_stream_jump_tail, a0_locked_stream_t
 
-#include <errno.h>   // for ESHUTDOWN
+#include <errno.h>   // for ESHUTDOWN, EAGAIN
+#include <fcntl.h>   // for O_NDELAY, O_NONBLOCK
 #include <sched.h>   // for memcpy
 #include <stdint.h>  // for uint64_t, uint8_t
 #include <string.h>  // for strlen, size_t
 
-#include <chrono>  // for nanoseconds, duration_cast, duration, ste...
-#include <string>  // for to_string, string
+#include <chrono>              // for nanoseconds, duration_cast, duration
+#include <condition_variable>  // for condition_variable
+#include <mutex>               // for mutex, unique_lock
+#include <string>              // for to_string, string
 
-#include "macros.h"         // for A0_STATIC_INLINE
+#include "macros.h"         // for A0_INTERNAL_RETURN_ERR_ON_ERR, A0_STAT...
 #include "packet_tools.h"   // for a0_packet_copy_with_additional_headers
-#include "stream_tools.hh"  // for buf, sync_stream_t, stream_thread, stream...
+#include "stream_tools.hh"  // for buf, sync_stream_t, stream_thread, str...
 
 /////////////////////
 //  Pubsub Common  //
@@ -409,4 +412,66 @@ errno_t a0_subscriber_async_close(a0_subscriber_t* sub, a0_callback_t onclose) {
   sub->_impl = nullptr;
 
   return err;
+}
+
+// One-off reader.
+
+errno_t a0_subscriber_read_one(a0_buf_t arena,
+                               a0_alloc_t alloc,
+                               a0_subscriber_init_t sub_init,
+                               int flags,
+                               a0_packet_t* out) {
+  if (flags & O_NDELAY || flags & O_NONBLOCK) {
+    if (sub_init == A0_INIT_AWAIT_NEW) {
+      return EAGAIN;
+    }
+
+    a0_subscriber_sync_t sub_sync;
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_sync_init(&sub_sync, arena, alloc, sub_init, A0_ITER_NEXT));
+    struct sub_guard {
+      a0_subscriber_sync_t* sub_sync;
+      ~sub_guard() { a0_subscriber_sync_close(sub_sync); }
+    } sub_guard_{&sub_sync};
+
+    bool has_next;
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_sync_has_next(&sub_sync, &has_next));
+    if (!has_next) {
+      return EAGAIN;
+    }
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_sync_next(&sub_sync, out));
+  } else {
+    struct data_ {
+      a0_packet_t* pkt;
+      a0_subscriber_t sub{};
+      std::mutex mu{};
+      std::condition_variable cv{};
+      bool done{false};
+    } data{ .pkt = out };
+
+    a0_packet_callback_t cb = {
+        .user_data = &data,
+        .fn = [](void* user_data, a0_packet_t pkt) {
+          auto* data = (data_*)user_data;
+          *data->pkt = pkt;
+
+          a0_callback_t onclose = {
+              .user_data = user_data,
+              .fn = [](void* user_data) {
+                auto* data = (data_*)user_data;
+                std::unique_lock<std::mutex> lk{data->mu};
+                data->done = true;
+                data->cv.notify_one();
+              },
+          };
+          a0_subscriber_async_close(&data->sub, onclose);
+        },
+    };
+
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_init(&data.sub, arena, alloc, sub_init, A0_ITER_NEXT, cb));
+
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.cv.wait(lk, [&]() { return data.done; });
+  }
+
+  return A0_OK;
 }

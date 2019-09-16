@@ -1,16 +1,24 @@
-#include <a0/alephzero.hpp>
+#include <a0/alephzero.hpp>    // for Shm, Packet, TopicManager, PacketView
 #include <a0/alloc.h>          // for a0_free_realloc_allocator, a0_realloc_...
 #include <a0/common.h>         // for a0_buf_t, a0_callback_t, errno_t
 #include <a0/packet.h>         // for a0_packet_header_t, a0_packet_t, a0_pa...
 #include <a0/pubsub.h>         // for a0_subscriber_t, a0_publisher_t, a0_su...
 #include <a0/rpc.h>            // for a0_rpc_request_t, a0_rpc_server_t, a0_...
 #include <a0/shm.h>            // for a0_shm_t, a0_shm_close, a0_shm_open
-#include <a0/topic_manager.h>  // for a0_topic_manager_t, a0_topic_manager_i...
+#include <a0/topic_manager.h>  // for a0_topic_manager_t, a0_topic_manager_init
 
-#include <sched.h>  // for memcpy
+#include <errno.h>   // for ENOENT
+#include <sched.h>   // for memcpy
+#include <stddef.h>  // for size_t
 
 #include <cstdint>       // for uint8_t
+#include <functional>    // for function
+#include <memory>        // for shared_ptr, __shared_ptr_access, make_...
+#include <string>        // for string
+#include <string_view>   // for string_view, basic_string_view
 #include <system_error>  // for generic_category, system_error
+#include <utility>       // for move, pair
+#include <vector>        // for vector
 
 namespace a0 {
 namespace {

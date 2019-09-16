@@ -4,7 +4,6 @@
 
 #include <errno.h>            // for EINVAL, ESHUTDOWN
 #include <nlohmann/json.hpp>  // for basic_json, json
-#include <stddef.h>           // for size_t
 
 #include <string>         // for string, basic_string
 #include <unordered_map>  // for unordered_map, unordered_map<>::mapped...

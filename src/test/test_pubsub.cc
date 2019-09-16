@@ -4,6 +4,7 @@
 #include <a0/shm.h>
 
 #include <doctest.h>
+#include <fcntl.h>
 #include <string.h>
 
 #include <condition_variable>
@@ -96,10 +97,9 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       REQUIRE(hdrs["key"] == "val");
       REQUIRE(hdrs["a0_id"].size() == 36);
-      REQUIRE(stoull(hdrs["a0_clock"]) <
-              std::chrono::duration_cast<std::chrono::nanoseconds>(
-                  std::chrono::steady_clock::now().time_since_epoch())
-                  .count());
+      REQUIRE(stoull(hdrs["a0_clock"]) < std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                             std::chrono::steady_clock::now().time_since_epoch())
+                                             .count());
     }
 
     {
@@ -214,6 +214,99 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
     }
 
     REQUIRE(a0_subscriber_close(&sub) == A0_OK);
+  }
+}
+
+TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub read one") {
+  // TODO: Blocking, oldest, not available.
+  // TODO: Blocking, most recent, not available.
+  // TODO: Blocking, await new.
+
+  // Nonblocking, oldest, not available.
+  {
+    a0_packet_t pkt;
+    REQUIRE(
+        a0_subscriber_read_one(shm.buf, a0::test::allocator(), A0_INIT_OLDEST, O_NONBLOCK, &pkt) ==
+        EAGAIN);
+  }
+
+  // Nonblocking, most recent, not available.
+  {
+    a0_packet_t pkt;
+    REQUIRE(a0_subscriber_read_one(shm.buf,
+                                   a0::test::allocator(),
+                                   A0_INIT_MOST_RECENT,
+                                   O_NONBLOCK,
+                                   &pkt) == EAGAIN);
+  }
+
+  // Nonblocking, await new.
+  {
+    a0_packet_t pkt;
+    REQUIRE(a0_subscriber_read_one(shm.buf,
+                                   a0::test::allocator(),
+                                   A0_INIT_AWAIT_NEW,
+                                   O_NONBLOCK,
+                                   &pkt) == EAGAIN);
+  }
+
+  // Do writes.
+  {
+    a0_publisher_t pub;
+    REQUIRE(a0_publisher_init(&pub, shm.buf) == A0_OK);
+
+    REQUIRE(a0_pub(&pub, make_packet("msg #0")) == A0_OK);
+    REQUIRE(a0_pub(&pub, make_packet("msg #1")) == A0_OK);
+
+    REQUIRE(a0_publisher_close(&pub) == A0_OK);
+  }
+
+  // Blocking, oldest, available.
+  {
+    a0_packet_t pkt;
+    REQUIRE(a0_subscriber_read_one(shm.buf, a0::test::allocator(), A0_INIT_OLDEST, 0, &pkt) ==
+            A0_OK);
+
+    a0_buf_t payload;
+    REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
+    REQUIRE(a0::test::str(payload) == "msg #0");
+  }
+
+  // Blocking, most recent, available.
+  {
+    a0_packet_t pkt;
+    REQUIRE(a0_subscriber_read_one(shm.buf, a0::test::allocator(), A0_INIT_MOST_RECENT, 0, &pkt) ==
+            A0_OK);
+
+    a0_buf_t payload;
+    REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
+    REQUIRE(a0::test::str(payload) == "msg #1");
+  }
+
+  // Nonblocking, oldest, available.
+  {
+    a0_packet_t pkt;
+    REQUIRE(
+        a0_subscriber_read_one(shm.buf, a0::test::allocator(), A0_INIT_OLDEST, O_NONBLOCK, &pkt) ==
+        A0_OK);
+
+    a0_buf_t payload;
+    REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
+    REQUIRE(a0::test::str(payload) == "msg #0");
+  }
+
+  // Nonblocking, most recent, available.
+  {
+    a0_packet_t pkt;
+    REQUIRE(a0_subscriber_read_one(shm.buf,
+                                   a0::test::allocator(),
+                                   A0_INIT_MOST_RECENT,
+                                   O_NONBLOCK,
+                                   &pkt) == A0_OK);
+
+    a0_buf_t payload;
+    REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
+    REQUIRE(a0::test::str(payload) == "msg #1");
   }
 }
 
