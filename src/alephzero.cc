@@ -34,6 +34,14 @@ std::shared_ptr<C> c_shared(std::function<void(C*)> closer) {
   return std::shared_ptr<C>(new C, closer);
 }
 
+template <typename C>
+std::function<void(C*)> delete_after(std::function<void(C*)> closer) {
+  return [closer](C* c) {
+    closer(c);
+    delete c;
+  };
+}
+
 template <typename CPP, typename C>
 CPP to_cpp(std::shared_ptr<C> c) {
   CPP cpp;
@@ -59,15 +67,15 @@ struct CDeleter {
 }  // namespace
 
 Shm::Shm(const std::string& path) {
-  c = c_shared<a0_shm_t>(a0_shm_close);
+  c = c_shared<a0_shm_t>(delete_after<a0_shm_t>(a0_shm_close));
   check(a0_shm_open(path.c_str(), nullptr, &*c));
 }
 
 Shm::Shm(const std::string& path, const Options& opts) {
+  c = c_shared<a0_shm_t>(delete_after<a0_shm_t>(a0_shm_close));
   a0_shm_options_t c_shm_opts{
       .size = opts.size,
   };
-  c = c_shared<a0_shm_t>(a0_shm_close);
   check(a0_shm_open(path.c_str(), &c_shm_opts, &*c));
 }
 
@@ -175,36 +183,36 @@ std::string Packet::id() const {
 }
 
 TopicManager::TopicManager(const std::string& json) {
-  c = c_shared<a0_topic_manager_t>(a0_topic_manager_close);
+  c = c_shared<a0_topic_manager_t>(delete_after<a0_topic_manager_t>(a0_topic_manager_close));
   check(a0_topic_manager_init(&*c, json.c_str()));
 }
 
 Shm TopicManager::config_topic() {
-  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(delete_after<a0_shm_t>(a0_shm_close)));
   check(a0_topic_manager_open_config_topic(&*c, &*shm.c));
   return shm;
 }
 
 Shm TopicManager::publisher_topic(const std::string& name) {
-  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(delete_after<a0_shm_t>(a0_shm_close)));
   check(a0_topic_manager_open_publisher_topic(&*c, name.c_str(), &*shm.c));
   return shm;
 }
 
 Shm TopicManager::subscriber_topic(const std::string& name) {
-  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(delete_after<a0_shm_t>(a0_shm_close)));
   check(a0_topic_manager_open_subscriber_topic(&*c, name.c_str(), &*shm.c));
   return shm;
 }
 
 Shm TopicManager::rpc_server_topic(const std::string& name) {
-  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(delete_after<a0_shm_t>(a0_shm_close)));
   check(a0_topic_manager_open_rpc_server_topic(&*c, name.c_str(), &*shm.c));
   return shm;
 }
 
 Shm TopicManager::rpc_client_topic(const std::string& name) {
-  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(a0_shm_close));
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(delete_after<a0_shm_t>(a0_shm_close)));
   check(a0_topic_manager_open_rpc_client_topic(&*c, name.c_str(), &*shm.c));
   return shm;
 }
@@ -223,9 +231,7 @@ void InitGlobalTopicManager(const std::string& json) {
 }
 
 Publisher::Publisher(Shm shm) {
-  c = c_shared<a0_publisher_t>([shm](a0_publisher_t* pub) {
-    return a0_publisher_close(pub);
-  });
+  c = c_shared<a0_publisher_t>(delete_after<a0_publisher_t>(a0_publisher_close));
   check(a0_publisher_init(&*c, shm.c->buf));
 }
 
@@ -243,9 +249,9 @@ void Publisher::pub(std::string_view payload) {
 SubscriberSync::SubscriberSync(Shm shm, a0_subscriber_init_t init, a0_subscriber_iter_t iter) {
   auto alloc = a0_realloc_allocator();
   c = c_shared<a0_subscriber_sync_t>([shm, alloc](a0_subscriber_sync_t* sub_sync) {
-    auto err = a0_subscriber_sync_close(sub_sync);
+    a0_subscriber_sync_close(sub_sync);
     a0_free_realloc_allocator(alloc);
-    return err;
+    delete sub_sync;
   });
   check(a0_subscriber_sync_init(&*c, shm.c->buf, alloc, init, iter));
 }
@@ -323,6 +329,26 @@ void Subscriber::async_close(std::function<void()> fn) {
   };
 
   check(a0_subscriber_async_close(&*heap_data->c, callback));
+}
+
+Packet Subscriber::read_one(Shm shm, a0_subscriber_init_t init, int flags) {
+  auto alloc = a0_realloc_allocator();
+
+  PacketView pkt_view;
+  a0_subscriber_read_one(shm.c->buf, alloc, init, flags, &pkt_view.c);
+  Packet pkt(pkt_view);
+
+  a0_free_realloc_allocator(alloc);
+
+  return pkt;
+}
+
+Packet Subscriber::read_one(const std::string& topic, a0_subscriber_init_t init, int flags) {
+  return Subscriber::read_one(global_topic_manager().subscriber_topic(topic), init, flags);
+}
+
+Packet read_config(a0_subscriber_init_t init, int flags) {
+  return Subscriber::read_one(global_topic_manager().config_topic(), init, flags);
 }
 
 RpcServer RpcRequest::server() {

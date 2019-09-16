@@ -104,9 +104,14 @@ struct Subscriber {
   Subscriber() = default;
   Subscriber(Shm, a0_subscriber_init_t, a0_subscriber_iter_t, std::function<void(PacketView)>);
   // User-friendly constructor that uses GlobalTopicManager subscriber_topic for shm.
-  Subscriber(const std::string&, a0_subscriber_init_t, a0_subscriber_iter_t, std::function<void(PacketView)>);  // Uses GlobalTopicManager.
+  Subscriber(const std::string&, a0_subscriber_init_t, a0_subscriber_iter_t, std::function<void(PacketView)>);
   void async_close(std::function<void()>);
+
+  static Packet read_one(Shm, a0_subscriber_init_t, int flags = 0);
+  static Packet read_one(const std::string&, a0_subscriber_init_t, int flags = 0);
 };
+
+Packet read_config(a0_subscriber_init_t, int flags = 0);
 
 struct RpcServer;
 
