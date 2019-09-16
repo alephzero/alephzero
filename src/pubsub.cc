@@ -427,10 +427,13 @@ errno_t a0_subscriber_read_one(a0_buf_t arena,
     }
 
     a0_subscriber_sync_t sub_sync;
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_sync_init(&sub_sync, arena, alloc, sub_init, A0_ITER_NEXT));
+    A0_INTERNAL_RETURN_ERR_ON_ERR(
+        a0_subscriber_sync_init(&sub_sync, arena, alloc, sub_init, A0_ITER_NEXT));
     struct sub_guard {
       a0_subscriber_sync_t* sub_sync;
-      ~sub_guard() { a0_subscriber_sync_close(sub_sync); }
+      ~sub_guard() {
+        a0_subscriber_sync_close(sub_sync);
+      }
     } sub_guard_{&sub_sync};
 
     bool has_next;
@@ -446,31 +449,36 @@ errno_t a0_subscriber_read_one(a0_buf_t arena,
       std::mutex mu{};
       std::condition_variable cv{};
       bool done{false};
-    } data{ .pkt = out };
+    } data{.pkt = out};
 
     a0_packet_callback_t cb = {
         .user_data = &data,
-        .fn = [](void* user_data, a0_packet_t pkt) {
-          auto* data = (data_*)user_data;
-          *data->pkt = pkt;
+        .fn =
+            [](void* user_data, a0_packet_t pkt) {
+              auto* data = (data_*)user_data;
+              *data->pkt = pkt;
 
-          a0_callback_t onclose = {
-              .user_data = user_data,
-              .fn = [](void* user_data) {
-                auto* data = (data_*)user_data;
-                std::unique_lock<std::mutex> lk{data->mu};
-                data->done = true;
-                data->cv.notify_one();
-              },
-          };
-          a0_subscriber_async_close(&data->sub, onclose);
-        },
+              a0_callback_t onclose = {
+                  .user_data = user_data,
+                  .fn =
+                      [](void* user_data) {
+                        auto* data = (data_*)user_data;
+                        std::unique_lock<std::mutex> lk{data->mu};
+                        data->done = true;
+                        data->cv.notify_one();
+                      },
+              };
+              a0_subscriber_async_close(&data->sub, onclose);
+            },
     };
 
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_init(&data.sub, arena, alloc, sub_init, A0_ITER_NEXT, cb));
+    A0_INTERNAL_RETURN_ERR_ON_ERR(
+        a0_subscriber_init(&data.sub, arena, alloc, sub_init, A0_ITER_NEXT, cb));
 
     std::unique_lock<std::mutex> lk{data.mu};
-    data.cv.wait(lk, [&]() { return data.done; });
+    data.cv.wait(lk, [&]() {
+      return data.done;
+    });
   }
 
   return A0_OK;
