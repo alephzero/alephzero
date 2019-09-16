@@ -231,7 +231,10 @@ void InitGlobalTopicManager(const std::string& json) {
 }
 
 Publisher::Publisher(Shm shm) {
-  c = c_shared<a0_publisher_t>(delete_after<a0_publisher_t>(a0_publisher_close));
+  c = c_shared<a0_publisher_t>([shm](a0_publisher_t* p) {
+    a0_publisher_close(p);
+    delete p;
+  });
   check(a0_publisher_init(&*c, shm.c->buf));
 }
 
