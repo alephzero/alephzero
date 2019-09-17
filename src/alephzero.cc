@@ -350,8 +350,8 @@ Packet Subscriber::read_one(const std::string& topic, a0_subscriber_init_t init,
   return Subscriber::read_one(global_topic_manager().subscriber_topic(topic), init, flags);
 }
 
-Packet read_config(a0_subscriber_init_t init, int flags) {
-  return Subscriber::read_one(global_topic_manager().config_topic(), init, flags);
+Packet read_config(int flags) {
+  return Subscriber::read_one(global_topic_manager().config_topic(), A0_INIT_MOST_RECENT, flags);
 }
 
 RpcServer RpcRequest::server() {

@@ -111,7 +111,7 @@ struct Subscriber {
   static Packet read_one(const std::string&, a0_subscriber_init_t, int flags = 0);
 };
 
-Packet read_config(a0_subscriber_init_t, int flags = 0);
+Packet read_config(int flags = 0);
 
 struct RpcServer;
 

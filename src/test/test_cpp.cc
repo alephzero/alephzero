@@ -15,11 +15,9 @@ struct CppPubsubFixture {
     a0::Shm::unlink(kTestShm);
 
     shm = a0::Shm(kTestShm, a0::Shm::Options{.size = 16 * 1024 * 1024});
-    printf("(CppPubsubFixture) use_count = %ld\n", shm.c.use_count());
   }
 
   ~CppPubsubFixture() {
-    printf("(~CppPubsubFixture) use_count = %ld\n", shm.c.use_count());
     a0::Shm::unlink(kTestShm);
   }
 };
