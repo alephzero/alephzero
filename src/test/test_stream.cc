@@ -21,7 +21,7 @@ struct StreamTestFixture {
     a0_shm_open(kTestShm, &shmopt, &shm);
 
     protocol.name.ptr = (uint8_t*)kProtocolName;
-    protocol.name.size = strlen(kProtocolName);
+    protocol.name.size = sizeof(kProtocolName);
     protocol.major_version = 1;
     protocol.minor_version = 2;
     protocol.patch_version = 3;

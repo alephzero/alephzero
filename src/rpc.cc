@@ -36,7 +36,7 @@ a0_stream_protocol_t protocol_info() {
     static const char kProtocolName[] = "a0_rpc";
 
     a0_stream_protocol_t p;
-    p.name.size = strlen(kProtocolName);
+    p.name.size = sizeof(kProtocolName);
     p.name.ptr = (uint8_t*)kProtocolName;
 
     p.major_version = 0;
