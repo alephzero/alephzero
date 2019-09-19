@@ -172,7 +172,19 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
 
   errno_t lock_status = pthread_mutex_lock(&hdr->mu);
   if (lock_status == EOWNERDEAD) {
-    // Always consistent by design.
+    // The data is always consistent by design.
+    // Robust condition variables are not supported so we need to repair them here.
+
+    // TODO: Does the existing (corrupt) condattr need to be destroyed?
+
+    pthread_condattr_t cv_attr;
+    pthread_condattr_init(&cv_attr);
+
+    pthread_condattr_setpshared(&cv_attr, PTHREAD_PROCESS_SHARED);
+
+    pthread_cond_init(&hdr->cv, &cv_attr);
+    pthread_condattr_destroy(&cv_attr);
+
     lock_status = pthread_mutex_consistent(&hdr->mu);
     pthread_cond_broadcast(&hdr->cv);
   }

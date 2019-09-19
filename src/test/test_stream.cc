@@ -75,7 +75,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
 
   a0_stream_protocol_t read_protocol;
   REQUIRE(a0_stream_protocol(lk, &read_protocol, nullptr) == A0_OK);
-  REQUIRE(a0::test::str(read_protocol.name) == kProtocolName);
+  REQUIRE(memcmp(read_protocol.name.ptr, kProtocolName, read_protocol.name.size) == 0);
   REQUIRE(read_protocol.major_version == 1);
   REQUIRE(read_protocol.minor_version == 2);
   REQUIRE(read_protocol.patch_version == 3);
