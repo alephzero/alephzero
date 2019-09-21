@@ -11,8 +11,8 @@
 #include <string.h>    // for memset, memcmp, memcpy
 
 #include "macros.h"  // for A0_STATIC_INLINE
+#include "sync.h"
 
-const uint64_t A0_STREAM_MAGIC = 0x616c65667a65726f;
 typedef uintptr_t stream_off_t;  // ptr offset from start of shm.
 
 typedef struct a0_stream_state_s {
@@ -23,10 +23,12 @@ typedef struct a0_stream_state_s {
 } a0_stream_state_t;
 
 typedef struct a0_stream_hdr_s {
-  uint64_t magic;
+  uint32_t next_conn_id;
+  bool initialized;
 
   pthread_mutex_t mu;
-  pthread_cond_t cv;
+  // pthread_cond_t cv;
+  a0_futex_t fu;
 
   a0_stream_state_t state_pages[2];
   uint32_t committed_page_idx;
@@ -78,13 +80,13 @@ errno_t a0_stream_init(a0_stream_t* stream,
                        a0_stream_protocol_t protocol,
                        a0_stream_init_status_t* status_out,
                        a0_locked_stream_t* lk_out) {
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)arena.ptr;
+
   memset(stream, 0, sizeof(a0_stream_t));
   stream->_arena = arena;
+  stream->_conn_id = a0_atomic_inc_fetch(&hdr->next_conn_id);
 
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)stream->_arena.ptr;
-  if (hdr->magic != A0_STREAM_MAGIC) {
-    // TODO: fcntl with F_SETLKW and check double-check magic.
-
+  if (stream->_conn_id == 1) {
     stream_off_t protocol_name_off = a0_max_align(sizeof(a0_stream_hdr_t));
     stream_off_t protocol_metadata_off = a0_max_align(protocol_name_off + protocol.name.size);
     stream_off_t workspace_off = a0_max_align(protocol_metadata_off + protocol.metadata_size);
@@ -92,8 +94,6 @@ errno_t a0_stream_init(a0_stream_t* stream,
     if (workspace_off >= (uint64_t)stream->_arena.size) {
       return ENOMEM;
     }
-
-    memset((uint8_t*)hdr, 0, sizeof(a0_stream_hdr_t));
 
     hdr->shm_size = stream->_arena.size;
     hdr->protocol_name_size = protocol.name.size;
@@ -114,18 +114,14 @@ errno_t a0_stream_init(a0_stream_t* stream,
     pthread_mutex_init(&hdr->mu, &mu_attr);
     pthread_mutexattr_destroy(&mu_attr);
 
-    pthread_condattr_t cv_attr;
-    pthread_condattr_init(&cv_attr);
-
-    pthread_condattr_setpshared(&cv_attr, PTHREAD_PROCESS_SHARED);
-
-    pthread_cond_init(&hdr->cv, &cv_attr);
-    pthread_condattr_destroy(&cv_attr);
-
-    hdr->magic = A0_STREAM_MAGIC;
+    a0_atomic_store(&hdr->initialized, true);
     *status_out = A0_STREAM_CREATED;
     a0_lock_stream(stream, lk_out);
   } else {
+    while (A0_UNLIKELY(!a0_atomic_load(&hdr->initialized))) {
+      a0_cpu_relax();
+    }
+
     a0_lock_stream(stream, lk_out);
     a0_stream_protocol_t active_protocol;
     a0_stream_protocol(*lk_out, &active_protocol, NULL);
@@ -153,10 +149,15 @@ errno_t a0_stream_close(a0_stream_t* stream) {
   if (!stream->_closing) {
     stream->_closing = true;
 
-    pthread_cond_broadcast(&hdr->cv);
+    hdr->fu = stream->_conn_id;
+    a0_futex_broadcast(&hdr->fu);
 
+    hdr->fu = stream->_conn_id;
     while (stream->_await_cnt) {
-      pthread_cond_wait(&hdr->cv, &hdr->mu);
+      a0_unlock_stream(lk);
+      a0_futex_wait(&hdr->fu, stream->_conn_id, NULL);
+      a0_lock_stream(stream, &lk);
+      hdr->fu = stream->_conn_id;
     }
   }
 
@@ -173,20 +174,9 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
   errno_t lock_status = pthread_mutex_lock(&hdr->mu);
   if (lock_status == EOWNERDEAD) {
     // The data is always consistent by design.
-    // Robust condition variables are not supported so we need to repair them here.
-
-    // TODO: Does the existing (corrupt) condattr need to be destroyed?
-
-    pthread_condattr_t cv_attr;
-    pthread_condattr_init(&cv_attr);
-
-    pthread_condattr_setpshared(&cv_attr, PTHREAD_PROCESS_SHARED);
-
-    pthread_cond_init(&hdr->cv, &cv_attr);
-    pthread_condattr_destroy(&cv_attr);
-
     lock_status = pthread_mutex_consistent(&hdr->mu);
-    pthread_cond_broadcast(&hdr->cv);
+    hdr->fu = stream->_conn_id;
+    a0_futex_broadcast(&hdr->fu);
   }
 
   *a0_stream_working_page(*lk_out) = *a0_stream_committed_page(*lk_out);
@@ -221,7 +211,8 @@ errno_t a0_stream_protocol(a0_locked_stream_t lk,
 }
 
 errno_t a0_stream_empty(a0_locked_stream_t lk, bool* out) {
-  *out = !a0_stream_working_page(lk)->seq_high;
+  a0_stream_state_t* working_page = a0_stream_working_page(lk);
+  *out = !working_page->seq_high || working_page->seq_low > working_page->seq_high;
   return A0_OK;
 }
 
@@ -297,19 +288,25 @@ errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_
 
   lk.stream->_await_cnt++;
 
+  hdr->fu = lk.stream->_conn_id;
   while (!lk.stream->_closing) {
     err = pred(lk, &sat);
     if (err || sat) {
       break;
     }
-    pthread_cond_wait(&hdr->cv, &hdr->mu);
+    a0_futex_broadcast(&hdr->fu);
+    a0_unlock_stream(lk);
+    a0_futex_wait(&hdr->fu, lk.stream->_conn_id, NULL);
+    a0_lock_stream(lk.stream, &lk);
+    hdr->fu = lk.stream->_conn_id;
   }
   if (!err && lk.stream->_closing) {
     err = ESHUTDOWN;
   }
 
   lk.stream->_await_cnt--;
-  pthread_cond_broadcast(&hdr->cv);
+  hdr->fu = lk.stream->_conn_id;
+  a0_futex_broadcast(&hdr->fu);
 
   return err;
 }
@@ -373,7 +370,9 @@ void a0_stream_remove_head(a0_locked_stream_t lk) {
     state->off_head = 0;
     state->off_tail = 0;
   } else {
-    state->off_head = head_hdr->next_off;
+    head_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + head_hdr->next_off);
+    state->off_head = head_hdr->off;
+    head_hdr->prev_off = 0;
   }
   a0_stream_commit(lk);
 }
@@ -422,6 +421,7 @@ errno_t a0_stream_alloc(a0_locked_stream_t lk, size_t size, a0_stream_frame_t* f
     a0_stream_frame_hdr_t* tail_frame_hdr =
         (a0_stream_frame_hdr_t*)((uint8_t*)hdr + state->off_tail);
     tail_frame_hdr->next_off = off;
+    frame_hdr->prev_off = state->off_tail;
   }
   state->off_tail = off;
   if (!state->seq_low) {
@@ -439,7 +439,8 @@ errno_t a0_stream_commit(a0_locked_stream_t lk) {
   hdr->committed_page_idx = !hdr->committed_page_idx;
   *a0_stream_working_page(lk) = *a0_stream_committed_page(lk);
 
-  pthread_cond_broadcast(&hdr->cv);
+  hdr->fu = lk.stream->_conn_id;
+  a0_futex_broadcast(&hdr->fu);
 
   return A0_OK;
 }
@@ -507,6 +508,7 @@ void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
       }
       fprintf(ss, "      \"off\": %lu,\n", frame_hdr->off);
       fprintf(ss, "      \"seq\": %lu,\n", frame_hdr->seq);
+      fprintf(ss, "      \"prev_off\": %lu,\n", frame_hdr->prev_off);
       fprintf(ss, "      \"next_off\": %lu,\n", frame_hdr->next_off);
       fprintf(ss, "      \"data_size\": %lu,\n", frame_hdr->data_size);
       a0_buf_t data = {

@@ -13,6 +13,7 @@ extern "C" {
 
 typedef struct a0_stream_s {
   a0_buf_t _arena;
+  uint32_t _conn_id;
   uint64_t _seq;
   uint64_t _off;
   bool _closing;
@@ -31,6 +32,7 @@ typedef struct a0_stream_frame_hdr_s {
   uint64_t seq;
   uint64_t off;
   uint64_t next_off;
+  uint64_t prev_off;
   uint64_t data_size;
 } a0_stream_frame_hdr_t;
 

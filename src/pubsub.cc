@@ -446,9 +446,14 @@ errno_t a0_subscriber_read_one(a0_buf_t arena,
     struct data_ {
       a0_packet_t* pkt;
       a0_subscriber_t sub{};
-      std::mutex mu{};
-      std::condition_variable cv{};
+
+      bool sub_ready{false};
+      std::mutex sub_ready_mu{};
+      std::condition_variable sub_ready_cv{};
+
       bool done{false};
+      std::mutex done_mu{};
+      std::condition_variable done_cv{};
     } data{.pkt = out};
 
     a0_packet_callback_t cb = {
@@ -456,6 +461,14 @@ errno_t a0_subscriber_read_one(a0_buf_t arena,
         .fn =
             [](void* user_data, a0_packet_t pkt) {
               auto* data = (data_*)user_data;
+
+              {
+                std::unique_lock<std::mutex> lk{data->sub_ready_mu};
+                data->sub_ready_cv.wait(lk, [&]() {
+                  return data->sub_ready;
+                });
+              }
+
               *data->pkt = pkt;
 
               a0_callback_t onclose = {
@@ -463,9 +476,9 @@ errno_t a0_subscriber_read_one(a0_buf_t arena,
                   .fn =
                       [](void* user_data) {
                         auto* data = (data_*)user_data;
-                        std::unique_lock<std::mutex> lk{data->mu};
+                        std::unique_lock<std::mutex> lk{data->done_mu};
                         data->done = true;
-                        data->cv.notify_one();
+                        data->done_cv.notify_one();
                       },
               };
               a0_subscriber_async_close(&data->sub, onclose);
@@ -475,8 +488,14 @@ errno_t a0_subscriber_read_one(a0_buf_t arena,
     A0_INTERNAL_RETURN_ERR_ON_ERR(
         a0_subscriber_init(&data.sub, arena, alloc, sub_init, A0_ITER_NEXT, cb));
 
-    std::unique_lock<std::mutex> lk{data.mu};
-    data.cv.wait(lk, [&]() {
+    {
+      std::unique_lock<std::mutex> lk{data.sub_ready_mu};
+      data.sub_ready = true;
+      data.sub_ready_cv.notify_one();
+    }
+
+    std::unique_lock<std::mutex> lk{data.done_mu};
+    data.done_cv.wait(lk, [&]() {
       return data.done;
     });
   }
