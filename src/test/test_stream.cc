@@ -45,16 +45,13 @@ struct StreamTestFixture {
 };
 
 TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
-  REQUIRE(*(uint64_t*)shm.buf.ptr != 0x616c65667a65726f);
-
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
   REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
-
-  REQUIRE(*(uint64_t*)shm.buf.ptr == 0x616c65667a65726f);
   REQUIRE(init_status == A0_STREAM_CREATED);
+  REQUIRE(a0_stream_close(&stream) == A0_OK);
 
   REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
@@ -170,14 +167,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 256,
-      "off_tail": 256
+      "off_head": 224,
+      "off_tail": 224
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 256,
-      "off_tail": 304
+      "off_head": 224,
+      "off_tail": 288
     }
   },
   "protocol": {
@@ -188,16 +185,18 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   },
   "data": [
     {
-      "off": 256,
+      "off": 224,
       "seq": 1,
-      "next_off": 304,
+      "prev_off": 0,
+      "next_off": 288,
       "data_size": 10,
       "data": "0123456789"
     },
     {
       "committed": false,
-      "off": 304,
+      "off": 288,
       "seq": 2,
+      "prev_off": 224,
       "next_off": 0,
       "data_size": 40,
       "data": "01234567890123456789012345678..."
@@ -215,14 +214,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 256,
-      "off_tail": 304
+      "off_head": 224,
+      "off_tail": 288
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 256,
-      "off_tail": 304
+      "off_head": 224,
+      "off_tail": 288
     }
   },
   "protocol": {
@@ -233,15 +232,17 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   },
   "data": [
     {
-      "off": 256,
+      "off": 224,
       "seq": 1,
-      "next_off": 304,
+      "prev_off": 0,
+      "next_off": 288,
       "data_size": 10,
       "data": "0123456789"
     },
     {
-      "off": 304,
+      "off": 288,
       "seq": 2,
+      "prev_off": 224,
       "next_off": 0,
       "data_size": 40,
       "data": "01234567890123456789012345678..."
@@ -360,13 +361,13 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream wrap around") {
       "seq_low": 18,
       "seq_high": 20,
       "off_head": 2368,
-      "off_tail": 1312
+      "off_tail": 1296
     },
     "working_state": {
       "seq_low": 18,
       "seq_high": 20,
       "off_head": 2368,
-      "off_tail": 1312
+      "off_tail": 1296
     }
   },
   "protocol": {
@@ -379,21 +380,24 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream wrap around") {
     {
       "off": 2368,
       "seq": 18,
-      "next_off": 256,
+      "prev_off": 0,
+      "next_off": 224,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     },
     {
-      "off": 256,
+      "off": 224,
       "seq": 19,
-      "next_off": 1312,
+      "prev_off": 2368,
+      "next_off": 1296,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     },
     {
-      "off": 1312,
+      "off": 1296,
       "seq": 20,
-      "next_off": 2368,
+      "prev_off": 224,
+      "next_off": 0,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     }
@@ -429,14 +433,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream large alloc") {
     "committed_state": {
       "seq_low": 5,
       "seq_high": 5,
-      "off_head": 256,
-      "off_tail": 256
+      "off_head": 224,
+      "off_tail": 224
     },
     "working_state": {
       "seq_low": 5,
       "seq_high": 5,
-      "off_head": 256,
-      "off_tail": 256
+      "off_head": 224,
+      "off_tail": 224
     }
   },
   "protocol": {
@@ -447,8 +451,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream large alloc") {
   },
   "data": [
     {
-      "off": 256,
+      "off": 224,
       "seq": 5,
+      "prev_off": 0,
       "next_off": 0,
       "data_size": 3072,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
@@ -558,14 +563,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 256,
-      "off_tail": 256
+      "off_head": 224,
+      "off_tail": 224
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 256,
-      "off_tail": 304
+      "off_head": 224,
+      "off_tail": 272
     }
   },
   "protocol": {
@@ -576,16 +581,18 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
   },
   "data": [
     {
-      "off": 256,
+      "off": 224,
       "seq": 1,
-      "next_off": 304,
+      "prev_off": 0,
+      "next_off": 272,
       "data_size": 3,
       "data": "YES"
     },
     {
       "committed": false,
-      "off": 304,
+      "off": 272,
       "seq": 2,
+      "prev_off": 224,
       "next_off": 0,
       "data_size": 2,
       "data": "NO"
@@ -617,14 +624,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 256,
-      "off_tail": 256
+      "off_head": 224,
+      "off_tail": 224
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 256,
-      "off_tail": 256
+      "off_head": 224,
+      "off_tail": 224
     }
   },
   "protocol": {
@@ -635,9 +642,10 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
   },
   "data": [
     {
-      "off": 256,
+      "off": 224,
       "seq": 1,
-      "next_off": 304,
+      "prev_off": 0,
+      "next_off": 272,
       "data_size": 3,
       "data": "YES"
     }
