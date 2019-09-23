@@ -27,7 +27,6 @@ typedef struct a0_stream_hdr_s {
   bool initialized;
 
   pthread_mutex_t mu;
-  // pthread_cond_t cv;
   a0_futex_t fu;
 
   a0_stream_state_t state_pages[2];
@@ -84,9 +83,9 @@ errno_t a0_stream_init(a0_stream_t* stream,
 
   memset(stream, 0, sizeof(a0_stream_t));
   stream->_arena = arena;
-  stream->_conn_id = a0_atomic_inc_fetch(&hdr->next_conn_id);
+  stream->_conn_id = a0_atomic_fetch_inc(&hdr->next_conn_id);
 
-  if (stream->_conn_id == 1) {
+  if (stream->_conn_id == 0) {
     stream_off_t protocol_name_off = a0_max_align(sizeof(a0_stream_hdr_t));
     stream_off_t protocol_metadata_off = a0_max_align(protocol_name_off + protocol.name.size);
     stream_off_t workspace_off = a0_max_align(protocol_metadata_off + protocol.metadata_size);
@@ -179,6 +178,7 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
     a0_futex_broadcast(&hdr->fu);
   }
 
+  // Clear any incomplete changes.
   *a0_stream_working_page(*lk_out) = *a0_stream_committed_page(*lk_out);
 
   return lock_status;
@@ -225,7 +225,9 @@ errno_t a0_stream_nonempty(a0_locked_stream_t lk, bool* out) {
 errno_t a0_stream_jump_head(a0_locked_stream_t lk) {
   a0_stream_state_t* state = a0_stream_working_page(lk);
 
-  if (!state->seq_low) {
+  bool empty;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_empty(lk, &empty));
+  if (empty) {
     return EAGAIN;
   }
 
@@ -237,7 +239,9 @@ errno_t a0_stream_jump_head(a0_locked_stream_t lk) {
 errno_t a0_stream_jump_tail(a0_locked_stream_t lk) {
   a0_stream_state_t* state = a0_stream_working_page(lk);
 
-  if (!state->seq_high) {
+  bool empty;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_empty(lk, &empty));
+  if (empty) {
     return EAGAIN;
   }
 
@@ -247,13 +251,22 @@ errno_t a0_stream_jump_tail(a0_locked_stream_t lk) {
 }
 
 errno_t a0_stream_has_next(a0_locked_stream_t lk, bool* out) {
+  bool empty;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_empty(lk, &empty));
+
   a0_stream_state_t* state = a0_stream_working_page(lk);
-  *out = (state->seq_high) && (lk.stream->_seq < state->seq_high);
+  *out = !empty && (lk.stream->_seq < state->seq_high);
   return A0_OK;
 }
 
 errno_t a0_stream_next(a0_locked_stream_t lk) {
   a0_stream_state_t* state = a0_stream_working_page(lk);
+
+  bool has_next;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_has_next(lk, &has_next));
+  if (!has_next) {
+    return EAGAIN;
+  }
 
   if (lk.stream->_seq < state->seq_low) {
     lk.stream->_seq = state->seq_low;
@@ -261,13 +274,9 @@ errno_t a0_stream_next(a0_locked_stream_t lk) {
     return A0_OK;
   }
 
-  if (lk.stream->_seq == state->seq_high) {
-    return EAGAIN;
-  }
-
   a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
   a0_stream_frame_hdr_t* frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
-  lk.stream->_seq++;
+  lk.stream->_seq = frame_hdr->seq + 1;
   lk.stream->_off = frame_hdr->next_off;
 
   return A0_OK;
@@ -365,13 +374,14 @@ void a0_stream_remove_head(a0_locked_stream_t lk) {
 
   a0_stream_frame_hdr_t* head_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + state->off_head);
 
-  state->seq_low++;
   if (state->off_head == state->off_tail) {
     state->off_head = 0;
     state->off_tail = 0;
+    state->seq_low++;
   } else {
     head_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + head_hdr->next_off);
     state->off_head = head_hdr->off;
+    state->seq_low = head_hdr->seq;
     head_hdr->prev_off = 0;
   }
   a0_stream_commit(lk);
@@ -387,7 +397,6 @@ errno_t a0_stream_alloc(a0_locked_stream_t lk, size_t size, a0_stream_frame_t* f
 
   if (!state->off_head) {
     off = a0_stream_workspace_off(hdr);
-    state->off_head = off;
   } else {
     off = a0_max_align(a0_stream_frame_end(hdr, state->off_tail));
     if (off + frame_size >= hdr->shm_size) {
@@ -410,8 +419,10 @@ errno_t a0_stream_alloc(a0_locked_stream_t lk, size_t size, a0_stream_frame_t* f
   state = a0_stream_working_page(lk);
 
   a0_stream_frame_hdr_t* frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + off);
+  memset(frame_hdr, 0, sizeof(a0_stream_frame_hdr_t));
   frame_hdr->seq = ++state->seq_high;
   frame_hdr->off = off;
+  frame_hdr->next_off = 0;
   frame_hdr->data_size = size;
 
   if (!state->off_head) {
@@ -436,6 +447,11 @@ errno_t a0_stream_alloc(a0_locked_stream_t lk, size_t size, a0_stream_frame_t* f
 
 errno_t a0_stream_commit(a0_locked_stream_t lk) {
   a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
+  // Assume page A was the previously committed page and page B is the working
+  // page that is ready to be committed. Both represent a valid state for the
+  // stream. It's possible that the copying of B into A will fail (prog crash),
+  // leaving A in an inconsistent state. We set B as the committed page, before
+  // copying the page info.
   hdr->committed_page_idx = !hdr->committed_page_idx;
   *a0_stream_working_page(lk) = *a0_stream_committed_page(lk);
 
@@ -500,8 +516,16 @@ void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
     uint64_t off = working_state->off_head;
     a0_stream_frame_hdr_t* frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + off);
     uint64_t seq = frame_hdr->seq;
-    while (seq <= working_state->seq_high) {
+    bool first = true;
+    while (true) {
       frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + off);
+
+      seq = frame_hdr->seq;
+      if (!first) {
+        fprintf(ss, "    },\n");
+      }
+      first = false;
+
       fprintf(ss, "    {\n");
       if (seq > committed_state->seq_high) {
         fprintf(ss, "      \"committed\": false,\n");
@@ -518,12 +542,10 @@ void a0_stream_debugstr(a0_locked_stream_t lk, a0_buf_t* out) {
       fprintf(ss, "      \"data\": \"");  write_limited(ss, data); fprintf(ss, "\"\n");
 
       off = frame_hdr->next_off;
-      seq++;
 
-      if (seq <= working_state->seq_high) {
-        fprintf(ss, "    },\n");
-      } else {
+      if (seq == working_state->seq_high) {
         fprintf(ss, "    }\n");
+        break;
       }
     }
   }
