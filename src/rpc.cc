@@ -1,23 +1,23 @@
-#include <a0/alloc.h>   // for a0_alloc_t
-#include <a0/common.h>  // for errno_t, a0_callback_t, A0_OK, a0_buf_t
-#include <a0/packet.h>  // for a0_packet_header_t, a0_packet_id, a0_pack...
-#include <a0/rpc.h>     // for a0_rpc_client_t, a0_rpc_client_impl_t
-#include <a0/stream.h>  // for a0_locked_stream_t, a0_stream_commit, a0_...
+#include <a0/alloc.h>
+#include <a0/common.h>
+#include <a0/packet.h>
+#include <a0/rpc.h>
+#include <a0/stream.h>
 
-#include <errno.h>   // for ESHUTDOWN, EINVAL
-#include <sched.h>   // for memcpy
-#include <stdint.h>  // for uint64_t, uint8_t
-#include <string.h>  // for strcmp, size_t, strlen
+#include <errno.h>
+#include <sched.h>
+#include <stdint.h>
+#include <string.h>
 
-#include <chrono>         // for nanoseconds, duration_cast, duration, ste...
-#include <memory>         // for shared_ptr, __shared_ptr_access, make_shared
-#include <mutex>          // for mutex, unique_lock
-#include <string>         // for string, to_string, basic_string
-#include <unordered_map>  // for unordered_map, unordered_map<>::mapped_type
+#include <chrono>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
 
-#include "macros.h"         // for A0_INTERNAL_RETURN_ERR_ON_ERR, A0_STATIC_...
-#include "packet_tools.h"   // for a0_packet_copy_with_additional_headers
-#include "stream_tools.hh"  // for stream_thread, stream_allocator, stream_t...
+#include "macros.h"
+#include "packet_tools.h"
+#include "stream_tools.hh"
 
 //////////////////
 //  Rpc Common  //

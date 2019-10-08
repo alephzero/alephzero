@@ -1,15 +1,15 @@
-#include <a0/common.h>         // for errno_t, A0_OK
-#include <a0/shm.h>            // for a0_shm_open, a0_shm_t, a0_shm_options_t
-#include <a0/topic_manager.h>  // for a0_topic_manager_t, a0_topic_map_t
+#include <a0/common.h>
+#include <a0/shm.h>
+#include <a0/topic_manager.h>
 
-#include <errno.h>            // for EINVAL, ESHUTDOWN
-#include <nlohmann/json.hpp>  // for basic_json, json
+#include <errno.h>
+#include <nlohmann/json.hpp>
 
-#include <string>         // for string, basic_string
-#include <unordered_map>  // for unordered_map, unordered_map<>::mapped...
-#include <utility>        // for move
+#include <string>
+#include <unordered_map>
+#include <utility>
 
-#include "strutil.hh"  // for strutil
+#include "strutil.hh"
 
 using json = nlohmann::json;
 

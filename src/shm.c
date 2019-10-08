@@ -1,16 +1,16 @@
-#include <a0/common.h>  // for a0_buf_t, errno_t, A0_OK
+#include <a0/common.h>
 #include <a0/shm.h>
 
-#include <errno.h>     // for errno
-#include <fcntl.h>     // for O_CREAT, O_RDWR
-#include <stdint.h>    // for uint8_t
-#include <stdlib.h>    // for free
-#include <string.h>    // for strdup
-#include <sys/mman.h>  // for mmap, munmap, shm_open, shm_unlink, MAP_SHARED
-#include <sys/stat.h>  // for fstat, S_IRWXG, S_IRWXO, S_IRWXU
-#include <unistd.h>    // for close, ftruncate, intptr_t
+#include <errno.h>
+#include <fcntl.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-#include "macros.h"  // for A0_INTERNAL_CLEANUP_ON_MINUS_ONE, A0_INTERNAL...
+#include "macros.h"
 
 errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts, a0_shm_t* out) {
   int fd = shm_open(path, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);

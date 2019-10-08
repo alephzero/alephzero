@@ -8,4 +8,4 @@ docker run \
     -it \
     -v ${PWD}:/alephzero/alephzero \
     -w /alephzero/alephzero \
-    alephzero_iwyu sh -c 'bear make install && /include-what-you-use/iwyu_tool.py -p .'
+    alephzero_iwyu sh -c 'bear make install && /include-what-you-use/iwyu_tool.py -o clang -p .'

@@ -1,9 +1,9 @@
 #include <a0/alloc.h>
-#include <a0/common.h>  // for a0_buf_t
+#include <a0/common.h>
 
-#include <stdlib.h>  // for malloc, free, realloc, size_t, NULL
+#include <stdlib.h>
 
-#include "macros.h"  // for A0_STATIC_INLINE
+#include "macros.h"
 
 A0_STATIC_INLINE
 void a0_malloc_allocator_impl(void* unused, size_t size, a0_buf_t* out) {

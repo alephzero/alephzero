@@ -21,6 +21,10 @@ typedef struct a0_shm_s {
 } a0_shm_t;
 
 // Note: a0_shm_options_t may be only by NULL if the file already exists.
+//       If a0_shm_options_t is provided, and the file already exists, the
+//       file will be resized to the given size.
+// Note: ftruncate is used to resize the file. This guarantees the file is
+//       zero-ed out.
 errno_t a0_shm_open(const char* path, const a0_shm_options_t*, a0_shm_t* out);
 errno_t a0_shm_unlink(const char* path);
 errno_t a0_shm_close(a0_shm_t*);

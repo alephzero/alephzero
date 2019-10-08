@@ -41,8 +41,8 @@ errno_t a0_futex_broadcast(a0_futex_t* fu) {
   return a0_futex_wake(fu, INT_MAX);
 }
 
-#define a0_barrier() asm volatile("": : :"memory")
-#define a0_cpu_relax() asm volatile("pause\n": : :"memory")
+#define a0_barrier() asm volatile("" : : : "memory")
+#define a0_spin() asm volatile("pause" : : : "memory")
 
 #define a0_atomic_fetch_add(P, V) __sync_fetch_and_add((P), (V))
 #define a0_atomic_add_fetch(P, V) __sync_add_and_fetch((P), (V))

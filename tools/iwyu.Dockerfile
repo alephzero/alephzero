@@ -1,6 +1,6 @@
 FROM alpine:3.10
 
-RUN apk add clang-dev clang-static cmake g++ git llvm8-dev llvm8-static make python wget
+RUN apk add clang-dev clang-static cmake g++ git linux-headers llvm8-dev llvm8-static make python wget
 
 RUN cd / && \
     git clone https://github.com/rizsotto/Bear.git && \
