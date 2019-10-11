@@ -7,7 +7,7 @@
 #include <set>
 #include <string>
 
-#include "src/stream_tools.hh"
+#include "src/stream_tools.hpp"
 
 namespace a0 {
 namespace test {

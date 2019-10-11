@@ -1,10 +1,10 @@
 #ifndef A0_PACKET_H
 #define A0_PACKET_H
 
-#include <a0/alloc.h>   // for a0_alloc_t
-#include <a0/common.h>  // for errno_t, a0_buf_t
+#include <a0/alloc.h>
+#include <a0/common.h>
 
-#include <stddef.h>  // for size_t
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {

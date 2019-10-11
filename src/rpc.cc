@@ -17,7 +17,7 @@
 
 #include "macros.h"
 #include "packet_tools.h"
-#include "stream_tools.hh"
+#include "stream_tools.hpp"
 
 //////////////////
 //  Rpc Common  //
@@ -187,7 +187,7 @@ errno_t a0_rpc_reply(a0_rpc_request_t req, const a0_packet_t resp) {
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   auto clock_str = std::to_string(clock_val);
-  extra_headers[2].key = kSendClock;
+  extra_headers[2].key = kClock;
   extra_headers[2].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.
@@ -362,7 +362,7 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, const a0_packet_t pkt, a0_packet_ca
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   std::string clock_str = std::to_string(clock_val);
-  extra_headers[1].key = kSendClock;
+  extra_headers[1].key = kClock;
   extra_headers[1].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.
@@ -403,7 +403,7 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, const a0_packet_id_t req_id) {
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   std::string clock_str = std::to_string(clock_val);
-  headers[2].key = kSendClock;
+  headers[2].key = kClock;
   headers[2].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.

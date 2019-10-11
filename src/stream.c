@@ -24,11 +24,12 @@ typedef struct a0_stream_state_s {
 } a0_stream_state_t;
 
 typedef struct a0_stream_hdr_s {
-  uint32_t next_conn_id;
-  bool initialized;
+  bool init_started;
+  bool init_completed;
 
   pthread_mutex_t mu;
-  a0_futex_t fu;
+  a0_futex_t fucv;
+  uint32_t next_fucv_key;
 
   a0_stream_state_t state_pages[2];
   uint32_t committed_page_idx;
@@ -88,7 +89,7 @@ errno_t a0_stream_init_copy_protocol(a0_stream_hdr_t* hdr, a0_stream_protocol_t 
 }
 
 A0_STATIC_INLINE
-errno_t a0_stream_init_mutex(a0_stream_hdr_t* hdr) {
+errno_t a0_stream_init_mutex(pthread_mutex_t* mu) {
   pthread_mutexattr_t mu_attr;
   pthread_mutexattr_init(&mu_attr);
 
@@ -96,7 +97,7 @@ errno_t a0_stream_init_mutex(a0_stream_hdr_t* hdr) {
   pthread_mutexattr_setrobust(&mu_attr, PTHREAD_MUTEX_ROBUST);
   pthread_mutexattr_settype(&mu_attr, PTHREAD_MUTEX_ERRORCHECK);
 
-  pthread_mutex_init(&hdr->mu, &mu_attr);
+  pthread_mutex_init(mu, &mu_attr);
   pthread_mutexattr_destroy(&mu_attr);
 
   return A0_OK;
@@ -118,11 +119,11 @@ errno_t a0_stream_init_create(a0_stream_t* stream,
 
   hdr->shm_size = stream->_arena.size;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_init_copy_protocol(hdr, protocol));
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_init_mutex(hdr));
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_init_mutex(&hdr->mu));
 
-  a0_atomic_store(&hdr->initialized, true);
-  *status_out = A0_STREAM_CREATED;
   a0_lock_stream(stream, lk_out);
+  a0_atomic_store(&hdr->init_completed, true);
+  *status_out = A0_STREAM_CREATED;
 
   return A0_OK;
 }
@@ -162,81 +163,48 @@ errno_t a0_stream_init(a0_stream_t* stream,
 
   memset(stream, 0, sizeof(a0_stream_t));
   stream->_arena = arena;
-  stream->_conn_id = a0_atomic_fetch_inc(&hdr->next_conn_id);
 
-  if (stream->_conn_id == 0) {
+  if (!a0_cas(&hdr->init_started, 0, 1)) {
     return a0_stream_init_create(stream, protocol, status_out, lk_out);
   }
 
   // Spin until stream is initialized.
-  while (A0_UNLIKELY(!a0_atomic_load(&hdr->initialized))) {
+  while (A0_UNLIKELY(!a0_atomic_load(&hdr->init_completed))) {
     a0_spin();
   }
   return a0_stream_init_connect(stream, protocol, status_out, lk_out);
 }
 
 A0_STATIC_INLINE
-uint32_t a0_fu_key(a0_stream_t* stream) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)stream->_arena.ptr;
+void a0_fucv_wait(a0_locked_stream_t lk) {
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
 
-  typedef struct a0_pair_s {
-    uint32_t key;
-    uint32_t val;
-  } a0_pair_t;
+  uint32_t key = a0_atomic_inc_fetch(&hdr->next_fucv_key);
+  hdr->fucv = key;
+  a0_unlock_stream(lk);
+  a0_futex_wait(&hdr->fucv, key, NULL);
+  a0_lock_stream(lk.stream, &lk);
+}
 
-  typedef struct a0_map_s {
-    a0_pair_t* data;
-    uint32_t size;
-    uint32_t cap;
-  } a0_map_t;
+A0_STATIC_INLINE
+void a0_fucv_wake(a0_locked_stream_t lk) {
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
 
-  // map from stream-id to stream-thread-id.
-  static __thread a0_map_t map = {0};
-  if (A0_UNLIKELY(!map.cap)) {
-    map.cap = 4;
-    map.data = malloc(map.cap * sizeof(a0_pair_t));
-
-    map.data[map.size].key = stream->_conn_id;
-    map.data[map.size].val = a0_atomic_fetch_inc(&hdr->next_conn_id);
-    map.size++;
-  }
-
-  for (uint32_t i = 0; A0_LIKELY(i < map.size); i++) {
-    if (A0_LIKELY(map.data[i].key == stream->_conn_id)) {
-      return map.data[i].val;
-    }
-  }
-
-  if (A0_UNLIKELY(map.size == map.cap)) {
-    map.cap *= 2;
-    map.data = realloc(map.data, map.cap * sizeof(a0_pair_t));
-  }
-
-  map.data[map.size].key = stream->_conn_id;
-  map.data[map.size].val = a0_atomic_fetch_inc(&hdr->next_conn_id);
-  map.size++;
-
-  return map.data[map.size].val;
+  hdr->fucv = a0_atomic_inc_fetch(&hdr->next_fucv_key);
+  a0_futex_broadcast(&hdr->fucv);
 }
 
 errno_t a0_stream_close(a0_stream_t* stream) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)stream->_arena.ptr;
-
   a0_locked_stream_t lk;
   a0_lock_stream(stream, &lk);
 
   if (!stream->_closing) {
     stream->_closing = true;
 
-    hdr->fu = a0_fu_key(stream);
-    a0_futex_broadcast(&hdr->fu);
+    a0_fucv_wake(lk);
 
-    hdr->fu = a0_fu_key(stream);
     while (stream->_await_cnt) {
-      a0_unlock_stream(lk);
-      a0_futex_wait(&hdr->fu, a0_fu_key(stream), NULL);
-      a0_lock_stream(stream, &lk);
-      hdr->fu = a0_fu_key(stream);
+      a0_fucv_wait(lk);
     }
   }
 
@@ -254,8 +222,7 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
   if (lock_status == EOWNERDEAD) {
     // The data is always consistent by design.
     lock_status = pthread_mutex_consistent(&hdr->mu);
-    hdr->fu = a0_fu_key(stream);
-    a0_futex_broadcast(&hdr->fu);
+    a0_fucv_wake(*lk_out);
   }
 
   // Clear any incomplete changes.
@@ -363,8 +330,6 @@ errno_t a0_stream_next(a0_locked_stream_t lk) {
 }
 
 errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_t, bool*)) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
-
   if (lk.stream->_closing) {
     return ESHUTDOWN;
   }
@@ -377,25 +342,20 @@ errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_
 
   lk.stream->_await_cnt++;
 
-  hdr->fu = a0_fu_key(lk.stream);
   while (!lk.stream->_closing) {
     err = pred(lk, &sat);
     if (err || sat) {
       break;
     }
-    a0_futex_broadcast(&hdr->fu);
-    a0_unlock_stream(lk);
-    a0_futex_wait(&hdr->fu, a0_fu_key(lk.stream), NULL);
-    a0_lock_stream(lk.stream, &lk);
-    hdr->fu = a0_fu_key(lk.stream);
+    a0_fucv_wake(lk);
+    a0_fucv_wait(lk);
   }
   if (!err && lk.stream->_closing) {
     err = ESHUTDOWN;
   }
 
   lk.stream->_await_cnt--;
-  hdr->fu = a0_fu_key(lk.stream);
-  a0_futex_broadcast(&hdr->fu);
+  a0_fucv_wake(lk);
 
   return err;
 }
@@ -574,8 +534,7 @@ errno_t a0_stream_commit(a0_locked_stream_t lk) {
   hdr->committed_page_idx = !hdr->committed_page_idx;
   *a0_stream_working_page(lk) = *a0_stream_committed_page(lk);
 
-  hdr->fu = a0_fu_key(lk.stream);
-  a0_futex_broadcast(&hdr->fu);
+  a0_fucv_wake(lk);
 
   return A0_OK;
 }

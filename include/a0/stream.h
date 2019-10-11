@@ -1,11 +1,11 @@
 #ifndef A0_STREAM_H
 #define A0_STREAM_H
 
-#include <a0/common.h>  // for errno_t, a0_buf_t
+#include <a0/common.h>
 
-#include <stdbool.h>  // for bool
-#include <stddef.h>   // for size_t
-#include <stdint.h>   // for uint64_t, uint32_t, uint8_t
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,7 +13,6 @@ extern "C" {
 
 typedef struct a0_stream_s {
   a0_buf_t _arena;
-  uint32_t _conn_id;
   uint64_t _seq;
   uint64_t _off;
   bool _closing;

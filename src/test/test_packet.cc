@@ -5,7 +5,7 @@
 #include <map>
 #include <vector>
 
-#include "src/test_util.hh"
+#include "src/test_util.hpp"
 
 TEST_CASE("Test packet") {
   size_t num_headers = 3;

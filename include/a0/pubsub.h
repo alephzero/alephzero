@@ -1,10 +1,10 @@
 #ifndef A0_PUBSUB_H
 #define A0_PUBSUB_H
 
-#include <a0/alloc.h>   // for a0_alloc_t
-#include <a0/common.h>  // for errno_t, a0_buf_t, a0_callback_t
-#include <a0/packet.h>  // for a0_packet_t, a0_packet_callback_t
-#include <a0/stream.h>  // for a0_locked_stream_t
+#include <a0/alloc.h>
+#include <a0/common.h>
+#include <a0/packet.h>
+#include <a0/stream.h>
 
 #ifdef __cplusplus
 extern "C" {

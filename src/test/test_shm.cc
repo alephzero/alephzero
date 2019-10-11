@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <math.h>
 
-#include "src/test_util.hh"
+#include "src/test_util.hpp"
 
 static const char* kTestShm = "/test.shm";
 

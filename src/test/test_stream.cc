@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 #include "src/stream_debug.h"
-#include "src/test_util.hh"
+#include "src/test_util.hpp"
 
 static const char kTestShm[] = "/test.shm";
 static const char kProtocolName[] = "my_protocol";

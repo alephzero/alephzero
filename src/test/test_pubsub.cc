@@ -14,8 +14,8 @@
 #include <thread>
 #include <vector>
 
-#include "src/strutil.hh"
-#include "src/test_util.hh"
+#include "src/strutil.hpp"
+#include "src/test_util.hpp"
 
 static const char kTestShm[] = "/test.shm";
 

@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include "strutil.hh"
+#include "strutil.hpp"
 
 using json = nlohmann::json;
 

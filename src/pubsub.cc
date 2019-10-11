@@ -17,7 +17,7 @@
 
 #include "macros.h"
 #include "packet_tools.h"
-#include "stream_tools.hh"
+#include "stream_tools.hpp"
 
 /////////////////////
 //  Pubsub Common  //
@@ -96,7 +96,7 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   std::string clock_str = std::to_string(clock_val);
-  extra_headers[0].key = kSendClock;
+  extra_headers[0].key = kClock;
   extra_headers[0].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.

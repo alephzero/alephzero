@@ -53,4 +53,6 @@ errno_t a0_futex_broadcast(a0_futex_t* fu) {
 #define a0_atomic_load(P) __atomic_load_n((P), __ATOMIC_RELAXED)
 #define a0_atomic_store(P, V) __atomic_store_n((P), (V), __ATOMIC_RELAXED)
 
+#define a0_cas(P, OV, NV) __sync_val_compare_and_swap((P), (OV), (NV))
+
 #endif  // A0_INTERNAL_SYNC_H

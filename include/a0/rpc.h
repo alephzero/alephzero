@@ -1,9 +1,9 @@
 #ifndef A0_RPC_H
 #define A0_RPC_H
 
-#include <a0/alloc.h>   // for a0_alloc_t
-#include <a0/common.h>  // for errno_t, a0_buf_t, a0_callback_t
-#include <a0/packet.h>  // for a0_packet_t, a0_packet_callback_t, a0_packet_...
+#include <a0/alloc.h>
+#include <a0/common.h>
+#include <a0/packet.h>
 
 #ifdef __cplusplus
 extern "C" {
