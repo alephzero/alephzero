@@ -73,6 +73,8 @@ struct TopicManager {
   Shm subscriber_topic(const std::string&);
   Shm rpc_server_topic(const std::string&);
   Shm rpc_client_topic(const std::string&);
+  Shm prpc_server_topic(const std::string&);
+  Shm prpc_client_topic(const std::string&);
 };
 
 void InitGlobalTopicManager(TopicManager);

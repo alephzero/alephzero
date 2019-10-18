@@ -218,6 +218,18 @@ Shm TopicManager::rpc_client_topic(const std::string& name) {
   return shm;
 }
 
+Shm TopicManager::prpc_server_topic(const std::string& name) {
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(delete_after<a0_shm_t>(a0_shm_close)));
+  check(a0_topic_manager_open_prpc_server_topic(&*c, name.c_str(), &*shm.c));
+  return shm;
+}
+
+Shm TopicManager::prpc_client_topic(const std::string& name) {
+  auto shm = to_cpp<Shm>(c_shared<a0_shm_t>(delete_after<a0_shm_t>(a0_shm_close)));
+  check(a0_topic_manager_open_prpc_client_topic(&*c, name.c_str(), &*shm.c));
+  return shm;
+}
+
 TopicManager& global_topic_manager() {
   static TopicManager tm;
   return tm;
