@@ -627,7 +627,7 @@ PrpcClient::PrpcClient(Shm shm) {
 }
 
 PrpcClient::PrpcClient(const std::string& topic)
-    : PrpcClient(global_topic_manager().rpc_client_topic(topic)) {}
+    : PrpcClient(global_topic_manager().prpc_client_topic(topic)) {}
 
 void PrpcClient::async_close(std::function<void()> fn) {
   auto* deleter = std::get_deleter<CDeleter<a0_prpc_client_t>>(c);
