@@ -30,6 +30,7 @@ struct topic_manager_options {
 
   std::unordered_map<std::string, topic_map_val> subscriber_maps;
   std::unordered_map<std::string, topic_map_val> rpc_client_maps;
+  std::unordered_map<std::string, topic_map_val> prpc_client_maps;
 };
 
 void from_json(const json& j, topic_manager_options& opts) {
@@ -39,6 +40,9 @@ void from_json(const json& j, topic_manager_options& opts) {
   }
   if (j.count("rpc_client_maps")) {
     j.at("rpc_client_maps").get_to(opts.rpc_client_maps);
+  }
+  if (j.count("prpc_client_maps")) {
+    j.at("prpc_client_maps").get_to(opts.prpc_client_maps);
   }
 }
 
@@ -85,6 +89,7 @@ errno_t a0_topic_manager_close(a0_topic_manager_t* topic_manager) {
 constexpr char kConfigTopicTemplate[] = "/a0_config__%s";
 constexpr char kPubsubTopicTemplate[] = "/a0_pubsub__%s__%s";
 constexpr char kRpcTopicTemplate[] = "/a0_rpc__%s__%s";
+constexpr char kPrpcTopicTemplate[] = "/a0_prpc__%s__%s";
 
 errno_t a0_topic_manager_open_config_topic(a0_topic_manager_t* topic_manager, a0_shm_t* out) {
   auto path = a0::strutil::fmt(kConfigTopicTemplate, topic_manager->_impl->opts.container.c_str());
@@ -128,5 +133,25 @@ errno_t a0_topic_manager_open_rpc_client_topic(a0_topic_manager_t* topic_manager
   auto* mapping = &topic_manager->_impl->opts.rpc_client_maps.at(name);
   auto path =
       a0::strutil::fmt(kRpcTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
+  return a0_shm_open(path.c_str(), &topic_manager->_impl->default_shm_options, out);
+}
+
+errno_t a0_topic_manager_open_prpc_server_topic(a0_topic_manager_t* topic_manager,
+                                                const char* name,
+                                                a0_shm_t* out) {
+  auto path =
+      a0::strutil::fmt(kPrpcTopicTemplate, topic_manager->_impl->opts.container.c_str(), name);
+  return a0_shm_open(path.c_str(), &topic_manager->_impl->default_shm_options, out);
+}
+
+errno_t a0_topic_manager_open_prpc_client_topic(a0_topic_manager_t* topic_manager,
+                                                const char* name,
+                                                a0_shm_t* out) {
+  if (!topic_manager->_impl->opts.prpc_client_maps.count(name)) {
+    return EINVAL;
+  }
+  auto* mapping = &topic_manager->_impl->opts.prpc_client_maps.at(name);
+  auto path =
+      a0::strutil::fmt(kPrpcTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
   return a0_shm_open(path.c_str(), &topic_manager->_impl->default_shm_options, out);
 }

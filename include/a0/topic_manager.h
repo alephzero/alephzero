@@ -17,7 +17,7 @@ extern "C" {
 //     "container": { "type": "string" },
 //   },
 //   "patternProperties": {
-//     "subscriber_maps|rpc_client_maps": {
+//     "subscriber_maps|rpc_client_maps|prpc_client_maps": {
 //       "type": "object",
 //       "patternProperties": {
 //         ".*": {
@@ -49,6 +49,8 @@ errno_t a0_topic_manager_open_publisher_topic(a0_topic_manager_t*, const char*, 
 errno_t a0_topic_manager_open_subscriber_topic(a0_topic_manager_t*, const char*, a0_shm_t* out);
 errno_t a0_topic_manager_open_rpc_server_topic(a0_topic_manager_t*, const char*, a0_shm_t* out);
 errno_t a0_topic_manager_open_rpc_client_topic(a0_topic_manager_t*, const char*, a0_shm_t* out);
+errno_t a0_topic_manager_open_prpc_server_topic(a0_topic_manager_t*, const char*, a0_shm_t* out);
+errno_t a0_topic_manager_open_prpc_client_topic(a0_topic_manager_t*, const char*, a0_shm_t* out);
 
 #ifdef __cplusplus
 }

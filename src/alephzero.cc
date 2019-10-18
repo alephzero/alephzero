@@ -2,6 +2,7 @@
 #include <a0/alloc.h>
 #include <a0/common.h>
 #include <a0/packet.h>
+#include <a0/prpc.h>
 #include <a0/pubsub.h>
 #include <a0/rpc.h>
 #include <a0/shm.h>
@@ -503,8 +504,173 @@ void RpcClient::send(std::string_view payload, std::function<void(PacketView)> f
   send(Packet(payload), std::move(fn));
 }
 
+std::future<Packet> RpcClient::send(const Packet& pkt) {
+  std::promise<Packet> p;
+  send(pkt, [&](a0::PacketView reply) {
+    p.set_value(reply);
+  });
+  return p.get_future();
+}
+
+std::future<Packet> RpcClient::send(std::string_view payload) {
+  return send(Packet(payload));
+}
+
 void RpcClient::cancel(const std::string& id) {
   check(a0_rpc_cancel(&*c, id.c_str()));
+}
+
+PrpcServer PrpcConnection::server() {
+  PrpcServer server;
+  // Note: this does not extend the server lifetime.
+  server.c = std::shared_ptr<a0_prpc_server_t>(c->server, [](a0_prpc_server_t*) {});
+  return server;
+}
+
+PacketView PrpcConnection::pkt() {
+  return PacketView{.c = c->pkt};
+}
+
+void PrpcConnection::send(const Packet& pkt, bool done) {
+  check(a0_prpc_send(*c, pkt.c(), done));
+}
+
+void PrpcConnection::send(std::string_view payload, bool done) {
+  send(Packet(payload), done);
+}
+
+PrpcServer::PrpcServer(Shm shm,
+                       std::function<void(PrpcConnection)> onconnect,
+                       std::function<void(std::string)> oncancel) {
+  CDeleter<a0_prpc_server_t> deleter;
+  deleter.also.push_back([shm]() {});
+
+  auto heap_onconnect = new std::function<void(PrpcConnection)>(std::move(onconnect));
+  deleter.also.push_back([heap_onconnect]() {
+    delete heap_onconnect;
+  });
+
+  auto heap_oncancel = new std::function<void(std::string)>(std::move(oncancel));
+  deleter.also.push_back([heap_oncancel]() {
+    delete heap_oncancel;
+  });
+
+  a0_prpc_connection_callback_t c_onconnect = {
+      .user_data = heap_onconnect,
+      .fn =
+          [](void* user_data, a0_prpc_connection_t c_req) {
+            (*(std::function<void(PrpcConnection)>*)user_data)(
+                PrpcConnection{std::make_shared<a0_prpc_connection_t>(c_req)});
+          },
+  };
+  a0_packet_id_callback_t c_oncancel = {
+      .user_data = heap_oncancel,
+      .fn =
+          [](void* user_data, a0_packet_id_t id) {
+            (*(std::function<void(std::string)>*)user_data)(id);
+          },
+  };
+
+  auto alloc = a0_realloc_allocator();
+  deleter.also.push_back([alloc]() {
+    a0_free_realloc_allocator(alloc);
+  });
+
+  deleter.primary = a0_prpc_server_close;
+
+  c = c_shared<a0_prpc_server_t>(deleter);
+  check(a0_prpc_server_init(&*c, shm.c->buf, alloc, c_onconnect, c_oncancel));
+}
+
+PrpcServer::PrpcServer(const std::string& topic,
+                       std::function<void(PrpcConnection)> onconnect,
+                       std::function<void(std::string)> oncancel)
+    : PrpcServer(global_topic_manager().rpc_server_topic(topic),
+                 std::move(onconnect),
+                 std::move(oncancel)) {}
+
+void PrpcServer::async_close(std::function<void()> fn) {
+  auto* deleter = std::get_deleter<CDeleter<a0_prpc_server_t>>(c);
+  deleter->primary = nullptr;
+
+  struct data_t {
+    std::shared_ptr<a0_prpc_server_t> c;
+    std::function<void()> fn;
+  };
+  auto heap_data = new data_t{std::move(c), std::move(fn)};
+  a0_callback_t callback = {
+      .user_data = heap_data,
+      .fn =
+          [](void* user_data) {
+            auto* data = (data_t*)user_data;
+            data->fn();
+            delete data;
+          },
+  };
+
+  check(a0_prpc_server_async_close(&*heap_data->c, callback));
+}
+
+PrpcClient::PrpcClient(Shm shm) {
+  CDeleter<a0_prpc_client_t> deleter;
+  deleter.also.push_back([shm]() {});
+
+  auto alloc = a0_realloc_allocator();
+  deleter.also.push_back([alloc]() {
+    a0_free_realloc_allocator(alloc);
+  });
+
+  deleter.primary = a0_prpc_client_close;
+
+  c = c_shared<a0_prpc_client_t>(deleter);
+  check(a0_prpc_client_init(&*c, shm.c->buf, alloc));
+}
+
+PrpcClient::PrpcClient(const std::string& topic)
+    : PrpcClient(global_topic_manager().rpc_client_topic(topic)) {}
+
+void PrpcClient::async_close(std::function<void()> fn) {
+  auto* deleter = std::get_deleter<CDeleter<a0_prpc_client_t>>(c);
+  deleter->primary = nullptr;
+
+  struct data_t {
+    std::shared_ptr<a0_prpc_client_t> c;
+    std::function<void()> fn;
+  };
+  auto heap_data = new data_t{std::move(c), std::move(fn)};
+  a0_callback_t callback = {
+      .user_data = heap_data,
+      .fn =
+          [](void* user_data) {
+            auto* data = (data_t*)user_data;
+            data->fn();
+            delete data;
+          },
+  };
+
+  check(a0_prpc_client_async_close(&*heap_data->c, callback));
+}
+
+void PrpcClient::connect(const Packet& pkt, std::function<void(PacketView, bool)> fn) {
+  auto heap_fn = new std::function<void(PacketView, bool)>(std::move(fn));
+  a0_prpc_callback_t callback = {
+      .user_data = heap_fn,
+      .fn =
+          [](void* user_data, a0_packet_t c_pkt, bool done) {
+            auto* fn = (std::function<void(PacketView, bool)>*)user_data;
+            (*fn)(PacketView{.c = c_pkt}, done);
+            delete fn;
+          },
+  };
+  check(a0_prpc_connect(&*c, pkt.c(), callback));
+}
+
+void PrpcClient::connect(std::string_view payload, std::function<void(PacketView, bool)> fn) {
+  connect(Packet(payload), std::move(fn));
+}
+
+void PrpcClient::cancel(const std::string& id) {
+  check(a0_prpc_cancel(&*c, id.c_str()));
 }
 
 }  // namespace a0

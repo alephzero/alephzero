@@ -1,4 +1,5 @@
 #include <a0/packet.h>
+#include <a0/prpc.h>
 #include <a0/pubsub.h>
 #include <a0/rpc.h>
 #include <a0/shm.h>
@@ -9,6 +10,7 @@
 #include <sys/types.h>
 
 #include <functional>
+#include <future>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -148,6 +150,46 @@ struct RpcClient {
 
   void send(const Packet&, std::function<void(PacketView)>);
   void send(std::string_view, std::function<void(PacketView)>);
+  std::future<Packet> send(const Packet&);
+  std::future<Packet> send(std::string_view);
+
+  void cancel(const std::string&);
+};
+
+struct PrpcServer;
+
+struct PrpcConnection {
+  std::shared_ptr<a0_prpc_connection_t> c;
+
+  PrpcServer server();
+  PacketView pkt();
+
+  void send(const Packet&, bool done);
+  void send(std::string_view, bool done);
+};
+
+struct PrpcServer {
+  std::shared_ptr<a0_prpc_server_t> c;
+
+  PrpcServer() = default;
+  PrpcServer(Shm, std::function<void(PrpcConnection)> onconnect, std::function<void(std::string)> oncancel);
+  // User-friendly constructor that uses GlobalTopicManager prpc_server_topic for shm.
+  PrpcServer(const std::string&, std::function<void(PrpcConnection)> onconnect, std::function<void(std::string)> oncancel);
+  void async_close(std::function<void()>);
+};
+
+struct PrpcClient {
+  std::shared_ptr<a0_prpc_client_t> c;
+
+  PrpcClient() = default;
+  PrpcClient(Shm);
+  // User-friendly constructor that uses GlobalTopicManager prpc_client_topic for shm.
+  PrpcClient(const std::string&);
+  void async_close(std::function<void()>);
+
+  void connect(const Packet&, std::function<void(PacketView, bool)>);
+  void connect(std::string_view, std::function<void(PacketView, bool)>);
+
   void cancel(const std::string&);
 };
 
