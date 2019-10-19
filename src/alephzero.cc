@@ -597,7 +597,7 @@ PrpcServer::PrpcServer(Shm shm,
 PrpcServer::PrpcServer(const std::string& topic,
                        std::function<void(PrpcConnection)> onconnect,
                        std::function<void(std::string)> oncancel)
-    : PrpcServer(global_topic_manager().rpc_server_topic(topic),
+    : PrpcServer(global_topic_manager().prpc_server_topic(topic),
                  std::move(onconnect),
                  std::move(oncancel)) {}
 
@@ -671,7 +671,9 @@ void PrpcClient::connect(const Packet& pkt, std::function<void(PacketView, bool)
           [](void* user_data, a0_packet_t c_pkt, bool done) {
             auto* fn = (std::function<void(PacketView, bool)>*)user_data;
             (*fn)(PacketView{.c = c_pkt}, done);
-            delete fn;
+            if (done) {
+              delete fn;
+            }
           },
   };
   check(a0_prpc_connect(&*c, pkt.c(), callback));
