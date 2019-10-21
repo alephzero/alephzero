@@ -517,11 +517,11 @@ void RpcClient::send(std::string_view payload, std::function<void(PacketView)> f
 }
 
 std::future<Packet> RpcClient::send(const Packet& pkt) {
-  std::promise<Packet> p;
-  send(pkt, [&](a0::PacketView reply) {
-    p.set_value(reply);
+  auto p = std::make_shared<std::promise<Packet>>();
+  send(pkt, [p](a0::PacketView reply) {
+    p->set_value(reply);
   });
-  return p.get_future();
+  return p->get_future();
 }
 
 std::future<Packet> RpcClient::send(std::string_view payload) {
