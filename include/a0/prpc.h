@@ -5,6 +5,8 @@
 #include <a0/common.h>
 #include <a0/packet.h>
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
