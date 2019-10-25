@@ -305,6 +305,10 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
   REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
   REQUIRE(has_next);
 
+  bool has_prev;
+  REQUIRE(a0_stream_has_prev(lk, &has_prev) == A0_OK);
+  REQUIRE(!has_prev);
+
   REQUIRE(a0_stream_next(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 2);
@@ -321,15 +325,31 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
   REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
   REQUIRE(!has_next);
 
-  REQUIRE(a0_stream_jump_head(lk) == A0_OK);
+  REQUIRE(a0_stream_has_prev(lk, &has_prev) == A0_OK);
+  REQUIRE(has_prev);
+
+  REQUIRE(a0_stream_prev(lk) == A0_OK);
+  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(a0::test::str(frame) == "BB");
+
+  REQUIRE(a0_stream_prev(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
+
+  REQUIRE(a0_stream_has_prev(lk, &has_prev) == A0_OK);
+  REQUIRE(!has_prev);
 
   REQUIRE(a0_stream_jump_tail(lk) == A0_OK);
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 3);
   REQUIRE(a0::test::str(frame) == "CCC");
+
+  REQUIRE(a0_stream_jump_head(lk) == A0_OK);
+  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(a0::test::str(frame) == "A");
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);

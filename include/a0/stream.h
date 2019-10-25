@@ -72,6 +72,8 @@ errno_t a0_stream_jump_head(a0_locked_stream_t);
 errno_t a0_stream_jump_tail(a0_locked_stream_t);  // Inclusive.
 errno_t a0_stream_has_next(a0_locked_stream_t, bool*);
 errno_t a0_stream_next(a0_locked_stream_t);
+errno_t a0_stream_has_prev(a0_locked_stream_t, bool*);
+errno_t a0_stream_prev(a0_locked_stream_t);
 
 // Await until the given predicate is satisfied.
 // The predicate is checked when an event occurs on any stream wrapping shm.

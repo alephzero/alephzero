@@ -321,9 +321,37 @@ errno_t a0_stream_next(a0_locked_stream_t lk) {
   }
 
   a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
-  a0_stream_frame_hdr_t* frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
-  lk.stream->_seq = frame_hdr->seq + 1;
-  lk.stream->_off = frame_hdr->next_off;
+  a0_stream_frame_hdr_t* curr_frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
+  lk.stream->_off = curr_frame_hdr->next_off;
+
+  a0_stream_frame_hdr_t* next_frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
+  lk.stream->_seq = next_frame_hdr->seq;
+
+  return A0_OK;
+}
+
+errno_t a0_stream_has_prev(a0_locked_stream_t lk, bool* out) {
+  bool empty;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_empty(lk, &empty));
+
+  a0_stream_state_t* state = a0_stream_working_page(lk);
+  *out = !empty && (lk.stream->_seq > state->seq_low);
+  return A0_OK;
+}
+
+errno_t a0_stream_prev(a0_locked_stream_t lk) {
+  bool has_prev;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_has_prev(lk, &has_prev));
+  if (!has_prev) {
+    return EAGAIN;
+  }
+
+  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
+  a0_stream_frame_hdr_t* curr_frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
+  lk.stream->_off = curr_frame_hdr->prev_off;
+
+  a0_stream_frame_hdr_t* prev_frame_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + lk.stream->_off);
+  lk.stream->_seq = prev_frame_hdr->seq;
 
   return A0_OK;
 }
