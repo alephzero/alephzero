@@ -277,8 +277,10 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_buf_t arena, a0_alloc_t a
         auto callback = strong_state->outstanding[req_id];
         strong_state->outstanding.erase(req_id);
 
-        lk.unlock();
-        callback.fn(callback.user_data, pkt);
+        if (callback.fn) {
+          lk.unlock();
+          callback.fn(callback.user_data, pkt);
+        }
       }
     }();
 

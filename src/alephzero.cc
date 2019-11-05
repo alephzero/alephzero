@@ -396,12 +396,6 @@ RpcServer::RpcServer(Shm shm,
   deleter.also.push_back([heap_onrequest]() {
     delete heap_onrequest;
   });
-
-  auto heap_oncancel = new std::function<void(std::string)>(std::move(oncancel));
-  deleter.also.push_back([heap_oncancel]() {
-    delete heap_oncancel;
-  });
-
   a0_rpc_request_callback_t c_onrequest = {
       .user_data = heap_onrequest,
       .fn =
@@ -410,13 +404,24 @@ RpcServer::RpcServer(Shm shm,
                 RpcRequest{std::make_shared<a0_rpc_request_t>(c_req)});
           },
   };
+
   a0_packet_id_callback_t c_oncancel = {
-      .user_data = heap_oncancel,
-      .fn =
-          [](void* user_data, a0_packet_id_t id) {
-            (*(std::function<void(std::string)>*)user_data)(id);
-          },
+      .user_data = nullptr,
+      .fn = nullptr,
   };
+  if (oncancel) {
+    auto heap_oncancel = new std::function<void(std::string)>(std::move(oncancel));
+    deleter.also.push_back([heap_oncancel]() {
+      delete heap_oncancel;
+    });
+    c_oncancel = {
+        .user_data = heap_oncancel,
+        .fn =
+            [](void* user_data, a0_packet_id_t id) {
+              (*(std::function<void(std::string)>*)user_data)(id);
+            },
+    };
+  }
 
   auto alloc = a0_realloc_allocator();
   deleter.also.push_back([alloc]() {
@@ -499,16 +504,22 @@ void RpcClient::async_close(std::function<void()> fn) {
 }
 
 void RpcClient::send(const Packet& pkt, std::function<void(PacketView)> fn) {
-  auto heap_fn = new std::function<void(PacketView)>(std::move(fn));
   a0_packet_callback_t callback = {
-      .user_data = heap_fn,
-      .fn =
-          [](void* user_data, a0_packet_t c_pkt) {
-            auto* fn = (std::function<void(PacketView)>*)user_data;
-            (*fn)(PacketView{.c = c_pkt});
-            delete fn;
-          },
+      .user_data = nullptr,
+      .fn = nullptr,
   };
+  if (fn) {
+    auto heap_fn = new std::function<void(PacketView)>(std::move(fn));
+    callback = {
+        .user_data = heap_fn,
+        .fn =
+            [](void* user_data, a0_packet_t c_pkt) {
+              auto* fn = (std::function<void(PacketView)>*)user_data;
+              (*fn)(PacketView{.c = c_pkt});
+              delete fn;
+            },
+    };
+  }
   check(a0_rpc_send(&*c, pkt.c(), callback));
 }
 
@@ -561,12 +572,6 @@ PrpcServer::PrpcServer(Shm shm,
   deleter.also.push_back([heap_onconnect]() {
     delete heap_onconnect;
   });
-
-  auto heap_oncancel = new std::function<void(std::string)>(std::move(oncancel));
-  deleter.also.push_back([heap_oncancel]() {
-    delete heap_oncancel;
-  });
-
   a0_prpc_connection_callback_t c_onconnect = {
       .user_data = heap_onconnect,
       .fn =
@@ -575,13 +580,24 @@ PrpcServer::PrpcServer(Shm shm,
                 PrpcConnection{std::make_shared<a0_prpc_connection_t>(c_req)});
           },
   };
+
   a0_packet_id_callback_t c_oncancel = {
-      .user_data = heap_oncancel,
-      .fn =
-          [](void* user_data, a0_packet_id_t id) {
-            (*(std::function<void(std::string)>*)user_data)(id);
-          },
+      .user_data = nullptr,
+      .fn = nullptr,
   };
+  if (oncancel) {
+    auto heap_oncancel = new std::function<void(std::string)>(std::move(oncancel));
+    deleter.also.push_back([heap_oncancel]() {
+      delete heap_oncancel;
+    });
+    c_oncancel = {
+        .user_data = heap_oncancel,
+        .fn =
+            [](void* user_data, a0_packet_id_t id) {
+              (*(std::function<void(std::string)>*)user_data)(id);
+            },
+    };
+  }
 
   auto alloc = a0_realloc_allocator();
   deleter.also.push_back([alloc]() {

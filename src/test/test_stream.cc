@@ -110,6 +110,21 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
   REQUIRE(a0_stream_close(&stream) == A0_OK);
 }
 
+TEST_CASE_FIXTURE(StreamTestFixture, "Test metadata too large") {
+  a0_stream_t stream;
+  a0_stream_init_status_t init_status;
+  a0_locked_stream_t lk;
+
+  a0_buf_t arena = {
+      .ptr = (uint8_t*)malloc(1024),
+      .size = 1024,
+  };
+  memset(arena.ptr, 0, arena.size);
+  protocol.metadata_size = 1024;
+  REQUIRE(a0_stream_init(&stream, arena, protocol, &init_status, &lk) == ENOMEM);
+  free(arena.ptr);
+}
+
 TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
@@ -350,6 +365,29 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
   REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
+
+  REQUIRE(a0_unlock_stream(lk) == A0_OK);
+  REQUIRE(a0_stream_close(&stream) == A0_OK);
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "Test empty jumps") {
+  a0_stream_t stream;
+  a0_stream_init_status_t init_status;
+  a0_locked_stream_t lk;
+  REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
+
+  REQUIRE(a0_stream_jump_head(lk) == EAGAIN);
+  REQUIRE(a0_stream_jump_tail(lk) == EAGAIN);
+  REQUIRE(a0_stream_next(lk) == EAGAIN);
+  REQUIRE(a0_stream_prev(lk) == EAGAIN);
+
+  bool has_next;
+  REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
+  REQUIRE(!has_next);
+
+  bool has_prev;
+  REQUIRE(a0_stream_has_prev(lk, &has_prev) == A0_OK);
+  REQUIRE(!has_prev);
 
   REQUIRE(a0_unlock_stream(lk) == A0_OK);
   REQUIRE(a0_stream_close(&stream) == A0_OK);
