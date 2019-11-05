@@ -197,14 +197,11 @@ errno_t a0_stream_close(a0_stream_t* stream) {
   a0_locked_stream_t lk;
   a0_lock_stream(stream, &lk);
 
-  if (!stream->_closing) {
-    stream->_closing = true;
+  stream->_closing = true;
+  a0_fucv_wake(lk);
 
-    a0_fucv_wake(lk);
-
-    while (stream->_await_cnt) {
-      a0_fucv_wait(lk);
-    }
+  while (stream->_await_cnt) {
+    a0_fucv_wait(lk);
   }
 
   a0_unlock_stream(lk);
@@ -218,7 +215,7 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
   lk_out->stream = stream;
 
   errno_t lock_status = pthread_mutex_lock(&hdr->mu);
-  if (lock_status == EOWNERDEAD) {
+  if (A0_UNLIKELY(lock_status == EOWNERDEAD)) {
     // The data is always consistent by design.
     lock_status = pthread_mutex_consistent(&hdr->mu);
     a0_fucv_wake(*lk_out);
@@ -273,7 +270,7 @@ errno_t a0_stream_jump_head(a0_locked_stream_t lk) {
 
   bool empty;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_empty(lk, &empty));
-  if (empty) {
+  if (A0_UNLIKELY(empty)) {
     return EAGAIN;
   }
 
@@ -287,7 +284,7 @@ errno_t a0_stream_jump_tail(a0_locked_stream_t lk) {
 
   bool empty;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_empty(lk, &empty));
-  if (empty) {
+  if (A0_UNLIKELY(empty)) {
     return EAGAIN;
   }
 
@@ -310,11 +307,11 @@ errno_t a0_stream_next(a0_locked_stream_t lk) {
 
   bool has_next;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_has_next(lk, &has_next));
-  if (!has_next) {
+  if (A0_UNLIKELY(!has_next)) {
     return EAGAIN;
   }
 
-  if (lk.stream->_seq < state->seq_low) {
+  if (A0_UNLIKELY(lk.stream->_seq < state->seq_low)) {
     lk.stream->_seq = state->seq_low;
     lk.stream->_off = state->off_head;
     return A0_OK;
@@ -342,7 +339,7 @@ errno_t a0_stream_has_prev(a0_locked_stream_t lk, bool* out) {
 errno_t a0_stream_prev(a0_locked_stream_t lk) {
   bool has_prev;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_has_prev(lk, &has_prev));
-  if (!has_prev) {
+  if (A0_UNLIKELY(!has_prev)) {
     return EAGAIN;
   }
 
@@ -357,7 +354,7 @@ errno_t a0_stream_prev(a0_locked_stream_t lk) {
 }
 
 errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_t, bool*)) {
-  if (lk.stream->_closing) {
+  if (A0_UNLIKELY(lk.stream->_closing)) {
     return ESHUTDOWN;
   }
 
@@ -369,7 +366,7 @@ errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_
 
   lk.stream->_await_cnt++;
 
-  while (!lk.stream->_closing) {
+  while (A0_LIKELY(!lk.stream->_closing)) {
     err = pred(lk, &sat);
     if (err || sat) {
       break;
@@ -391,7 +388,7 @@ errno_t a0_stream_frame(a0_locked_stream_t lk, a0_stream_frame_t* frame_out) {
   a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
   a0_stream_state_t* state = a0_stream_working_page(lk);
 
-  if (lk.stream->_seq < state->seq_low) {
+  if (A0_UNLIKELY(lk.stream->_seq < state->seq_low)) {
     return ESPIPE;
   }
 
@@ -424,7 +421,7 @@ bool a0_stream_head_interval(a0_locked_stream_t lk, stream_off_t* head_off, size
 
   bool empty;
   a0_stream_empty(lk, &empty);
-  if (empty) {
+  if (A0_UNLIKELY(empty)) {
     return false;
   }
 
@@ -441,7 +438,7 @@ void a0_stream_remove_head(a0_locked_stream_t lk) {
 
   a0_stream_frame_hdr_t* head_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + state->off_head);
 
-  if (state->off_head == state->off_tail) {
+  if (A0_UNLIKELY(state->off_head == state->off_tail)) {
     state->off_head = 0;
     state->off_tail = 0;
     state->seq_low++;
@@ -462,16 +459,16 @@ errno_t a0_stream_find_slot(a0_locked_stream_t lk, size_t frame_size, stream_off
   bool empty;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_empty(lk, &empty));
 
-  if (empty) {
+  if (A0_UNLIKELY(empty)) {
     *off = a0_stream_workspace_off(hdr);
   } else {
     *off = a0_max_align(a0_stream_frame_end(hdr, state->off_tail));
-    if (*off + frame_size >= hdr->shm_size) {
+    if (A0_UNLIKELY(*off + frame_size >= hdr->shm_size)) {
       *off = a0_stream_workspace_off(hdr);
     }
   }
 
-  if (*off + frame_size >= hdr->shm_size) {
+  if (A0_UNLIKELY(*off + frame_size >= hdr->shm_size)) {
     return EOVERFLOW;
   }
 
@@ -496,7 +493,7 @@ void a0_stream_slot_init(a0_stream_state_t* state,
   memset(frame_hdr, 0, sizeof(a0_stream_frame_hdr_t));
 
   frame_hdr->seq = ++state->seq_high;
-  if (!state->seq_low) {
+  if (A0_UNLIKELY(!state->seq_low)) {
     state->seq_low = frame_hdr->seq;
   }
 
@@ -508,7 +505,7 @@ void a0_stream_slot_init(a0_stream_state_t* state,
 
 A0_STATIC_INLINE
 void a0_stream_maybe_set_head(a0_stream_state_t* state, a0_stream_frame_hdr_t* frame_hdr) {
-  if (!state->off_head) {
+  if (A0_UNLIKELY(!state->off_head)) {
     state->off_head = frame_hdr->off;
   }
 }
@@ -517,7 +514,7 @@ A0_STATIC_INLINE
 void a0_stream_update_tail(a0_stream_hdr_t* hdr,
                            a0_stream_state_t* state,
                            a0_stream_frame_hdr_t* frame_hdr) {
-  if (state->off_tail) {
+  if (A0_LIKELY(state->off_tail)) {
     a0_stream_frame_hdr_t* tail_frame_hdr =
         (a0_stream_frame_hdr_t*)((uint8_t*)hdr + state->off_tail);
     tail_frame_hdr->next_off = frame_hdr->off;
