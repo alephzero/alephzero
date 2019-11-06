@@ -49,7 +49,7 @@ struct Packet {
   std::vector<uint8_t> mem;
   const a0_packet_t c() const;
 
-  Packet() = default;
+  Packet();
   Packet(PacketView);
   Packet(std::string_view payload);
   Packet(const std::vector<std::pair<std::string_view, std::string_view>>& hdrs,

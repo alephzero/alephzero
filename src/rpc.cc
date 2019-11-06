@@ -99,8 +99,10 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
                    });
     } else if (!strcmp(rpc_type, kRpcTypeCancel)) {
       if (oncancel.fn) {
+        a0_buf_t payload;
+        a0_packet_payload(pkt, &payload);
         a0_packet_id_t id;
-        a0_packet_id(pkt, &id);
+        memcpy(id, payload.ptr, payload.size);
         oncancel.fn(oncancel.user_data, id);
       }
     }
@@ -177,11 +179,11 @@ errno_t a0_rpc_reply(a0_rpc_request_t req, const a0_packet_t resp) {
   constexpr size_t num_extra_headers = 3;
   a0_packet_header_t extra_headers[num_extra_headers];
 
-  extra_headers[0].key = kRequestId;
-  extra_headers[0].val = req_id;
+  extra_headers[0].key = kRpcType;
+  extra_headers[0].val = kRpcTypeResponse;
 
-  extra_headers[1].key = kRpcType;
-  extra_headers[1].val = kRpcTypeResponse;
+  extra_headers[1].key = kRequestId;
+  extra_headers[1].val = req_id;
 
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
@@ -392,32 +394,30 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, const a0_packet_id_t req_id) {
     client->_impl->state->outstanding.erase(req_id);
   }
 
-  constexpr size_t num_headers = 3;
+  constexpr size_t num_headers = 2;
   a0_packet_header_t headers[num_headers];
 
   headers[0].key = kRpcType;
   headers[0].val = kRpcTypeCancel;
 
-  headers[1].key = kRequestId;
-  headers[1].val = req_id;
-
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   std::string clock_str = std::to_string(clock_val);
-  headers[2].key = kClock;
-  headers[2].val = clock_str.c_str();
+  headers[1].key = kClock;
+  headers[1].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.
 
   // TODO: Check impl and state still valid?
   a0::sync_stream_t ss{&client->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_build(num_headers,
-                                                  headers,
-                                                  a0_buf_t{.ptr = nullptr, .size = 0},
-                                                  a0::stream_allocator(&slk),
-                                                  nullptr));
+    A0_INTERNAL_RETURN_ERR_ON_ERR(
+        a0_packet_build(num_headers,
+                        headers,
+                        a0_buf_t{.ptr = (uint8_t*)req_id, .size = sizeof(a0_packet_id_t)},
+                        a0::stream_allocator(&slk),
+                        nullptr));
     return a0_stream_commit(slk);
   });
 }

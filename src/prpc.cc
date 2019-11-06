@@ -24,12 +24,12 @@
 ///////////////////
 
 static const char kPrpcType[] = "a0_prpc_type";
-static const char kPrpcTypeNewConn[] = "new_conn";
+static const char kPrpcTypeConnect[] = "connect";
 static const char kPrpcTypeProgress[] = "progress";
+static const char kPrpcTypeComplete[] = "complete";
 static const char kPrpcTypeCancel[] = "cancel";
 
 static const char kPrpcConnId[] = "a0_conn_id";
-static const char kPrpcDoneId[] = "a0_done";
 
 A0_STATIC_INLINE
 a0_stream_protocol_t protocol_info() {
@@ -92,7 +92,7 @@ errno_t a0_prpc_server_init(a0_prpc_server_t* server,
 
     const char* prpc_type;
     a0_packet_find_header(pkt, kPrpcType, 0, &prpc_type, nullptr);
-    if (!strcmp(prpc_type, kPrpcTypeNewConn)) {
+    if (!strcmp(prpc_type, kPrpcTypeConnect)) {
       onconnect.fn(onconnect.user_data,
                    a0_prpc_connection_t{
                        .server = server,
@@ -100,8 +100,10 @@ errno_t a0_prpc_server_init(a0_prpc_server_t* server,
                    });
     } else if (!strcmp(prpc_type, kPrpcTypeCancel)) {
       if (oncancel.fn) {
+        a0_buf_t payload;
+        a0_packet_payload(pkt, &payload);
         a0_packet_id_t id;
-        a0_packet_id(pkt, &id);
+        memcpy(id, payload.ptr, payload.size);
         oncancel.fn(oncancel.user_data, id);
       }
     }
@@ -175,14 +177,14 @@ errno_t a0_prpc_send(a0_prpc_connection_t conn, const a0_packet_t prog, bool don
     return EINVAL;
   }
 
-  constexpr size_t num_extra_headers = 4;
+  constexpr size_t num_extra_headers = 3;
   a0_packet_header_t extra_headers[num_extra_headers];
 
-  extra_headers[0].key = kPrpcConnId;
-  extra_headers[0].val = conn_id;
+  extra_headers[0].key = kPrpcType;
+  extra_headers[0].val = done ? kPrpcTypeComplete : kPrpcTypeProgress;
 
-  extra_headers[1].key = kPrpcType;
-  extra_headers[1].val = kPrpcTypeProgress;
+  extra_headers[1].key = kPrpcConnId;
+  extra_headers[1].val = conn_id;
 
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
@@ -190,10 +192,6 @@ errno_t a0_prpc_send(a0_prpc_connection_t conn, const a0_packet_t prog, bool don
   auto clock_str = std::to_string(clock_val);
   extra_headers[2].key = kClock;
   extra_headers[2].val = clock_str.c_str();
-
-  auto done_str = std::to_string(done);
-  extra_headers[3].key = kPrpcDoneId;
-  extra_headers[3].val = done_str.c_str();
 
   // TODO: Add sequence numbers.
 
@@ -253,7 +251,9 @@ errno_t a0_prpc_client_init(a0_prpc_client_t* client, a0_buf_t arena, a0_alloc_t
     const char* prpc_type;
     a0_packet_find_header(a0::buf(frame), kPrpcType, 0, &prpc_type, nullptr);
 
-    if (strcmp(prpc_type, kPrpcTypeProgress)) {
+    bool is_progress = !strcmp(prpc_type, kPrpcTypeProgress);
+    bool is_complete = !strcmp(prpc_type, kPrpcTypeComplete);
+    if (!is_progress && !is_complete) {
       return;
     }
 
@@ -278,17 +278,14 @@ errno_t a0_prpc_client_init(a0_prpc_client_t* client, a0_buf_t arena, a0_alloc_t
       const char* conn_id;
       a0_packet_find_header(pkt, kPrpcConnId, 0, &conn_id, nullptr);
 
-      const char* done_str;
-      a0_packet_find_header(pkt, kPrpcDoneId, 0, &done_str, nullptr);
-
       if (strong_state->outstanding.count(conn_id)) {
         auto callback = strong_state->outstanding[conn_id];
-        if (done_str[0] == '1') {
+        if (is_complete) {
           strong_state->outstanding.erase(conn_id);
         }
 
         lk.unlock();
-        callback.fn(callback.user_data, pkt, done_str[0] == '1');
+        callback.fn(callback.user_data, pkt, is_complete);
       }
     }();
 
@@ -368,7 +365,7 @@ errno_t a0_prpc_connect(a0_prpc_client_t* client,
   a0_packet_header_t extra_headers[num_extra_headers];
 
   extra_headers[0].key = kPrpcType;
-  extra_headers[0].val = kPrpcTypeNewConn;
+  extra_headers[0].val = kPrpcTypeConnect;
 
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
@@ -402,32 +399,30 @@ errno_t a0_prpc_cancel(a0_prpc_client_t* client, const a0_packet_id_t conn_id) {
     client->_impl->state->outstanding.erase(conn_id);
   }
 
-  constexpr size_t num_headers = 3;
+  constexpr size_t num_headers = 2;
   a0_packet_header_t headers[num_headers];
 
   headers[0].key = kPrpcType;
   headers[0].val = kPrpcTypeCancel;
 
-  headers[1].key = kPrpcConnId;
-  headers[1].val = conn_id;
-
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   std::string clock_str = std::to_string(clock_val);
-  headers[2].key = kClock;
-  headers[2].val = clock_str.c_str();
+  headers[1].key = kClock;
+  headers[1].val = clock_str.c_str();
 
   // TODO: Add sequence numbers.
 
   // TODO: Check impl and state still valid?
   a0::sync_stream_t ss{&client->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_build(num_headers,
-                                                  headers,
-                                                  a0_buf_t{.ptr = nullptr, .size = 0},
-                                                  a0::stream_allocator(&slk),
-                                                  nullptr));
+    A0_INTERNAL_RETURN_ERR_ON_ERR(
+        a0_packet_build(num_headers,
+                        headers,
+                        a0_buf_t{.ptr = (uint8_t*)conn_id, .size = sizeof(a0_packet_id_t)},
+                        a0::stream_allocator(&slk),
+                        nullptr));
     return a0_stream_commit(slk);
   });
 }
