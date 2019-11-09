@@ -7,7 +7,7 @@ BIN_DIR = bin
 
 CXFLAGS += -Wall -Wextra -fPIC -Iinclude
 CXXFLAGS += -Ithird_party/json/single_include -std=c++17 -D_GLIBCXX_USE_CXX11_ABI=0
-LDLIBS += -lm -lpthread -lrt
+LDFLAGS += -lm -lpthread -lrt
 
 SRC_C := $(wildcard $(SRC_DIR)/*.c)
 SRC_CXX := $(wildcard $(SRC_DIR)/*.cc)
@@ -24,7 +24,15 @@ TEST_OBJ := $(TEST_SRC_C:$(SRC_DIR)/test/%.c=$(OBJ_DIR)/test/%.o)
 TEST_OBJ += $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cc=$(OBJ_DIR)/test/%.o)
 
 TEST_CXXFLAGS += -I. -Itest -Ithird_party/doctest/doctest
-TEST_LDLIBS += -lm
+TEST_LDFLAGS += -lm
+
+BENCH_SRC_C := $(wildcard $(SRC_DIR)/bench/*.c)
+BENCH_SRC_CXX := $(wildcard $(SRC_DIR)/bench/*.cc)
+
+BENCH_OBJ := $(BENCH_SRC_C:$(SRC_DIR)/bench/%.c=$(OBJ_DIR)/bench/%.o)
+BENCH_OBJ += $(BENCH_SRC_CXX:$(SRC_DIR)/bench/%.cc=$(OBJ_DIR)/bench/%.o)
+
+BENCH_CXXFLAGS += -I. -Ibench -Ithird_party/picobench/include
 
 DEBUG ?= 0
 ifneq ($(DEBUG), 1)
@@ -33,16 +41,16 @@ ifneq ($(DEBUG), 1)
 endif
 
 cov: CXFLAGS += -fprofile-arcs -ftest-coverage --coverage
-cov: LDLIBS += -lgcov
+cov: LDFLAGS += -lgcov
 
 asan: CXFLAGS += -fsanitize=address -fsanitize=leak
-asan: LDLIBS += -fsanitize=address -fsanitize=leak
+asan: LDFLAGS += -fsanitize=address -fsanitize=leak
 
 tsan: CXFLAGS += -fsanitize=thread
-tsan: LDLIBS += -fsanitize=thread
+tsan: LDFLAGS += -fsanitize=thread
 
 ubsan: CXFLAGS += -fsanitize=undefined
-ubsan: LDLIBS += -fsanitize=undefined -lubsan
+ubsan: LDFLAGS += -fsanitize=undefined -lubsan
 
 ifeq ($(DEBUG), 1)
 	CXFLAGS += -O0 -g3 -ggdb3 -DDEBUG
@@ -50,11 +58,16 @@ else
 	CXFLAGS += -O2
 endif
 
+ifeq ($(PROFILE), 1)
+	CXFLAGS += -g3 -ggdb3
+	LDFLAGS += -Wl,--no-as-needed -lprofiler -Wl,--as-needed
+endif
+
 ifeq ($(PREFIX),)
 	PREFIX := /usr
 endif
 
-.PHONY: all clean cov install test uninstall valgrind
+.PHONY: all bench clean cov install test uninstall valgrind
 
 all:
 	@echo "TODO"
@@ -75,7 +88,15 @@ $(OBJ_DIR)/test/%.o: $(SRC_DIR)/test/%.cc
 
 $(BIN_DIR)/test: $(TEST_OBJ) $(OBJ)
 	@mkdir -p $(@D)
-	$(CXX) $^ $(LDLIBS) $(TEST_LDLIBS) -o $@
+	$(CXX) $^ $(LDFLAGS) $(TEST_LDFLAGS) -o $@
+
+$(OBJ_DIR)/bench/%.o: $(SRC_DIR)/bench/%.cc
+	@mkdir -p $(@D)
+	$(CXX) $(CXFLAGS) $(CXXFLAGS) $(BENCH_CXXFLAGS) -MMD -c $< -o $@
+
+$(BIN_DIR)/bench: $(BENCH_OBJ) $(OBJ)
+	@mkdir -p $(@D)
+	$(CXX) $^ $(LDFLAGS) $(BENCH_LDFLAGS) -o $@
 
 $(LIB_DIR)/lib$(A0).a: $(OBJ)
 	@mkdir -p $(@D)
@@ -104,6 +125,9 @@ uninstall:
 
 test: $(BIN_DIR)/test
 	$(BIN_DIR)/test
+
+bench: $(BIN_DIR)/bench
+	$(BIN_DIR)/bench
 
 asan tsan ubsan: $(BIN_DIR)/test
 	RUNNING_ON_VALGRIND=1 $(BIN_DIR)/test

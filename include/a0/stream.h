@@ -13,10 +13,23 @@ extern "C" {
 
 typedef struct a0_stream_s {
   a0_buf_t _arena;
+
+  // Connection pointer info.
   uint64_t _seq;
   uint64_t _off;
-  bool _closing;
+
+  // Number of active awaits using this stream connection.
+  // TODO: Could this be a bool?
   uint32_t _await_cnt;
+
+  // Whether the stream is in the process of disconnecting.
+  bool _closing;
+
+  // Whether the stream has an unflushed notification.
+  bool _should_notify;
+
+  // Unique token used to distinguish locks.
+  uint32_t _lk_tkn;
 } a0_stream_t;
 
 typedef struct a0_stream_protocol_s {
@@ -46,6 +59,7 @@ typedef enum a0_stream_init_status_s {
   A0_STREAM_PROTOCOL_MISMATCH,
 } a0_stream_init_status_t;
 
+// Wrapper around a stream, used to "strongly" type unique-access.
 typedef struct a0_locked_stream_s {
   a0_stream_t* stream;
 } a0_locked_stream_t;
@@ -57,7 +71,9 @@ errno_t a0_stream_init(a0_stream_t*,
                        a0_locked_stream_t* lk_out);
 errno_t a0_stream_close(a0_stream_t*);
 
+// Initializes the locked_stream object, wrapping the given stream.
 errno_t a0_lock_stream(a0_stream_t*, a0_locked_stream_t* lk_out);
+// The locked_stream object is invalid after unlock.
 errno_t a0_unlock_stream(a0_locked_stream_t);
 
 // Caller does NOT own `protocol_out->name->ptr` and should not clean it up!

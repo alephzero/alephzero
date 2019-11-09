@@ -27,8 +27,10 @@ typedef struct a0_stream_hdr_s {
   bool init_completed;
 
   pthread_mutex_t mu;
+
   a0_futex_t fucv;
-  uint32_t next_fucv_key;
+  uint32_t next_fucv_tkn;
+  bool has_notify_listener;
 
   a0_stream_state_t state_pages[2];
   uint32_t committed_page_idx;
@@ -175,22 +177,21 @@ errno_t a0_stream_init(a0_stream_t* stream,
 }
 
 A0_STATIC_INLINE
-void a0_fucv_wait(a0_locked_stream_t lk) {
+void a0_wait_for_notify(a0_locked_stream_t lk) {
   a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
 
-  uint32_t key = a0_atomic_inc_fetch(&hdr->next_fucv_key);
+  uint32_t key = lk.stream->_lk_tkn;
   hdr->fucv = key;
+  hdr->has_notify_listener = true;
+
   a0_unlock_stream(lk);
   a0_futex_wait(&hdr->fucv, key, NULL);
   a0_lock_stream(lk.stream, &lk);
 }
 
 A0_STATIC_INLINE
-void a0_fucv_wake(a0_locked_stream_t lk) {
-  a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
-
-  hdr->fucv = a0_atomic_inc_fetch(&hdr->next_fucv_key);
-  a0_futex_broadcast(&hdr->fucv);
+void a0_schedule_notify(a0_locked_stream_t lk) {
+  lk.stream->_should_notify = true;
 }
 
 errno_t a0_stream_close(a0_stream_t* stream) {
@@ -198,10 +199,10 @@ errno_t a0_stream_close(a0_stream_t* stream) {
   a0_lock_stream(stream, &lk);
 
   stream->_closing = true;
-  a0_fucv_wake(lk);
+  a0_schedule_notify(lk);
 
   while (stream->_await_cnt) {
-    a0_fucv_wait(lk);
+    a0_wait_for_notify(lk);
   }
 
   a0_unlock_stream(lk);
@@ -213,13 +214,16 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
   a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)stream->_arena.ptr;
 
   lk_out->stream = stream;
+  lk_out->stream->_should_notify = false;
 
   errno_t lock_status = pthread_mutex_lock(&hdr->mu);
   if (A0_UNLIKELY(lock_status == EOWNERDEAD)) {
     // The data is always consistent by design.
     lock_status = pthread_mutex_consistent(&hdr->mu);
-    a0_fucv_wake(*lk_out);
+    a0_schedule_notify(*lk_out);
   }
+
+  lk_out->stream->_lk_tkn = a0_atomic_inc_fetch(&hdr->next_fucv_tkn);
 
   // Clear any incomplete changes.
   *a0_stream_working_page(*lk_out) = *a0_stream_committed_page(*lk_out);
@@ -230,6 +234,15 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
 errno_t a0_unlock_stream(a0_locked_stream_t lk) {
   *a0_stream_working_page(lk) = *a0_stream_committed_page(lk);
   a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
+  if (hdr->has_notify_listener && lk.stream->_should_notify) {
+    // wait_for_notify unlocks (using this function) before starting the futex_wait.
+    // In all other cases, futex_broadcast should clear has_notify_listener.
+    // The following line effectively checks whether the unlock is part of wait_for_notify.
+    // TODO: This code is piped weird and should be cleaned up.
+    hdr->has_notify_listener = (hdr->fucv == lk.stream->_lk_tkn);
+    hdr->fucv = lk.stream->_lk_tkn;
+    a0_futex_broadcast(&hdr->fucv);
+  }
   pthread_mutex_unlock(&hdr->mu);
   return A0_OK;
 }
@@ -255,7 +268,7 @@ errno_t a0_stream_protocol(a0_locked_stream_t lk,
 
 errno_t a0_stream_empty(a0_locked_stream_t lk, bool* out) {
   a0_stream_state_t* working_page = a0_stream_working_page(lk);
-  *out = !working_page->seq_high || working_page->seq_low > working_page->seq_high;
+  *out = !working_page->seq_high | (working_page->seq_low > working_page->seq_high);
   return A0_OK;
 }
 
@@ -360,7 +373,7 @@ errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_
 
   bool sat = false;
   errno_t err = pred(lk, &sat);
-  if (err || sat) {
+  if (err | sat) {
     return err;
   }
 
@@ -368,18 +381,17 @@ errno_t a0_stream_await(a0_locked_stream_t lk, errno_t (*pred)(a0_locked_stream_
 
   while (A0_LIKELY(!lk.stream->_closing)) {
     err = pred(lk, &sat);
-    if (err || sat) {
+    if (err | sat) {
       break;
     }
-    a0_fucv_wake(lk);
-    a0_fucv_wait(lk);
+    a0_wait_for_notify(lk);
   }
   if (!err && lk.stream->_closing) {
     err = ESHUTDOWN;
   }
 
   lk.stream->_await_cnt--;
-  a0_fucv_wake(lk);
+  a0_schedule_notify(lk);
 
   return err;
 }
@@ -416,7 +428,10 @@ bool a0_stream_frame_intersects(stream_off_t frame1_start,
 }
 
 A0_STATIC_INLINE
-bool a0_stream_head_interval(a0_locked_stream_t lk, stream_off_t* head_off, size_t* head_size) {
+bool a0_stream_head_interval(a0_locked_stream_t lk,
+                             a0_stream_state_t* state,
+                             stream_off_t* head_off,
+                             size_t* head_size) {
   a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
 
   bool empty;
@@ -425,16 +440,15 @@ bool a0_stream_head_interval(a0_locked_stream_t lk, stream_off_t* head_off, size
     return false;
   }
 
-  *head_off = a0_stream_working_page(lk)->off_head;
+  *head_off = state->off_head;
   a0_stream_frame_hdr_t* head_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + *head_off);
   *head_size = sizeof(a0_stream_frame_hdr_t) + head_hdr->data_size;
   return true;
 }
 
 A0_STATIC_INLINE
-void a0_stream_remove_head(a0_locked_stream_t lk) {
+void a0_stream_remove_head(a0_locked_stream_t lk, a0_stream_state_t* state) {
   a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)lk.stream->_arena.ptr;
-  a0_stream_state_t* state = a0_stream_working_page(lk);
 
   a0_stream_frame_hdr_t* head_hdr = (a0_stream_frame_hdr_t*)((uint8_t*)hdr + state->off_head);
 
@@ -479,9 +493,10 @@ A0_STATIC_INLINE
 void a0_stream_clear_space(a0_locked_stream_t lk, stream_off_t off, size_t frame_size) {
   stream_off_t head_off;
   size_t head_size;
-  while (a0_stream_head_interval(lk, &head_off, &head_size) &&
+  a0_stream_state_t* state = a0_stream_working_page(lk);
+  while (a0_stream_head_interval(lk, state, &head_off, &head_size) &&
          a0_stream_frame_intersects(off, frame_size, head_off, head_size)) {
-    a0_stream_remove_head(lk);
+    a0_stream_remove_head(lk, state);
   }
 }
 
@@ -558,7 +573,7 @@ errno_t a0_stream_commit(a0_locked_stream_t lk) {
   hdr->committed_page_idx = !hdr->committed_page_idx;
   *a0_stream_working_page(lk) = *a0_stream_committed_page(lk);
 
-  a0_fucv_wake(lk);
+  a0_schedule_notify(lk);
 
   return A0_OK;
 }
