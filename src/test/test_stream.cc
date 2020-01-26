@@ -48,30 +48,30 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
+  REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
+  REQUIRE_OK(a0_unlock_stream(lk));
   REQUIRE(init_status == A0_STREAM_CREATED);
-  REQUIRE(a0_stream_close(&stream) == A0_OK);
+  REQUIRE_OK(a0_stream_close(&stream));
 
-  REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
+  REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
+  REQUIRE_OK(a0_unlock_stream(lk));
   REQUIRE(init_status == A0_STREAM_PROTOCOL_MATCH);
 
   a0_buf_t protocol_metadata;
   protocol.patch_version++;
-  REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
-  REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
+  REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
+  REQUIRE_OK(a0_stream_protocol(lk, nullptr, &protocol_metadata));
   REQUIRE(protocol_metadata.size == 17);
   REQUIRE((uintptr_t)protocol_metadata.ptr % alignof(max_align_t) == 0);
   memcpy(protocol_metadata.ptr, "protocol metadata", 17);
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
+  REQUIRE_OK(a0_unlock_stream(lk));
   REQUIRE(init_status == A0_STREAM_PROTOCOL_MISMATCH);
   protocol.patch_version--;
 
-  REQUIRE(a0_lock_stream(&stream, &lk) == A0_OK);
+  REQUIRE_OK(a0_lock_stream(&stream, &lk));
 
   a0_stream_protocol_t read_protocol;
-  REQUIRE(a0_stream_protocol(lk, &read_protocol, nullptr) == A0_OK);
+  REQUIRE_OK(a0_stream_protocol(lk, &read_protocol, nullptr));
   REQUIRE(memcmp(read_protocol.name.ptr, kProtocolName, read_protocol.name.size) == 0);
   REQUIRE(read_protocol.major_version == 1);
   REQUIRE(read_protocol.minor_version == 2);
@@ -106,8 +106,8 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream construct") {
 }
 )");
 
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
-  REQUIRE(a0_stream_close(&stream) == A0_OK);
+  REQUIRE_OK(a0_unlock_stream(lk));
+  REQUIRE_OK(a0_stream_close(&stream));
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "Test metadata too large") {
@@ -129,13 +129,13 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
   a0_buf_t protocol_metadata;
-  REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
+  REQUIRE_OK(a0_stream_protocol(lk, nullptr, &protocol_metadata));
   memcpy(protocol_metadata.ptr, "protocol metadata", 17);
 
   bool is_empty;
-  REQUIRE(a0_stream_empty(lk, &is_empty) == A0_OK);
+  REQUIRE_OK(a0_stream_empty(lk, &is_empty));
   REQUIRE(is_empty);
 
   require_debugstr(lk, R"(
@@ -167,12 +167,12 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
 )");
 
   a0_stream_frame_t first_frame;
-  REQUIRE(a0_stream_alloc(lk, 10, &first_frame) == A0_OK);
+  REQUIRE_OK(a0_stream_alloc(lk, 10, &first_frame));
   memcpy(first_frame.data, "0123456789", 10);
-  REQUIRE(a0_stream_commit(lk) == A0_OK);
+  REQUIRE_OK(a0_stream_commit(lk));
 
   a0_stream_frame_t second_frame;
-  REQUIRE(a0_stream_alloc(lk, 40, &second_frame) == A0_OK);
+  REQUIRE_OK(a0_stream_alloc(lk, 40, &second_frame));
   memcpy(second_frame.data, "0123456789012345678901234567890123456789", 40);
 
   require_debugstr(lk, R"(
@@ -220,7 +220,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
 }
 )");
 
-  REQUIRE(a0_stream_commit(lk) == A0_OK);
+  REQUIRE_OK(a0_stream_commit(lk));
 
   require_debugstr(lk, R"(
 {
@@ -266,8 +266,8 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream alloc/commit") {
 }
 )");
 
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
-  REQUIRE(a0_stream_close(&stream) == A0_OK);
+  REQUIRE_OK(a0_unlock_stream(lk));
+  REQUIRE_OK(a0_stream_close(&stream));
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
@@ -276,105 +276,105 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream iteration") {
     a0_stream_t stream;
     a0_stream_init_status_t init_status;
     a0_locked_stream_t lk;
-    REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
+    REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
     a0_buf_t protocol_metadata;
-    REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
+    REQUIRE_OK(a0_stream_protocol(lk, nullptr, &protocol_metadata));
     memcpy(protocol_metadata.ptr, "protocol metadata", 17);
 
     a0_stream_frame_t first_frame;
-    REQUIRE(a0_stream_alloc(lk, 1, &first_frame) == A0_OK);
+    REQUIRE_OK(a0_stream_alloc(lk, 1, &first_frame));
     memcpy(first_frame.data, "A", 1);
 
     a0_stream_frame_t second_frame;
-    REQUIRE(a0_stream_alloc(lk, 2, &second_frame) == A0_OK);
+    REQUIRE_OK(a0_stream_alloc(lk, 2, &second_frame));
     memcpy(second_frame.data, "BB", 2);
 
     a0_stream_frame_t third_frame;
-    REQUIRE(a0_stream_alloc(lk, 3, &third_frame) == A0_OK);
+    REQUIRE_OK(a0_stream_alloc(lk, 3, &third_frame));
     memcpy(third_frame.data, "CCC", 3);
 
-    REQUIRE(a0_stream_commit(lk) == A0_OK);
+    REQUIRE_OK(a0_stream_commit(lk));
 
-    REQUIRE(a0_unlock_stream(lk) == A0_OK);
-    REQUIRE(a0_stream_close(&stream) == A0_OK);
+    REQUIRE_OK(a0_unlock_stream(lk));
+    REQUIRE_OK(a0_stream_close(&stream));
   }
 
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
 
   bool is_empty;
-  REQUIRE(a0_stream_empty(lk, &is_empty) == A0_OK);
+  REQUIRE_OK(a0_stream_empty(lk, &is_empty));
   REQUIRE(!is_empty);
 
-  REQUIRE(a0_stream_jump_head(lk) == A0_OK);
+  REQUIRE_OK(a0_stream_jump_head(lk));
 
   a0_stream_frame_t frame;
 
-  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE_OK(a0_stream_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
 
   bool has_next;
-  REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
+  REQUIRE_OK(a0_stream_has_next(lk, &has_next));
   REQUIRE(has_next);
 
   bool has_prev;
-  REQUIRE(a0_stream_has_prev(lk, &has_prev) == A0_OK);
+  REQUIRE_OK(a0_stream_has_prev(lk, &has_prev));
   REQUIRE(!has_prev);
 
-  REQUIRE(a0_stream_next(lk) == A0_OK);
-  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE_OK(a0_stream_next(lk));
+  REQUIRE_OK(a0_stream_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "BB");
 
-  REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
+  REQUIRE_OK(a0_stream_has_next(lk, &has_next));
   REQUIRE(has_next);
 
-  REQUIRE(a0_stream_next(lk) == A0_OK);
-  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE_OK(a0_stream_next(lk));
+  REQUIRE_OK(a0_stream_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 3);
   REQUIRE(a0::test::str(frame) == "CCC");
 
-  REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
+  REQUIRE_OK(a0_stream_has_next(lk, &has_next));
   REQUIRE(!has_next);
 
-  REQUIRE(a0_stream_has_prev(lk, &has_prev) == A0_OK);
+  REQUIRE_OK(a0_stream_has_prev(lk, &has_prev));
   REQUIRE(has_prev);
 
-  REQUIRE(a0_stream_prev(lk) == A0_OK);
-  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE_OK(a0_stream_prev(lk));
+  REQUIRE_OK(a0_stream_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "BB");
 
-  REQUIRE(a0_stream_prev(lk) == A0_OK);
-  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE_OK(a0_stream_prev(lk));
+  REQUIRE_OK(a0_stream_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
 
-  REQUIRE(a0_stream_has_prev(lk, &has_prev) == A0_OK);
+  REQUIRE_OK(a0_stream_has_prev(lk, &has_prev));
   REQUIRE(!has_prev);
 
-  REQUIRE(a0_stream_jump_tail(lk) == A0_OK);
-  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE_OK(a0_stream_jump_tail(lk));
+  REQUIRE_OK(a0_stream_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 3);
   REQUIRE(a0::test::str(frame) == "CCC");
 
-  REQUIRE(a0_stream_jump_head(lk) == A0_OK);
-  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE_OK(a0_stream_jump_head(lk));
+  REQUIRE_OK(a0_stream_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
 
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
-  REQUIRE(a0_stream_close(&stream) == A0_OK);
+  REQUIRE_OK(a0_unlock_stream(lk));
+  REQUIRE_OK(a0_stream_close(&stream));
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "Test empty jumps") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
 
   REQUIRE(a0_stream_jump_head(lk) == EAGAIN);
   REQUIRE(a0_stream_jump_tail(lk) == EAGAIN);
@@ -382,34 +382,34 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test empty jumps") {
   REQUIRE(a0_stream_prev(lk) == EAGAIN);
 
   bool has_next;
-  REQUIRE(a0_stream_has_next(lk, &has_next) == A0_OK);
+  REQUIRE_OK(a0_stream_has_next(lk, &has_next));
   REQUIRE(!has_next);
 
   bool has_prev;
-  REQUIRE(a0_stream_has_prev(lk, &has_prev) == A0_OK);
+  REQUIRE_OK(a0_stream_has_prev(lk, &has_prev));
   REQUIRE(!has_prev);
 
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
-  REQUIRE(a0_stream_close(&stream) == A0_OK);
+  REQUIRE_OK(a0_unlock_stream(lk));
+  REQUIRE_OK(a0_stream_close(&stream));
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "Test stream wrap around") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
   a0_buf_t protocol_metadata;
-  REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
+  REQUIRE_OK(a0_stream_protocol(lk, nullptr, &protocol_metadata));
   memcpy(protocol_metadata.ptr, "protocol metadata", 17);
 
   std::string data(1 * 1024, 'a');  // 1kB string
   for (int i = 0; i < 20; i++) {
     a0_stream_frame_t first_frame;
-    REQUIRE(a0_stream_alloc(lk, data.size(), &first_frame) == A0_OK);
+    REQUIRE_OK(a0_stream_alloc(lk, data.size(), &first_frame));
     memcpy(first_frame.data, data.c_str(), data.size());
   }
 
-  REQUIRE(a0_stream_commit(lk) == A0_OK);
+  REQUIRE_OK(a0_stream_commit(lk));
 
   require_debugstr(lk, R"(
 {
@@ -463,25 +463,25 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream wrap around") {
 }
 )");
 
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
-  REQUIRE(a0_stream_close(&stream) == A0_OK);
+  REQUIRE_OK(a0_unlock_stream(lk));
+  REQUIRE_OK(a0_stream_close(&stream));
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "Test stream large alloc") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
   a0_buf_t protocol_metadata;
-  REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
+  REQUIRE_OK(a0_stream_protocol(lk, nullptr, &protocol_metadata));
   memcpy(protocol_metadata.ptr, "protocol metadata", 17);
 
   std::string long_str(3 * 1024, 'a');  // 3kB string
   for (int i = 0; i < 5; i++) {
     a0_stream_frame_t first_frame;
-    REQUIRE(a0_stream_alloc(lk, long_str.size(), &first_frame) == A0_OK);
+    REQUIRE_OK(a0_stream_alloc(lk, long_str.size(), &first_frame));
     memcpy(first_frame.data, long_str.c_str(), long_str.size());
-    REQUIRE(a0_stream_commit(lk) == A0_OK);
+    REQUIRE_OK(a0_stream_commit(lk));
   }
 
   require_debugstr(lk, R"(
@@ -520,8 +520,8 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream large alloc") {
 }
 )");
 
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
-  REQUIRE(a0_stream_close(&stream) == A0_OK);
+  REQUIRE_OK(a0_unlock_stream(lk));
+  REQUIRE_OK(a0_stream_close(&stream));
 }
 
 void fork_sleep_push(a0_stream_t* stream, const std::string& str) {
@@ -529,15 +529,15 @@ void fork_sleep_push(a0_stream_t* stream, const std::string& str) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
     a0_locked_stream_t lk;
-    REQUIRE(a0_lock_stream(stream, &lk) == A0_OK);
+    REQUIRE_OK(a0_lock_stream(stream, &lk));
 
     a0_stream_frame_t frame;
-    REQUIRE(a0_stream_alloc(lk, str.size(), &frame) == A0_OK);
+    REQUIRE_OK(a0_stream_alloc(lk, str.size(), &frame));
     memcpy(frame.data, str.c_str(), str.size());
-    REQUIRE(a0_stream_commit(lk) == A0_OK);
+    REQUIRE_OK(a0_stream_commit(lk));
 
-    REQUIRE(a0_unlock_stream(lk) == A0_OK);
-    REQUIRE(a0_stream_close(stream) == A0_OK);
+    REQUIRE_OK(a0_unlock_stream(lk));
+    REQUIRE_OK(a0_stream_close(stream));
 
     exit(0);
   }
@@ -547,37 +547,37 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream await") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
   a0_buf_t protocol_metadata;
-  REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
+  REQUIRE_OK(a0_stream_protocol(lk, nullptr, &protocol_metadata));
   memcpy(protocol_metadata.ptr, "protocol metadata", 17);
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
+  REQUIRE_OK(a0_unlock_stream(lk));
 
   fork_sleep_push(&stream, "ABC");
 
-  REQUIRE(a0_lock_stream(&stream, &lk) == A0_OK);
+  REQUIRE_OK(a0_lock_stream(&stream, &lk));
 
-  REQUIRE(a0_stream_await(lk, a0_stream_nonempty) == A0_OK);
+  REQUIRE_OK(a0_stream_await(lk, a0_stream_nonempty));
 
-  REQUIRE(a0_stream_jump_head(lk) == A0_OK);
+  REQUIRE_OK(a0_stream_jump_head(lk));
 
   a0_stream_frame_t frame;
-  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE_OK(a0_stream_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "ABC");
 
-  REQUIRE(a0_stream_await(lk, a0_stream_nonempty) == A0_OK);
+  REQUIRE_OK(a0_stream_await(lk, a0_stream_nonempty));
 
   fork_sleep_push(&stream, "DEF");
-  REQUIRE(a0_stream_await(lk, a0_stream_has_next) == A0_OK);
+  REQUIRE_OK(a0_stream_await(lk, a0_stream_has_next));
 
-  REQUIRE(a0_stream_next(lk) == A0_OK);
-  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE_OK(a0_stream_next(lk));
+  REQUIRE_OK(a0_stream_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "DEF");
 
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
-  REQUIRE(a0_stream_close(&stream) == A0_OK);
+  REQUIRE_OK(a0_unlock_stream(lk));
+  REQUIRE_OK(a0_stream_close(&stream));
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
@@ -585,33 +585,33 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
     a0_stream_t stream;
     a0_stream_init_status_t init_status;
     a0_locked_stream_t lk;
-    REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
+    REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
     REQUIRE(init_status == A0_STREAM_CREATED);
     a0_buf_t protocol_metadata;
-    REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
+    REQUIRE_OK(a0_stream_protocol(lk, nullptr, &protocol_metadata));
     memcpy(protocol_metadata.ptr, "protocol metadata", 17);
-    REQUIRE(a0_unlock_stream(lk) == A0_OK);
+    REQUIRE_OK(a0_unlock_stream(lk));
 
     // Write one frame successfully.
     {
       a0_locked_stream_t lk;
-      REQUIRE(a0_lock_stream(&stream, &lk) == A0_OK);
+      REQUIRE_OK(a0_lock_stream(&stream, &lk));
 
       a0_stream_frame_t frame;
-      REQUIRE(a0_stream_alloc(lk, 3, &frame) == A0_OK);
+      REQUIRE_OK(a0_stream_alloc(lk, 3, &frame));
       memcpy(frame.data, "YES", 3);
-      REQUIRE(a0_stream_commit(lk) == A0_OK);
+      REQUIRE_OK(a0_stream_commit(lk));
 
-      REQUIRE(a0_unlock_stream(lk) == A0_OK);
+      REQUIRE_OK(a0_unlock_stream(lk));
     }
 
     // Write one frame unsuccessfully.
     {
       a0_locked_stream_t lk;
-      REQUIRE(a0_lock_stream(&stream, &lk) == A0_OK);
+      REQUIRE_OK(a0_lock_stream(&stream, &lk));
 
       a0_stream_frame_t frame;
-      REQUIRE(a0_stream_alloc(lk, 2, &frame) == A0_OK);
+      REQUIRE_OK(a0_stream_alloc(lk, 2, &frame));
       memcpy(frame.data, "NO", 2);
 
       require_debugstr(lk, R"(
@@ -672,7 +672,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
   REQUIRE(init_status == A0_STREAM_PROTOCOL_MATCH);
 
   require_debugstr(lk, R"(
@@ -711,8 +711,8 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
 }
 )");
 
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
-  REQUIRE(a0_stream_close(&stream) == A0_OK);
+  REQUIRE_OK(a0_unlock_stream(lk));
+  REQUIRE_OK(a0_stream_close(&stream));
 }
 
 std::string random_string(size_t length) {
@@ -735,25 +735,25 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust fuzz") {
     a0_stream_t stream;
     a0_stream_init_status_t init_status;
     a0_locked_stream_t lk;
-    REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
+    REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
     REQUIRE(init_status == A0_STREAM_CREATED);
     a0_buf_t protocol_metadata;
-    REQUIRE(a0_stream_protocol(lk, nullptr, &protocol_metadata) == A0_OK);
+    REQUIRE_OK(a0_stream_protocol(lk, nullptr, &protocol_metadata));
     memcpy(protocol_metadata.ptr, "protocol metadata", 17);
-    REQUIRE(a0_unlock_stream(lk) == A0_OK);
+    REQUIRE_OK(a0_unlock_stream(lk));
 
     while (true) {
       a0_locked_stream_t lk;
-      REQUIRE(a0_lock_stream(&stream, &lk) == A0_OK);
+      REQUIRE_OK(a0_lock_stream(&stream, &lk));
 
       auto str = random_string(rand() % 1024);
 
       a0_stream_frame_t frame;
-      REQUIRE(a0_stream_alloc(lk, str.size(), &frame) == A0_OK);
+      REQUIRE_OK(a0_stream_alloc(lk, str.size(), &frame));
       memcpy(frame.data, str.c_str(), str.size());
-      REQUIRE(a0_stream_commit(lk) == A0_OK);
+      REQUIRE_OK(a0_stream_commit(lk));
 
-      REQUIRE(a0_unlock_stream(lk) == A0_OK);
+      REQUIRE_OK(a0_unlock_stream(lk));
     }
   }
 
@@ -767,24 +767,24 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust fuzz") {
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
   a0_locked_stream_t lk;
-  REQUIRE(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk) == A0_OK);
+  REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
   REQUIRE(init_status == A0_STREAM_PROTOCOL_MATCH);
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
+  REQUIRE_OK(a0_unlock_stream(lk));
 
   // Make sure the stream is still functinal.
   // We can still grab the lock, write, and read from the stream.
-  REQUIRE(a0_lock_stream(&stream, &lk) == A0_OK);
+  REQUIRE_OK(a0_lock_stream(&stream, &lk));
   {
     a0_stream_frame_t frame;
-    REQUIRE(a0_stream_alloc(lk, 11, &frame) == A0_OK);
+    REQUIRE_OK(a0_stream_alloc(lk, 11, &frame));
     memcpy(frame.data, "Still Works", 11);
-    REQUIRE(a0_stream_commit(lk) == A0_OK);
+    REQUIRE_OK(a0_stream_commit(lk));
   }
-  REQUIRE(a0_stream_jump_tail(lk) == A0_OK);
+  REQUIRE_OK(a0_stream_jump_tail(lk));
   a0_stream_frame_t frame;
-  REQUIRE(a0_stream_frame(lk, &frame) == A0_OK);
+  REQUIRE_OK(a0_stream_frame(lk, &frame));
   REQUIRE(a0::test::str(frame) == "Still Works");
 
-  REQUIRE(a0_unlock_stream(lk) == A0_OK);
-  REQUIRE(a0_stream_close(&stream) == A0_OK);
+  REQUIRE_OK(a0_unlock_stream(lk));
+  REQUIRE_OK(a0_stream_close(&stream));
 }

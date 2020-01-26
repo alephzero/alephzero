@@ -30,15 +30,15 @@ void check(errno_t err) {
   }
 }
 
-template <typename C>
-std::shared_ptr<C> c_shared(std::function<errno_t(C*)> init, std::function<void(C*)> closer) {
+template <typename C, typename InitFn, typename CloserFn>
+std::shared_ptr<C> c_shared(InitFn&& init, CloserFn&& closer) {
   C* c = new C;
   errno_t err = init(c);
   if (err) {
     delete c;
     check(err);
   }
-  return std::shared_ptr<C>(c, closer);
+  return std::shared_ptr<C>(c, std::forward<CloserFn>(closer));
 }
 
 template <typename C>
@@ -67,6 +67,9 @@ struct CDeleter {
     }
     for (auto&& fn : also) {
       fn();
+    }
+    if (c) {
+      delete c;
     }
   }
 };
@@ -163,8 +166,7 @@ Packet::Packet(const std::vector<std::pair<std::string_view, std::string_view>>&
     c_hdrs.push_back({hdr.first.data(), hdr.second.data()});
   }
 
-  check(a0_packet_build(c_hdrs.size(),
-                        c_hdrs.data(),
+  check(a0_packet_build({c_hdrs.data(), c_hdrs.size()},
                         a0_buf_t{
                             .ptr = (uint8_t*)payload.data(),
                             .size = payload.size(),

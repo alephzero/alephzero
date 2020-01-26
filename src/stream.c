@@ -214,7 +214,6 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
   a0_stream_hdr_t* hdr = (a0_stream_hdr_t*)stream->_arena.ptr;
 
   lk_out->stream = stream;
-  lk_out->stream->_should_notify = false;
 
   errno_t lock_status = pthread_mutex_lock(&hdr->mu);
   if (A0_UNLIKELY(lock_status == EOWNERDEAD)) {
@@ -227,6 +226,7 @@ errno_t a0_lock_stream(a0_stream_t* stream, a0_locked_stream_t* lk_out) {
 
   // Clear any incomplete changes.
   *a0_stream_working_page(*lk_out) = *a0_stream_committed_page(*lk_out);
+  lk_out->stream->_should_notify = false;
 
   return lock_status;
 }
@@ -276,6 +276,12 @@ errno_t a0_stream_nonempty(a0_locked_stream_t lk, bool* out) {
   errno_t err = a0_stream_empty(lk, out);
   *out = !*out;
   return err;
+}
+
+errno_t a0_stream_ptr_valid(a0_locked_stream_t lk, bool* out) {
+  a0_stream_state_t* working_page = a0_stream_working_page(lk);
+  *out = (working_page->seq_low <= lk.stream->_seq) && (lk.stream->_seq <= working_page->seq_high);
+  return A0_OK;
 }
 
 errno_t a0_stream_jump_head(a0_locked_stream_t lk) {
@@ -461,6 +467,11 @@ void a0_stream_remove_head(a0_locked_stream_t lk, a0_stream_state_t* state) {
     state->off_head = head_hdr->off;
     state->seq_low = head_hdr->seq;
     head_hdr->prev_off = 0;
+    // The following SHOULD work.
+    // It is faster and passes all the tests, but I still have a weird feeling about it.
+    // TODO: Consider this alternative:
+    // state->off_head = head_hdr->next_off;
+    // state->seq_low++;
   }
   a0_stream_commit(lk);
 }

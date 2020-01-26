@@ -84,6 +84,7 @@ errno_t a0_stream_protocol(a0_locked_stream_t,
 
 errno_t a0_stream_empty(a0_locked_stream_t, bool*);
 errno_t a0_stream_nonempty(a0_locked_stream_t, bool*);
+errno_t a0_stream_ptr_valid(a0_locked_stream_t, bool*);
 errno_t a0_stream_jump_head(a0_locked_stream_t);
 errno_t a0_stream_jump_tail(a0_locked_stream_t);  // Inclusive.
 errno_t a0_stream_has_next(a0_locked_stream_t, bool*);

@@ -48,7 +48,7 @@ static const char kHexDigits[] =
     "F0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF";
 
 A0_STATIC_INLINE
-void uuidv4(uint8_t out[kUuidSize]) {
+void a0_uuidv4(uint8_t out[kUuidSize]) {
   uint32_t data[4] = {
       (uint32_t)a0_mrand48(),
       ((uint32_t)a0_mrand48() & 0xFF0FFFFF) | 0x00400000,

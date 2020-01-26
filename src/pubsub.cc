@@ -11,9 +11,8 @@
 #include <string.h>
 
 #include <chrono>
-#include <condition_variable>
-#include <mutex>
 #include <string>
+#include <vector>
 
 #include "macros.h"
 #include "packet_tools.h"
@@ -89,22 +88,21 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
     return ESHUTDOWN;
   }
 
-  constexpr size_t num_extra_headers = 1;
-  a0_packet_header_t extra_headers[num_extra_headers];
-
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   std::string clock_str = std::to_string(clock_val);
-  extra_headers[0].key = kClock;
-  extra_headers[0].val = clock_str.c_str();
+
+  constexpr size_t num_extra_headers = 1;
+  a0_packet_header_t extra_headers[num_extra_headers] = {
+      {kClock, clock_str.c_str()},
+  };
 
   // TODO: Add sequence numbers.
 
   a0::sync_stream_t ss{&pub->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_packet_copy_with_additional_headers(num_extra_headers,
-                                           extra_headers,
+    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers},
                                            pkt,
                                            a0::stream_allocator(&slk),
                                            nullptr);
@@ -273,6 +271,7 @@ errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync, a0_packet_t* pkt
 
 struct a0_subscriber_zc_impl_s {
   a0::stream_thread worker;
+  bool started_empty;
 };
 
 errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
@@ -282,8 +281,19 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
                               a0_zero_copy_callback_t onmsg) {
   sub_zc->_impl = new a0_subscriber_zc_impl_t;
 
-  auto on_stream_init = [](a0_locked_stream_t, a0_stream_init_status_t) -> errno_t {
-    // TODO
+  auto on_stream_init = [sub_zc, sub_init](a0_locked_stream_t slk,
+                                           a0_stream_init_status_t) -> errno_t {
+    // TODO(lshamis): Validate stream.
+
+    a0_stream_empty(slk, &sub_zc->_impl->started_empty);
+    if (!sub_zc->_impl->started_empty) {
+      if (sub_init == A0_INIT_OLDEST) {
+        a0_stream_jump_head(slk);
+      } else if (sub_init == A0_INIT_MOST_RECENT || sub_init == A0_INIT_AWAIT_NEW) {
+        a0_stream_jump_tail(slk);
+      }
+    }
+
     return A0_OK;
   };
 
@@ -293,15 +303,22 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
     onmsg.fn(onmsg.user_data, slk, a0::buf(frame));
   };
 
-  auto on_stream_nonempty = [sub_init, read_current_packet](a0_locked_stream_t slk) {
-    if (sub_init == A0_INIT_OLDEST) {
+  auto on_stream_nonempty = [sub_zc, sub_init, read_current_packet](a0_locked_stream_t slk) {
+    bool reset = false;
+    if (sub_zc->_impl->started_empty) {
+      reset = true;
+    } else {
+      bool ptr_valid;
+      a0_stream_ptr_valid(slk, &ptr_valid);
+      reset = !ptr_valid;
+    }
+
+    if (reset) {
       a0_stream_jump_head(slk);
+    }
+
+    if (reset || sub_init == A0_INIT_OLDEST || sub_init == A0_INIT_MOST_RECENT) {
       read_current_packet(slk);
-    } else if (sub_init == A0_INIT_MOST_RECENT) {
-      a0_stream_jump_tail(slk);
-      read_current_packet(slk);
-    } else if (sub_init == A0_INIT_AWAIT_NEW) {
-      a0_stream_jump_tail(slk);
     }
   };
 
@@ -327,11 +344,10 @@ errno_t a0_subscriber_zc_async_close(a0_subscriber_zc_t* sub_zc, a0_callback_t o
     return ESHUTDOWN;
   }
 
-  auto worker_ = sub_zc->_impl->worker;
-  delete sub_zc->_impl;
-  sub_zc->_impl = nullptr;
+  sub_zc->_impl->worker.async_close([sub_zc, onclose]() {
+    delete sub_zc->_impl;
+    sub_zc->_impl = nullptr;
 
-  worker_.async_close([onclose]() {
     if (onclose.fn) {
       onclose.fn(onclose.user_data);
     }
@@ -345,10 +361,9 @@ errno_t a0_subscriber_zc_close(a0_subscriber_zc_t* sub_zc) {
     return ESHUTDOWN;
   }
 
-  auto worker_ = sub_zc->_impl->worker;
+  sub_zc->_impl->worker.await_close();
   delete sub_zc->_impl;
   sub_zc->_impl = nullptr;
-  worker_.await_close();
 
   return A0_OK;
 }
@@ -407,11 +422,22 @@ errno_t a0_subscriber_async_close(a0_subscriber_t* sub, a0_callback_t onclose) {
     return ESHUTDOWN;
   }
 
-  auto err = a0_subscriber_zc_async_close(&sub->_impl->sub_zc, onclose);
-  delete sub->_impl;
-  sub->_impl = nullptr;
+  struct heap_data {
+    a0_subscriber_t* sub_;
+    a0_callback_t onclose_;
+  };
 
-  return err;
+  a0_callback_t cb = {.user_data = new heap_data{sub, onclose}, .fn = [](void* user_data) {
+                        auto* data = (heap_data*)user_data;
+                        delete data->sub_->_impl;
+                        data->sub_->_impl = nullptr;
+                        if (data->onclose_.fn) {
+                          data->onclose_.fn(data->onclose_.user_data);
+                        }
+                        delete data;
+                      }};
+
+  return a0_subscriber_zc_async_close(&sub->_impl->sub_zc, cb);
 }
 
 // One-off reader.
@@ -445,15 +471,9 @@ errno_t a0_subscriber_read_one(a0_buf_t arena,
   } else {
     struct data_ {
       a0_packet_t* pkt;
-      a0_subscriber_t sub{};
 
-      bool sub_ready{false};
-      std::mutex sub_ready_mu{};
-      std::condition_variable sub_ready_cv{};
-
-      bool done{false};
-      std::mutex done_mu{};
-      std::condition_variable done_cv{};
+      a0::Event sub_event{};
+      a0::Event done_event{};
     } data{.pkt = out};
 
     a0_packet_callback_t cb = {
@@ -461,43 +481,24 @@ errno_t a0_subscriber_read_one(a0_buf_t arena,
         .fn =
             [](void* user_data, a0_packet_t pkt) {
               auto* data = (data_*)user_data;
-
-              {
-                std::unique_lock<std::mutex> lk{data->sub_ready_mu};
-                data->sub_ready_cv.wait(lk, [&]() {
-                  return data->sub_ready;
-                });
+              if (data->done_event.is_set()) {
+                return;
               }
 
+              data->sub_event.wait();
               *data->pkt = pkt;
-
-              a0_callback_t onclose = {
-                  .user_data = user_data,
-                  .fn =
-                      [](void* user_data) {
-                        auto* data = (data_*)user_data;
-                        std::unique_lock<std::mutex> lk{data->done_mu};
-                        data->done = true;
-                        data->done_cv.notify_one();
-                      },
-              };
-              a0_subscriber_async_close(&data->sub, onclose);
+              data->done_event.set();
             },
     };
 
+    a0_subscriber_t sub;
     A0_INTERNAL_RETURN_ERR_ON_ERR(
-        a0_subscriber_init(&data.sub, arena, alloc, sub_init, A0_ITER_NEXT, cb));
+        a0_subscriber_init(&sub, arena, alloc, sub_init, A0_ITER_NEXT, cb));
 
-    {
-      std::unique_lock<std::mutex> lk{data.sub_ready_mu};
-      data.sub_ready = true;
-      data.sub_ready_cv.notify_one();
-    }
+    data.sub_event.set();
+    data.done_event.wait();
 
-    std::unique_lock<std::mutex> lk{data.done_mu};
-    data.done_cv.wait(lk, [&]() {
-      return data.done;
-    });
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_close(&sub));
   }
 
   return A0_OK;

@@ -135,22 +135,21 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub") {
   p.pub("msg #0");
   p.pub("msg #1");
 
-  std::mutex mu;
-  std::condition_variable cv;
-  std::vector<std::string> read_payloads;
+  a0::sync<std::vector<std::string>> read_payloads;
   a0::Subscriber sub(shm, A0_INIT_OLDEST, A0_ITER_NEXT, [&](a0::PacketView pkt_view) {
-    std::unique_lock lk(mu);
-    read_payloads.push_back(std::string(pkt_view.payload()));
-    cv.notify_one();
+    read_payloads.notify_one([&](auto* payloads) {
+      payloads->push_back(std::string(pkt_view.payload()));
+    });
   });
 
-  std::unique_lock lk(mu);
-  cv.wait(lk, [&]() {
-    return read_payloads.size() == 2;
+  read_payloads.wait([&](auto* payloads) {
+    return payloads->size() == 2;
   });
 
-  REQUIRE(read_payloads[0] == "msg #0");
-  REQUIRE(read_payloads[1] == "msg #1");
+  read_payloads.with_lock([&](auto* payloads) {
+    REQUIRE((*payloads)[0] == "msg #0");
+    REQUIRE((*payloads)[1] == "msg #1");
+  });
 
   {
     auto pkt = a0::Subscriber::read_one(shm, A0_INIT_OLDEST, O_NONBLOCK);
@@ -171,45 +170,42 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test rpc") {
   };
 
   a0::Packet cancel_pkt("");
-  std::mutex cancel_mu;
+  a0::Event cancel_event;
   auto oncancel = [&](std::string id) {
     REQUIRE(id == cancel_pkt.id());
-    cancel_mu.unlock();
+    cancel_event.set();
   };
   a0::RpcServer server(shm, onrequest, oncancel);
 
   a0::RpcClient client(shm);
   REQUIRE(client.send("foo").get().payload() == "bar");
 
-  std::mutex mu;
-  mu.lock();
+  a0::Event evt;
   client.send("foo", [&](a0::PacketView pkt_view) {
     REQUIRE(pkt_view.payload() == "bar");
-    mu.unlock();
+    evt.set();
   });
-  mu.lock();
+  evt.wait();
 
-  cancel_mu.lock();
   client.cancel(cancel_pkt.id());
-  cancel_mu.lock();
+  cancel_event.wait();
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "Test rpc null callback") {
-  std::mutex req_mu;
+  a0::Event req_evt;
   auto onrequest = [&](a0::RpcRequest) {
-    req_mu.unlock();
+    req_evt.set();
   };
   a0::RpcServer server(shm, onrequest, nullptr);
 
   a0::RpcClient client(shm);
-  client.cancel("pkt_id");
+  client.cancel("D4D4BA13-400E-48D3-8FC7-470A0498B60B");
 
   // TODO: be better!
   std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-  req_mu.lock();
   client.send("foo", nullptr);
-  req_mu.lock();
+  req_evt.wait();
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "Test prpc") {
@@ -221,10 +217,10 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test prpc") {
   };
 
   a0::Packet cancel_pkt("");
-  std::mutex cancel_mu;
+  a0::Event cancel_event;
   auto oncancel = [&](std::string id) {
     REQUIRE(id == cancel_pkt.id());
-    cancel_mu.unlock();
+    cancel_event.set();
   };
 
   a0::PrpcServer server(shm, onconnect, oncancel);
@@ -232,24 +228,22 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test prpc") {
   a0::PrpcClient client(shm);
 
   std::vector<std::string> msgs;
-  std::mutex mu;
-  mu.lock();
+  a0::Event done_event;
   client.connect("foo", [&](a0::PacketView pkt_view, bool done) {
     msgs.push_back(std::string(pkt_view.payload()));
     if (done) {
-      mu.unlock();
+      done_event.set();
     }
   });
-  mu.lock();
+  done_event.wait();
 
   REQUIRE(msgs.size() == 3);
   REQUIRE(msgs[0] == "msg #0");
   REQUIRE(msgs[1] == "msg #1");
   REQUIRE(msgs[2] == "msg #2");
 
-  cancel_mu.lock();
   client.cancel(cancel_pkt.id());
-  cancel_mu.lock();
+  cancel_event.wait();
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "Test prpc null callback") {
@@ -261,7 +255,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test prpc null callback") {
 
   a0::PrpcClient client(shm);
 
-  client.cancel("pkt_id");
+  client.cancel("D4D4BA13-400E-48D3-8FC7-470A0498B60B");
 
   // TODO: be better!
   std::this_thread::sleep_for(std::chrono::milliseconds(1));

@@ -134,11 +134,9 @@ errno_t a0_rpc_server_async_close(a0_rpc_server_t* server, a0_callback_t onclose
     return ESHUTDOWN;
   }
 
-  auto worker_ = server->_impl->worker;
-  delete server->_impl;
-  server->_impl = nullptr;
-
-  worker_.async_close([onclose]() {
+  server->_impl->worker.async_close([server, onclose]() {
+    delete server->_impl;
+    server->_impl = nullptr;
     if (onclose.fn) {
       onclose.fn(onclose.user_data);
     }
@@ -152,10 +150,9 @@ errno_t a0_rpc_server_close(a0_rpc_server_t* server) {
     return ESHUTDOWN;
   }
 
-  auto worker_ = server->_impl->worker;
+  server->_impl->worker.await_close();
   delete server->_impl;
   server->_impl = nullptr;
-  worker_.await_close();
 
   return A0_OK;
 }
@@ -176,29 +173,24 @@ errno_t a0_rpc_reply(a0_rpc_request_t req, const a0_packet_t resp) {
     return EINVAL;
   }
 
-  constexpr size_t num_extra_headers = 3;
-  a0_packet_header_t extra_headers[num_extra_headers];
-
-  extra_headers[0].key = kRpcType;
-  extra_headers[0].val = kRpcTypeResponse;
-
-  extra_headers[1].key = kRequestId;
-  extra_headers[1].val = req_id;
-
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   auto clock_str = std::to_string(clock_val);
-  extra_headers[2].key = kClock;
-  extra_headers[2].val = clock_str.c_str();
+
+  constexpr size_t num_extra_headers = 3;
+  a0_packet_header_t extra_headers[num_extra_headers] = {
+      {kRpcType, kRpcTypeResponse},
+      {kRequestId, req_id},
+      {kClock, clock_str.c_str()},
+  };
 
   // TODO: Add sequence numbers.
 
   // TODO: Check impl, worker, state, and stream are still valid?
   a0::sync_stream_t ss{&req.server->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_packet_copy_with_additional_headers(num_extra_headers,
-                                           extra_headers,
+    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers},
                                            resp,
                                            a0::stream_allocator(&slk),
                                            nullptr);
@@ -318,11 +310,9 @@ errno_t a0_rpc_client_async_close(a0_rpc_client_t* client, a0_callback_t onclose
     client->_impl->state->closing = true;
   }
 
-  auto worker_ = client->_impl->worker;
-  delete client->_impl;
-  client->_impl = nullptr;
-
-  worker_.async_close([onclose]() {
+  client->_impl->worker.async_close([client, onclose]() {
+    delete client->_impl;
+    client->_impl = nullptr;
     if (onclose.fn) {
       onclose.fn(onclose.user_data);
     }
@@ -336,10 +326,9 @@ errno_t a0_rpc_client_close(a0_rpc_client_t* client) {
     return ESHUTDOWN;
   }
 
-  auto worker_ = client->_impl->worker;
+  client->_impl->worker.await_close();
   delete client->_impl;
   client->_impl = nullptr;
-  worker_.await_close();
 
   return A0_OK;
 }
@@ -356,26 +345,23 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, const a0_packet_t pkt, a0_packet_ca
     client->_impl->state->outstanding[id] = callback;
   }
 
-  constexpr size_t num_extra_headers = 2;
-  a0_packet_header_t extra_headers[num_extra_headers];
-
-  extra_headers[0].key = kRpcType;
-  extra_headers[0].val = kRpcTypeRequest;
-
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   std::string clock_str = std::to_string(clock_val);
-  extra_headers[1].key = kClock;
-  extra_headers[1].val = clock_str.c_str();
+
+  constexpr size_t num_extra_headers = 2;
+  a0_packet_header_t extra_headers[num_extra_headers] = {
+      {kRpcType, kRpcTypeRequest},
+      {kClock, clock_str.c_str()},
+  };
 
   // TODO: Add sequence numbers.
 
   // TODO: Check impl and state still valid?
   a0::sync_stream_t ss{&client->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_packet_copy_with_additional_headers(num_extra_headers,
-                                           extra_headers,
+    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers},
                                            pkt,
                                            a0::stream_allocator(&slk),
                                            nullptr);
@@ -394,30 +380,26 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, const a0_packet_id_t req_id) {
     client->_impl->state->outstanding.erase(req_id);
   }
 
-  constexpr size_t num_headers = 2;
-  a0_packet_header_t headers[num_headers];
-
-  headers[0].key = kRpcType;
-  headers[0].val = kRpcTypeCancel;
-
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
   std::string clock_str = std::to_string(clock_val);
-  headers[1].key = kClock;
-  headers[1].val = clock_str.c_str();
+
+  constexpr size_t num_headers = 2;
+  a0_packet_header_t headers[num_headers] = {
+      {kRpcType, kRpcTypeCancel},
+      {kClock, clock_str.c_str()},
+  };
 
   // TODO: Add sequence numbers.
 
   // TODO: Check impl and state still valid?
   a0::sync_stream_t ss{&client->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    A0_INTERNAL_RETURN_ERR_ON_ERR(
-        a0_packet_build(num_headers,
-                        headers,
-                        a0_buf_t{.ptr = (uint8_t*)req_id, .size = sizeof(a0_packet_id_t)},
-                        a0::stream_allocator(&slk),
-                        nullptr));
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_build({headers, num_headers},
+                                                  {(uint8_t*)req_id, sizeof(a0_packet_id_t)},
+                                                  a0::stream_allocator(&slk),
+                                                  nullptr));
     return a0_stream_commit(slk);
   });
 }

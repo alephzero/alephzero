@@ -3,10 +3,10 @@
 #include <a0/alloc.h>
 #include <a0/stream.h>
 
-#include <condition_variable>
 #include <functional>
-#include <mutex>
 #include <thread>
+
+#include "sync.hpp"
 
 static const char kClock[] = "a0_clock";
 
@@ -58,8 +58,7 @@ struct stream_thread {
     std::function<void(a0_locked_stream_t)> on_stream_nonempty;
     std::function<void(a0_locked_stream_t)> on_stream_hasnext;
 
-    std::function<void()> onclose;
-    std::mutex mu;
+    a0::sync<std::function<void()>> onclose;
 
     bool handle_first_pkt() {
       sync_stream_t ss{&stream};
@@ -93,12 +92,11 @@ struct stream_thread {
         }
       }
 
-      {
-        std::unique_lock<std::mutex> lk{mu};
-        if (onclose) {
-          onclose();
+      onclose.with_lock([](auto* fn) {
+        if (*fn) {
+          (*fn)();
         }
-      }
+      });
     }
   };
 
@@ -134,10 +132,7 @@ struct stream_thread {
       return ESHUTDOWN;
     }
 
-    {
-      std::unique_lock<std::mutex> lk{state->mu};
-      state->onclose = onclose;
-    }
+    state->onclose.set(onclose);
     a0_stream_close(&state->stream);
 
     state = nullptr;
@@ -152,20 +147,11 @@ struct stream_thread {
       return EDEADLK;
     }
 
-    std::mutex mu;
-    std::condition_variable cv;
-    bool closed{false};
-
+    a0::Event close_event;
     async_close([&]() {
-      std::unique_lock<std::mutex> lk(mu);
-      closed = true;
-      cv.notify_one();
+      close_event.set();
     });
-
-    std::unique_lock<std::mutex> lk(mu);
-    cv.wait(lk, [&]() {
-      return closed;
-    });
+    close_event.wait();
 
     return A0_OK;
   }

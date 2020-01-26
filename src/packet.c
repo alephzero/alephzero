@@ -7,11 +7,17 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "list.h"
 #include "macros.h"
 #include "rand.h"
 
 static const char kIdKey[] = "a0_id";
 static const char kDepKey[] = "a0_dep";
+
+a0_packet_header_list_t A0_EMPTY_HEADER_LIST = {NULL, 0};
+a0_buf_t A0_EMPTY_PAYLOAD = {NULL, 0};
+a0_packet_callback_t A0_NOP_PACKET_CB = {NULL, NULL};
+a0_packet_id_callback_t A0_NOP_PACKET_ID_CB = {NULL, NULL};
 
 const char* a0_packet_id_key() {
   return kIdKey;
@@ -27,7 +33,12 @@ errno_t a0_packet_num_headers(a0_packet_t pkt, size_t* out) {
 }
 
 errno_t a0_packet_header(a0_packet_t pkt, size_t hdr_idx, a0_packet_header_t* out) {
-  // TODO: Verify enough headers.
+  size_t num_hdrs;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_num_headers(pkt, &num_hdrs));
+  if (A0_UNLIKELY(hdr_idx >= num_hdrs)) {
+    return EINVAL;
+  }
+
   size_t key_off = *(size_t*)(pkt.ptr + (sizeof(size_t) + (2 * hdr_idx + 0) * sizeof(size_t)));
   size_t val_off = *(size_t*)(pkt.ptr + (sizeof(size_t) + (2 * hdr_idx + 1) * sizeof(size_t)));
 
@@ -72,6 +83,17 @@ errno_t a0_packet_find_header(a0_packet_t pkt,
   return ENOKEY;
 }
 
+errno_t a0_packet_header_list(a0_packet_t pkt, size_t num_hdrs, a0_packet_header_list_t* out) {
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_num_headers(pkt, &out->size));
+  if (out->size > num_hdrs) {
+    out->size = num_hdrs;
+  }
+  for (size_t i = 0; i < out->size; i++) {
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_header(pkt, i, &out->hdrs[i]));
+  }
+  return A0_OK;
+}
+
 errno_t a0_packet_id(a0_packet_t pkt, a0_packet_id_t* out) {
   const char* val;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_find_header(pkt, a0_packet_id_key(), 0, &val, NULL));
@@ -79,96 +101,127 @@ errno_t a0_packet_id(a0_packet_t pkt, a0_packet_id_t* out) {
   return A0_OK;
 }
 
-errno_t a0_packet_build(size_t num_headers,
-                        a0_packet_header_t* headers,
-                        a0_buf_t payload,
-                        a0_alloc_t alloc,
-                        a0_packet_t* out) {
+errno_t a0_packet_serialize(const a0_list_node_t* header_node,
+                            const a0_list_node_t* payload_node,
+                            a0_alloc_t alloc,
+                            a0_packet_t* out) {
   a0_packet_t unused_pkt;
   if (!out) {
     out = &unused_pkt;
   }
 
-  for (size_t i = 0; i < num_headers; i++) {
-    if (A0_UNLIKELY(!strcmp(kIdKey, (char*)headers[i].key))) {
-      return EINVAL;
-    }
+  size_t total_num_hdrs = 0;
+  for (const a0_list_node_t* node = header_node; node; node = node->next) {
+    total_num_hdrs += ((a0_packet_header_list_t*)node->data)->size;
+  }
+
+  size_t total_payload_size = 0;
+  for (const a0_list_node_t* node = payload_node; node; node = node->next) {
+    total_payload_size += ((a0_buf_t*)node->data)->size;
   }
 
   // Alloc out space.
   {
-    size_t size = sizeof(size_t);                // Num headers.
-    size += 2 * sizeof(size_t);                  // Id offsets, if not already in headers.
-    size += 2 * num_headers * sizeof(size_t);    // Header offsets.
-    size += sizeof(size_t);                      // Payload offset.
-    size += sizeof(kIdKey) + A0_PACKET_ID_SIZE;  // Id content, if not already in headers.
-    for (size_t i = 0; i < num_headers; i++) {
-      size += strlen(headers[i].key) + 1;  // Key content.
-      size += strlen(headers[i].val) + 1;  // Val content.
+    size_t size = sizeof(size_t);                 // Num headers.
+    size += 2 * total_num_hdrs * sizeof(size_t);  // Header offsets.
+    size += sizeof(size_t);                       // Payload offset.
+    for (const a0_list_node_t* node = header_node; node; node = node->next) {
+      a0_packet_header_list_t* hdr_list = (a0_packet_header_list_t*)node->data;
+      for (size_t i = 0; i < hdr_list->size; i++) {
+        a0_packet_header_t* hdr = &hdr_list->hdrs[i];
+        size += strlen(hdr->key) + 1;  // Key content.
+        size += strlen(hdr->val) + 1;  // Val content.
+      }
     }
-    size += payload.size;
+    size += total_payload_size;
 
     alloc.fn(alloc.user_data, size, out);
   }
 
-  size_t total_headers = num_headers + 1;  // +1 for id
-
-  size_t off = 0;
-
   // Number of headers.
-  memcpy(out->ptr + off, &total_headers, sizeof(size_t));
-  off += sizeof(size_t);
+  memcpy(out->ptr, &total_num_hdrs, sizeof(size_t));
 
-  size_t idx_off = off;
-  off += 2 * total_headers * sizeof(size_t) + sizeof(size_t);
-
-  // Id key offset.
-  memcpy(out->ptr + idx_off, &off, sizeof(size_t));
-  idx_off += sizeof(size_t);
-
-  // Id key content.
-  memcpy(out->ptr + off, kIdKey, sizeof(kIdKey));
-  off += sizeof(kIdKey);
-
-  // Id val offset.
-  memcpy(out->ptr + idx_off, &off, sizeof(size_t));
-  idx_off += sizeof(size_t);
-
-  // Id val content.
-  uuidv4(out->ptr + off);
-  off += kUuidSize;
+  size_t idx_off = sizeof(size_t);
+  size_t off = sizeof(size_t) + 2 * total_num_hdrs * sizeof(size_t) + sizeof(size_t);
 
   // For each header.
-  for (size_t i = 0; i < num_headers; i++) {
-    // Header key offset.
-    memcpy(out->ptr + idx_off, &off, sizeof(size_t));
-    idx_off += sizeof(size_t);
+  for (const a0_list_node_t* node = header_node; node; node = node->next) {
+    a0_packet_header_list_t* hdr_list = (a0_packet_header_list_t*)node->data;
 
-    // Header key content.
-    memcpy(out->ptr + off, headers[i].key, strlen(headers[i].key) + 1);
-    off += strlen(headers[i].key) + 1;
+    for (size_t i = 0; i < hdr_list->size; i++) {
+      a0_packet_header_t* hdr = &hdr_list->hdrs[i];
 
-    // Header val offset.
-    memcpy(out->ptr + idx_off, &off, sizeof(size_t));
-    idx_off += sizeof(size_t);
+      // Header key offset.
+      memcpy(out->ptr + idx_off, &off, sizeof(size_t));
+      idx_off += sizeof(size_t);
 
-    // Header val content.
-    memcpy(out->ptr + off, headers[i].val, strlen(headers[i].val) + 1);
-    off += strlen(headers[i].val) + 1;
+      // Header key content.
+      memcpy(out->ptr + off, hdr->key, strlen(hdr->key) + 1);
+      off += strlen(hdr->key) + 1;
+
+      // Header val offset.
+      memcpy(out->ptr + idx_off, &off, sizeof(size_t));
+      idx_off += sizeof(size_t);
+
+      // Header val content.
+      memcpy(out->ptr + off, hdr->val, strlen(hdr->val) + 1);
+      off += strlen(hdr->val) + 1;
+    }
   }
 
   memcpy(out->ptr + idx_off, &off, sizeof(size_t));
 
   // Payload.
-  if (payload.size) {
-    memcpy(out->ptr + off, payload.ptr, payload.size);
+  for (const a0_list_node_t* node = payload_node; node; node = node->next) {
+    a0_buf_t* payload = (a0_buf_t*)node->data;
+    memcpy(out->ptr + off, payload->ptr, payload->size);
+    off += payload->size;
   }
 
   return A0_OK;
 }
 
-errno_t a0_packet_copy_with_additional_headers(size_t num_headers,
-                                               a0_packet_header_t* headers,
+errno_t a0_packet_build(const a0_packet_header_list_t header_list,
+                        const a0_buf_t payload,
+                        a0_alloc_t alloc,
+                        a0_packet_t* out) {
+  for (size_t i = 0; i < header_list.size; i++) {
+    if (A0_UNLIKELY(!strcmp(kIdKey, (char*)header_list.hdrs[i].key))) {
+      return EINVAL;
+    }
+  }
+
+  a0_packet_id_t pkt_id;
+  a0_uuidv4((uint8_t*)pkt_id);
+
+  a0_packet_header_t id_hdr = {
+      .key = kIdKey,
+      .val = (const char*)pkt_id,
+  };
+
+  a0_packet_header_list_t id_hdr_list = {
+      .size = 1,
+      .hdrs = &id_hdr,
+  };
+
+  a0_list_node_t user_headers_node = {
+      .data = (void*)&header_list,
+      .next = NULL,
+  };
+  a0_list_node_t header_node = {
+      .data = &id_hdr_list,
+      .next = &user_headers_node,
+  };
+
+  a0_list_node_t payload_node = {
+      .data = (void*)&payload,
+      .next = NULL,
+  };
+
+  return a0_packet_serialize(&header_node, &payload_node, alloc, out);
+}
+
+errno_t a0_packet_copy_with_additional_headers(const a0_packet_header_list_t extra_header_list,
                                                a0_packet_t in,
                                                a0_alloc_t alloc,
                                                a0_packet_t* out) {
@@ -177,10 +230,13 @@ errno_t a0_packet_copy_with_additional_headers(size_t num_headers,
     out = &pkt;
   }
 
+  size_t num_extra_hdrs = extra_header_list.size;
+  a0_packet_header_t* extra_hdrs = extra_header_list.hdrs;
+
   size_t expanded_size = in.size;
-  for (size_t i = 0; i < num_headers; i++) {
-    expanded_size += sizeof(size_t) + strlen(headers[i].key) + 1;
-    expanded_size += sizeof(size_t) + strlen(headers[i].val) + 1;
+  for (size_t i = 0; i < num_extra_hdrs; i++) {
+    expanded_size += sizeof(size_t) + strlen(extra_hdrs[i].key) + 1;
+    expanded_size += sizeof(size_t) + strlen(extra_hdrs[i].val) + 1;
   }
   alloc.fn(alloc.user_data, expanded_size, out);
 
@@ -190,7 +246,7 @@ errno_t a0_packet_copy_with_additional_headers(size_t num_headers,
 
   // Number of headers.
   size_t orig_num_headers = *(size_t*)(in.ptr + roff);
-  size_t total_num_headers = orig_num_headers + num_headers;
+  size_t total_num_headers = orig_num_headers + num_extra_hdrs;
 
   // Write in the new header count.
   memcpy(out->ptr + woff, &total_num_headers, sizeof(size_t));
@@ -207,18 +263,20 @@ errno_t a0_packet_copy_with_additional_headers(size_t num_headers,
   woff += 2 * total_num_headers * sizeof(size_t) + sizeof(size_t);
 
   // Add new headers.
-  for (size_t i = 0; i < num_headers; i++) {
-    memcpy(out->ptr + idx_woff, &woff, sizeof(size_t));
-    idx_woff += sizeof(size_t);
-
-    memcpy(out->ptr + woff, headers[i].key, strlen(headers[i].key) + 1);
-    woff += strlen(headers[i].key) + 1;
+  for (size_t i = 0; i < num_extra_hdrs; i++) {
+    a0_packet_header_t* hdr = &extra_hdrs[i];
 
     memcpy(out->ptr + idx_woff, &woff, sizeof(size_t));
     idx_woff += sizeof(size_t);
 
-    memcpy(out->ptr + woff, headers[i].val, strlen(headers[i].val) + 1);
-    woff += strlen(headers[i].val) + 1;
+    memcpy(out->ptr + woff, hdr->key, strlen(hdr->key) + 1);
+    woff += strlen(hdr->key) + 1;
+
+    memcpy(out->ptr + idx_woff, &woff, sizeof(size_t));
+    idx_woff += sizeof(size_t);
+
+    memcpy(out->ptr + woff, hdr->val, strlen(hdr->val) + 1);
+    woff += strlen(hdr->val) + 1;
   }
 
   // Add offsets for existing headers.

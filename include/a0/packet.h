@@ -29,6 +29,14 @@ typedef struct a0_packet_header_s {
   const char* val;
 } a0_packet_header_t;
 
+typedef struct a0_packet_header_list_s {
+  a0_packet_header_t* hdrs;
+  size_t size;
+} a0_packet_header_list_t;
+
+extern a0_packet_header_list_t A0_EMPTY_HEADER_LIST;
+extern a0_buf_t A0_EMPTY_PAYLOAD;
+
 // The following are special keys.
 // The returned buffers should not be cleaned up.
 
@@ -61,15 +69,19 @@ errno_t a0_packet_find_header(a0_packet_t,
                               const char** val_out,
                               size_t* idx_out);
 
+// Get all headers in the packet.
+// Note: out.hdrs is expected to be pre-allocated for at least num_hdrs elements.
+// Note: the elements of out.hdrs will point into the packet buffer.
+errno_t a0_packet_header_list(a0_packet_t, size_t num_hdrs, a0_packet_header_list_t* out);
+
 // Get the packet id.
 errno_t a0_packet_id(a0_packet_t pkt, a0_packet_id_t* out);
 
 // The following build or modify packets.
 
 // Note: the header order will NOT be retained.
-errno_t a0_packet_build(size_t num_headers,
-                        a0_packet_header_t* headers,
-                        a0_buf_t payload,
+errno_t a0_packet_build(const a0_packet_header_list_t headers,
+                        const a0_buf_t payload,
                         a0_alloc_t,
                         a0_packet_t* out);
 
@@ -80,10 +92,14 @@ typedef struct a0_packet_callback_s {
   void (*fn)(void* user_data, a0_packet_t);
 } a0_packet_callback_t;
 
+extern a0_packet_callback_t A0_NOP_PACKET_CB;
+
 typedef struct a0_packet_id_callback_s {
   void* user_data;
   void (*fn)(void* user_data, a0_packet_id_t);
 } a0_packet_id_callback_t;
+
+extern a0_packet_id_callback_t A0_NOP_PACKET_ID_CB;
 
 // The format of a packet is described here.
 // It is recommended to not worry about this too much, and just use a0_packet_build.

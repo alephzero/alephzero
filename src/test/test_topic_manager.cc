@@ -7,9 +7,7 @@
 #include <doctest.h>
 #include <string.h>
 
-#include <condition_variable>
 #include <map>
-#include <mutex>
 #include <set>
 #include <thread>
 #include <vector>
@@ -43,7 +41,7 @@ struct TopicManagerFixture {
     }};
 
     a0_packet_t pkt;
-    REQUIRE(a0_packet_build(1, headers, a0::test::buf(data), a0::test::allocator(), &pkt) == A0_OK);
+    REQUIRE_OK(a0_packet_build({headers, 1}, a0::test::buf(data), a0::test::allocator(), &pkt));
 
     return pkt;
   }
@@ -51,58 +49,58 @@ struct TopicManagerFixture {
 
 TEST_CASE_FIXTURE(TopicManagerFixture, "Test topic manager pubsub") {
   a0_topic_manager_t topic_manager;
-  REQUIRE(a0_topic_manager_init(&topic_manager, kJsonConfig) == A0_OK);
+  REQUIRE_OK(a0_topic_manager_init(&topic_manager, kJsonConfig));
 
   {
     a0_shm_t shm;
-    REQUIRE(a0_topic_manager_open_publisher_topic(&topic_manager, "pub_topic", &shm) == A0_OK);
+    REQUIRE_OK(a0_topic_manager_open_publisher_topic(&topic_manager, "pub_topic", &shm));
 
     a0_publisher_t pub;
-    REQUIRE(a0_publisher_init(&pub, shm.buf) == A0_OK);
+    REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
 
-    REQUIRE(a0_pub(&pub, make_packet("msg #0")) == A0_OK);
-    REQUIRE(a0_pub(&pub, make_packet("msg #1")) == A0_OK);
+    REQUIRE_OK(a0_pub(&pub, make_packet("msg #0")));
+    REQUIRE_OK(a0_pub(&pub, make_packet("msg #1")));
 
-    REQUIRE(a0_publisher_close(&pub) == A0_OK);
+    REQUIRE_OK(a0_publisher_close(&pub));
 
-    REQUIRE(a0_shm_close(&shm) == A0_OK);
+    REQUIRE_OK(a0_shm_close(&shm));
   }
 
   {
     a0_shm_t shm;
-    REQUIRE(a0_topic_manager_open_subscriber_topic(&topic_manager, "sub_topic", &shm) == A0_OK);
+    REQUIRE_OK(a0_topic_manager_open_subscriber_topic(&topic_manager, "sub_topic", &shm));
 
     a0_subscriber_sync_t sub;
-    REQUIRE(a0_subscriber_sync_init(&sub,
-                                    shm.buf,
-                                    a0::test::allocator(),
-                                    A0_INIT_MOST_RECENT,
-                                    A0_ITER_NEWEST) == A0_OK);
+    REQUIRE_OK(a0_subscriber_sync_init(&sub,
+                                       shm.buf,
+                                       a0::test::allocator(),
+                                       A0_INIT_MOST_RECENT,
+                                       A0_ITER_NEWEST));
 
     {
       bool has_next;
-      REQUIRE(a0_subscriber_sync_has_next(&sub, &has_next) == A0_OK);
+      REQUIRE_OK(a0_subscriber_sync_has_next(&sub, &has_next));
       REQUIRE(has_next);
 
       a0_packet_t pkt;
-      REQUIRE(a0_subscriber_sync_next(&sub, &pkt) == A0_OK);
+      REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
       REQUIRE(pkt.size < 200);
 
       a0_buf_t payload;
-      REQUIRE(a0_packet_payload(pkt, &payload) == A0_OK);
+      REQUIRE_OK(a0_packet_payload(pkt, &payload));
 
       REQUIRE(a0::test::str(payload) == "msg #1");
     }
 
     {
       bool has_next;
-      REQUIRE(a0_subscriber_sync_has_next(&sub, &has_next) == A0_OK);
+      REQUIRE_OK(a0_subscriber_sync_has_next(&sub, &has_next));
       REQUIRE(!has_next);
     }
 
-    REQUIRE(a0_subscriber_sync_close(&sub) == A0_OK);
-    REQUIRE(a0_shm_close(&shm) == A0_OK);
+    REQUIRE_OK(a0_subscriber_sync_close(&sub));
+    REQUIRE_OK(a0_shm_close(&shm));
   }
 
-  REQUIRE(a0_topic_manager_close(&topic_manager) == A0_OK);
+  REQUIRE_OK(a0_topic_manager_close(&topic_manager));
 }
