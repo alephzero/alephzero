@@ -124,6 +124,7 @@ errno_t a0_stream_init_create(a0_stream_t* stream,
 
   a0_lock_stream(stream, lk_out);
   a0_atomic_store(&hdr->init_completed, true);
+  A0_TSAN_ANNOTATE_HAPPENS_BEFORE(&hdr->init_completed);
   *status_out = A0_STREAM_CREATED;
 
   return A0_OK;
@@ -173,6 +174,7 @@ errno_t a0_stream_init(a0_stream_t* stream,
   while (A0_UNLIKELY(!a0_atomic_load(&hdr->init_completed))) {
     a0_spin();
   }
+  A0_TSAN_ANNOTATE_HAPPENS_AFTER(&hdr->init_completed);
   return a0_stream_init_connect(stream, protocol, status_out, lk_out);
 }
 
