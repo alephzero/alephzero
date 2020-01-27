@@ -123,8 +123,8 @@ errno_t a0_stream_init_create(a0_stream_t* stream,
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_stream_init_mutex(&hdr->mu));
 
   a0_lock_stream(stream, lk_out);
-  a0_atomic_store(&hdr->init_completed, true);
   A0_TSAN_ANNOTATE_HAPPENS_BEFORE(&hdr->init_completed);
+  a0_atomic_store(&hdr->init_completed, true);
   *status_out = A0_STREAM_CREATED;
 
   return A0_OK;
