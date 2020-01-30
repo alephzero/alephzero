@@ -11,7 +11,6 @@
 
 #include <chrono>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -208,7 +207,6 @@ namespace {
 struct prpc_state {
   std::unordered_map<std::string, a0_prpc_callback_t> outstanding;
   bool closing{false};
-  std::mutex mu;
 };
 
 }  // namespace
@@ -216,13 +214,13 @@ struct prpc_state {
 struct a0_prpc_client_impl_s {
   a0::stream_thread worker;
 
-  std::shared_ptr<prpc_state> state;
+  std::shared_ptr<a0::sync<prpc_state>> state;
   bool started_empty{false};
 };
 
 errno_t a0_prpc_client_init(a0_prpc_client_t* client, a0_buf_t arena, a0_alloc_t alloc) {
   client->_impl = new a0_prpc_client_impl_t;
-  client->_impl->state = std::make_shared<prpc_state>();
+  client->_impl->state = std::make_shared<a0::sync<prpc_state>>();
 
   auto on_stream_init = [client](a0_locked_stream_t slk, a0_stream_init_status_t) -> errno_t {
     // TODO: check stream valid?
@@ -235,7 +233,7 @@ errno_t a0_prpc_client_init(a0_prpc_client_t* client, a0_buf_t arena, a0_alloc_t
     return A0_OK;
   };
 
-  std::weak_ptr<prpc_state> weak_state = client->_impl->state;
+  std::weak_ptr<a0::sync<prpc_state>> weak_state = client->_impl->state;
   auto handle_pkt = [alloc, weak_state](a0_locked_stream_t slk) {
     a0_stream_frame_t frame;
     a0_stream_frame(slk, &frame);
@@ -258,28 +256,30 @@ errno_t a0_prpc_client_init(a0_prpc_client_t* client, a0_buf_t arena, a0_alloc_t
     a0_unlock_stream(slk);
 
     auto strong_state = weak_state.lock();
-    [&]() {
-      if (!strong_state) {
-        return;
-      }
-      std::unique_lock<std::mutex> lk{strong_state->mu};
-      if (strong_state->closing) {
-        return;
-      }
-
-      const char* conn_id;
-      a0_packet_find_header(pkt, kPrpcConnId, 0, &conn_id, nullptr);
-
-      if (strong_state->outstanding.count(conn_id)) {
-        auto callback = strong_state->outstanding[conn_id];
-        if (is_complete) {
-          strong_state->outstanding.erase(conn_id);
+    if (strong_state) {
+      auto callback = strong_state->with_lock([&](prpc_state* state) -> a0_prpc_callback_t {
+        if (state->closing) {
+          return {nullptr, nullptr};
         }
 
-        lk.unlock();
+        const char* conn_id;
+        a0_packet_find_header(pkt, kPrpcConnId, 0, &conn_id, nullptr);
+
+        if (state->outstanding.count(conn_id)) {
+          auto callback = state->outstanding[conn_id];
+          if (is_complete) {
+            state->outstanding.erase(conn_id);
+          }
+          return callback;
+        }
+
+        return {nullptr, nullptr};
+      });
+
+      if (callback.fn) {
         callback.fn(callback.user_data, pkt, is_complete);
       }
-    }();
+    }
 
     a0_lock_stream(slk.stream, &slk);
   };
@@ -308,10 +308,9 @@ errno_t a0_prpc_client_async_close(a0_prpc_client_t* client, a0_callback_t onclo
     return ESHUTDOWN;
   }
 
-  {
-    std::unique_lock<std::mutex> lk{client->_impl->state->mu};
-    client->_impl->state->closing = true;
-  }
+  client->_impl->state->with_lock([&](prpc_state* state) {
+    state->closing = true;
+  });
 
   client->_impl->worker.async_close([client, onclose]() {
     delete client->_impl;
@@ -345,10 +344,9 @@ errno_t a0_prpc_connect(a0_prpc_client_t* client,
 
   a0_packet_id_t id;
   a0_packet_id(pkt, &id);
-  {
-    std::unique_lock<std::mutex> lk{client->_impl->state->mu};
-    client->_impl->state->outstanding[id] = callback;
-  }
+  client->_impl->state->with_lock([&](prpc_state* state) {
+    state->outstanding[id] = callback;
+  });
 
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
@@ -380,10 +378,9 @@ errno_t a0_prpc_cancel(a0_prpc_client_t* client, const a0_packet_id_t conn_id) {
     return ESHUTDOWN;
   }
 
-  {
-    std::unique_lock<std::mutex> lk{client->_impl->state->mu};
-    client->_impl->state->outstanding.erase(conn_id);
-  }
+  client->_impl->state->with_lock([&](prpc_state* state) {
+    state->outstanding.erase(conn_id);
+  });
 
   uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
