@@ -77,8 +77,7 @@ errno_t a0_packet_header_list(a0_packet_t, size_t num_hdrs, a0_packet_header_lis
 // Get the packet id.
 errno_t a0_packet_id(a0_packet_t pkt, a0_packet_id_t* out);
 
-// The following build or modify packets.
-
+// Builds a contiguous packet.
 // Note: the header order will NOT be retained.
 errno_t a0_packet_build(const a0_packet_header_list_t headers,
                         const a0_buf_t payload,

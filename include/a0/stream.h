@@ -69,6 +69,7 @@ errno_t a0_stream_init(a0_stream_t*,
                        a0_stream_protocol_t,
                        a0_stream_init_status_t* status_out,
                        a0_locked_stream_t* lk_out);
+// Awakens all outstanding awaits. Future await attempts fail.
 errno_t a0_stream_close(a0_stream_t*);
 
 // Initializes the locked_stream object, wrapping the given stream.
