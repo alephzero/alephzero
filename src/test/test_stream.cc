@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "src/stream_debug.h"
+#include "src/strutil.hpp"
 #include "src/test_util.hpp"
 
 static const char kTestShm[] = "/test.shm";
@@ -581,7 +582,8 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream await") {
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
-  if (!fork()) {
+  int child_pid = fork();
+  if (!child_pid) {
     a0_stream_t stream;
     a0_stream_init_status_t init_status;
     a0_locked_stream_t lk;
@@ -663,11 +665,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust") {
       std::quick_exit(0);
     }
   }
-  if (a0::test::is_valgrind()) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  } else {
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
+  int unused_status;
+  waitpid(child_pid, &unused_status, 0);
+  (void)unused_status;
 
   a0_stream_t stream;
   a0_stream_init_status_t init_status;
@@ -758,7 +758,11 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust fuzz") {
   }
 
   // Wait for child to run for a while, then violently kill it.
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  if (a0::test::is_valgrind()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  } else {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
   kill(child_pid, SIGKILL);
   int wstatus;
   REQUIRE(waitpid(child_pid, &wstatus, 0) == child_pid);
@@ -787,4 +791,72 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust fuzz") {
 
   REQUIRE_OK(a0_unlock_stream(lk));
   REQUIRE_OK(a0_stream_close(&stream));
+}
+
+static const char kCopyShm[] = "/copy.shm";
+
+TEST_CASE_FIXTURE(StreamTestFixture, "Test stream robust copy") {
+  std::string str = "Original String";
+
+  int child_pid = fork();
+  if (!child_pid) {
+    a0_stream_t stream;
+    a0_stream_init_status_t init_status;
+    a0_locked_stream_t lk;
+    REQUIRE_OK(a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk));
+    REQUIRE(init_status == A0_STREAM_CREATED);
+    REQUIRE_OK(a0_unlock_stream(lk));
+
+    a0_stream_frame_t frame;
+    a0_stream_alloc(lk, str.size(), &frame);
+    memcpy(frame.data, str.c_str(), str.size());
+    a0_stream_commit(lk);
+
+    // Do not unlock!
+    // a0_unlock_stream(lk);
+
+    // Exit without cleaning resources.
+    std::quick_exit(0);
+  }
+
+  int unused_status;
+  waitpid(child_pid, &unused_status, 0);
+  (void)unused_status;
+
+  // Copy the shm file to disk.
+  {
+    auto cmd = a0::strutil::fmt("cp /dev/shm%s /tmp%s", kTestShm, kCopyShm);
+    REQUIRE_OK(system(cmd.c_str()));
+  }
+
+  // Copy the disk file to memory.
+  {
+    auto cmd = a0::strutil::fmt("cp /tmp%s /dev/shm%s", kCopyShm, kCopyShm);
+    REQUIRE_OK(system(cmd.c_str()));
+  }
+
+  a0_shm_t copied_shm;
+  a0_shm_open(kCopyShm, &shmopt, &copied_shm);
+
+  a0_stream_t stream;
+  a0_stream_init_status_t init_status;
+  a0_locked_stream_t lk;
+  REQUIRE_OK(a0_stream_init(&stream, copied_shm.buf, protocol, &init_status, &lk));
+  REQUIRE(init_status == A0_STREAM_PROTOCOL_MATCH);
+
+  a0_stream_jump_head(lk);
+  a0_stream_frame_t frame;
+  a0_stream_frame(lk, &frame);
+  REQUIRE(a0::test::str(frame) == str);
+
+  REQUIRE_OK(a0_unlock_stream(lk));
+
+  a0_shm_close(&copied_shm);
+  a0_shm_unlink(kCopyShm);
+
+  // Remove the disk file.
+  {
+    auto cmd = a0::strutil::fmt("rm /tmp%s", kCopyShm);
+    REQUIRE_OK(system(cmd.c_str()));
+  }
 }
