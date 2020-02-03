@@ -52,7 +52,19 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
     REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
 
     REQUIRE_OK(a0_pub(&pub, make_packet("msg #0")));
-    REQUIRE_OK(a0_pub(&pub, make_packet("msg #1")));
+
+    a0_packet_header_t headers[1] = {{
+        .key = "key",
+        .val = "val",
+    }};
+
+    REQUIRE_OK(a0_pub_emplace(&pub, {headers, 1}, a0::test::buf("msg #1"), nullptr));
+
+    a0_packet_id_t msg2_id;
+    REQUIRE_OK(a0_pub_emplace(&pub, {headers, 1}, a0::test::buf("msg #2"), &msg2_id));
+    REQUIRE(msg2_id[8] == '-');
+
+    REQUIRE_OK(a0_pub_emplace(&pub, {{}, 0}, a0::test::buf("msg #3"), nullptr));
 
     REQUIRE_OK(a0_publisher_close(&pub));
   }
@@ -100,7 +112,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
                                              .count());
     }
 
-    {
+    for (int i = 1; i < 4; i++) {
       bool has_next;
       REQUIRE_OK(a0_subscriber_sync_has_next(&sub, &has_next));
       REQUIRE(has_next);
@@ -112,7 +124,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       a0_buf_t payload;
       REQUIRE_OK(a0_packet_payload(pkt, &payload));
 
-      REQUIRE(a0::test::str(payload) == "msg #1");
+      REQUIRE(a0::test::str(payload) == a0::strutil::fmt("msg #%d", i));
     }
 
     {
@@ -144,7 +156,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       a0_buf_t payload;
       REQUIRE_OK(a0_packet_payload(pkt, &payload));
 
-      REQUIRE(a0::test::str(payload) == "msg #1");
+      REQUIRE(a0::test::str(payload) == "msg #3");
     }
 
     {

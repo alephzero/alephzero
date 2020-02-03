@@ -110,6 +110,40 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
   });
 }
 
+errno_t a0_pub_emplace(a0_publisher_t* pub,
+                       const a0_packet_header_list_t header_list,
+                       const a0_buf_t payload,
+                       a0_packet_id_t* out_pkt_id) {
+  if (!pub || !pub->_impl) {
+    return ESHUTDOWN;
+  }
+
+  uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                           std::chrono::steady_clock::now().time_since_epoch())
+                           .count();
+  std::string clock_str = std::to_string(clock_val);
+
+  std::vector<a0_packet_header_t> all_hdrs(header_list.size + 1);
+
+  all_hdrs[0] = {kClock, clock_str.c_str()};
+
+  // TODO: Add sequence numbers.
+
+  for (size_t i = 0; i < header_list.size; i++) {
+    all_hdrs[i + 1] = header_list.hdrs[i];
+  }
+
+  a0::sync_stream_t ss{&pub->_impl->stream};
+  return ss.with_lock([&](a0_locked_stream_t slk) {
+    a0_packet_t pkt;
+    a0_packet_build({all_hdrs.data(), all_hdrs.size()}, payload, a0::stream_allocator(&slk), &pkt);
+    if (out_pkt_id) {
+      a0_packet_id(pkt, out_pkt_id);
+    }
+    return a0_stream_commit(slk);
+  });
+}
+
 //////////////////
 //  Subscriber  //
 //////////////////

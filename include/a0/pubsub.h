@@ -28,6 +28,10 @@ typedef struct a0_publisher_s {
 errno_t a0_publisher_init(a0_publisher_t*, a0_buf_t arena);
 errno_t a0_publisher_close(a0_publisher_t*);
 errno_t a0_pub(a0_publisher_t*, const a0_packet_t);
+errno_t a0_pub_emplace(a0_publisher_t*,
+                       const a0_packet_header_list_t headers,
+                       const a0_buf_t payload,
+                       a0_packet_id_t* out_pkt_id);
 
 ////////////////
 // Subscriber //
