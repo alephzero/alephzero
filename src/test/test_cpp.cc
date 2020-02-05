@@ -80,6 +80,11 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test topic manager") {
   };
 
   REQUIRE_PATH(tm.config_topic(), "/a0_config__aaa");
+  REQUIRE_PATH(tm.log_crit_topic(), "/a0_log_crit__aaa");
+  REQUIRE_PATH(tm.log_err_topic(), "/a0_log_err__aaa");
+  REQUIRE_PATH(tm.log_warn_topic(), "/a0_log_warn__aaa");
+  REQUIRE_PATH(tm.log_info_topic(), "/a0_log_info__aaa");
+  REQUIRE_PATH(tm.log_dbg_topic(), "/a0_log_dbg__aaa");
   REQUIRE_PATH(tm.publisher_topic("baz"), "/a0_pubsub__aaa__baz");
   REQUIRE_PATH(tm.subscriber_topic("subby"), "/a0_pubsub__bbb__foo");
   REQUIRE_PATH(tm.rpc_server_topic("alice"), "/a0_rpc__aaa__alice");

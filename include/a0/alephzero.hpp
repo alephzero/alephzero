@@ -1,3 +1,4 @@
+#include <a0/logger.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
 #include <a0/pubsub.h>
@@ -68,13 +69,20 @@ struct TopicManager {
   TopicManager() = default;
   TopicManager(const std::string& json);
 
-  Shm config_topic();
-  Shm publisher_topic(const std::string&);
-  Shm subscriber_topic(const std::string&);
-  Shm rpc_server_topic(const std::string&);
-  Shm rpc_client_topic(const std::string&);
-  Shm prpc_server_topic(const std::string&);
-  Shm prpc_client_topic(const std::string&);
+  std::string_view container_name() const;
+
+  Shm config_topic() const;
+  Shm log_crit_topic() const;
+  Shm log_err_topic() const;
+  Shm log_warn_topic() const;
+  Shm log_info_topic() const;
+  Shm log_dbg_topic() const;
+  Shm publisher_topic(const std::string&) const;
+  Shm subscriber_topic(const std::string&) const;
+  Shm rpc_server_topic(const std::string&) const;
+  Shm rpc_client_topic(const std::string&) const;
+  Shm prpc_server_topic(const std::string&) const;
+  Shm prpc_client_topic(const std::string&) const;
 };
 
 void InitGlobalTopicManager(TopicManager);
@@ -90,6 +98,24 @@ struct Publisher {
 
   void pub(const Packet&);
   void pub(std::string_view);
+};
+
+struct Logger {
+  std::shared_ptr<a0_logger_t> c;
+
+  Logger(const TopicManager&);
+  Logger();
+
+  void crit(const Packet&);
+  void crit(std::string_view);
+  void err(const Packet&);
+  void err(std::string_view);
+  void warn(const Packet&);
+  void warn(std::string_view);
+  void info(const Packet&);
+  void info(std::string_view);
+  void dbg(const Packet&);
+  void dbg(std::string_view);
 };
 
 struct SubscriberSync {
@@ -117,6 +143,7 @@ struct Subscriber {
   static Packet read_one(const std::string&, a0_subscriber_init_t, int flags = 0);
 };
 
+Subscriber onconfig(std::function<void(PacketView)>);
 Packet read_config(int flags = 0);
 
 struct RpcServer;

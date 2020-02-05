@@ -1,6 +1,7 @@
 #include <a0/alephzero.hpp>
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/logger.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
 #include <a0/pubsub.h>
@@ -207,7 +208,13 @@ TopicManager::TopicManager(const std::string& json) {
       delete_after<a0_topic_manager_t>(a0_topic_manager_close));
 }
 
-Shm TopicManager::config_topic() {
+std::string_view TopicManager::container_name() const {
+  const char* out;
+  a0_topic_manager_container_name(&*c, &out);
+  return out;
+}
+
+Shm TopicManager::config_topic() const {
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_config_topic(&*c, shm);
@@ -215,7 +222,47 @@ Shm TopicManager::config_topic() {
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-Shm TopicManager::publisher_topic(const std::string& name) {
+Shm TopicManager::log_crit_topic() const {
+  return to_cpp<Shm>(c_shared<a0_shm_t>(
+      [&](a0_shm_t* shm) {
+        return a0_topic_manager_open_log_crit_topic(&*c, shm);
+      },
+      delete_after<a0_shm_t>(a0_shm_close)));
+}
+
+Shm TopicManager::log_err_topic() const {
+  return to_cpp<Shm>(c_shared<a0_shm_t>(
+      [&](a0_shm_t* shm) {
+        return a0_topic_manager_open_log_err_topic(&*c, shm);
+      },
+      delete_after<a0_shm_t>(a0_shm_close)));
+}
+
+Shm TopicManager::log_warn_topic() const {
+  return to_cpp<Shm>(c_shared<a0_shm_t>(
+      [&](a0_shm_t* shm) {
+        return a0_topic_manager_open_log_warn_topic(&*c, shm);
+      },
+      delete_after<a0_shm_t>(a0_shm_close)));
+}
+
+Shm TopicManager::log_info_topic() const {
+  return to_cpp<Shm>(c_shared<a0_shm_t>(
+      [&](a0_shm_t* shm) {
+        return a0_topic_manager_open_log_info_topic(&*c, shm);
+      },
+      delete_after<a0_shm_t>(a0_shm_close)));
+}
+
+Shm TopicManager::log_dbg_topic() const {
+  return to_cpp<Shm>(c_shared<a0_shm_t>(
+      [&](a0_shm_t* shm) {
+        return a0_topic_manager_open_log_dbg_topic(&*c, shm);
+      },
+      delete_after<a0_shm_t>(a0_shm_close)));
+}
+
+Shm TopicManager::publisher_topic(const std::string& name) const {
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_publisher_topic(&*c, name.c_str(), shm);
@@ -223,7 +270,7 @@ Shm TopicManager::publisher_topic(const std::string& name) {
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-Shm TopicManager::subscriber_topic(const std::string& name) {
+Shm TopicManager::subscriber_topic(const std::string& name) const {
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_subscriber_topic(&*c, name.c_str(), shm);
@@ -231,7 +278,7 @@ Shm TopicManager::subscriber_topic(const std::string& name) {
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-Shm TopicManager::rpc_server_topic(const std::string& name) {
+Shm TopicManager::rpc_server_topic(const std::string& name) const {
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_rpc_server_topic(&*c, name.c_str(), shm);
@@ -239,7 +286,7 @@ Shm TopicManager::rpc_server_topic(const std::string& name) {
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-Shm TopicManager::rpc_client_topic(const std::string& name) {
+Shm TopicManager::rpc_client_topic(const std::string& name) const {
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_rpc_client_topic(&*c, name.c_str(), shm);
@@ -247,7 +294,7 @@ Shm TopicManager::rpc_client_topic(const std::string& name) {
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-Shm TopicManager::prpc_server_topic(const std::string& name) {
+Shm TopicManager::prpc_server_topic(const std::string& name) const {
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_prpc_server_topic(&*c, name.c_str(), shm);
@@ -255,7 +302,7 @@ Shm TopicManager::prpc_server_topic(const std::string& name) {
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-Shm TopicManager::prpc_client_topic(const std::string& name) {
+Shm TopicManager::prpc_client_topic(const std::string& name) const {
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_prpc_client_topic(&*c, name.c_str(), shm);
@@ -296,6 +343,60 @@ void Publisher::pub(const Packet& pkt) {
 
 void Publisher::pub(std::string_view payload) {
   pub(Packet(payload));
+}
+
+Logger::Logger(const TopicManager& topic_manager) {
+  auto shm_crit = topic_manager.log_crit_topic();
+  auto shm_err = topic_manager.log_err_topic();
+  auto shm_warn = topic_manager.log_warn_topic();
+  auto shm_info = topic_manager.log_info_topic();
+  auto shm_dbg = topic_manager.log_dbg_topic();
+  c = c_shared<a0_logger_t>(
+      [&](a0_logger_t* c) {
+        return a0_logger_init(c,
+                              shm_crit.c->buf,
+                              shm_err.c->buf,
+                              shm_warn.c->buf,
+                              shm_info.c->buf,
+                              shm_dbg.c->buf);
+      },
+      [shm_crit, shm_err, shm_warn, shm_info, shm_dbg](a0_logger_t* c) {
+        a0_logger_close(c);
+        delete c;
+      });
+}
+
+Logger::Logger() : Logger(global_topic_manager()) {}
+
+void Logger::crit(const Packet& pkt) {
+  check(a0_log_crit(&*c, pkt.c()));
+}
+void Logger::crit(std::string_view payload) {
+  crit(Packet(payload));
+}
+void Logger::err(const Packet& pkt) {
+  check(a0_log_err(&*c, pkt.c()));
+}
+void Logger::err(std::string_view payload) {
+  err(Packet(payload));
+}
+void Logger::warn(const Packet& pkt) {
+  check(a0_log_warn(&*c, pkt.c()));
+}
+void Logger::warn(std::string_view payload) {
+  warn(Packet(payload));
+}
+void Logger::info(const Packet& pkt) {
+  check(a0_log_info(&*c, pkt.c()));
+}
+void Logger::info(std::string_view payload) {
+  info(Packet(payload));
+}
+void Logger::dbg(const Packet& pkt) {
+  check(a0_log_dbg(&*c, pkt.c()));
+}
+void Logger::dbg(std::string_view payload) {
+  dbg(Packet(payload));
 }
 
 SubscriberSync::SubscriberSync(Shm shm, a0_subscriber_init_t init, a0_subscriber_iter_t iter) {
@@ -409,6 +510,12 @@ Packet Subscriber::read_one(const std::string& topic, a0_subscriber_init_t init,
   return Subscriber::read_one(global_topic_manager().subscriber_topic(topic), init, flags);
 }
 
+Subscriber onconfig(std::function<void(PacketView)> fn) {
+  return Subscriber(global_topic_manager().config_topic(),
+                    A0_INIT_MOST_RECENT,
+                    A0_ITER_NEWEST,
+                    std::move(fn));
+}
 Packet read_config(int flags) {
   return Subscriber::read_one(global_topic_manager().config_topic(), A0_INIT_MOST_RECENT, flags);
 }

@@ -59,7 +59,7 @@ struct a0_topic_manager_impl_s {
   }
 };
 
-errno_t a0_topic_manager_init(a0_topic_manager_t* topic_manager, const char* jsonstr) {
+errno_t a0_topic_manager_init(a0_topic_manager_t* tm, const char* jsonstr) {
   using json = nlohmann::json;
 
   topic_manager_options opts;
@@ -69,89 +69,113 @@ errno_t a0_topic_manager_init(a0_topic_manager_t* topic_manager, const char* jso
     return EINVAL;
   }
 
-  topic_manager->_impl = new a0_topic_manager_impl_t;
-  topic_manager->_impl->opts = std::move(opts);
+  tm->_impl = new a0_topic_manager_impl_t;
+  tm->_impl->opts = std::move(opts);
 
   return A0_OK;
 }
 
-errno_t a0_topic_manager_close(a0_topic_manager_t* topic_manager) {
-  if (!topic_manager || !topic_manager->_impl) {
+errno_t a0_topic_manager_close(a0_topic_manager_t* tm) {
+  if (!tm || !tm->_impl) {
     return ESHUTDOWN;
   }
 
-  delete topic_manager->_impl;
-  topic_manager->_impl = nullptr;
+  delete tm->_impl;
+  tm->_impl = nullptr;
 
+  return A0_OK;
+}
+
+errno_t a0_topic_manager_container_name(const a0_topic_manager_t* tm, const char** out) {
+  *out = tm->_impl->opts.container.c_str();
   return A0_OK;
 }
 
 constexpr char kConfigTopicTemplate[] = "/a0_config__%s";
+constexpr char kLogTopicTemplate[] = "/a0_log_%s__%s";
 constexpr char kPubsubTopicTemplate[] = "/a0_pubsub__%s__%s";
 constexpr char kRpcTopicTemplate[] = "/a0_rpc__%s__%s";
 constexpr char kPrpcTopicTemplate[] = "/a0_prpc__%s__%s";
 
-errno_t a0_topic_manager_open_config_topic(a0_topic_manager_t* topic_manager, a0_shm_t* out) {
-  auto path = a0::strutil::fmt(kConfigTopicTemplate, topic_manager->_impl->opts.container.c_str());
-  return a0_shm_open(path.c_str(), &topic_manager->_impl->default_shm_options, out);
+errno_t a0_topic_manager_open_config_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
+  auto path = a0::strutil::fmt(kConfigTopicTemplate, tm->_impl->opts.container.c_str());
+  return a0_shm_open(path.c_str(), &tm->_impl->default_shm_options, out);
 }
 
-errno_t a0_topic_manager_open_publisher_topic(a0_topic_manager_t* topic_manager,
+errno_t a0_topic_manager_open_log_crit_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
+  auto path = a0::strutil::fmt(kLogTopicTemplate, "crit", tm->_impl->opts.container.c_str());
+  return a0_shm_open(path.c_str(), &tm->_impl->default_shm_options, out);
+}
+errno_t a0_topic_manager_open_log_err_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
+  auto path = a0::strutil::fmt(kLogTopicTemplate, "err", tm->_impl->opts.container.c_str());
+  return a0_shm_open(path.c_str(), &tm->_impl->default_shm_options, out);
+}
+errno_t a0_topic_manager_open_log_warn_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
+  auto path = a0::strutil::fmt(kLogTopicTemplate, "warn", tm->_impl->opts.container.c_str());
+  return a0_shm_open(path.c_str(), &tm->_impl->default_shm_options, out);
+}
+errno_t a0_topic_manager_open_log_info_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
+  auto path = a0::strutil::fmt(kLogTopicTemplate, "info", tm->_impl->opts.container.c_str());
+  return a0_shm_open(path.c_str(), &tm->_impl->default_shm_options, out);
+}
+errno_t a0_topic_manager_open_log_dbg_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
+  auto path = a0::strutil::fmt(kLogTopicTemplate, "dbg", tm->_impl->opts.container.c_str());
+  return a0_shm_open(path.c_str(), &tm->_impl->default_shm_options, out);
+}
+
+errno_t a0_topic_manager_open_publisher_topic(const a0_topic_manager_t* tm,
                                               const char* name,
                                               a0_shm_t* out) {
-  auto path =
-      a0::strutil::fmt(kPubsubTopicTemplate, topic_manager->_impl->opts.container.c_str(), name);
-  return a0_shm_open(path.c_str(), &topic_manager->_impl->default_shm_options, out);
+  auto path = a0::strutil::fmt(kPubsubTopicTemplate, tm->_impl->opts.container.c_str(), name);
+  return a0_shm_open(path.c_str(), &tm->_impl->default_shm_options, out);
 }
 
-errno_t a0_topic_manager_open_subscriber_topic(a0_topic_manager_t* topic_manager,
+errno_t a0_topic_manager_open_subscriber_topic(const a0_topic_manager_t* tm,
                                                const char* name,
                                                a0_shm_t* out) {
-  if (!topic_manager->_impl->opts.subscriber_maps.count(name)) {
+  if (!tm->_impl->opts.subscriber_maps.count(name)) {
     return EINVAL;
   }
-  auto* mapping = &topic_manager->_impl->opts.subscriber_maps.at(name);
+  auto* mapping = &tm->_impl->opts.subscriber_maps.at(name);
   auto path =
       a0::strutil::fmt(kPubsubTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
-  return a0_shm_open(path.c_str(), &topic_manager->_impl->default_shm_options, out);
+  return a0_shm_open(path.c_str(), &tm->_impl->default_shm_options, out);
 }
 
-errno_t a0_topic_manager_open_rpc_server_topic(a0_topic_manager_t* topic_manager,
+errno_t a0_topic_manager_open_rpc_server_topic(const a0_topic_manager_t* tm,
                                                const char* name,
                                                a0_shm_t* out) {
-  auto path =
-      a0::strutil::fmt(kRpcTopicTemplate, topic_manager->_impl->opts.container.c_str(), name);
-  return a0_shm_open(path.c_str(), &topic_manager->_impl->default_shm_options, out);
+  auto path = a0::strutil::fmt(kRpcTopicTemplate, tm->_impl->opts.container.c_str(), name);
+  return a0_shm_open(path.c_str(), &tm->_impl->default_shm_options, out);
 }
 
-errno_t a0_topic_manager_open_rpc_client_topic(a0_topic_manager_t* topic_manager,
+errno_t a0_topic_manager_open_rpc_client_topic(const a0_topic_manager_t* tm,
                                                const char* name,
                                                a0_shm_t* out) {
-  if (!topic_manager->_impl->opts.rpc_client_maps.count(name)) {
+  if (!tm->_impl->opts.rpc_client_maps.count(name)) {
     return EINVAL;
   }
-  auto* mapping = &topic_manager->_impl->opts.rpc_client_maps.at(name);
+  auto* mapping = &tm->_impl->opts.rpc_client_maps.at(name);
   auto path =
       a0::strutil::fmt(kRpcTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
-  return a0_shm_open(path.c_str(), &topic_manager->_impl->default_shm_options, out);
+  return a0_shm_open(path.c_str(), &tm->_impl->default_shm_options, out);
 }
 
-errno_t a0_topic_manager_open_prpc_server_topic(a0_topic_manager_t* topic_manager,
+errno_t a0_topic_manager_open_prpc_server_topic(const a0_topic_manager_t* tm,
                                                 const char* name,
                                                 a0_shm_t* out) {
-  auto path =
-      a0::strutil::fmt(kPrpcTopicTemplate, topic_manager->_impl->opts.container.c_str(), name);
-  return a0_shm_open(path.c_str(), &topic_manager->_impl->default_shm_options, out);
+  auto path = a0::strutil::fmt(kPrpcTopicTemplate, tm->_impl->opts.container.c_str(), name);
+  return a0_shm_open(path.c_str(), &tm->_impl->default_shm_options, out);
 }
 
-errno_t a0_topic_manager_open_prpc_client_topic(a0_topic_manager_t* topic_manager,
+errno_t a0_topic_manager_open_prpc_client_topic(const a0_topic_manager_t* tm,
                                                 const char* name,
                                                 a0_shm_t* out) {
-  if (!topic_manager->_impl->opts.prpc_client_maps.count(name)) {
+  if (!tm->_impl->opts.prpc_client_maps.count(name)) {
     return EINVAL;
   }
-  auto* mapping = &topic_manager->_impl->opts.prpc_client_maps.at(name);
+  auto* mapping = &tm->_impl->opts.prpc_client_maps.at(name);
   auto path =
       a0::strutil::fmt(kPrpcTopicTemplate, mapping->container.c_str(), mapping->topic.c_str());
-  return a0_shm_open(path.c_str(), &topic_manager->_impl->default_shm_options, out);
+  return a0_shm_open(path.c_str(), &tm->_impl->default_shm_options, out);
 }
