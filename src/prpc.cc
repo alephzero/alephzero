@@ -173,16 +173,16 @@ errno_t a0_prpc_send(a0_prpc_connection_t conn, const a0_packet_t prog, bool don
     return EINVAL;
   }
 
-  uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                           std::chrono::steady_clock::now().time_since_epoch())
-                           .count();
-  auto clock_str = std::to_string(clock_val);
+  char mono_str[20];
+  char wall_str[36];
+  a0::time_strings(mono_str, wall_str);
 
-  constexpr size_t num_extra_headers = 3;
+  constexpr size_t num_extra_headers = 4;
   a0_packet_header_t extra_headers[num_extra_headers] = {
       {kPrpcType, done ? kPrpcTypeComplete : kPrpcTypeProgress},
       {kPrpcConnId, conn_id},
-      {kClock, clock_str.c_str()},
+      {kMonoTime, mono_str},
+      {kWallTime, wall_str},
   };
 
   // TODO: Add sequence numbers.
@@ -348,15 +348,15 @@ errno_t a0_prpc_connect(a0_prpc_client_t* client,
     state->outstanding[id] = callback;
   });
 
-  uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                           std::chrono::steady_clock::now().time_since_epoch())
-                           .count();
-  std::string clock_str = std::to_string(clock_val);
+  char mono_str[20];
+  char wall_str[36];
+  a0::time_strings(mono_str, wall_str);
 
-  constexpr size_t num_extra_headers = 2;
+  constexpr size_t num_extra_headers = 3;
   a0_packet_header_t extra_headers[num_extra_headers] = {
       {kPrpcType, kPrpcTypeConnect},
-      {kClock, clock_str.c_str()},
+      {kMonoTime, mono_str},
+      {kWallTime, wall_str},
   };
 
   // TODO: Add sequence numbers.
@@ -382,15 +382,15 @@ errno_t a0_prpc_cancel(a0_prpc_client_t* client, const a0_packet_id_t conn_id) {
     state->outstanding.erase(conn_id);
   });
 
-  uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                           std::chrono::steady_clock::now().time_since_epoch())
-                           .count();
-  std::string clock_str = std::to_string(clock_val);
+  char mono_str[20];
+  char wall_str[36];
+  a0::time_strings(mono_str, wall_str);
 
-  constexpr size_t num_headers = 2;
+  constexpr size_t num_headers = 3;
   a0_packet_header_t headers[num_headers] = {
       {kPrpcType, kPrpcTypeCancel},
-      {kClock, clock_str.c_str()},
+      {kMonoTime, mono_str},
+      {kWallTime, wall_str},
   };
 
   // TODO: Add sequence numbers.

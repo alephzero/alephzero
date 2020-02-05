@@ -84,11 +84,11 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
-      REQUIRE(pkt.size < 200);
+      REQUIRE(pkt.size < 300);
 
       size_t num_headers;
       REQUIRE_OK(a0_packet_num_headers(pkt, &num_headers));
-      REQUIRE(num_headers == 3);
+      REQUIRE(num_headers == 4);
 
       std::map<std::string, std::string> hdrs;
       for (size_t i = 0; i < num_headers; i++) {
@@ -98,7 +98,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       }
       REQUIRE(hdrs.count("key"));
       REQUIRE(hdrs.count("a0_id"));
-      REQUIRE(hdrs.count("a0_clock"));
+      REQUIRE(hdrs.count("a0_mono_time"));
+      REQUIRE(hdrs.count("a0_wall_time"));
 
       a0_buf_t payload;
       REQUIRE_OK(a0_packet_payload(pkt, &payload));
@@ -107,9 +108,12 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       REQUIRE(hdrs["key"] == "val");
       REQUIRE(hdrs["a0_id"].size() == 36);
-      REQUIRE(stoull(hdrs["a0_clock"]) < std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                             std::chrono::steady_clock::now().time_since_epoch())
-                                             .count());
+      REQUIRE(hdrs["a0_mono_time"].size() < 20);
+      REQUIRE(hdrs["a0_wall_time"].size() == 35);
+      REQUIRE(stoull(hdrs["a0_mono_time"]) <
+              std::chrono::duration_cast<std::chrono::nanoseconds>(
+                  std::chrono::steady_clock::now().time_since_epoch())
+                  .count());
     }
 
     for (int i = 1; i < 4; i++) {
@@ -119,7 +123,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
-      REQUIRE(pkt.size < 200);
+      REQUIRE(pkt.size < 300);
 
       a0_buf_t payload;
       REQUIRE_OK(a0_packet_payload(pkt, &payload));

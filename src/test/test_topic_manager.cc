@@ -84,7 +84,7 @@ TEST_CASE_FIXTURE(TopicManagerFixture, "Test topic manager pubsub") {
 
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
-      REQUIRE(pkt.size < 200);
+      REQUIRE(pkt.size < 300);
 
       a0_buf_t payload;
       REQUIRE_OK(a0_packet_payload(pkt, &payload));

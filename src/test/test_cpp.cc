@@ -76,6 +76,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test topic manager") {
 
   auto REQUIRE_PATH = [&](a0::Shm shm, std::string_view expected_path) {
     REQUIRE(shm.path() == expected_path);
+    a0::Shm::unlink(shm.path());
   };
 
   REQUIRE_PATH(tm.config_topic(), "/a0_config__aaa");
@@ -102,7 +103,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub sync") {
     REQUIRE(sub.has_next());
     auto pkt_view = sub.next();
 
-    REQUIRE(pkt_view.num_headers() == 2);
+    REQUIRE(pkt_view.num_headers() == 3);
 
     std::map<std::string, std::string> hdrs;
     for (size_t i = 0; i < pkt_view.num_headers(); i++) {
@@ -110,7 +111,8 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub sync") {
       hdrs[std::string(hdr.first)] = hdr.second;
     }
     REQUIRE(hdrs.count("a0_id"));
-    REQUIRE(hdrs.count("a0_clock"));
+    REQUIRE(hdrs.count("a0_mono_time"));
+    REQUIRE(hdrs.count("a0_wall_time"));
 
     REQUIRE(pkt_view.payload() == "msg #0");
 

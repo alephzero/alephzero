@@ -88,14 +88,14 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
     return ESHUTDOWN;
   }
 
-  uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                           std::chrono::steady_clock::now().time_since_epoch())
-                           .count();
-  std::string clock_str = std::to_string(clock_val);
+  char mono_str[20];
+  char wall_str[36];
+  a0::time_strings(mono_str, wall_str);
 
-  constexpr size_t num_extra_headers = 1;
+  constexpr size_t num_extra_headers = 2;
   a0_packet_header_t extra_headers[num_extra_headers] = {
-      {kClock, clock_str.c_str()},
+      {kMonoTime, mono_str},
+      {kWallTime, wall_str},
   };
 
   // TODO: Add sequence numbers.
@@ -118,19 +118,19 @@ errno_t a0_pub_emplace(a0_publisher_t* pub,
     return ESHUTDOWN;
   }
 
-  uint64_t clock_val = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                           std::chrono::steady_clock::now().time_since_epoch())
-                           .count();
-  std::string clock_str = std::to_string(clock_val);
+  char mono_str[20];
+  char wall_str[36];
+  a0::time_strings(mono_str, wall_str);
 
-  std::vector<a0_packet_header_t> all_hdrs(header_list.size + 1);
+  std::vector<a0_packet_header_t> all_hdrs(header_list.size + 2);
 
-  all_hdrs[0] = {kClock, clock_str.c_str()};
+  all_hdrs[0] = {kMonoTime, mono_str};
+  all_hdrs[1] = {kWallTime, wall_str};
 
   // TODO: Add sequence numbers.
 
   for (size_t i = 0; i < header_list.size; i++) {
-    all_hdrs[i + 1] = header_list.hdrs[i];
+    all_hdrs[i + 2] = header_list.hdrs[i];
   }
 
   a0::sync_stream_t ss{&pub->_impl->stream};
