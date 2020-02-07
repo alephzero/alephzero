@@ -176,12 +176,13 @@ errno_t a0_rpc_reply(a0_rpc_request_t req, const a0_packet_t resp) {
   char wall_str[36];
   a0::time_strings(mono_str, wall_str);
 
-  constexpr size_t num_extra_headers = 4;
+  constexpr size_t num_extra_headers = 5;
   a0_packet_header_t extra_headers[num_extra_headers] = {
       {kRpcType, kRpcTypeResponse},
       {kRequestId, req_id},
       {kMonoTime, mono_str},
       {kWallTime, wall_str},
+      {a0_packet_dep_key(), req_id},
   };
 
   // TODO: Add sequence numbers.
@@ -379,11 +380,12 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, const a0_packet_id_t req_id) {
   char wall_str[36];
   a0::time_strings(mono_str, wall_str);
 
-  constexpr size_t num_headers = 3;
+  constexpr size_t num_headers = 4;
   a0_packet_header_t headers[num_headers] = {
       {kRpcType, kRpcTypeCancel},
       {kMonoTime, mono_str},
       {kWallTime, wall_str},
+      {a0_packet_dep_key(), req_id},
   };
 
   // TODO: Add sequence numbers.
