@@ -3,7 +3,9 @@
 
 #include <fcntl.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "macros.h"
@@ -58,26 +60,26 @@ void a0_uuidv4(uint8_t out[kUuidSize]) {
 
   uint8_t* bytes = (uint8_t*)data;
 
-  *(uint16_t*)(&out[0]) = *(uint16_t*)(&kHexDigits[bytes[0] * 2]);
-  *(uint16_t*)(&out[2]) = *(uint16_t*)(&kHexDigits[bytes[1] * 2]);
-  *(uint16_t*)(&out[4]) = *(uint16_t*)(&kHexDigits[bytes[2] * 2]);
-  *(uint16_t*)(&out[6]) = *(uint16_t*)(&kHexDigits[bytes[3] * 2]);
+  memcpy(&out[0], &kHexDigits[bytes[0] * 2], sizeof(uint16_t));
+  memcpy(&out[2], &kHexDigits[bytes[1] * 2], sizeof(uint16_t));
+  memcpy(&out[4], &kHexDigits[bytes[2] * 2], sizeof(uint16_t));
+  memcpy(&out[6], &kHexDigits[bytes[3] * 2], sizeof(uint16_t));
   out[8] = '-';
-  *(uint16_t*)(&out[9]) = *(uint16_t*)(&kHexDigits[bytes[4] * 2]);
-  *(uint16_t*)(&out[11]) = *(uint16_t*)(&kHexDigits[bytes[5] * 2]);
+  memcpy(&out[9], &kHexDigits[bytes[4] * 2], sizeof(uint16_t));
+  memcpy(&out[11], &kHexDigits[bytes[5] * 2], sizeof(uint16_t));
   out[13] = '-';
-  *(uint16_t*)(&out[14]) = *(uint16_t*)(&kHexDigits[bytes[6] * 2]);
-  *(uint16_t*)(&out[16]) = *(uint16_t*)(&kHexDigits[bytes[7] * 2]);
+  memcpy(&out[14], &kHexDigits[bytes[6] * 2], sizeof(uint16_t));
+  memcpy(&out[16], &kHexDigits[bytes[7] * 2], sizeof(uint16_t));
   out[18] = '-';
-  *(uint16_t*)(&out[19]) = *(uint16_t*)(&kHexDigits[bytes[8] * 2]);
-  *(uint16_t*)(&out[21]) = *(uint16_t*)(&kHexDigits[bytes[9] * 2]);
+  memcpy(&out[19], &kHexDigits[bytes[8] * 2], sizeof(uint16_t));
+  memcpy(&out[21], &kHexDigits[bytes[9] * 2], sizeof(uint16_t));
   out[23] = '-';
-  *(uint16_t*)(&out[24]) = *(uint16_t*)(&kHexDigits[bytes[10] * 2]);
-  *(uint16_t*)(&out[26]) = *(uint16_t*)(&kHexDigits[bytes[11] * 2]);
-  *(uint16_t*)(&out[28]) = *(uint16_t*)(&kHexDigits[bytes[12] * 2]);
-  *(uint16_t*)(&out[30]) = *(uint16_t*)(&kHexDigits[bytes[13] * 2]);
-  *(uint16_t*)(&out[32]) = *(uint16_t*)(&kHexDigits[bytes[14] * 2]);
-  *(uint16_t*)(&out[34]) = *(uint16_t*)(&kHexDigits[bytes[15] * 2]);
+  memcpy(&out[24], &kHexDigits[bytes[10] * 2], sizeof(uint16_t));
+  memcpy(&out[26], &kHexDigits[bytes[11] * 2], sizeof(uint16_t));
+  memcpy(&out[28], &kHexDigits[bytes[12] * 2], sizeof(uint16_t));
+  memcpy(&out[30], &kHexDigits[bytes[13] * 2], sizeof(uint16_t));
+  memcpy(&out[32], &kHexDigits[bytes[14] * 2], sizeof(uint16_t));
+  memcpy(&out[34], &kHexDigits[bytes[15] * 2], sizeof(uint16_t));
   out[36] = 0;
 }
 

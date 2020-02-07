@@ -1,3 +1,5 @@
+#include "rand.h"
+
 #include <stdbool.h>
 
 __thread unsigned short a0_xsubi[3];
