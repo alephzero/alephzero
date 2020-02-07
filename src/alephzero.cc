@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include "macros.h"
+
 namespace a0 {
 namespace {
 
@@ -75,6 +77,19 @@ struct CDeleter {
   }
 };
 
+A0_STATIC_INLINE
+a0_buf_t as_buf(auto* mem) {
+  return a0_buf_t{
+      .ptr = (uint8_t*)(mem->data()),
+      .size = mem->size(),
+  };
+}
+
+A0_STATIC_INLINE
+std::string_view as_string_view(a0_buf_t buf) {
+  return std::string_view((char*)buf.ptr, buf.size);
+}
+
 }  // namespace
 
 Shm::Shm(const std::string& path) {
@@ -125,7 +140,7 @@ std::pair<std::string_view, std::string_view> PacketView::header(size_t idx) con
 std::string_view PacketView::payload() const {
   a0_buf_t c_payload;
   check(a0_packet_payload(c, &c_payload));
-  return std::string_view((char*)c_payload.ptr, c_payload.size);
+  return as_string_view(c_payload);
 }
 
 std::string PacketView::id() const {
@@ -135,7 +150,7 @@ std::string PacketView::id() const {
 }
 
 const a0_packet_t Packet::c() const {
-  return a0_packet_t{.ptr = (uint8_t*)mem.data(), .size = mem.size()};
+  return as_buf(&mem);
 }
 
 Packet::Packet() : Packet("") {}
@@ -155,10 +170,7 @@ Packet::Packet(const std::vector<std::pair<std::string_view, std::string_view>>&
           [](void* user_data, size_t size, a0_buf_t* out) {
             auto* mem = (std::vector<uint8_t>*)user_data;
             mem->resize(size);
-            *out = {
-                .ptr = (uint8_t*)mem->data(),
-                .size = mem->size(),
-            };
+            *out = as_buf(mem);
           },
   };
 
@@ -167,13 +179,7 @@ Packet::Packet(const std::vector<std::pair<std::string_view, std::string_view>>&
     c_hdrs.push_back({hdr.first.data(), hdr.second.data()});
   }
 
-  check(a0_packet_build({c_hdrs.data(), c_hdrs.size()},
-                        a0_buf_t{
-                            .ptr = (uint8_t*)payload.data(),
-                            .size = payload.size(),
-                        },
-                        alloc,
-                        nullptr));
+  check(a0_packet_build({c_hdrs.data(), c_hdrs.size()}, as_buf(&payload), alloc, nullptr));
 }
 
 size_t Packet::num_headers() const {
@@ -342,7 +348,7 @@ void Publisher::pub(const Packet& pkt) {
 }
 
 void Publisher::pub(std::string_view payload) {
-  pub(Packet(payload));
+  check(a0_pub_emplace(&*c, {}, as_buf(&payload), nullptr));
 }
 
 Logger::Logger(const TopicManager& topic_manager) {
