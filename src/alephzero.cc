@@ -542,7 +542,7 @@ void RpcRequest::reply(const Packet& pkt) {
 }
 
 void RpcRequest::reply(std::string_view payload) {
-  reply(Packet(payload));
+  check(a0_rpc_reply_emplace(*c, {}, as_buf(&payload), nullptr));
 }
 
 RpcServer::RpcServer(Shm shm,

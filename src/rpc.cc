@@ -198,6 +198,50 @@ errno_t a0_rpc_reply(a0_rpc_request_t req, const a0_packet_t resp) {
   });
 }
 
+errno_t a0_rpc_reply_emplace(a0_rpc_request_t req,
+                             const a0_packet_header_list_t resp_headers,
+                             const a0_buf_t resp_payload,
+                             a0_packet_id_t* out_pkt_id) {
+  if (!req.server || !req.server->_impl) {
+    return ESHUTDOWN;
+  }
+
+  a0_packet_id_t req_id;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(req.pkt, &req_id));
+
+  char mono_str[20];
+  char wall_str[36];
+  a0::time_strings(mono_str, wall_str);
+
+  std::vector<a0_packet_header_t> all_hdrs(resp_headers.size + 5);
+
+  all_hdrs[0] = {kRpcType, kRpcTypeResponse};
+  all_hdrs[1] = {kRequestId, req_id};
+  all_hdrs[2] = {kMonoTime, mono_str};
+  all_hdrs[3] = {kWallTime, wall_str};
+  all_hdrs[4] = {a0_packet_dep_key(), req_id};
+
+  // TODO: Add sequence numbers.
+
+  for (size_t i = 0; i < resp_headers.size; i++) {
+    all_hdrs[i + 5] = resp_headers.hdrs[i];
+  }
+
+  // TODO: Check impl, worker, state, and stream are still valid?
+  a0::sync_stream_t ss{&req.server->_impl->worker.state->stream};
+  return ss.with_lock([&](a0_locked_stream_t slk) {
+    a0_packet_t pkt;
+    a0_packet_build({all_hdrs.data(), all_hdrs.size()},
+                    resp_payload,
+                    a0::stream_allocator(&slk),
+                    &pkt);
+    if (out_pkt_id) {
+      a0_packet_id(pkt, out_pkt_id);
+    }
+    return a0_stream_commit(slk);
+  });
+}
+
 //////////////
 //  Client  //
 //////////////
