@@ -34,13 +34,15 @@ struct PubsubFixture {
   }
 
   a0_packet_t make_packet(std::string data) {
-    a0_packet_header_t headers[1] = {{
-        .key = "key",
-        .val = "val",
-    }};
+    a0_packet_header_t hdr = {"key", "val"};
+
+    a0_packet_raw_t raw_pkt = {
+        a0::test::header_block(&hdr),
+        a0::test::buf(data),
+    };
 
     a0_packet_t pkt;
-    REQUIRE_OK(a0_packet_build({headers, 1}, a0::test::buf(data), a0::test::allocator(), &pkt));
+    REQUIRE_OK(a0_packet_build(raw_pkt, a0::test::allocator(), &pkt));
 
     return pkt;
   }
@@ -53,18 +55,16 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
     REQUIRE_OK(a0_pub(&pub, make_packet("msg #0")));
 
-    a0_packet_header_t headers[1] = {{
-        .key = "key",
-        .val = "val",
-    }};
+    a0_packet_header_t hdr = {"key", "val"};
+    auto hdrs_block = a0::test::header_block(&hdr);
 
-    REQUIRE_OK(a0_pub_emplace(&pub, {headers, 1}, a0::test::buf("msg #1"), nullptr));
+    REQUIRE_OK(a0_pub_emplace(&pub, {hdrs_block, a0::test::buf("msg #1")}, nullptr));
 
     a0_packet_id_t msg2_id;
-    REQUIRE_OK(a0_pub_emplace(&pub, {headers, 1}, a0::test::buf("msg #2"), &msg2_id));
+    REQUIRE_OK(a0_pub_emplace(&pub, {hdrs_block, a0::test::buf("msg #2")}, &msg2_id));
     REQUIRE(msg2_id[8] == '-');
 
-    REQUIRE_OK(a0_pub_emplace(&pub, {{}, 0}, a0::test::buf("msg #3"), nullptr));
+    REQUIRE_OK(a0_pub_emplace(&pub, {A0_NONE, a0::test::buf("msg #3")}, nullptr));
 
     REQUIRE_OK(a0_publisher_close(&pub));
   }

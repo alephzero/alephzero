@@ -40,8 +40,7 @@ errno_t a0_rpc_server_async_close(a0_rpc_server_t*, a0_callback_t);
 // Note: do NOT respond with the request packet. The ids MUST be unique!
 errno_t a0_rpc_reply(a0_rpc_request_t, const a0_packet_t resp);
 errno_t a0_rpc_reply_emplace(a0_rpc_request_t,
-                             const a0_packet_header_list_t resp_headers,
-                             const a0_buf_t resp_payload,
+                             const a0_packet_raw_t raw_resp,
                              a0_packet_id_t* out_pkt_id);
 
 ////////////

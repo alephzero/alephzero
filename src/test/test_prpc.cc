@@ -46,8 +46,7 @@ TEST_CASE_FIXTURE(PrpcFixture, "Test prpc") {
             REQUIRE_OK(a0_packet_payload(conn.pkt, &payload));
             if (!strcmp((const char*)payload.ptr, "reply")) {
               a0_packet_t pkt;
-              REQUIRE_OK(
-                  a0_packet_build(A0_EMPTY_HEADER_LIST, payload, a0::test::allocator(), &pkt));
+              REQUIRE_OK(a0_packet_build({A0_NONE, payload}, a0::test::allocator(), &pkt));
               REQUIRE_OK(a0_prpc_send(conn, pkt, false));
               REQUIRE_OK(a0_prpc_send(conn, pkt, false));
               REQUIRE_OK(a0_prpc_send(conn, pkt, false));
@@ -57,10 +56,8 @@ TEST_CASE_FIXTURE(PrpcFixture, "Test prpc") {
           },
   };
 
-  a0_packet_id_callback_t oncancel = A0_NOP_PACKET_ID_CB;
-
   a0_prpc_server_t server;
-  REQUIRE_OK(a0_prpc_server_init(&server, shm.buf, a0::test::allocator(), onconnect, oncancel));
+  REQUIRE_OK(a0_prpc_server_init(&server, shm.buf, a0::test::allocator(), onconnect, A0_NONE));
 
   a0_prpc_client_t client;
   REQUIRE_OK(a0_prpc_client_init(&client, shm.buf, a0::test::allocator()));
@@ -83,8 +80,7 @@ TEST_CASE_FIXTURE(PrpcFixture, "Test prpc") {
   };
 
   a0_packet_t req;
-  REQUIRE_OK(
-      a0_packet_build(A0_EMPTY_HEADER_LIST, a0::test::buf("reply"), a0::test::allocator(), &req));
+  REQUIRE_OK(a0_packet_build({A0_NONE, a0::test::buf("reply")}, a0::test::allocator(), &req));
   REQUIRE_OK(a0_prpc_connect(&client, req, onmsg));
 
   data.wait([](auto* data_) {
@@ -113,8 +109,7 @@ TEST_CASE_FIXTURE(PrpcFixture, "Test cancel prpc") {
             REQUIRE_OK(a0_packet_payload(conn.pkt, &payload));
             if (!strcmp((const char*)payload.ptr, "reply")) {
               a0_packet_t pkt;
-              REQUIRE_OK(
-                  a0_packet_build(A0_EMPTY_HEADER_LIST, payload, a0::test::allocator(), &pkt));
+              REQUIRE_OK(a0_packet_build({A0_NONE, payload}, a0::test::allocator(), &pkt));
               REQUIRE_OK(a0_prpc_send(conn, pkt, false));
             }
           },
@@ -153,8 +148,7 @@ TEST_CASE_FIXTURE(PrpcFixture, "Test cancel prpc") {
   };
 
   a0_packet_t conn;
-  REQUIRE_OK(
-      a0_packet_build(A0_EMPTY_HEADER_LIST, a0::test::buf("reply"), a0::test::allocator(), &conn));
+  REQUIRE_OK(a0_packet_build({A0_NONE, a0::test::buf("reply")}, a0::test::allocator(), &conn));
   REQUIRE_OK(a0_prpc_connect(&client, conn, onmsg));
 
   data.wait([](auto* data_) {

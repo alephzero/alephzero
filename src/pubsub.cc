@@ -10,8 +10,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <vector>
-
 #include "macros.h"
 #include "packet_tools.h"
 #include "stream_tools.hpp"
@@ -101,7 +99,7 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
 
   a0::sync_stream_t ss{&pub->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers},
+    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers, nullptr},
                                            pkt,
                                            a0::stream_allocator(&slk),
                                            nullptr);
@@ -110,8 +108,7 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
 }
 
 errno_t a0_pub_emplace(a0_publisher_t* pub,
-                       const a0_packet_header_list_t header_list,
-                       const a0_buf_t payload,
+                       const a0_packet_raw_t raw_pkt,
                        a0_packet_id_t* out_pkt_id) {
   if (!pub || !pub->_impl) {
     return ESHUTDOWN;
@@ -121,21 +118,26 @@ errno_t a0_pub_emplace(a0_publisher_t* pub,
   char wall_str[36];
   a0::time_strings(mono_str, wall_str);
 
-  std::vector<a0_packet_header_t> all_hdrs(header_list.size + 2);
+  constexpr size_t num_extra_headers = 2;
+  a0_packet_header_t extra_headers[num_extra_headers] = {
+      {kMonoTime, mono_str},
+      {kWallTime, wall_str},
+  };
 
-  all_hdrs[0] = {kMonoTime, mono_str};
-  all_hdrs[1] = {kWallTime, wall_str};
-
-  // TODO: Add sequence numbers.
-
-  for (size_t i = 0; i < header_list.size; i++) {
-    all_hdrs[i + 2] = header_list.hdrs[i];
-  }
+  a0_packet_raw_t wrapped_pkt = {
+      .headers_block =
+          {
+              .headers = extra_headers,
+              .size = num_extra_headers,
+              .next_block = (a0_packet_headers_block_t*)&raw_pkt.headers_block,
+          },
+      .payload = raw_pkt.payload,
+  };
 
   a0::sync_stream_t ss{&pub->_impl->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     a0_packet_t pkt;
-    a0_packet_build({all_hdrs.data(), all_hdrs.size()}, payload, a0::stream_allocator(&slk), &pkt);
+    a0_packet_build(wrapped_pkt, a0::stream_allocator(&slk), &pkt);
     if (out_pkt_id) {
       a0_packet_id(pkt, out_pkt_id);
     }

@@ -77,8 +77,8 @@ struct CDeleter {
   }
 };
 
-A0_STATIC_INLINE
-a0_buf_t as_buf(auto* mem) {
+template <typename T>
+A0_STATIC_INLINE a0_buf_t as_buf(T* mem) {
   return a0_buf_t{
       .ptr = (uint8_t*)(mem->data()),
       .size = mem->size(),
@@ -179,7 +179,8 @@ Packet::Packet(const std::vector<std::pair<std::string_view, std::string_view>>&
     c_hdrs.push_back({hdr.first.data(), hdr.second.data()});
   }
 
-  check(a0_packet_build({c_hdrs.data(), c_hdrs.size()}, as_buf(&payload), alloc, nullptr));
+  check(
+      a0_packet_build({{c_hdrs.data(), c_hdrs.size(), nullptr}, as_buf(&payload)}, alloc, nullptr));
 }
 
 size_t Packet::num_headers() const {
@@ -348,7 +349,7 @@ void Publisher::pub(const Packet& pkt) {
 }
 
 void Publisher::pub(std::string_view payload) {
-  check(a0_pub_emplace(&*c, {}, as_buf(&payload), nullptr));
+  check(a0_pub_emplace(&*c, {A0_NONE, as_buf(&payload)}, nullptr));
 }
 
 Logger::Logger(const TopicManager& topic_manager) {
@@ -542,7 +543,7 @@ void RpcRequest::reply(const Packet& pkt) {
 }
 
 void RpcRequest::reply(std::string_view payload) {
-  check(a0_rpc_reply_emplace(*c, {}, as_buf(&payload), nullptr));
+  check(a0_rpc_reply_emplace(*c, {A0_NONE, as_buf(&payload)}, nullptr));
 }
 
 RpcServer::RpcServer(Shm shm,

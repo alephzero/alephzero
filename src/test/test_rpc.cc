@@ -46,8 +46,7 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
             REQUIRE_OK(a0_packet_payload(req.pkt, &payload));
             if (!strcmp((const char*)payload.ptr, "reply")) {
               a0_packet_t pkt;
-              REQUIRE_OK(
-                  a0_packet_build(A0_EMPTY_HEADER_LIST, payload, a0::test::allocator(), &pkt));
+              REQUIRE_OK(a0_packet_build({A0_NONE, payload}, a0::test::allocator(), &pkt));
               REQUIRE_OK(a0_rpc_reply(req, pkt));
             }
           },
@@ -87,17 +86,14 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
 
   for (int i = 0; i < 5; i++) {
     a0_packet_t req;
-    REQUIRE_OK(
-        a0_packet_build(A0_EMPTY_HEADER_LIST, a0::test::buf("reply"), a0::test::allocator(), &req));
+    REQUIRE_OK(a0_packet_build({A0_NONE, a0::test::buf("reply")}, a0::test::allocator(), &req));
     REQUIRE_OK(a0_rpc_send(&client, req, onreply));
   }
 
   for (int i = 0; i < 5; i++) {
     a0_packet_t req;
-    REQUIRE_OK(a0_packet_build(A0_EMPTY_HEADER_LIST,
-                               a0::test::buf("await_cancel"),
-                               a0::test::allocator(),
-                               &req));
+    REQUIRE_OK(
+        a0_packet_build({A0_NONE, a0::test::buf("await_cancel")}, a0::test::allocator(), &req));
     REQUIRE_OK(a0_rpc_send(&client, req, onreply));
 
     a0_packet_id_t req_id;
@@ -125,26 +121,21 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc empty oncancel onreply") {
             REQUIRE_OK(a0_packet_payload(req.pkt, &payload));
 
             a0_packet_t pkt;
-            REQUIRE_OK(a0_packet_build(A0_EMPTY_HEADER_LIST, payload, a0::test::allocator(), &pkt));
+            REQUIRE_OK(a0_packet_build({A0_NONE, payload}, a0::test::allocator(), &pkt));
             REQUIRE_OK(a0_rpc_reply(req, pkt));
           },
   };
 
-  a0_packet_id_callback_t oncancel = A0_NOP_PACKET_ID_CB;
-
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, shm.buf, a0::test::allocator(), onrequest, oncancel));
+  REQUIRE_OK(a0_rpc_server_init(&server, shm.buf, a0::test::allocator(), onrequest, A0_NONE));
 
   a0_rpc_client_t client;
   REQUIRE_OK(a0_rpc_client_init(&client, shm.buf, a0::test::allocator()));
 
-  a0_packet_callback_t onreply = A0_NOP_PACKET_CB;
-
   for (int i = 0; i < 5; i++) {
     a0_packet_t req;
-    REQUIRE_OK(
-        a0_packet_build(A0_EMPTY_HEADER_LIST, a0::test::buf("msg"), a0::test::allocator(), &req));
-    REQUIRE_OK(a0_rpc_send(&client, req, onreply));
+    REQUIRE_OK(a0_packet_build({A0_NONE, a0::test::buf("msg")}, a0::test::allocator(), &req));
+    REQUIRE_OK(a0_rpc_send(&client, req, A0_NONE));
 
     a0_packet_id_t req_id;
     REQUIRE_OK(a0_packet_id(req, &req_id));

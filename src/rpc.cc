@@ -190,7 +190,7 @@ errno_t a0_rpc_reply(a0_rpc_request_t req, const a0_packet_t resp) {
   // TODO: Check impl, worker, state, and stream are still valid?
   a0::sync_stream_t ss{&req.server->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers},
+    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers, nullptr},
                                            resp,
                                            a0::stream_allocator(&slk),
                                            nullptr);
@@ -199,8 +199,7 @@ errno_t a0_rpc_reply(a0_rpc_request_t req, const a0_packet_t resp) {
 }
 
 errno_t a0_rpc_reply_emplace(a0_rpc_request_t req,
-                             const a0_packet_header_list_t resp_headers,
-                             const a0_buf_t resp_payload,
+                             const a0_packet_raw_t raw_resp,
                              a0_packet_id_t* out_pkt_id) {
   if (!req.server || !req.server->_impl) {
     return ESHUTDOWN;
@@ -213,28 +212,30 @@ errno_t a0_rpc_reply_emplace(a0_rpc_request_t req,
   char wall_str[36];
   a0::time_strings(mono_str, wall_str);
 
-  std::vector<a0_packet_header_t> all_hdrs(resp_headers.size + 5);
+  constexpr size_t num_extra_headers = 5;
+  a0_packet_header_t extra_headers[num_extra_headers] = {
+      {kRpcType, kRpcTypeResponse},
+      {kRequestId, req_id},
+      {kMonoTime, mono_str},
+      {kWallTime, wall_str},
+      {a0_packet_dep_key(), req_id},
+  };
 
-  all_hdrs[0] = {kRpcType, kRpcTypeResponse};
-  all_hdrs[1] = {kRequestId, req_id};
-  all_hdrs[2] = {kMonoTime, mono_str};
-  all_hdrs[3] = {kWallTime, wall_str};
-  all_hdrs[4] = {a0_packet_dep_key(), req_id};
-
-  // TODO: Add sequence numbers.
-
-  for (size_t i = 0; i < resp_headers.size; i++) {
-    all_hdrs[i + 5] = resp_headers.hdrs[i];
-  }
+  a0_packet_raw_t wrapped_pkt = {
+      .headers_block =
+          {
+              .headers = extra_headers,
+              .size = num_extra_headers,
+              .next_block = (a0_packet_headers_block_t*)&raw_resp.headers_block,
+          },
+      .payload = raw_resp.payload,
+  };
 
   // TODO: Check impl, worker, state, and stream are still valid?
   a0::sync_stream_t ss{&req.server->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     a0_packet_t pkt;
-    a0_packet_build({all_hdrs.data(), all_hdrs.size()},
-                    resp_payload,
-                    a0::stream_allocator(&slk),
-                    &pkt);
+    a0_packet_build(wrapped_pkt, a0::stream_allocator(&slk), &pkt);
     if (out_pkt_id) {
       a0_packet_id(pkt, out_pkt_id);
     }
@@ -402,7 +403,7 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, const a0_packet_t pkt, a0_packet_ca
   // TODO: Check impl and state still valid?
   a0::sync_stream_t ss{&client->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers},
+    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers, nullptr},
                                            pkt,
                                            a0::stream_allocator(&slk),
                                            nullptr);
@@ -434,13 +435,24 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, const a0_packet_id_t req_id) {
 
   // TODO: Add sequence numbers.
 
+  a0_packet_raw_t raw_pkt = {
+      .headers_block =
+          {
+              .headers = headers,
+              .size = num_headers,
+              .next_block = nullptr,
+          },
+      .payload =
+          {
+              .ptr = (uint8_t*)req_id,
+              .size = sizeof(a0_packet_id_t),
+          },
+  };
+
   // TODO: Check impl and state still valid?
   a0::sync_stream_t ss{&client->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_build({headers, num_headers},
-                                                  {(uint8_t*)req_id, sizeof(a0_packet_id_t)},
-                                                  a0::stream_allocator(&slk),
-                                                  nullptr));
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_build(raw_pkt, a0::stream_allocator(&slk), nullptr));
     return a0_stream_commit(slk);
   });
 }

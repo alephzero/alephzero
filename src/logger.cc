@@ -105,7 +105,7 @@ errno_t a0_log(a0_stream_t* log_stream, const a0_packet_t pkt) {
 
   a0::sync_stream_t ss{log_stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers},
+    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers, nullptr},
                                            pkt,
                                            a0::stream_allocator(&slk),
                                            nullptr);

@@ -35,13 +35,12 @@ struct TopicManagerFixture {
   }
 
   a0_packet_t make_packet(std::string data) {
-    a0_packet_header_t headers[1] = {{
-        .key = "key",
-        .val = "val",
-    }};
+    a0_packet_header_t hdr = {"key", "val"};
 
     a0_packet_t pkt;
-    REQUIRE_OK(a0_packet_build({headers, 1}, a0::test::buf(data), a0::test::allocator(), &pkt));
+    REQUIRE_OK(a0_packet_build({a0::test::header_block(&hdr), a0::test::buf(data)},
+                               a0::test::allocator(),
+                               &pkt));
 
     return pkt;
   }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <a0/common.h>
+#include <a0/packet.h>
 
 #include <map>
 #include <mutex>
@@ -48,11 +49,20 @@ inline a0_alloc_t allocator() {
               auto key = dump->size();
               (*dump)[key].resize(size);
               out->size = size;
-              out->ptr = (uint8_t*)(*dump)[key].c_str();
+              out->ptr = (uint8_t*)((*dump)[key].c_str());
             });
           },
   };
 };
+
+inline a0_packet_headers_block_t header_block(a0_packet_header_t* hdr) {
+  return a0_packet_headers_block_t{
+      .headers = hdr,
+      .size = 1,
+      .next_block = NULL,
+  };
+}
+
 
 inline bool is_valgrind() {
 #ifdef RUNNING_ON_VALGRIND

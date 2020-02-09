@@ -7,17 +7,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "list.h"
 #include "macros.h"
 #include "rand.h"
 
 static const char kIdKey[] = "a0_id";
 static const char kDepKey[] = "a0_dep";
-
-a0_packet_header_list_t A0_EMPTY_HEADER_LIST = {NULL, 0};
-a0_buf_t A0_EMPTY_PAYLOAD = {NULL, 0};
-a0_packet_callback_t A0_NOP_PACKET_CB = {NULL, NULL};
-a0_packet_id_callback_t A0_NOP_PACKET_ID_CB = {NULL, NULL};
 
 const char* a0_packet_id_key() {
   return kIdKey;
@@ -27,12 +21,12 @@ const char* a0_packet_dep_key() {
   return kDepKey;
 }
 
-errno_t a0_packet_num_headers(a0_packet_t pkt, size_t* out) {
+errno_t a0_packet_num_headers(const a0_packet_t pkt, size_t* out) {
   *out = *(size_t*)pkt.ptr;
   return A0_OK;
 }
 
-errno_t a0_packet_header(a0_packet_t pkt, size_t hdr_idx, a0_packet_header_t* out) {
+errno_t a0_packet_header(const a0_packet_t pkt, size_t hdr_idx, a0_packet_header_t* out) {
   size_t num_hdrs;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_num_headers(pkt, &num_hdrs));
   if (A0_UNLIKELY(hdr_idx >= num_hdrs)) {
@@ -48,7 +42,7 @@ errno_t a0_packet_header(a0_packet_t pkt, size_t hdr_idx, a0_packet_header_t* ou
   return A0_OK;
 }
 
-errno_t a0_packet_payload(a0_packet_t pkt, a0_buf_t* out) {
+errno_t a0_packet_payload(const a0_packet_t pkt, a0_buf_t* out) {
   size_t num_header = *(size_t*)pkt.ptr;
   size_t payload_off = *(size_t*)(pkt.ptr + sizeof(size_t) + (2 * num_header) * sizeof(size_t));
 
@@ -60,7 +54,7 @@ errno_t a0_packet_payload(a0_packet_t pkt, a0_buf_t* out) {
   return A0_OK;
 }
 
-errno_t a0_packet_find_header(a0_packet_t pkt,
+errno_t a0_packet_find_header(const a0_packet_t pkt,
                               const char* key,
                               size_t start_search_idx,
                               const char** val_out,
@@ -83,14 +77,15 @@ errno_t a0_packet_find_header(a0_packet_t pkt,
   return ENOKEY;
 }
 
-errno_t a0_packet_header_list(a0_packet_t pkt, size_t num_hdrs, a0_packet_header_list_t* out) {
+errno_t a0_packet_headers(const a0_packet_t pkt, size_t num_hdrs, a0_packet_headers_block_t* out) {
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_num_headers(pkt, &out->size));
   if (out->size > num_hdrs) {
     out->size = num_hdrs;
   }
   for (size_t i = 0; i < out->size; i++) {
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_header(pkt, i, &out->hdrs[i]));
+    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_header(pkt, i, &out->headers[i]));
   }
+  out->next_block = NULL;
   return A0_OK;
 }
 
@@ -101,23 +96,17 @@ errno_t a0_packet_id(a0_packet_t pkt, a0_packet_id_t* out) {
   return A0_OK;
 }
 
-errno_t a0_packet_serialize(const a0_list_node_t* header_node,
-                            const a0_list_node_t* payload_node,
-                            a0_alloc_t alloc,
-                            a0_packet_t* out) {
+errno_t a0_packet_build_raw(const a0_packet_raw_t raw_pkt, a0_alloc_t alloc, a0_packet_t* out) {
   a0_packet_t unused_pkt;
   if (!out) {
     out = &unused_pkt;
   }
 
   size_t total_num_hdrs = 0;
-  for (const a0_list_node_t* node = header_node; node; node = node->next) {
-    total_num_hdrs += ((a0_packet_header_list_t*)node->data)->size;
-  }
-
-  size_t total_payload_size = 0;
-  for (const a0_list_node_t* node = payload_node; node; node = node->next) {
-    total_payload_size += ((a0_buf_t*)node->data)->size;
+  for (const a0_packet_headers_block_t* block = &raw_pkt.headers_block;
+       block;
+       block = block->next_block) {
+    total_num_hdrs += block->size;
   }
 
   // Alloc out space.
@@ -125,15 +114,16 @@ errno_t a0_packet_serialize(const a0_list_node_t* header_node,
     size_t size = sizeof(size_t);                 // Num headers.
     size += 2 * total_num_hdrs * sizeof(size_t);  // Header offsets.
     size += sizeof(size_t);                       // Payload offset.
-    for (const a0_list_node_t* node = header_node; node; node = node->next) {
-      a0_packet_header_list_t* hdr_list = (a0_packet_header_list_t*)node->data;
-      for (size_t i = 0; i < hdr_list->size; i++) {
-        a0_packet_header_t* hdr = &hdr_list->hdrs[i];
+    for (const a0_packet_headers_block_t* block = &raw_pkt.headers_block;
+         block;
+         block = block->next_block) {
+      for (size_t i = 0; i < block->size; i++) {
+        a0_packet_header_t* hdr = &block->headers[i];
         size += strlen(hdr->key) + 1;  // Key content.
         size += strlen(hdr->val) + 1;  // Val content.
       }
     }
-    size += total_payload_size;
+    size += raw_pkt.payload.size;
 
     alloc.fn(alloc.user_data, size, out);
   }
@@ -145,11 +135,11 @@ errno_t a0_packet_serialize(const a0_list_node_t* header_node,
   size_t off = sizeof(size_t) + 2 * total_num_hdrs * sizeof(size_t) + sizeof(size_t);
 
   // For each header.
-  for (const a0_list_node_t* node = header_node; node; node = node->next) {
-    a0_packet_header_list_t* hdr_list = (a0_packet_header_list_t*)node->data;
-
-    for (size_t i = 0; i < hdr_list->size; i++) {
-      a0_packet_header_t* hdr = &hdr_list->hdrs[i];
+  for (const a0_packet_headers_block_t* block = &raw_pkt.headers_block;
+       block;
+       block = block->next_block) {
+    for (size_t i = 0; i < block->size; i++) {
+      a0_packet_header_t* hdr = &block->headers[i];
 
       // Header key offset.
       memcpy(out->ptr + idx_off, &off, sizeof(size_t));
@@ -172,21 +162,14 @@ errno_t a0_packet_serialize(const a0_list_node_t* header_node,
   memcpy(out->ptr + idx_off, &off, sizeof(size_t));
 
   // Payload.
-  for (const a0_list_node_t* node = payload_node; node; node = node->next) {
-    a0_buf_t* payload = (a0_buf_t*)node->data;
-    memcpy(out->ptr + off, payload->ptr, payload->size);
-    off += payload->size;
-  }
+  memcpy(out->ptr + off, raw_pkt.payload.ptr, raw_pkt.payload.size);
 
   return A0_OK;
 }
 
-errno_t a0_packet_build(const a0_packet_header_list_t header_list,
-                        const a0_buf_t payload,
-                        a0_alloc_t alloc,
-                        a0_packet_t* out) {
-  for (size_t i = 0; i < header_list.size; i++) {
-    if (A0_UNLIKELY(!strcmp(kIdKey, (char*)header_list.hdrs[i].key))) {
+errno_t a0_packet_build(const a0_packet_raw_t raw_pkt, a0_alloc_t alloc, a0_packet_t* out) {
+  for (size_t i = 0; i < raw_pkt.headers_block.size; i++) {
+    if (A0_UNLIKELY(!strcmp(kIdKey, (char*)raw_pkt.headers_block.headers[i].key))) {
       return EINVAL;
     }
   }
@@ -199,109 +182,43 @@ errno_t a0_packet_build(const a0_packet_header_list_t header_list,
       .val = (const char*)pkt_id,
   };
 
-  a0_packet_header_list_t id_hdr_list = {
+  a0_packet_headers_block_t wrapped_headers_block = {
+      .headers = &id_hdr,
       .size = 1,
-      .hdrs = &id_hdr,
+      .next_block = (a0_packet_headers_block_t*)&raw_pkt.headers_block,
   };
 
-  a0_list_node_t user_headers_node = {
-      .data = (void*)&header_list,
-      .next = NULL,
+  a0_packet_raw_t wrapped_pkt = {
+      .headers_block = wrapped_headers_block,
+      .payload = raw_pkt.payload,
   };
-  a0_list_node_t header_node = {
-      .data = &id_hdr_list,
-      .next = &user_headers_node,
-  };
-
-  a0_list_node_t payload_node = {
-      .data = (void*)&payload,
-      .next = NULL,
-  };
-
-  return a0_packet_serialize(&header_node, &payload_node, alloc, out);
+  return a0_packet_build_raw(wrapped_pkt, alloc, out);
 }
 
-errno_t a0_packet_copy_with_additional_headers(const a0_packet_header_list_t extra_header_list,
-                                               a0_packet_t in,
+errno_t a0_packet_copy_with_additional_headers(const a0_packet_headers_block_t extra_headers,
+                                               const a0_packet_t in,
                                                a0_alloc_t alloc,
                                                a0_packet_t* out) {
-  a0_packet_t pkt;
-  if (!out) {
-    out = &pkt;
+  a0_buf_t payload;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_payload(in, &payload));
+
+  size_t old_num_hdrs;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_num_headers(in, &old_num_hdrs));
+
+  // TODO: Don't limit here.
+  if (old_num_hdrs >= 1024) {
+    return E2BIG;
   }
+  a0_packet_header_t old_headers[1024];
 
-  size_t num_extra_hdrs = extra_header_list.size;
-  a0_packet_header_t* extra_hdrs = extra_header_list.hdrs;
+  a0_packet_headers_block_t old_headers_block;
+  old_headers_block.headers = old_headers;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_headers(in, 1024, &old_headers_block));
+  old_headers_block.next_block = (a0_packet_headers_block_t*)&extra_headers;
 
-  size_t expanded_size = in.size;
-  for (size_t i = 0; i < num_extra_hdrs; i++) {
-    expanded_size += sizeof(size_t) + strlen(extra_hdrs[i].key) + 1;
-    expanded_size += sizeof(size_t) + strlen(extra_hdrs[i].val) + 1;
-  }
-  alloc.fn(alloc.user_data, expanded_size, out);
-
-  // Offsets into the pkt (r=read ptr) and frame data (w=write ptr).
-  size_t roff = 0;
-  size_t woff = 0;
-
-  // Number of headers.
-  size_t orig_num_headers = *(size_t*)(in.ptr + roff);
-  size_t total_num_headers = orig_num_headers + num_extra_hdrs;
-
-  // Write in the new header count.
-  memcpy(out->ptr + woff, &total_num_headers, sizeof(size_t));
-
-  roff += sizeof(size_t);
-  woff += sizeof(size_t);
-
-  // Offset for the index table.
-  size_t idx_roff = roff;
-  size_t idx_woff = woff;
-
-  // Update offsets past the end of the index table.
-  roff += 2 * orig_num_headers * sizeof(size_t) + sizeof(size_t);
-  woff += 2 * total_num_headers * sizeof(size_t) + sizeof(size_t);
-
-  // Add new headers.
-  for (size_t i = 0; i < num_extra_hdrs; i++) {
-    a0_packet_header_t* hdr = &extra_hdrs[i];
-
-    memcpy(out->ptr + idx_woff, &woff, sizeof(size_t));
-    idx_woff += sizeof(size_t);
-
-    memcpy(out->ptr + woff, hdr->key, strlen(hdr->key) + 1);
-    woff += strlen(hdr->key) + 1;
-
-    memcpy(out->ptr + idx_woff, &woff, sizeof(size_t));
-    idx_woff += sizeof(size_t);
-
-    memcpy(out->ptr + woff, hdr->val, strlen(hdr->val) + 1);
-    woff += strlen(hdr->val) + 1;
-  }
-
-  // Add offsets for existing headers.
-  size_t in_hdr0_off = 0;
-  memcpy(&in_hdr0_off, in.ptr + sizeof(size_t), sizeof(size_t));
-  for (size_t i = 0; i < 2 * orig_num_headers; i++) {
-    size_t in_hdri_off = 0;
-    memcpy(&in_hdri_off, in.ptr + idx_roff, sizeof(size_t));
-
-    size_t updated_off = woff + in_hdri_off - in_hdr0_off;
-
-    memcpy(out->ptr + idx_woff, &updated_off, sizeof(size_t));
-    idx_woff += sizeof(size_t);
-    idx_roff += sizeof(size_t);
-  }
-
-  // Add offset for payload.
-  size_t in_payload_off = 0;
-  memcpy(&in_payload_off, in.ptr + idx_roff, sizeof(size_t));
-
-  size_t updated_payload_off = woff + in_payload_off - in_hdr0_off;
-  memcpy(out->ptr + idx_woff, &updated_payload_off, sizeof(size_t));
-
-  // Copy existing headers + payload.
-  memcpy(out->ptr + woff, in.ptr + roff, in.size - roff);
-
-  return A0_OK;
+  a0_packet_raw_t raw_pkt = {
+      .headers_block = old_headers_block,
+      .payload = payload,
+  };
+  return a0_packet_build_raw(raw_pkt, alloc, out);
 }

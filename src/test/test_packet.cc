@@ -28,7 +28,8 @@ TEST_CASE("Test packet") {
   REQUIRE(payload_buf.size == 13);
 
   a0_packet_t pkt;
-  REQUIRE_OK(a0_packet_build({headers, num_headers}, payload_buf, a0::test::allocator(), &pkt));
+  REQUIRE_OK(
+      a0_packet_build({{headers, num_headers, nullptr}, payload_buf}, a0::test::allocator(), &pkt));
 
   size_t read_num_header;
   REQUIRE_OK(a0_packet_num_headers(pkt, &read_num_header));
@@ -71,13 +72,9 @@ TEST_CASE("Test packet") {
 }
 
 TEST_CASE("Test packet build with id") {
-  size_t num_headers = 1;
-  a0_packet_header_t headers[num_headers];
-  headers[0] = {
-      .key = a0_packet_id_key(),
-      .val = "some_id",
-  };
+  a0_packet_header_t hdr = {a0_packet_id_key(), "some_id"};
   a0_buf_t payload_buf = a0::test::buf("Hello, World!");
-  REQUIRE(a0_packet_build({headers, num_headers}, payload_buf, a0::test::allocator(), nullptr) ==
-          EINVAL);
+  REQUIRE(a0_packet_build({a0::test::header_block(&hdr), payload_buf},
+                          a0::test::allocator(),
+                          nullptr) == EINVAL);
 }

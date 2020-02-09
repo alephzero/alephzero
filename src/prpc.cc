@@ -157,7 +157,7 @@ errno_t a0_prpc_server_close(a0_prpc_server_t* server) {
   return A0_OK;
 }
 
-errno_t a0_prpc_send(a0_prpc_connection_t conn, const a0_packet_t prog, bool done) {
+errno_t a0_prpc_send(a0_prpc_connection_t conn, const a0_packet_t prog_pkt, bool done) {
   if (!conn.server || !conn.server->_impl) {
     return ESHUTDOWN;
   }
@@ -166,7 +166,7 @@ errno_t a0_prpc_send(a0_prpc_connection_t conn, const a0_packet_t prog, bool don
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(conn.pkt, &conn_id));
 
   a0_packet_id_t prog_id;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(prog, &prog_id));
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_id(prog_pkt, &prog_id));
 
   // TODO: Is there a better way?
   if (!strcmp(conn_id, prog_id)) {
@@ -191,8 +191,8 @@ errno_t a0_prpc_send(a0_prpc_connection_t conn, const a0_packet_t prog, bool don
   // TODO: Check impl, worker, state, and stream are still valid?
   a0::sync_stream_t ss{&conn.server->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers},
-                                           prog,
+    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers, nullptr},
+                                           prog_pkt,
                                            a0::stream_allocator(&slk),
                                            nullptr);
     return a0_stream_commit(slk);
@@ -365,7 +365,7 @@ errno_t a0_prpc_connect(a0_prpc_client_t* client,
   // TODO: Check impl and state still valid?
   a0::sync_stream_t ss{&client->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers},
+    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers, nullptr},
                                            pkt,
                                            a0::stream_allocator(&slk),
                                            nullptr);
@@ -401,8 +401,8 @@ errno_t a0_prpc_cancel(a0_prpc_client_t* client, const a0_packet_id_t conn_id) {
   a0::sync_stream_t ss{&client->_impl->worker.state->stream};
   return ss.with_lock([&](a0_locked_stream_t slk) {
     A0_INTERNAL_RETURN_ERR_ON_ERR(
-        a0_packet_build({headers, num_headers},
-                        a0_buf_t{.ptr = (uint8_t*)conn_id, .size = sizeof(a0_packet_id_t)},
+        a0_packet_build({{headers, num_headers, nullptr},
+                         a0_buf_t{.ptr = (uint8_t*)conn_id, .size = sizeof(a0_packet_id_t)}},
                         a0::stream_allocator(&slk),
                         nullptr));
     return a0_stream_commit(slk);
