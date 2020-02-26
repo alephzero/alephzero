@@ -1,3 +1,0 @@
-https://github.com/nlohmann/json/tree/48e1fe03b55b7a11483df894f3a17c65f98b1130
-
-TODO: Switch to a more perfomant json parser. Maybe simdjson.

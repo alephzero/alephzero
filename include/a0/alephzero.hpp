@@ -4,14 +4,12 @@
 #include <a0/pubsub.h>
 #include <a0/rpc.h>
 #include <a0/shm.h>
-#include <a0/topic_manager.h>
 
-#include <stddef.h>
-#include <stdint.h>
 #include <sys/types.h>
 
 #include <functional>
 #include <future>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -28,48 +26,59 @@ struct Shm {
   };
 
   Shm() = default;
-  Shm(const std::string& path);
-  Shm(const std::string& path, const Options&);
+  Shm(const std::string_view path);
+  Shm(const std::string_view path, const Options&);
 
   std::string path() const;
 
-  static void unlink(const std::string& path);
+  static void unlink(const std::string_view path);
 };
 
+struct Packet;
+
 struct PacketView {
-  a0_packet_t c;
+  std::shared_ptr<a0_packet_t> c;
 
-  size_t num_headers() const;
-  std::pair<std::string_view, std::string_view> header(size_t idx) const;
-  std::string_view payload() const;
+  PacketView();
+  PacketView(const std::string_view payload);
+  PacketView(std::vector<std::pair<std::string, std::string>> headers,
+             const std::string_view payload);
 
-  std::string id() const;
+  PacketView(const Packet&);
+  PacketView(a0_packet_t);
+
+  const std::string_view id() const;
+  const std::vector<std::pair<std::string, std::string>>& headers() const;
+  const std::string_view payload() const;
 };
 
 struct Packet {
-  std::vector<uint8_t> mem;
-  const a0_packet_t c() const;
+  std::shared_ptr<a0_packet_t> c;
 
   Packet();
-  Packet(PacketView);
-  Packet(std::string_view payload);
-  Packet(const std::vector<std::pair<std::string_view, std::string_view>>& hdrs,
-         std::string_view payload);
+  Packet(std::string payload);
+  Packet(std::vector<std::pair<std::string, std::string>> headers, std::string payload);
 
-  size_t num_headers() const;
-  std::pair<std::string_view, std::string_view> header(size_t idx) const;
-  std::string_view payload() const;
+  Packet(const PacketView&);
+  Packet(PacketView&&);
+  Packet(a0_packet_t);
 
-  std::string id() const;
+  const std::string_view id() const;
+  const std::vector<std::pair<std::string, std::string>>& headers() const;
+  const std::string_view payload() const;
+};
+
+struct TopicAliasTarget {
+  std::string container;
+  std::string topic;
 };
 
 struct TopicManager {
-  std::shared_ptr<a0_topic_manager_t> c;
+  std::string container;
 
-  TopicManager() = default;
-  TopicManager(const std::string& json);
-
-  std::string_view container_name() const;
+  std::map<std::string, TopicAliasTarget> subscriber_aliases;
+  std::map<std::string, TopicAliasTarget> rpc_client_aliases;
+  std::map<std::string, TopicAliasTarget> prpc_client_aliases;
 
   Shm config_topic() const;
   Shm log_crit_topic() const;
@@ -77,16 +86,15 @@ struct TopicManager {
   Shm log_warn_topic() const;
   Shm log_info_topic() const;
   Shm log_dbg_topic() const;
-  Shm publisher_topic(const std::string&) const;
-  Shm subscriber_topic(const std::string&) const;
-  Shm rpc_server_topic(const std::string&) const;
-  Shm rpc_client_topic(const std::string&) const;
-  Shm prpc_server_topic(const std::string&) const;
-  Shm prpc_client_topic(const std::string&) const;
+  Shm publisher_topic(const std::string_view) const;
+  Shm subscriber_topic(const std::string_view) const;
+  Shm rpc_server_topic(const std::string_view) const;
+  Shm rpc_client_topic(const std::string_view) const;
+  Shm prpc_server_topic(const std::string_view) const;
+  Shm prpc_client_topic(const std::string_view) const;
 };
 
 void InitGlobalTopicManager(TopicManager);
-void InitGlobalTopicManager(const std::string& json);
 
 struct Publisher {
   std::shared_ptr<a0_publisher_t> c;
@@ -94,10 +102,12 @@ struct Publisher {
   Publisher() = default;
   Publisher(Shm);
   // User-friendly constructor that uses GlobalTopicManager publisher_topic for shm.
-  Publisher(const std::string&);
+  Publisher(const std::string_view);
 
-  void pub(const Packet&);
-  void pub(std::string_view);
+  void pub(const PacketView&);
+  void pub(std::vector<std::pair<std::string, std::string>> headers,
+           const std::string_view payload);
+  void pub(const std::string_view payload);
 };
 
 struct Logger {
@@ -106,16 +116,11 @@ struct Logger {
   Logger(const TopicManager&);
   Logger();
 
-  void crit(const Packet&);
-  void crit(std::string_view);
-  void err(const Packet&);
-  void err(std::string_view);
-  void warn(const Packet&);
-  void warn(std::string_view);
-  void info(const Packet&);
-  void info(std::string_view);
-  void dbg(const Packet&);
-  void dbg(std::string_view);
+  void crit(const PacketView&);
+  void err(const PacketView&);
+  void warn(const PacketView&);
+  void info(const PacketView&);
+  void dbg(const PacketView&);
 };
 
 struct SubscriberSync {
@@ -124,7 +129,7 @@ struct SubscriberSync {
   SubscriberSync() = default;
   SubscriberSync(Shm, a0_subscriber_init_t, a0_subscriber_iter_t);
   // User-friendly constructor that uses GlobalTopicManager subscriber_topic for shm.
-  SubscriberSync(const std::string&, a0_subscriber_init_t, a0_subscriber_iter_t);
+  SubscriberSync(const std::string_view, a0_subscriber_init_t, a0_subscriber_iter_t);
 
   bool has_next();
   PacketView next();
@@ -134,16 +139,22 @@ struct Subscriber {
   std::shared_ptr<a0_subscriber_t> c;
 
   Subscriber() = default;
-  Subscriber(Shm, a0_subscriber_init_t, a0_subscriber_iter_t, std::function<void(PacketView)>);
+  Subscriber(Shm,
+             a0_subscriber_init_t,
+             a0_subscriber_iter_t,
+             std::function<void(const PacketView&)>);
   // User-friendly constructor that uses GlobalTopicManager subscriber_topic for shm.
-  Subscriber(const std::string&, a0_subscriber_init_t, a0_subscriber_iter_t, std::function<void(PacketView)>);
+  Subscriber(const std::string_view,
+             a0_subscriber_init_t,
+             a0_subscriber_iter_t,
+             std::function<void(const PacketView&)>);
   void async_close(std::function<void()>);
 
   static Packet read_one(Shm, a0_subscriber_init_t, int flags = 0);
-  static Packet read_one(const std::string&, a0_subscriber_init_t, int flags = 0);
+  static Packet read_one(const std::string_view, a0_subscriber_init_t, int flags = 0);
 };
 
-Subscriber onconfig(std::function<void(PacketView)>);
+Subscriber onconfig(std::function<void(const PacketView&)>);
 Packet read_config(int flags = 0);
 
 struct RpcServer;
@@ -154,17 +165,23 @@ struct RpcRequest {
   RpcServer server();
   PacketView pkt();
 
-  void reply(const Packet&);
-  void reply(std::string_view);
+  void reply(const PacketView&);
+  void reply(std::vector<std::pair<std::string, std::string>> headers,
+             const std::string_view payload);
+  void reply(const std::string_view payload);
 };
 
 struct RpcServer {
   std::shared_ptr<a0_rpc_server_t> c;
 
   RpcServer() = default;
-  RpcServer(Shm, std::function<void(RpcRequest)> onrequest, std::function<void(std::string)> oncancel);
+  RpcServer(Shm,
+            std::function<void(RpcRequest)> onrequest,
+            std::function<void(const std::string_view)> oncancel);
   // User-friendly constructor that uses GlobalTopicManager rpc_server_topic for shm.
-  RpcServer(const std::string&, std::function<void(RpcRequest)> onrequest, std::function<void(std::string)> oncancel);
+  RpcServer(const std::string_view,
+            std::function<void(RpcRequest)> onrequest,
+            std::function<void(const std::string_view)> oncancel);
   void async_close(std::function<void()>);
 };
 
@@ -174,15 +191,20 @@ struct RpcClient {
   RpcClient() = default;
   RpcClient(Shm);
   // User-friendly constructor that uses GlobalTopicManager rpc_client_topic for shm.
-  RpcClient(const std::string&);
+  RpcClient(const std::string_view);
   void async_close(std::function<void()>);
 
-  void send(const Packet&, std::function<void(PacketView)>);
-  void send(std::string_view, std::function<void(PacketView)>);
-  std::future<Packet> send(const Packet&);
-  std::future<Packet> send(std::string_view);
+  void send(const PacketView&, std::function<void(const PacketView&)>);
+  void send(std::vector<std::pair<std::string, std::string>> headers,
+            const std::string_view payload,
+            std::function<void(const PacketView&)>);
+  void send(const std::string_view payload, std::function<void(const PacketView&)>);
+  std::future<Packet> send(const PacketView&);
+  std::future<Packet> send(std::vector<std::pair<std::string, std::string>> headers,
+                           const std::string_view payload);
+  std::future<Packet> send(const std::string_view payload);
 
-  void cancel(const std::string&);
+  void cancel(const std::string_view);
 };
 
 struct PrpcServer;
@@ -193,17 +215,24 @@ struct PrpcConnection {
   PrpcServer server();
   PacketView pkt();
 
-  void send(const Packet&, bool done);
-  void send(std::string_view, bool done);
+  void send(const PacketView&, bool done);
+  void send(std::vector<std::pair<std::string, std::string>> headers,
+            const std::string_view payload,
+            bool done);
+  void send(const std::string_view payload, bool done);
 };
 
 struct PrpcServer {
   std::shared_ptr<a0_prpc_server_t> c;
 
   PrpcServer() = default;
-  PrpcServer(Shm, std::function<void(PrpcConnection)> onconnect, std::function<void(std::string)> oncancel);
+  PrpcServer(Shm,
+             std::function<void(PrpcConnection)> onconnect,
+             std::function<void(const std::string_view)> oncancel);
   // User-friendly constructor that uses GlobalTopicManager prpc_server_topic for shm.
-  PrpcServer(const std::string&, std::function<void(PrpcConnection)> onconnect, std::function<void(std::string)> oncancel);
+  PrpcServer(const std::string_view,
+             std::function<void(PrpcConnection)> onconnect,
+             std::function<void(const std::string_view)> oncancel);
   void async_close(std::function<void()>);
 };
 
@@ -213,13 +242,16 @@ struct PrpcClient {
   PrpcClient() = default;
   PrpcClient(Shm);
   // User-friendly constructor that uses GlobalTopicManager prpc_client_topic for shm.
-  PrpcClient(const std::string&);
+  PrpcClient(const std::string_view);
   void async_close(std::function<void()>);
 
-  void connect(const Packet&, std::function<void(PacketView, bool)>);
-  void connect(std::string_view, std::function<void(PacketView, bool)>);
+  void connect(const PacketView&, std::function<void(const PacketView&, bool)>);
+  void connect(std::vector<std::pair<std::string, std::string>> headers,
+               const std::string_view payload,
+               std::function<void(const PacketView&, bool)>);
+  void connect(const std::string_view payload, std::function<void(const PacketView&, bool)>);
 
-  void cancel(const std::string&);
+  void cancel(const std::string_view);
 };
 
 }  // namespace a0;

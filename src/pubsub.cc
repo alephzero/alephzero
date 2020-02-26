@@ -2,68 +2,34 @@
 #include <a0/common.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
-#include <a0/stream.h>
+#include <a0/transport.h>
 
 #include <errno.h>
 #include <fcntl.h>
-#include <sched.h>
-#include <stdint.h>
 #include <string.h>
 
+#include <functional>
+
 #include "macros.h"
-#include "packet_tools.h"
-#include "stream_tools.hpp"
+#include "scope.hpp"
 #include "sync.hpp"
-
-/////////////////////
-//  Pubsub Common  //
-/////////////////////
-
-A0_STATIC_INLINE
-a0_stream_protocol_t protocol_info() {
-  static a0_stream_protocol_t protocol = []() {
-    static const char kProtocolName[] = "a0_pubsub";
-
-    a0_stream_protocol_t p;
-    p.name.size = sizeof(kProtocolName);
-    p.name.ptr = (uint8_t*)kProtocolName;
-
-    p.major_version = 0;
-    p.minor_version = 1;
-    p.patch_version = 0;
-
-    p.metadata_size = 0;
-
-    return p;
-  }();
-
-  return protocol;
-}
+#include "transport_tools.hpp"
 
 /////////////////
 //  Publisher  //
 /////////////////
 
 struct a0_publisher_impl_s {
-  a0_stream_t stream;
+  a0_transport_t transport;
 };
 
 errno_t a0_publisher_init(a0_publisher_t* pub, a0_buf_t arena) {
   pub->_impl = new a0_publisher_impl_t;
 
-  a0_stream_init_status_t init_status;
-  a0_locked_stream_t slk;
-  a0_stream_init(&pub->_impl->stream, arena, protocol_info(), &init_status, &slk);
-
-  if (init_status == A0_STREAM_CREATED) {
-    // TODO: Add metadata...
-  }
-
-  a0_unlock_stream(slk);
-
-  if (init_status == A0_STREAM_PROTOCOL_MISMATCH) {
-    // TODO: Report error?
-  }
+  a0_transport_init_status_t init_status;
+  a0_locked_transport_t tlk;
+  a0_transport_init(&pub->_impl->transport, arena, A0_NONE, &init_status, &tlk);
+  a0_transport_unlock(tlk);
 
   return A0_OK;
 }
@@ -73,7 +39,7 @@ errno_t a0_publisher_close(a0_publisher_t* pub) {
     return ESHUTDOWN;
   }
 
-  a0_stream_close(&pub->_impl->stream);
+  a0_transport_close(&pub->_impl->transport);
   delete pub->_impl;
   pub->_impl = nullptr;
 
@@ -95,54 +61,17 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
       {kWallTime, wall_str},
   };
 
-  // TODO: Add sequence numbers.
-
-  a0::sync_stream_t ss{&pub->_impl->stream};
-  return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_packet_copy_with_additional_headers({extra_headers, num_extra_headers, nullptr},
-                                           pkt,
-                                           a0::stream_allocator(&slk),
-                                           nullptr);
-    return a0_stream_commit(slk);
-  });
-}
-
-errno_t a0_pub_emplace(a0_publisher_t* pub,
-                       const a0_packet_raw_t raw_pkt,
-                       a0_packet_id_t* out_pkt_id) {
-  if (!pub || !pub->_impl) {
-    return ESHUTDOWN;
-  }
-
-  char mono_str[20];
-  char wall_str[36];
-  a0::time_strings(mono_str, wall_str);
-
-  constexpr size_t num_extra_headers = 2;
-  a0_packet_header_t extra_headers[num_extra_headers] = {
-      {kMonoTime, mono_str},
-      {kWallTime, wall_str},
+  a0_packet_t full_pkt = pkt;
+  full_pkt.headers_block = (a0_packet_headers_block_t){
+      .headers = extra_headers,
+      .size = num_extra_headers,
+      .next_block = (a0_packet_headers_block_t*)&pkt.headers_block,
   };
 
-  a0_packet_raw_t wrapped_pkt = {
-      .headers_block =
-          {
-              .headers = extra_headers,
-              .size = num_extra_headers,
-              .next_block = (a0_packet_headers_block_t*)&raw_pkt.headers_block,
-          },
-      .payload = raw_pkt.payload,
-  };
-
-  a0::sync_stream_t ss{&pub->_impl->stream};
-  return ss.with_lock([&](a0_locked_stream_t slk) {
-    a0_packet_t pkt;
-    a0_packet_build(wrapped_pkt, a0::stream_allocator(&slk), &pkt);
-    if (out_pkt_id) {
-      a0_packet_id(pkt, out_pkt_id);
-    }
-    return a0_stream_commit(slk);
-  });
+  a0::scoped_transport_lock stlk(&pub->_impl->transport);
+  A0_INTERNAL_RETURN_ERR_ON_ERR(
+      a0_packet_serialize(full_pkt, a0::transport_allocator(&stlk.tlk), nullptr));
+  return a0_transport_commit(stlk.tlk);
 }
 
 //////////////////
@@ -152,7 +81,7 @@ errno_t a0_pub_emplace(a0_publisher_t* pub,
 // Synchronous zero-copy version.
 
 struct a0_subscriber_sync_zc_impl_s {
-  a0_stream_t stream;
+  a0_transport_t transport;
 
   a0_subscriber_init_t sub_init;
   a0_subscriber_iter_t sub_iter;
@@ -168,19 +97,10 @@ errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
   sub_sync_zc->_impl->sub_init = sub_init;
   sub_sync_zc->_impl->sub_iter = sub_iter;
 
-  a0_stream_init_status_t init_status;
-  a0_locked_stream_t slk;
-  a0_stream_init(&sub_sync_zc->_impl->stream, arena, protocol_info(), &init_status, &slk);
-
-  if (init_status == A0_STREAM_CREATED) {
-    // TODO: Add metadata...
-  }
-
-  a0_unlock_stream(slk);
-
-  if (init_status == A0_STREAM_PROTOCOL_MISMATCH) {
-    // TODO: Report error?
-  }
+  a0_transport_init_status_t init_status;
+  a0_locked_transport_t tlk;
+  a0_transport_init(&sub_sync_zc->_impl->transport, arena, A0_NONE, &init_status, &tlk);
+  a0_transport_unlock(tlk);
 
   return A0_OK;
 }
@@ -190,7 +110,7 @@ errno_t a0_subscriber_sync_zc_close(a0_subscriber_sync_zc_t* sub_sync_zc) {
     return ESHUTDOWN;
   }
 
-  a0_stream_close(&sub_sync_zc->_impl->stream);
+  a0_transport_close(&sub_sync_zc->_impl->transport);
   delete sub_sync_zc->_impl;
   sub_sync_zc->_impl = nullptr;
 
@@ -202,10 +122,8 @@ errno_t a0_subscriber_sync_zc_has_next(a0_subscriber_sync_zc_t* sub_sync_zc, boo
     return ESHUTDOWN;
   }
 
-  a0::sync_stream_t ss{&sub_sync_zc->_impl->stream};
-  return ss.with_lock([&](a0_locked_stream_t slk) {
-    return a0_stream_has_next(slk, has_next);
-  });
+  a0::scoped_transport_lock stlk(&sub_sync_zc->_impl->transport);
+  return a0_transport_has_next(stlk.tlk, has_next);
 }
 
 errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t* sub_sync_zc,
@@ -214,31 +132,37 @@ errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t* sub_sync_zc,
     return ESHUTDOWN;
   }
 
-  a0::sync_stream_t ss{&sub_sync_zc->_impl->stream};
-  return ss.with_lock([&](a0_locked_stream_t slk) {
-    if (!sub_sync_zc->_impl->read_first) {
-      if (sub_sync_zc->_impl->sub_init == A0_INIT_OLDEST) {
-        a0_stream_jump_head(slk);
-      } else if (sub_sync_zc->_impl->sub_init == A0_INIT_MOST_RECENT) {
-        a0_stream_jump_tail(slk);
-      } else if (sub_sync_zc->_impl->sub_init == A0_INIT_AWAIT_NEW) {
-        a0_stream_jump_tail(slk);
-      }
-    } else {
-      if (sub_sync_zc->_impl->sub_iter == A0_ITER_NEXT) {
-        a0_stream_next(slk);
-      } else if (sub_sync_zc->_impl->sub_iter == A0_ITER_NEWEST) {
-        a0_stream_jump_tail(slk);
-      }
+  a0::scoped_transport_lock stlk(&sub_sync_zc->_impl->transport);
+
+  if (!sub_sync_zc->_impl->read_first) {
+    if (sub_sync_zc->_impl->sub_init == A0_INIT_OLDEST) {
+      a0_transport_jump_head(stlk.tlk);
+    } else if (sub_sync_zc->_impl->sub_init == A0_INIT_MOST_RECENT) {
+      a0_transport_jump_tail(stlk.tlk);
+    } else if (sub_sync_zc->_impl->sub_init == A0_INIT_AWAIT_NEW) {
+      a0_transport_jump_tail(stlk.tlk);
     }
+  } else {
+    if (sub_sync_zc->_impl->sub_iter == A0_ITER_NEXT) {
+      a0_transport_next(stlk.tlk);
+    } else if (sub_sync_zc->_impl->sub_iter == A0_ITER_NEWEST) {
+      a0_transport_jump_tail(stlk.tlk);
+    }
+  }
 
-    a0_stream_frame_t frame;
-    a0_stream_frame(slk, &frame);
-    cb.fn(cb.user_data, slk, a0::buf(frame));
-    sub_sync_zc->_impl->read_first = true;
+  a0_transport_frame_t frame;
+  a0_transport_frame(stlk.tlk, &frame);
 
-    return A0_OK;
-  });
+  thread_local a0::scope<a0_alloc_t> headers_alloc(a0_realloc_allocator(),
+                                                   a0_free_realloc_allocator);
+
+  a0_packet_t pkt;
+  a0_packet_deserialize(a0::buf(frame), *headers_alloc, &pkt);
+
+  cb.fn(cb.user_data, stlk.tlk, pkt);
+  sub_sync_zc->_impl->read_first = true;
+
+  return A0_OK;
 }
 
 // Synchronous allocated version.
@@ -293,10 +217,9 @@ errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync, a0_packet_t* pkt
   a0_zero_copy_callback_t wrapped_cb = {
       .user_data = &data,
       .fn =
-          [](void* user_data, a0_locked_stream_t, a0_packet_t pkt_zc) {
+          [](void* user_data, a0_locked_transport_t, a0_packet_t pkt_zc) {
             auto* data = (data_t*)user_data;
-            data->alloc.fn(data->alloc.user_data, pkt_zc.size, data->pkt);
-            memcpy(data->pkt->ptr, pkt_zc.ptr, data->pkt->size);
+            a0_packet_deep_copy(pkt_zc, data->alloc, data->pkt);
           },
   };
   return a0_subscriber_sync_zc_next(&sub_sync->_impl->sub_sync_zc, wrapped_cb);
@@ -305,7 +228,7 @@ errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync, a0_packet_t* pkt
 // Zero-copy threaded version.
 
 struct a0_subscriber_zc_impl_s {
-  a0::stream_thread worker;
+  a0::transport_thread worker;
   bool started_empty;
 };
 
@@ -316,62 +239,69 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
                               a0_zero_copy_callback_t onmsg) {
   sub_zc->_impl = new a0_subscriber_zc_impl_t;
 
-  auto on_stream_init = [sub_zc, sub_init](a0_locked_stream_t slk,
-                                           a0_stream_init_status_t) -> errno_t {
-    // TODO(lshamis): Validate stream.
+  auto on_transport_init = [sub_zc, sub_init](a0_locked_transport_t tlk,
+                                              a0_transport_init_status_t) -> errno_t {
+    // TODO(lshamis): Validate transport.
 
-    a0_stream_empty(slk, &sub_zc->_impl->started_empty);
+    a0_transport_empty(tlk, &sub_zc->_impl->started_empty);
     if (!sub_zc->_impl->started_empty) {
       if (sub_init == A0_INIT_OLDEST) {
-        a0_stream_jump_head(slk);
+        a0_transport_jump_head(tlk);
       } else if (sub_init == A0_INIT_MOST_RECENT || sub_init == A0_INIT_AWAIT_NEW) {
-        a0_stream_jump_tail(slk);
+        a0_transport_jump_tail(tlk);
       }
     }
 
     return A0_OK;
   };
 
-  auto read_current_packet = [onmsg](a0_locked_stream_t slk) {
-    a0_stream_frame_t frame;
-    a0_stream_frame(slk, &frame);
-    onmsg.fn(onmsg.user_data, slk, a0::buf(frame));
+  auto handle_pkt = [onmsg](a0_locked_transport_t tlk) {
+    a0_transport_frame_t frame;
+    a0_transport_frame(tlk, &frame);
+
+    thread_local a0::scope<a0_alloc_t> headers_alloc(a0_realloc_allocator(),
+                                                     a0_free_realloc_allocator);
+
+    a0_packet_t pkt;
+    a0_packet_deserialize(a0::buf(frame), *headers_alloc, &pkt);
+
+    onmsg.fn(onmsg.user_data, tlk, pkt);
   };
 
-  auto on_stream_nonempty = [sub_zc, sub_init, read_current_packet](a0_locked_stream_t slk) {
+  auto on_transport_nonempty = [sub_zc, sub_init, handle_pkt](a0_locked_transport_t tlk) {
     bool reset = false;
     if (sub_zc->_impl->started_empty) {
       reset = true;
     } else {
       bool ptr_valid;
-      a0_stream_ptr_valid(slk, &ptr_valid);
+      a0_transport_ptr_valid(tlk, &ptr_valid);
       reset = !ptr_valid;
     }
 
     if (reset) {
-      a0_stream_jump_head(slk);
+      a0_transport_jump_head(tlk);
     }
 
     if (reset || sub_init == A0_INIT_OLDEST || sub_init == A0_INIT_MOST_RECENT) {
-      read_current_packet(slk);
+      handle_pkt(tlk);
     }
   };
 
-  auto on_stream_hasnext = [sub_iter, read_current_packet](a0_locked_stream_t slk) {
+  auto on_transport_hasnext = [sub_iter, handle_pkt](a0_locked_transport_t tlk) {
     if (sub_iter == A0_ITER_NEXT) {
-      a0_stream_next(slk);
+      a0_transport_next(tlk);
     } else if (sub_iter == A0_ITER_NEWEST) {
-      a0_stream_jump_tail(slk);
+      a0_transport_jump_tail(tlk);
     }
 
-    read_current_packet(slk);
+    handle_pkt(tlk);
   };
 
   return sub_zc->_impl->worker.init(arena,
-                                    protocol_info(),
-                                    on_stream_init,
-                                    on_stream_nonempty,
-                                    on_stream_hasnext);
+                                    A0_NONE,
+                                    on_transport_init,
+                                    on_transport_nonempty,
+                                    on_transport_hasnext);
 }
 
 errno_t a0_subscriber_zc_async_close(a0_subscriber_zc_t* sub_zc, a0_callback_t onclose) {
@@ -426,14 +356,13 @@ errno_t a0_subscriber_init(a0_subscriber_t* sub,
   a0_zero_copy_callback_t wrapped_onmsg = {
       .user_data = sub->_impl,
       .fn =
-          [](void* data, a0_locked_stream_t slk, a0_packet_t pkt_zc) {
+          [](void* data, a0_locked_transport_t tlk, a0_packet_t pkt_zc) {
             auto* impl = (a0_subscriber_impl_t*)data;
             a0_packet_t pkt;
-            impl->alloc.fn(impl->alloc.user_data, pkt_zc.size, &pkt);
-            memcpy(pkt.ptr, pkt_zc.ptr, pkt.size);
-            a0_unlock_stream(slk);
+            a0_packet_deep_copy(pkt_zc, impl->alloc, &pkt);
+
+            a0::scoped_transport_unlock stulk(tlk);
             impl->onmsg.fn(impl->onmsg.user_data, pkt);
-            a0_lock_stream(slk.stream, &slk);
           },
   };
 

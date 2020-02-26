@@ -59,17 +59,23 @@ class sync {
 
   template <typename U>
   void set(U&& new_val) {
-    with_lock([&](T* t) { *t = std::forward<U>(new_val); });
+    with_lock([&](T* t) {
+      *t = std::forward<U>(new_val);
+    });
   }
 
   T copy() const {
-    return with_shared_lock([](const T& t) { return t; });
+    return with_shared_lock([](const T& t) {
+      return t;
+    });
   }
 
   template <typename Fn0, typename Fn1>
   auto wait(Fn0&& fn0, Fn1&& fn1) {
     std::unique_lock<std::shared_mutex> lk{mu};
-    cv.wait(lk, [&]() { return invoke(std::forward<Fn0>(fn0)); });
+    cv.wait(lk, [&]() {
+      return invoke(std::forward<Fn0>(fn0));
+    });
     return invoke(std::forward<Fn1>(fn1));
   }
 
@@ -86,7 +92,9 @@ class sync {
   template <typename Fn0, typename Fn1>
   auto shared_wait(Fn0&& fn0, Fn1&& fn1) const {
     std::shared_lock<std::shared_mutex> lk{mu};
-    cv.wait(lk, [&]() { return invoke(std::forward<Fn0>(fn0)); });
+    cv.wait(lk, [&]() {
+      return invoke(std::forward<Fn0>(fn0));
+    });
     return invoke(std::forward<Fn1>(fn1));
   }
 
@@ -128,19 +136,27 @@ class Event {
 
  public:
   void wait() const {
-    evt.shared_wait([](bool ready) { return ready; });
+    evt.shared_wait([](bool ready) {
+      return ready;
+    });
   }
 
   bool is_set() const {
-    return evt.with_shared_lock([](bool ready) { return ready; });
+    return evt.with_shared_lock([](bool ready) {
+      return ready;
+    });
   }
 
   void set() {
-    evt.notify_all([](bool* ready) { *ready = true; });
+    evt.notify_all([](bool* ready) {
+      *ready = true;
+    });
   }
 
   void clear() {
-    evt.notify_all([](bool* ready) { *ready = false; });
+    evt.notify_all([](bool* ready) {
+      *ready = false;
+    });
   }
 };
 

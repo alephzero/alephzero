@@ -28,13 +28,20 @@ def run_clang_format(path):
 pool = ThreadPool(100)
 clang_format_futures = []
 
+
+def is_c_file(filename):
+    for ext in ['.h', '.hh', '.hpp', '.hxx', '.c', '.cc', '.cpp', '.cxx']:
+        if filename.endswith(ext):
+            return True
+    return False
+
+
 def code_in(root):
     for dirpath, _, files in os.walk(root):
         for filename in sorted(files):
-            if not (filename.endswith('.h') or filename.endswith('.hh') or filename.endswith('.c') or filename.endswith('.cc')):
-                continue
-            path = os.path.join(dirpath, filename)
-            clang_format_futures.append(pool.apply_async(run_clang_format, (path,)))
+            if is_c_file(filename):
+                path = os.path.join(dirpath, filename)
+                clang_format_futures.append(pool.apply_async(run_clang_format, (path,)))
 
 code_in('include')
 code_in('src')

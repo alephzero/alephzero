@@ -14,6 +14,7 @@
 
 #include "src/strutil.hpp"
 #include "src/test_util.hpp"
+#include "src/transport_debug.h"
 
 static const char kTestShm[] = "/test.shm";
 
@@ -33,17 +34,16 @@ struct PubsubFixture {
     a0_shm_unlink(kTestShm);
   }
 
-  a0_packet_t make_packet(std::string data) {
-    a0_packet_header_t hdr = {"key", "val"};
-
-    a0_packet_raw_t raw_pkt = {
-        a0::test::header_block(&hdr),
-        a0::test::buf(data),
-    };
-
+  a0_packet_t make_packet(std::string payload) {
     a0_packet_t pkt;
-    REQUIRE_OK(a0_packet_build(raw_pkt, a0::test::allocator(), &pkt));
+    a0_packet_init(&pkt);
+    pkt.payload = a0::test::buf(payload);
+    return pkt;
+  }
 
+  a0_packet_t make_packet(a0_packet_header_t* hdr, std::string payload) {
+    auto pkt = make_packet(payload);
+    pkt.headers_block = a0::test::header_block(hdr);
     return pkt;
   }
 };
@@ -53,18 +53,10 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
     a0_publisher_t pub;
     REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
 
-    REQUIRE_OK(a0_pub(&pub, make_packet("msg #0")));
-
     a0_packet_header_t hdr = {"key", "val"};
-    auto hdrs_block = a0::test::header_block(&hdr);
 
-    REQUIRE_OK(a0_pub_emplace(&pub, {hdrs_block, a0::test::buf("msg #1")}, nullptr));
-
-    a0_packet_id_t msg2_id;
-    REQUIRE_OK(a0_pub_emplace(&pub, {hdrs_block, a0::test::buf("msg #2")}, &msg2_id));
-    REQUIRE(msg2_id[8] == '-');
-
-    REQUIRE_OK(a0_pub_emplace(&pub, {A0_NONE, a0::test::buf("msg #3")}, nullptr));
+    REQUIRE_OK(a0_pub(&pub, make_packet(&hdr, "msg #0")));
+    REQUIRE_OK(a0_pub(&pub, make_packet(&hdr, "msg #1")));
 
     REQUIRE_OK(a0_publisher_close(&pub));
   }
@@ -84,30 +76,22 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
-      REQUIRE(pkt.size < 300);
 
-      size_t num_headers;
-      REQUIRE_OK(a0_packet_num_headers(pkt, &num_headers));
-      REQUIRE(num_headers == 4);
+      REQUIRE(pkt.headers_block.size == 3);
+      REQUIRE(pkt.headers_block.next_block == nullptr);
 
       std::map<std::string, std::string> hdrs;
-      for (size_t i = 0; i < num_headers; i++) {
-        a0_packet_header_t pkt_hdr;
-        REQUIRE_OK(a0_packet_header(pkt, i, &pkt_hdr));
-        hdrs[pkt_hdr.key] = pkt_hdr.val;
+      for (size_t i = 0; i < pkt.headers_block.size; i++) {
+        auto hdr = pkt.headers_block.headers[i];
+        hdrs[hdr.key] = hdr.val;
       }
       REQUIRE(hdrs.count("key"));
-      REQUIRE(hdrs.count("a0_id"));
       REQUIRE(hdrs.count("a0_mono_time"));
       REQUIRE(hdrs.count("a0_wall_time"));
 
-      a0_buf_t payload;
-      REQUIRE_OK(a0_packet_payload(pkt, &payload));
-
-      REQUIRE(a0::test::str(payload) == "msg #0");
+      REQUIRE(a0::test::str(pkt.payload) == "msg #0");
 
       REQUIRE(hdrs["key"] == "val");
-      REQUIRE(hdrs["a0_id"].size() == 36);
       REQUIRE(hdrs["a0_mono_time"].size() < 20);
       REQUIRE(hdrs["a0_wall_time"].size() == 35);
       REQUIRE(stoull(hdrs["a0_mono_time"]) <
@@ -116,19 +100,14 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
                   .count());
     }
 
-    for (int i = 1; i < 4; i++) {
+    {
       bool has_next;
       REQUIRE_OK(a0_subscriber_sync_has_next(&sub, &has_next));
       REQUIRE(has_next);
 
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
-      REQUIRE(pkt.size < 300);
-
-      a0_buf_t payload;
-      REQUIRE_OK(a0_packet_payload(pkt, &payload));
-
-      REQUIRE(a0::test::str(payload) == a0::strutil::fmt("msg #%d", i));
+      REQUIRE(a0::test::str(pkt.payload) == "msg #1");
     }
 
     {
@@ -155,12 +134,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
-      REQUIRE(pkt.size < 200);
-
-      a0_buf_t payload;
-      REQUIRE_OK(a0_packet_payload(pkt, &payload));
-
-      REQUIRE(a0::test::str(payload) == "msg #3");
+      REQUIRE(a0::test::str(pkt.payload) == "msg #1");
     }
 
     {
@@ -181,11 +155,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub seek immediately await_new") {
       .fn =
           [](void* user_data, a0_packet_t pkt) {
             auto* data = (a0::sync<std::string>*)user_data;
-
-            a0_buf_t payload;
-            REQUIRE_OK(a0_packet_payload(pkt, &payload));
             data->notify_all([&](auto* msg_) {
-              *msg_ = a0::test::str(payload);
+              *msg_ = a0::test::str(pkt.payload);
             });
           },
   };
@@ -219,12 +190,9 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub seek immediately most_recent") {
       .fn =
           [](void* user_data, a0_packet_t pkt) {
             auto* data = (a0::sync<std::string>*)user_data;
-
-            a0_buf_t payload;
-            REQUIRE_OK(a0_packet_payload(pkt, &payload));
             data->notify_all([&](auto* msg_) {
               if (msg_->empty()) {
-                *msg_ = a0::test::str(payload);
+                *msg_ = a0::test::str(pkt.payload);
               }
             });
           },
@@ -271,14 +239,11 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
       .fn =
           [](void* user_data, a0_packet_t pkt) {
             auto* data = (a0::sync<size_t>*)user_data;
-
-            a0_buf_t payload;
-            REQUIRE_OK(a0_packet_payload(pkt, &payload));
             data->notify_all([&](auto* msg_cnt_) {
               if (*msg_cnt_ == 0) {
-                REQUIRE(a0::test::str(payload) == "msg #0");
+                REQUIRE(a0::test::str(pkt.payload) == "msg #0");
               } else {
-                REQUIRE(a0::test::str(payload) == "msg #1");
+                REQUIRE(a0::test::str(pkt.payload) == "msg #1");
               }
 
               (*msg_cnt_)++;
@@ -345,10 +310,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub read one") {
   {
     a0_packet_t pkt;
     REQUIRE_OK(a0_subscriber_read_one(shm.buf, a0::test::allocator(), A0_INIT_OLDEST, 0, &pkt));
-
-    a0_buf_t payload;
-    REQUIRE_OK(a0_packet_payload(pkt, &payload));
-    REQUIRE(a0::test::str(payload) == "msg #0");
+    REQUIRE(a0::test::str(pkt.payload) == "msg #0");
   }
 
   // Blocking, most recent, available.
@@ -356,10 +318,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub read one") {
     a0_packet_t pkt;
     REQUIRE_OK(
         a0_subscriber_read_one(shm.buf, a0::test::allocator(), A0_INIT_MOST_RECENT, 0, &pkt));
-
-    a0_buf_t payload;
-    REQUIRE_OK(a0_packet_payload(pkt, &payload));
-    REQUIRE(a0::test::str(payload) == "msg #1");
+    REQUIRE(a0::test::str(pkt.payload) == "msg #1");
   }
 
   // Nonblocking, oldest, available.
@@ -367,10 +326,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub read one") {
     a0_packet_t pkt;
     REQUIRE_OK(
         a0_subscriber_read_one(shm.buf, a0::test::allocator(), A0_INIT_OLDEST, O_NONBLOCK, &pkt));
-
-    a0_buf_t payload;
-    REQUIRE_OK(a0_packet_payload(pkt, &payload));
-    REQUIRE(a0::test::str(payload) == "msg #0");
+    REQUIRE(a0::test::str(pkt.payload) == "msg #0");
   }
 
   // Nonblocking, most recent, available.
@@ -381,10 +337,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub read one") {
                                       A0_INIT_MOST_RECENT,
                                       O_NONBLOCK,
                                       &pkt));
-
-    a0_buf_t payload;
-    REQUIRE_OK(a0_packet_payload(pkt, &payload));
-    REQUIRE(a0::test::str(payload) == "msg #1");
+    REQUIRE(a0::test::str(pkt.payload) == "msg #1");
   }
 }
 
@@ -403,8 +356,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
       REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
 
       for (int j = 0; j < NUM_PACKETS; j++) {
-        const auto pkt = make_packet(a0::strutil::fmt("pub %d msg %d", i, j));
-        REQUIRE(a0_pub(&pub, pkt) == 0);
+        REQUIRE_OK(a0_pub(&pub, make_packet(a0::strutil::fmt("pub %d msg %d", i, j))));
       }
 
       REQUIRE_OK(a0_publisher_close(&pub));
@@ -431,10 +383,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
     }
     REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
 
-    a0_buf_t payload;
-    REQUIRE_OK(a0_packet_payload(pkt, &payload));
-
-    msgs.insert(a0::test::str(payload));
+    msgs.insert(a0::test::str(pkt.payload));
   }
 
   REQUIRE_OK(a0_subscriber_sync_close(&sub));

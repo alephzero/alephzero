@@ -18,23 +18,21 @@ struct BenchFixture {
     shmopt.size = 16 * 1024 * 1024;
     a0_shm_open(kBenchShm, &shmopt, &shm);
 
-    a0_stream_protocol_t protocol;
-    memset(&protocol, 0, sizeof(a0_stream_protocol_t));
-    a0_stream_init_status_t init_status;
-    a0_stream_init(&stream, shm.buf, protocol, &init_status, &lk);
+    a0_transport_init_status_t init_status;
+    a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk);
   }
 
   ~BenchFixture() {
-    a0_unlock_stream(lk);
-    a0_stream_close(&stream);
+    a0_transport_unlock(lk);
+    a0_transport_close(&transport);
     a0_shm_close(&shm);
     a0_shm_unlink(kBenchShm);
   }
 
   a0_shm_options_t shmopt;
   a0_shm_t shm;
-  a0_stream_t stream;
-  a0_locked_stream_t lk;
+  a0_transport_t transport;
+  a0_locked_transport_t lk;
 };
 
 auto bench_memcpy(int msg_size) {
@@ -151,8 +149,8 @@ auto bench_a0_alloc(int msg_size) {
 
     for (auto&& _ : s) {
       use(_);
-      a0_stream_frame_t frame;
-      a0_stream_alloc(fixture.lk, msg_size, &frame);
+      a0_transport_frame_t frame;
+      a0_transport_alloc(fixture.lk, msg_size, &frame);
     }
   };
 }
@@ -165,8 +163,8 @@ auto bench_a0_alloc_memcpy(int msg_size) {
     std::string src(msg_size, 0);
     for (auto&& _ : s) {
       use(_);
-      a0_stream_frame_t frame;
-      a0_stream_alloc(fixture.lk, msg_size, &frame);
+      a0_transport_frame_t frame;
+      a0_transport_alloc(fixture.lk, msg_size, &frame);
       memcpy(frame.data, src.data(), msg_size);
     }
   };

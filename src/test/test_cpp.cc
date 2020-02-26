@@ -34,45 +34,42 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test shm") {
 TEST_CASE_FIXTURE(CppPubsubFixture, "Test pkt") {
   a0::Packet pkt({{"hdr-key", "hdr-val"}}, "Hello, World!");
   REQUIRE(pkt.payload() == "Hello, World!");
-  REQUIRE(pkt.num_headers() == 2);
+  REQUIRE(pkt.headers().size() == 1);
   REQUIRE(pkt.id().size() == 36);
 
-  REQUIRE(pkt.header(0).first == "a0_id");
-  REQUIRE(pkt.header(1).first == "hdr-key");
-  REQUIRE(pkt.header(1).second == "hdr-val");
+  REQUIRE(pkt.headers()[0].first == "hdr-key");
+  REQUIRE(pkt.headers()[0].second == "hdr-val");
 
-  a0::PacketView pkt_view{.c = pkt.c()};
+  a0::PacketView pkt_view = pkt;
   REQUIRE(pkt.id() == pkt_view.id());
+  REQUIRE(pkt.headers() == pkt_view.headers());
+  REQUIRE(pkt.payload() == pkt_view.payload());
+  REQUIRE(pkt.payload().data() == pkt_view.payload().data());
 
   a0::Packet pkt2 = pkt_view;
-  REQUIRE(pkt.c().ptr != pkt2.c().ptr);
+  REQUIRE(pkt2.id() == pkt_view.id());
   REQUIRE(pkt.id() == pkt2.id());
+  REQUIRE(pkt.headers() == pkt2.headers());
+  REQUIRE(pkt.payload() == pkt2.payload());
+  REQUIRE(pkt.payload().data() != pkt2.payload().data());
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "Test topic manager") {
-  REQUIRE_THROWS_WITH(a0::TopicManager(R"({ zzz })"), "Invalid argument");
-
-  a0::TopicManager tm(R"({
-    "container": "aaa",
-    "subscriber_maps": {
-      "subby": {
-        "container": "bbb",
-        "topic": "foo"
-      }
-    },
-    "rpc_client_maps": {
-      "rpcy": {
-        "container": "bbb",
-        "topic": "bar"
-      }
-    },
-    "prpc_client_maps": {
-      "prpcy": {
-        "container": "ccc",
-        "topic": "bat"
-      }
-    }
-  })");
+  a0::TopicManager tm = {
+      .container = "aaa",
+      .subscriber_aliases =
+          {
+              {"subby", {.container = "bbb", .topic = "foo"}},
+          },
+      .rpc_client_aliases =
+          {
+              {"rpcy", {.container = "bbb", .topic = "bar"}},
+          },
+      .prpc_client_aliases =
+          {
+              {"prpcy", {.container = "ccc", .topic = "bat"}},
+          },
+  };
 
   auto REQUIRE_PATH = [&](a0::Shm shm, std::string_view expected_path) {
     REQUIRE(shm.path() == expected_path);
@@ -99,8 +96,11 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test topic manager") {
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub sync") {
   a0::Publisher p(shm);
+
   p.pub("msg #0");
-  p.pub("msg #1");
+  p.pub(std::string("msg #1"));
+  p.pub(a0::PacketView({{"key", "val"}}, "msg #2"));
+  p.pub(a0::Packet({{"key", "val"}}, "msg #3"));
 
   {
     a0::SubscriberSync sub(shm, A0_INIT_OLDEST, A0_ITER_NEXT);
@@ -108,21 +108,32 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub sync") {
     REQUIRE(sub.has_next());
     auto pkt_view = sub.next();
 
-    REQUIRE(pkt_view.num_headers() == 3);
-
-    std::map<std::string, std::string> hdrs;
-    for (size_t i = 0; i < pkt_view.num_headers(); i++) {
-      auto hdr = pkt_view.header(i);
-      hdrs[std::string(hdr.first)] = hdr.second;
+    {
+      std::set<std::string> hdr_keys;
+      for (auto&& kv : pkt_view.headers()) {
+        hdr_keys.insert(kv.first);
+      }
+      REQUIRE(hdr_keys == std::set<std::string>{"a0_mono_time", "a0_wall_time"});
     }
-    REQUIRE(hdrs.count("a0_id"));
-    REQUIRE(hdrs.count("a0_mono_time"));
-    REQUIRE(hdrs.count("a0_wall_time"));
 
     REQUIRE(pkt_view.payload() == "msg #0");
 
     REQUIRE(sub.has_next());
     REQUIRE(sub.next().payload() == "msg #1");
+
+    REQUIRE(sub.has_next());
+    REQUIRE(sub.next().payload() == "msg #2");
+
+    REQUIRE(sub.has_next());
+    pkt_view = sub.next();
+    REQUIRE(pkt_view.payload() == "msg #3");
+    {
+      std::set<std::string> hdr_keys;
+      for (auto&& kv : pkt_view.headers()) {
+        hdr_keys.insert(kv.first);
+      }
+      REQUIRE(hdr_keys == std::set<std::string>{"key", "a0_mono_time", "a0_wall_time"});
+    }
 
     REQUIRE(!sub.has_next());
   }
@@ -131,7 +142,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub sync") {
     a0::SubscriberSync sub(shm, A0_INIT_MOST_RECENT, A0_ITER_NEWEST);
 
     REQUIRE(sub.has_next());
-    REQUIRE(sub.next().payload() == "msg #1");
+    REQUIRE(sub.next().payload() == "msg #3");
 
     REQUIRE(!sub.has_next());
   }
@@ -178,7 +189,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test rpc") {
 
   a0::Packet cancel_pkt("");
   a0::Event cancel_event;
-  auto oncancel = [&](std::string id) {
+  auto oncancel = [&](const std::string_view id) {
     REQUIRE(id == cancel_pkt.id());
     cancel_event.set();
   };
@@ -223,9 +234,9 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test prpc") {
     conn.send("msg #2", true);
   };
 
-  a0::Packet cancel_pkt("");
+  a0::Packet cancel_pkt;
   a0::Event cancel_event;
-  auto oncancel = [&](std::string id) {
+  auto oncancel = [&](const std::string_view id) {
     REQUIRE(id == cancel_pkt.id());
     cancel_event.set();
   };

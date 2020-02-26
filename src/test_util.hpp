@@ -8,8 +8,8 @@
 #include <set>
 #include <string>
 
-#include "src/stream_tools.hpp"
 #include "src/sync.hpp"
+#include "src/transport_tools.hpp"
 
 #define REQUIRE_OK(err) REQUIRE((err) == A0_OK);
 
@@ -20,7 +20,7 @@ inline std::string str(a0_buf_t buf) {
   return std::string((char*)buf.ptr, buf.size);
 }
 
-inline std::string str(a0_stream_frame_t frame) {
+inline std::string str(a0_transport_frame_t frame) {
   return str(a0::buf(frame));
 }
 
@@ -62,7 +62,6 @@ inline a0_packet_headers_block_t header_block(a0_packet_header_t* hdr) {
       .next_block = NULL,
   };
 }
-
 
 inline bool is_valgrind() {
 #ifdef RUNNING_ON_VALGRIND

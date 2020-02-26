@@ -1,7 +1,7 @@
 #pragma once
 
 #include <a0/alloc.h>
-#include <a0/stream.h>
+#include <a0/transport.h>
 
 #include <chrono>
 #include <functional>
@@ -38,11 +38,25 @@ static const char kWallTime[] = "a0_wall_time";
 
 namespace a0 {
 
-inline a0_buf_t buf(a0_stream_frame_t frame) {
+inline a0_buf_t buf(a0_transport_frame_t frame) {
   return a0_buf_t{
       .ptr = frame.data,
       .size = frame.hdr.data_size,
   };
+}
+
+inline const char* find_header(a0_packet_t pkt, const char* key) {
+  for (const a0_packet_headers_block_t* block = &pkt.headers_block;
+       block;
+       block = block->next_block) {
+    for (size_t i = 0; i < block->size; i++) {
+      a0_packet_header_t* hdr = &block->headers[i];
+      if (!strcmp(key, hdr->key)) {
+        return hdr->val;
+      }
+    }
+  }
+  return nullptr;
 }
 
 inline void time_strings(char mono_str[20], char wall_str[36]) {
@@ -65,71 +79,67 @@ inline void time_strings(char mono_str[20], char wall_str[36]) {
   wall_str[35] = '\0';
 }
 
-// TODO: maybe specialize std::unique_lock.
-struct sync_stream_t {
-  a0_stream_t* stream{nullptr};
+struct scoped_transport_lock {
+  a0_locked_transport_t tlk;
 
-  template <typename Fn>
-  auto with_lock(Fn&& fn) {
-    struct guard {
-      a0_locked_stream_t lk;
-      guard(a0_stream_t* stream) {
-        a0_lock_stream(stream, &lk);
-      }
-      ~guard() {
-        a0_unlock_stream(lk);
-      }
-    } scope(stream);
-    return fn(scope.lk);
+  scoped_transport_lock(a0_transport_t* transport) {
+    a0_transport_lock(transport, &tlk);
+  }
+  ~scoped_transport_lock() {
+    a0_transport_unlock(tlk);
   }
 };
 
-inline a0_alloc_t stream_allocator(a0_locked_stream_t* lk) {
+struct scoped_transport_unlock {
+  a0_transport_t* transport;
+
+  scoped_transport_unlock(a0_locked_transport_t tlk) : transport{tlk.transport} {
+    a0_transport_unlock(tlk);
+  }
+  ~scoped_transport_unlock() {
+    a0_locked_transport_t tlk;
+    a0_transport_lock(transport, &tlk);
+  }
+};
+
+inline a0_alloc_t transport_allocator(a0_locked_transport_t* tlk) {
   return a0_alloc_t{
-      .user_data = lk,
+      .user_data = tlk,
       .fn =
           [](void* data, size_t size, a0_buf_t* out) {
-            a0_stream_frame_t frame;
-            a0_stream_alloc(*(a0_locked_stream_t*)data, size, &frame);
+            a0_transport_frame_t frame;
+            a0_transport_alloc(*(a0_locked_transport_t*)data, size, &frame);
             *out = buf(frame);
           },
   };
 }
 
-struct stream_thread {
+struct transport_thread {
   struct state_t {
-    a0_stream_t stream;
+    a0_transport_t transport;
     std::thread::id t_id;
 
-    std::function<void(a0_locked_stream_t)> on_stream_nonempty;
-    std::function<void(a0_locked_stream_t)> on_stream_hasnext;
+    std::function<void(a0_locked_transport_t)> on_transport_nonempty;
+    std::function<void(a0_locked_transport_t)> on_transport_hasnext;
 
     a0::sync<std::function<void()>> onclose;
 
     bool handle_first_pkt() {
-      sync_stream_t ss{&stream};
-      return ss.with_lock([&](a0_locked_stream_t slk) {
-        if (a0_stream_await(slk, a0_stream_nonempty)) {
-          return false;
-        }
-
-        on_stream_nonempty(slk);
-
+      scoped_transport_lock stlk(&transport);
+      if (a0_transport_await(stlk.tlk, a0_transport_nonempty) == A0_OK) {
+        on_transport_nonempty(stlk.tlk);
         return true;
-      });
+      }
+      return false;
     }
 
     bool handle_next_pkt() {
-      sync_stream_t ss{&stream};
-      return ss.with_lock([&](a0_locked_stream_t slk) {
-        if (a0_stream_await(slk, a0_stream_has_next)) {
-          return false;
-        }
-
-        on_stream_hasnext(slk);
-
+      scoped_transport_lock stlk(&transport);
+      if (a0_transport_await(stlk.tlk, a0_transport_has_next) == A0_OK) {
+        on_transport_hasnext(stlk.tlk);
         return true;
-      });
+      }
+      return false;
     }
 
     void thread_main() {
@@ -149,19 +159,19 @@ struct stream_thread {
   std::shared_ptr<state_t> state;
 
   errno_t init(a0_buf_t arena,
-               a0_stream_protocol_t stream_protocol,
-               std::function<errno_t(a0_locked_stream_t, a0_stream_init_status_t)> on_stream_init,
-               std::function<void(a0_locked_stream_t)> on_stream_nonempty,
-               std::function<void(a0_locked_stream_t)> on_stream_hasnext) {
+               a0_buf_t metadata,
+               std::function<errno_t(a0_locked_transport_t, a0_transport_init_status_t)> on_transport_init,
+               std::function<void(a0_locked_transport_t)> on_transport_nonempty,
+               std::function<void(a0_locked_transport_t)> on_transport_hasnext) {
     state = std::make_shared<state_t>();
-    state->on_stream_nonempty = on_stream_nonempty;
-    state->on_stream_hasnext = on_stream_hasnext;
+    state->on_transport_nonempty = on_transport_nonempty;
+    state->on_transport_hasnext = on_transport_hasnext;
 
-    a0_stream_init_status_t init_status;
-    a0_locked_stream_t slk;
-    a0_stream_init(&state->stream, arena, stream_protocol, &init_status, &slk);
-    errno_t err = on_stream_init(slk, init_status);
-    a0_unlock_stream(slk);
+    a0_transport_init_status_t init_status;
+    a0_locked_transport_t tlk;
+    a0_transport_init(&state->transport, arena, metadata, &init_status, &tlk);
+    errno_t err = on_transport_init(tlk, init_status);
+    a0_transport_unlock(tlk);
     if (err) {
       return err;
     }
@@ -179,7 +189,7 @@ struct stream_thread {
     }
 
     state->onclose.set(onclose);
-    a0_stream_close(&state->stream);
+    a0_transport_close(&state->transport);
 
     return A0_OK;
   }

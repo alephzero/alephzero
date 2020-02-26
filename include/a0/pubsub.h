@@ -4,7 +4,7 @@
 #include <a0/alloc.h>
 #include <a0/common.h>
 #include <a0/packet.h>
-#include <a0/stream.h>
+#include <a0/transport.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,7 +12,7 @@ extern "C" {
 
 typedef struct a0_zero_copy_callback_s {
   void* user_data;
-  void (*fn)(void* user_data, a0_locked_stream_t, a0_packet_t);
+  void (*fn)(void* user_data, a0_locked_transport_t, a0_packet_t);
 } a0_zero_copy_callback_t;
 
 ///////////////
@@ -28,7 +28,6 @@ typedef struct a0_publisher_s {
 errno_t a0_publisher_init(a0_publisher_t*, a0_buf_t arena);
 errno_t a0_publisher_close(a0_publisher_t*);
 errno_t a0_pub(a0_publisher_t*, const a0_packet_t);
-errno_t a0_pub_emplace(a0_publisher_t*, const a0_packet_raw_t raw_pkt, a0_packet_id_t* out_pkt_id);
 
 ////////////////
 // Subscriber //
@@ -121,7 +120,7 @@ errno_t a0_subscriber_async_close(a0_subscriber_t*, a0_callback_t);
 
 // Defaults to blocking mode.
 // Pass O_NDELAY or O_NONBLOCK to flags to run non-blocking.
-// If non-blocking and stream is empty, returns EAGAIN.
+// If non-blocking and transport is empty, returns EAGAIN.
 
 errno_t a0_subscriber_read_one(a0_buf_t arena,
                                a0_alloc_t,

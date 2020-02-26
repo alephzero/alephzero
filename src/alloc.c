@@ -6,8 +6,8 @@
 #include "macros.h"
 
 A0_STATIC_INLINE
-void a0_malloc_allocator_impl(void* unused, size_t size, a0_buf_t* out) {
-  (void)unused;
+void a0_malloc_allocator_impl(void* user_data, size_t size, a0_buf_t* out) {
+  (void)user_data;
   out->size = size;
   out->ptr = malloc(size);
 }
@@ -19,8 +19,8 @@ a0_alloc_t a0_malloc_allocator() {
   };
 }
 
-void a0_free_malloc_allocator(a0_alloc_t unused) {
-  (void)unused;
+void a0_free_malloc_allocator(a0_alloc_t alloc) {
+  (void)alloc;
 }
 
 A0_STATIC_INLINE

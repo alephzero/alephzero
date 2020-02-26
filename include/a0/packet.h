@@ -22,8 +22,6 @@ extern "C" {
 //
 // A packet is implemented as a flat buffer. The layout is described below.
 
-typedef a0_buf_t a0_packet_t;
-
 typedef struct a0_packet_header_s {
   const char* key;
   const char* val;
@@ -39,54 +37,20 @@ struct a0_packet_headers_block_s {
   a0_packet_headers_block_t* next_block;
 };
 
-typedef struct a0_packet_raw_s {
-  a0_packet_headers_block_t headers_block;
-  a0_buf_t payload;
-} a0_packet_raw_t;
-
-// The following are special keys.
-// The returned buffers should not be cleaned up.
-
-// No more than one id is allowed.
-// One will be added automatically if not present when building.
-const char* a0_packet_id_key();
-const char* a0_packet_dep_key();
-
 // Packet ids are human-readable uuidv4.
 #define A0_PACKET_ID_SIZE 37
 typedef char a0_packet_id_t[A0_PACKET_ID_SIZE];
 
-// The following are packet accessors.
+typedef struct a0_packet_s {
+  a0_packet_id_t id;
+  a0_packet_headers_block_t headers_block;
+  a0_buf_t payload;
+} a0_packet_t;
 
-// Get the number of headers in the packet.
-errno_t a0_packet_num_headers(const a0_packet_t, size_t* out);
-// Get the packet header at index idx.
-// Note: out points to memory in the packet buffer.
-// Note: this is an O(1) operation.
-errno_t a0_packet_header(const a0_packet_t, size_t hdr_idx, a0_packet_header_t* out);
-// Get the packet payload.
-// Note: out points to memory in the packet buffer.
-errno_t a0_packet_payload(const a0_packet_t, a0_buf_t* out);
-// Get the value for the first header, after start_search_idx, with the given key.
-// Note: out points to memory in the packet buffer.
-// Note: A naive implementation would be O(N). Maybe sort the headers and bisect?
-errno_t a0_packet_find_header(const a0_packet_t,
-                              const char* key,
-                              size_t start_search_idx,
-                              const char** val_out,
-                              size_t* idx_out);
+// The following are special keys.
+// The returned buffers should not be cleaned up.
 
-// Get all headers in the packet.
-// Note: out.headers is expected to be pre-allocated for at least num_hdrs elements.
-// Note: the elements of out.headers will point into the packet buffer.
-errno_t a0_packet_headers(const a0_packet_t, size_t num_hdrs, a0_packet_headers_block_t* out);
-
-// Get the packet id.
-errno_t a0_packet_id(const a0_packet_t pkt, a0_packet_id_t* out);
-
-// Builds a contiguous packet.
-// Note: the header order will NOT be retained.
-errno_t a0_packet_build(const a0_packet_raw_t raw_pkt, a0_alloc_t, a0_packet_t* out);
+const char* a0_packet_dep_key();
 
 // Callback definition where packet is the only argument.
 
@@ -95,10 +59,42 @@ typedef struct a0_packet_callback_s {
   void (*fn)(void* user_data, a0_packet_t);
 } a0_packet_callback_t;
 
+typedef struct a0_packet_header_callback_s {
+  void* user_data;
+  void (*fn)(void* user_data, a0_packet_header_t);
+} a0_packet_header_callback_t;
+
 typedef struct a0_packet_id_callback_s {
   void* user_data;
   void (*fn)(void* user_data, a0_packet_id_t);
 } a0_packet_id_callback_t;
+
+errno_t a0_packet_init(a0_packet_t*);
+
+typedef struct a0_packet_stats_s {
+  size_t num_hdrs;
+  size_t content_size;
+  size_t serial_size;
+} a0_packet_stats_t;
+
+// Compute packet statistics.
+errno_t a0_packet_stats(const a0_packet_t, a0_packet_stats_t*);
+
+// Executes the given callback on all headers.
+// This includes headers across blocks.
+errno_t a0_packet_for_each_header(const a0_packet_headers_block_t, a0_packet_header_callback_t);
+
+// Serializes the packet to the allocated location.
+// Note: the header order will NOT be retained.
+errno_t a0_packet_serialize(const a0_packet_t, a0_alloc_t, a0_buf_t* out);
+
+// Deserializes the buffer into a packet.
+// The alloc is only used for the header pointers, not the contents.
+// The content will point into the buffer.
+errno_t a0_packet_deserialize(const a0_buf_t, a0_alloc_t, a0_packet_t* out);
+
+// Deep copies the packet contents.
+errno_t a0_packet_deep_copy(const a0_packet_t, a0_alloc_t, a0_packet_t* out);
 
 // The format of a packet is described here.
 // It is recommended to not worry about this too much, and just use a0_packet_build.
@@ -107,6 +103,8 @@ typedef struct a0_packet_id_callback_s {
 // The header has a lookup table followed by a number of key-value pairs.
 // The lookup table is designed for O(1) lookup of headers and the payload.
 //
+// +-------------------------------+
+// | id (a0_packet_id_t)           |
 // +-------------------------------+
 // | num headers (size_t)          |
 // +-------------------------------+

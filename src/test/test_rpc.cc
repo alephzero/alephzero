@@ -39,15 +39,11 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
       .user_data = nullptr,
       .fn =
           [](void*, a0_rpc_request_t req) {
-            a0_packet_id_t req_id;
-            REQUIRE_OK(a0_packet_id(req.pkt, &req_id));
-
-            a0_buf_t payload;
-            REQUIRE_OK(a0_packet_payload(req.pkt, &payload));
-            if (!strcmp((const char*)payload.ptr, "reply")) {
-              a0_packet_t pkt;
-              REQUIRE_OK(a0_packet_build({A0_NONE, payload}, a0::test::allocator(), &pkt));
-              REQUIRE_OK(a0_rpc_reply(req, pkt));
+            if (!strcmp((const char*)req.pkt.payload.ptr, "reply")) {
+              a0_packet_t resp;
+              a0_packet_init(&resp);
+              resp.payload = req.pkt.payload;
+              REQUIRE_OK(a0_rpc_reply(req, resp));
             }
           },
   };
@@ -55,8 +51,7 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
   a0_packet_id_callback_t oncancel = {
       .user_data = &data,
       .fn =
-          [](void* user_data, a0_packet_id_t unused) {
-            (void)unused;
+          [](void* user_data, a0_packet_id_t) {
             auto* data = (a0::sync<data_t>*)user_data;
             data->notify_all([](auto* data_) {
               data_->cancel_cnt++;
@@ -73,11 +68,8 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
   a0_packet_callback_t onreply = {
       .user_data = &data,
       .fn =
-          [](void* user_data, a0_packet_t pkt) {
+          [](void* user_data, a0_packet_t) {
             auto* data = (a0::sync<data_t>*)user_data;
-
-            a0_buf_t payload;
-            REQUIRE_OK(a0_packet_payload(pkt, &payload));
             data->notify_all([](auto* data_) {
               data_->reply_cnt++;
             });
@@ -86,19 +78,17 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
 
   for (int i = 0; i < 5; i++) {
     a0_packet_t req;
-    REQUIRE_OK(a0_packet_build({A0_NONE, a0::test::buf("reply")}, a0::test::allocator(), &req));
+    a0_packet_init(&req);
+    req.payload = a0::test::buf("reply");
     REQUIRE_OK(a0_rpc_send(&client, req, onreply));
   }
 
   for (int i = 0; i < 5; i++) {
     a0_packet_t req;
-    REQUIRE_OK(
-        a0_packet_build({A0_NONE, a0::test::buf("await_cancel")}, a0::test::allocator(), &req));
+    a0_packet_init(&req);
+    req.payload = a0::test::buf("dont't reply");
     REQUIRE_OK(a0_rpc_send(&client, req, onreply));
-
-    a0_packet_id_t req_id;
-    REQUIRE_OK(a0_packet_id(req, &req_id));
-    a0_rpc_cancel(&client, req_id);
+    REQUIRE_OK(a0_rpc_cancel(&client, req.id));
   }
 
   data.wait([](auto* data_) {
@@ -114,15 +104,10 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc empty oncancel onreply") {
       .user_data = nullptr,
       .fn =
           [](void*, a0_rpc_request_t req) {
-            a0_packet_id_t req_id;
-            REQUIRE_OK(a0_packet_id(req.pkt, &req_id));
-
-            a0_buf_t payload;
-            REQUIRE_OK(a0_packet_payload(req.pkt, &payload));
-
-            a0_packet_t pkt;
-            REQUIRE_OK(a0_packet_build({A0_NONE, payload}, a0::test::allocator(), &pkt));
-            REQUIRE_OK(a0_rpc_reply(req, pkt));
+            a0_packet_t resp;
+            a0_packet_init(&resp);
+            resp.payload = req.pkt.payload;
+            REQUIRE_OK(a0_rpc_reply(req, resp));
           },
   };
 
@@ -134,17 +119,131 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc empty oncancel onreply") {
 
   for (int i = 0; i < 5; i++) {
     a0_packet_t req;
-    REQUIRE_OK(a0_packet_build({A0_NONE, a0::test::buf("msg")}, a0::test::allocator(), &req));
+    a0_packet_init(&req);
+    req.payload = a0::test::buf("msg");
     REQUIRE_OK(a0_rpc_send(&client, req, A0_NONE));
-
-    a0_packet_id_t req_id;
-    REQUIRE_OK(a0_packet_id(req, &req_id));
-    a0_rpc_cancel(&client, req_id);
+    a0_rpc_cancel(&client, req.id);
   }
 
   // TODO: Find a better way.
   std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
   REQUIRE_OK(a0_rpc_client_close(&client));
+  REQUIRE_OK(a0_rpc_server_close(&server));
+}
+
+TEST_CASE_FIXTURE(RpcFixture, "Test rpc server async close") {
+  struct data_t {
+    size_t reply_cnt;
+    size_t close_cnt;
+  };
+  a0::sync<data_t> data;
+
+  a0_callback_t onclose = {
+      .user_data = &data,
+      .fn =
+          [](void* user_data) {
+            auto* data = (a0::sync<data_t>*)user_data;
+            data->notify_all([](auto* data_) {
+              data_->close_cnt++;
+            });
+          },
+  };
+
+  a0_rpc_request_callback_t onrequest = {
+      .user_data = &onclose,
+      .fn =
+          [](void* data, a0_rpc_request_t req) {
+            REQUIRE_OK(a0_rpc_server_async_close(req.server, *(a0_callback_t*)data));
+
+            a0_packet_t resp;
+            a0_packet_init(&resp);
+            resp.payload = req.pkt.payload;
+            REQUIRE_OK(a0_rpc_reply(req, resp));
+          },
+  };
+
+  a0_rpc_server_t server;
+  REQUIRE_OK(a0_rpc_server_init(&server, shm.buf, a0::test::allocator(), onrequest, A0_NONE));
+
+  a0_rpc_client_t client;
+  REQUIRE_OK(a0_rpc_client_init(&client, shm.buf, a0::test::allocator()));
+
+  a0_packet_callback_t onreply = {
+      .user_data = &data,
+      .fn =
+          [](void* user_data, a0_packet_t) {
+            auto* data = (a0::sync<data_t>*)user_data;
+            data->notify_all([](auto* data_) {
+              data_->reply_cnt++;
+            });
+          },
+  };
+
+  {
+    a0_packet_t req;
+    a0_packet_init(&req);
+    req.payload = a0::test::buf("msg");
+    REQUIRE_OK(a0_rpc_send(&client, req, onreply));
+  }
+
+  data.wait([](auto* data_) {
+    return data_->reply_cnt >= 1 && data_->close_cnt >= 1;
+  });
+
+  REQUIRE_OK(a0_rpc_client_close(&client));
+}
+
+TEST_CASE_FIXTURE(RpcFixture, "Test rpc client async close") {
+  a0_rpc_request_callback_t onrequest = {
+      .user_data = nullptr,
+      .fn =
+          [](void*, a0_rpc_request_t req) {
+            a0_packet_t resp;
+            a0_packet_init(&resp);
+            resp.payload = req.pkt.payload;
+            REQUIRE_OK(a0_rpc_reply(req, resp));
+          },
+  };
+
+  a0_rpc_server_t server;
+  REQUIRE_OK(a0_rpc_server_init(&server, shm.buf, a0::test::allocator(), onrequest, A0_NONE));
+
+  a0_rpc_client_t client;
+  REQUIRE_OK(a0_rpc_client_init(&client, shm.buf, a0::test::allocator()));
+
+  a0::Event close_event;
+
+  a0_callback_t onclose = {
+      .user_data = &close_event,
+      .fn =
+          [](void* data) {
+            ((a0::Event*)data)->set();
+          },
+  };
+
+  struct data_t {
+    a0_callback_t onclose;
+    a0_rpc_client_t* client;
+  } data{onclose, &client};
+
+  a0_packet_callback_t onreply = {
+      .user_data = &data,
+      .fn =
+          [](void* user_data, a0_packet_t) {
+            auto* data = (data_t*)user_data;
+            REQUIRE_OK(a0_rpc_client_async_close(data->client, data->onclose));
+          },
+  };
+
+  {
+    a0_packet_t req;
+    a0_packet_init(&req);
+    req.payload = a0::test::buf("msg");
+    REQUIRE_OK(a0_rpc_send(&client, req, onreply));
+  }
+
+  close_event.wait();
+
   REQUIRE_OK(a0_rpc_server_close(&server));
 }

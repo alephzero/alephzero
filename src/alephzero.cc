@@ -12,17 +12,19 @@
 #include <errno.h>
 #include <sched.h>
 #include <stddef.h>
+#include <stdint.h>
 
-#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "macros.h"
+#include "scope.hpp"
 
 namespace a0 {
 namespace {
@@ -92,21 +94,21 @@ std::string_view as_string_view(a0_buf_t buf) {
 
 }  // namespace
 
-Shm::Shm(const std::string& path) {
+Shm::Shm(const std::string_view path) {
   c = c_shared<a0_shm_t>(
       [&](a0_shm_t* c) {
-        return a0_shm_open(path.c_str(), nullptr, c);
+        return a0_shm_open(path.data(), nullptr, c);
       },
       delete_after<a0_shm_t>(a0_shm_close));
 }
 
-Shm::Shm(const std::string& path, const Options& opts) {
+Shm::Shm(const std::string_view path, const Options& opts) {
   a0_shm_options_t c_shm_opts{
       .size = opts.size,
   };
   c = c_shared<a0_shm_t>(
       [&](a0_shm_t* c) {
-        return a0_shm_open(path.c_str(), &c_shm_opts, c);
+        return a0_shm_open(path.data(), &c_shm_opts, c);
       },
       delete_after<a0_shm_t>(a0_shm_close));
 }
@@ -115,8 +117,8 @@ std::string Shm::path() const {
   return c->path;
 }
 
-void Shm::unlink(const std::string& path) {
-  auto err = a0_shm_unlink(path.c_str());
+void Shm::unlink(const std::string_view path) {
+  auto err = a0_shm_unlink(path.data());
   // Ignore "No such file or directory" errors.
   if (err == ENOENT) {
     return;
@@ -125,194 +127,305 @@ void Shm::unlink(const std::string& path) {
   check(err);
 }
 
-size_t PacketView::num_headers() const {
-  size_t out;
-  check(a0_packet_num_headers(c, &out));
-  return out;
-}
-
-std::pair<std::string_view, std::string_view> PacketView::header(size_t idx) const {
-  a0_packet_header_t c_hdr;
-  check(a0_packet_header(c, idx, &c_hdr));
-  return {c_hdr.key, c_hdr.val};
-}
-
-std::string_view PacketView::payload() const {
-  a0_buf_t c_payload;
-  check(a0_packet_payload(c, &c_payload));
-  return as_string_view(c_payload);
-}
-
-std::string PacketView::id() const {
-  a0_packet_id_t c_id;
-  check(a0_packet_id(c, &c_id));
-  return c_id;
-}
-
-const a0_packet_t Packet::c() const {
-  return as_buf(&mem);
-}
-
-Packet::Packet() : Packet("") {}
-
-Packet::Packet(PacketView packet_view) {
-  mem.resize(packet_view.c.size);
-  memcpy(mem.data(), packet_view.c.ptr, packet_view.c.size);
-}
-
-Packet::Packet(std::string_view payload) : Packet({}, payload) {}
-
-Packet::Packet(const std::vector<std::pair<std::string_view, std::string_view>>& hdrs,
-               std::string_view payload) {
-  a0_alloc_t alloc = {
-      .user_data = &mem,
-      .fn =
-          [](void* user_data, size_t size, a0_buf_t* out) {
-            auto* mem = (std::vector<uint8_t>*)user_data;
-            mem->resize(size);
-            *out = as_buf(mem);
-          },
-  };
-
+struct PacketImpl {
+  std::string cpp_payload;
+  std::vector<std::pair<std::string, std::string>> cpp_hdrs;
   std::vector<a0_packet_header_t> c_hdrs;
-  for (auto&& hdr : hdrs) {
-    c_hdrs.push_back({hdr.first.data(), hdr.second.data()});
+
+  void operator()(a0_packet_t* self) {
+    delete self;
+  }
+};
+
+A0_STATIC_INLINE
+std::shared_ptr<a0_packet_t> make_cpp_packet() {
+  return c_shared<a0_packet_t>(a0_packet_init, PacketImpl{});
+}
+
+A0_STATIC_INLINE
+std::shared_ptr<a0_packet_t> make_cpp_packet(const std::string_view id) {
+  std::shared_ptr<a0_packet_t> c(new a0_packet_t, PacketImpl{});
+  memset(&*c, 0, sizeof(a0_packet_t));
+
+  if (id.empty()) {
+    // Create a new ID.
+    check(a0_packet_init(&*c));
+  } else if (A0_LIKELY(id.size() == A0_PACKET_ID_SIZE - 1)) {
+    memcpy(c->id, id.data(), A0_PACKET_ID_SIZE - 1);
+    c->id[A0_PACKET_ID_SIZE - 1] = '\0';
+  } else {
+    throw;  // TODO
   }
 
-  check(
-      a0_packet_build({{c_hdrs.data(), c_hdrs.size(), nullptr}, as_buf(&payload)}, alloc, nullptr));
+  return c;
 }
 
-size_t Packet::num_headers() const {
-  size_t out;
-  check(a0_packet_num_headers(c(), &out));
-  return out;
+A0_STATIC_INLINE
+void cpp_packet_add_headers(std::shared_ptr<a0_packet_t>& c,
+                            std::vector<std::pair<std::string, std::string>> hdrs) {
+  auto* impl = std::get_deleter<PacketImpl>(c);
+
+  impl->cpp_hdrs = std::move(hdrs);
+
+  for (size_t i = 0; i < impl->cpp_hdrs.size(); i++) {
+    impl->c_hdrs.push_back(a0_packet_header_t{
+        .key = impl->cpp_hdrs[i].first.c_str(),
+        .val = impl->cpp_hdrs[i].second.c_str(),
+    });
+  }
+
+  c->headers_block = {
+      .headers = impl->c_hdrs.data(),
+      .size = impl->c_hdrs.size(),
+      .next_block = nullptr,
+  };
 }
 
-std::pair<std::string_view, std::string_view> Packet::header(size_t idx) const {
-  a0_packet_header_t c_hdr;
-  check(a0_packet_header(c(), idx, &c_hdr));
-  return {c_hdr.key, c_hdr.val};
+A0_STATIC_INLINE
+void cpp_packet_add_payload(std::shared_ptr<a0_packet_t>& c, const std::string_view payload) {
+  c->payload = as_buf(&payload);
 }
 
-std::string_view Packet::payload() const {
-  a0_buf_t c_payload;
-  check(a0_packet_payload(c(), &c_payload));
-  return std::string_view((char*)c_payload.ptr, c_payload.size);
+A0_STATIC_INLINE
+void cpp_packet_add_payload(std::shared_ptr<a0_packet_t>& c, std::string payload) {
+  auto* impl = std::get_deleter<PacketImpl>(c);
+  impl->cpp_payload = std::move(payload);
+  cpp_packet_add_payload(c, std::string_view(impl->cpp_payload));
 }
 
-std::string Packet::id() const {
-  a0_packet_id_t c_id;
-  check(a0_packet_id(c(), &c_id));
-  return c_id;
+PacketView::PacketView() : PacketView(std::string_view{}) {}
+
+PacketView::PacketView(const std::string_view payload) : PacketView({}, payload) {}
+
+PacketView::PacketView(std::vector<std::pair<std::string, std::string>> hdrs,
+                       const std::string_view payload) {
+  c = make_cpp_packet();
+  cpp_packet_add_headers(c, std::move(hdrs));
+  cpp_packet_add_payload(c, payload);
 }
 
-TopicManager::TopicManager(const std::string& json) {
-  c = c_shared<a0_topic_manager_t>(
-      [&](a0_topic_manager_t* c) {
-        return a0_topic_manager_init(c, json.c_str());
-      },
-      delete_after<a0_topic_manager_t>(a0_topic_manager_close));
+PacketView::PacketView(const Packet& pkt) {
+  c = make_cpp_packet(pkt.id());
+  cpp_packet_add_headers(c, pkt.headers());
+  cpp_packet_add_payload(c, pkt.payload());
 }
 
-std::string_view TopicManager::container_name() const {
-  const char* out;
-  a0_topic_manager_container_name(&*c, &out);
-  return out;
+PacketView::PacketView(a0_packet_t pkt) {
+  std::vector<std::pair<std::string, std::string>> hdrs;
+  check(a0_packet_for_each_header(
+      pkt.headers_block,
+      {.user_data = &hdrs, .fn = [](void* data, a0_packet_header_t hdr) {
+         auto* hdrs_ = (std::vector<std::pair<std::string, std::string>>*)data;
+         hdrs_->push_back({hdr.key, hdr.val});
+       }}));
+
+  c = make_cpp_packet(pkt.id);
+  cpp_packet_add_headers(c, std::move(hdrs));
+  cpp_packet_add_payload(c, as_string_view(pkt.payload));
+}
+
+const std::string_view PacketView::id() const {
+  return c->id;
+}
+
+const std::vector<std::pair<std::string, std::string>>& PacketView::headers() const {
+  auto* impl = std::get_deleter<PacketImpl>(c);
+  return impl->cpp_hdrs;
+}
+
+const std::string_view PacketView::payload() const {
+  return as_string_view(c->payload);
+}
+
+Packet::Packet() : Packet(std::string{}) {}
+
+Packet::Packet(std::string payload) : Packet({}, payload) {}
+
+Packet::Packet(std::vector<std::pair<std::string, std::string>> hdrs, std::string payload) {
+  c = make_cpp_packet();
+  cpp_packet_add_headers(c, std::move(hdrs));
+  cpp_packet_add_payload(c, std::move(payload));
+}
+
+Packet::Packet(const PacketView& view) {
+  c = make_cpp_packet(view.id());
+  cpp_packet_add_headers(c, view.headers());
+  cpp_packet_add_payload(c, std::string(view.payload()));
+}
+
+Packet::Packet(PacketView&& view) {
+  c = make_cpp_packet(view.id());
+  cpp_packet_add_headers(c, std::move(std::get_deleter<PacketImpl>(view.c)->cpp_hdrs));
+  cpp_packet_add_payload(c, std::string(view.payload()));
+}
+
+Packet::Packet(a0_packet_t pkt) : Packet(PacketView(pkt)) {}
+
+const std::string_view Packet::id() const {
+  return c->id;
+}
+
+const std::vector<std::pair<std::string, std::string>>& Packet::headers() const {
+  auto* impl = std::get_deleter<PacketImpl>(c);
+  return impl->cpp_hdrs;
+}
+
+const std::string_view Packet::payload() const {
+  return as_string_view(c->payload);
+}
+
+A0_STATIC_INLINE
+a0_topic_manager_t c(const TopicManager* cpp_) {
+  auto copy_aliases = [](const std::map<std::string, TopicAliasTarget>* cpp_aliases,
+                         a0_alloc_t alloc) {
+    a0_buf_t mem;
+    alloc.fn(alloc.user_data, cpp_aliases->size() * sizeof(a0_topic_alias_t), &mem);
+    auto* c_aliases = (a0_topic_alias_t*)mem.ptr;
+
+    size_t i = 0;
+    for (auto&& [name, target] : *cpp_aliases) {
+      c_aliases[i].name = name.c_str();
+      c_aliases[i].target_container = target.container.c_str();
+      c_aliases[i].target_topic = target.topic.c_str();
+      i++;
+    }
+
+    return c_aliases;
+  };
+
+  a0_topic_manager_t c_;
+  c_.container = cpp_->container.c_str();
+
+  c_.subscriber_aliases_size = cpp_->subscriber_aliases.size();
+  c_.rpc_client_aliases_size = cpp_->rpc_client_aliases.size();
+  c_.prpc_client_aliases_size = cpp_->prpc_client_aliases.size();
+
+  thread_local a0_alloc_t subscriber_aliases_alloc = a0_realloc_allocator();
+  thread_local a0_alloc_t rpc_client_aliases_alloc = a0_realloc_allocator();
+  thread_local a0_alloc_t prpc_client_aliases_alloc = a0_realloc_allocator();
+
+  c_.subscriber_aliases = copy_aliases(&cpp_->subscriber_aliases, subscriber_aliases_alloc);
+  c_.rpc_client_aliases = copy_aliases(&cpp_->rpc_client_aliases, rpc_client_aliases_alloc);
+  c_.prpc_client_aliases = copy_aliases(&cpp_->prpc_client_aliases, prpc_client_aliases_alloc);
+
+  return c_;
 }
 
 Shm TopicManager::config_topic() const {
+  a0_topic_manager_t ctm = c(this);
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_config_topic(&*c, shm);
+        return a0_topic_manager_open_config_topic(&ctm, shm);
       },
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
 Shm TopicManager::log_crit_topic() const {
+  a0_topic_manager_t ctm = c(this);
+
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_log_crit_topic(&*c, shm);
+        return a0_topic_manager_open_log_crit_topic(&ctm, shm);
       },
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
 Shm TopicManager::log_err_topic() const {
+  a0_topic_manager_t ctm = c(this);
+
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_log_err_topic(&*c, shm);
+        return a0_topic_manager_open_log_err_topic(&ctm, shm);
       },
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
 Shm TopicManager::log_warn_topic() const {
+  a0_topic_manager_t ctm = c(this);
+
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_log_warn_topic(&*c, shm);
+        return a0_topic_manager_open_log_warn_topic(&ctm, shm);
       },
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
 Shm TopicManager::log_info_topic() const {
+  a0_topic_manager_t ctm = c(this);
+
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_log_info_topic(&*c, shm);
+        return a0_topic_manager_open_log_info_topic(&ctm, shm);
       },
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
 Shm TopicManager::log_dbg_topic() const {
+  a0_topic_manager_t ctm = c(this);
+
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_log_dbg_topic(&*c, shm);
+        return a0_topic_manager_open_log_dbg_topic(&ctm, shm);
       },
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-Shm TopicManager::publisher_topic(const std::string& name) const {
+Shm TopicManager::publisher_topic(const std::string_view name) const {
+  a0_topic_manager_t ctm = c(this);
+
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_publisher_topic(&*c, name.c_str(), shm);
+        return a0_topic_manager_open_publisher_topic(&ctm, name.data(), shm);
       },
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-Shm TopicManager::subscriber_topic(const std::string& name) const {
+Shm TopicManager::subscriber_topic(const std::string_view name) const {
+  a0_topic_manager_t ctm = c(this);
+
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_subscriber_topic(&*c, name.c_str(), shm);
+        return a0_topic_manager_open_subscriber_topic(&ctm, name.data(), shm);
       },
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-Shm TopicManager::rpc_server_topic(const std::string& name) const {
+Shm TopicManager::rpc_server_topic(const std::string_view name) const {
+  a0_topic_manager_t ctm = c(this);
+
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_rpc_server_topic(&*c, name.c_str(), shm);
+        return a0_topic_manager_open_rpc_server_topic(&ctm, name.data(), shm);
       },
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-Shm TopicManager::rpc_client_topic(const std::string& name) const {
+Shm TopicManager::rpc_client_topic(const std::string_view name) const {
+  a0_topic_manager_t ctm = c(this);
+
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_rpc_client_topic(&*c, name.c_str(), shm);
+        return a0_topic_manager_open_rpc_client_topic(&ctm, name.data(), shm);
       },
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-Shm TopicManager::prpc_server_topic(const std::string& name) const {
+Shm TopicManager::prpc_server_topic(const std::string_view name) const {
+  a0_topic_manager_t ctm = c(this);
+
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_prpc_server_topic(&*c, name.c_str(), shm);
+        return a0_topic_manager_open_prpc_server_topic(&ctm, name.data(), shm);
       },
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-Shm TopicManager::prpc_client_topic(const std::string& name) const {
+Shm TopicManager::prpc_client_topic(const std::string_view name) const {
+  a0_topic_manager_t ctm = c(this);
+
   return to_cpp<Shm>(c_shared<a0_shm_t>(
       [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_prpc_client_topic(&*c, name.c_str(), shm);
+        return a0_topic_manager_open_prpc_client_topic(&ctm, name.data(), shm);
       },
       delete_after<a0_shm_t>(a0_shm_close)));
 }
@@ -326,10 +439,6 @@ void InitGlobalTopicManager(TopicManager tm) {
   global_topic_manager() = std::move(tm);
 }
 
-void InitGlobalTopicManager(const std::string& json) {
-  InitGlobalTopicManager(TopicManager(json));
-}
-
 Publisher::Publisher(Shm shm) {
   c = c_shared<a0_publisher_t>(
       [&](a0_publisher_t* c) {
@@ -341,15 +450,20 @@ Publisher::Publisher(Shm shm) {
       });
 }
 
-Publisher::Publisher(const std::string& topic)
+Publisher::Publisher(const std::string_view topic)
     : Publisher(global_topic_manager().publisher_topic(topic)) {}
 
-void Publisher::pub(const Packet& pkt) {
-  check(a0_pub(&*c, pkt.c()));
+void Publisher::pub(const PacketView& pkt) {
+  check(a0_pub(&*c, *pkt.c));
 }
 
-void Publisher::pub(std::string_view payload) {
-  check(a0_pub_emplace(&*c, {A0_NONE, as_buf(&payload)}, nullptr));
+void Publisher::pub(std::vector<std::pair<std::string, std::string>> headers,
+                    const std::string_view payload) {
+  pub(PacketView(std::move(headers), payload));
+}
+
+void Publisher::pub(const std::string_view payload) {
+  pub({}, payload);
 }
 
 Logger::Logger(const TopicManager& topic_manager) {
@@ -375,35 +489,20 @@ Logger::Logger(const TopicManager& topic_manager) {
 
 Logger::Logger() : Logger(global_topic_manager()) {}
 
-void Logger::crit(const Packet& pkt) {
-  check(a0_log_crit(&*c, pkt.c()));
+void Logger::crit(const PacketView& pkt) {
+  check(a0_log_crit(&*c, *pkt.c));
 }
-void Logger::crit(std::string_view payload) {
-  crit(Packet(payload));
+void Logger::err(const PacketView& pkt) {
+  check(a0_log_err(&*c, *pkt.c));
 }
-void Logger::err(const Packet& pkt) {
-  check(a0_log_err(&*c, pkt.c()));
+void Logger::warn(const PacketView& pkt) {
+  check(a0_log_warn(&*c, *pkt.c));
 }
-void Logger::err(std::string_view payload) {
-  err(Packet(payload));
+void Logger::info(const PacketView& pkt) {
+  check(a0_log_info(&*c, *pkt.c));
 }
-void Logger::warn(const Packet& pkt) {
-  check(a0_log_warn(&*c, pkt.c()));
-}
-void Logger::warn(std::string_view payload) {
-  warn(Packet(payload));
-}
-void Logger::info(const Packet& pkt) {
-  check(a0_log_info(&*c, pkt.c()));
-}
-void Logger::info(std::string_view payload) {
-  info(Packet(payload));
-}
-void Logger::dbg(const Packet& pkt) {
-  check(a0_log_dbg(&*c, pkt.c()));
-}
-void Logger::dbg(std::string_view payload) {
-  dbg(Packet(payload));
+void Logger::dbg(const PacketView& pkt) {
+  check(a0_log_dbg(&*c, *pkt.c));
 }
 
 SubscriberSync::SubscriberSync(Shm shm, a0_subscriber_init_t init, a0_subscriber_iter_t iter) {
@@ -419,7 +518,7 @@ SubscriberSync::SubscriberSync(Shm shm, a0_subscriber_init_t init, a0_subscriber
       });
 }
 
-SubscriberSync::SubscriberSync(const std::string& topic,
+SubscriberSync::SubscriberSync(const std::string_view topic,
                                a0_subscriber_init_t init,
                                a0_subscriber_iter_t iter)
     : SubscriberSync(global_topic_manager().subscriber_topic(topic), init, iter) {}
@@ -431,24 +530,24 @@ bool SubscriberSync::has_next() {
 }
 
 PacketView SubscriberSync::next() {
-  a0_packet_t c_pkt;
-  check(a0_subscriber_sync_next(&*c, &c_pkt));
-  return PacketView{.c = c_pkt};
+  a0_packet_t pkt;
+  check(a0_subscriber_sync_next(&*c, &pkt));
+  return pkt;
 }
 
 Subscriber::Subscriber(Shm shm,
                        a0_subscriber_init_t init,
                        a0_subscriber_iter_t iter,
-                       std::function<void(PacketView)> fn) {
+                       std::function<void(const PacketView&)> fn) {
   CDeleter<a0_subscriber_t> deleter;
   deleter.also.push_back([shm]() {});
 
-  auto heap_fn = new std::function<void(PacketView)>(std::move(fn));
+  auto heap_fn = new std::function<void(const PacketView&)>(std::move(fn));
   a0_packet_callback_t callback = {
       .user_data = heap_fn,
       .fn =
-          [](void* user_data, a0_packet_t c_pkt) {
-            (*(std::function<void(PacketView)>*)user_data)(PacketView{.c = c_pkt});
+          [](void* user_data, a0_packet_t pkt) {
+            (*(std::function<void(const PacketView&)>*)user_data)(pkt);
           },
   };
   deleter.also.push_back([heap_fn]() {
@@ -469,10 +568,10 @@ Subscriber::Subscriber(Shm shm,
       deleter);
 }
 
-Subscriber::Subscriber(const std::string& topic,
+Subscriber::Subscriber(const std::string_view topic,
                        a0_subscriber_init_t init,
                        a0_subscriber_iter_t iter,
-                       std::function<void(PacketView)> fn)
+                       std::function<void(const PacketView&)> fn)
     : Subscriber(global_topic_manager().subscriber_topic(topic), init, iter, std::move(fn)) {}
 
 void Subscriber::async_close(std::function<void()> fn) {
@@ -498,26 +597,20 @@ void Subscriber::async_close(std::function<void()> fn) {
 }
 
 Packet Subscriber::read_one(Shm shm, a0_subscriber_init_t init, int flags) {
-  struct scope_t {
-    a0_alloc_t alloc;
-    scope_t() : alloc{a0_realloc_allocator()} {}
-    ~scope_t() {
-      a0_free_realloc_allocator(alloc);
-    }
-  } scope;
+  a0::scope<a0_alloc_t> alloc(a0_realloc_allocator(), [](a0_alloc_t* alloc_) {
+    a0_free_realloc_allocator(*alloc_);
+  });
 
-  PacketView pkt_view;
-  check(a0_subscriber_read_one(shm.c->buf, scope.alloc, init, flags, &pkt_view.c));
-  Packet pkt(pkt_view);
-
-  return pkt;
+  a0_packet_t pkt;
+  check(a0_subscriber_read_one(shm.c->buf, *alloc, init, flags, &pkt));
+  return Packet(pkt);
 }
 
-Packet Subscriber::read_one(const std::string& topic, a0_subscriber_init_t init, int flags) {
+Packet Subscriber::read_one(const std::string_view topic, a0_subscriber_init_t init, int flags) {
   return Subscriber::read_one(global_topic_manager().subscriber_topic(topic), init, flags);
 }
 
-Subscriber onconfig(std::function<void(PacketView)> fn) {
+Subscriber onconfig(std::function<void(const PacketView&)> fn) {
   return Subscriber(global_topic_manager().config_topic(),
                     A0_INIT_MOST_RECENT,
                     A0_ITER_NEWEST,
@@ -535,20 +628,25 @@ RpcServer RpcRequest::server() {
 }
 
 PacketView RpcRequest::pkt() {
-  return PacketView{.c = c->pkt};
+  return c->pkt;
 }
 
-void RpcRequest::reply(const Packet& pkt) {
-  check(a0_rpc_reply(*c, pkt.c()));
+void RpcRequest::reply(const PacketView& pkt) {
+  check(a0_rpc_reply(*c, *pkt.c));
 }
 
-void RpcRequest::reply(std::string_view payload) {
-  check(a0_rpc_reply_emplace(*c, {A0_NONE, as_buf(&payload)}, nullptr));
+void RpcRequest::reply(std::vector<std::pair<std::string, std::string>> headers,
+                       const std::string_view payload) {
+  reply(PacketView(std::move(headers), payload));
+}
+
+void RpcRequest::reply(const std::string_view payload) {
+  reply({}, payload);
 }
 
 RpcServer::RpcServer(Shm shm,
                      std::function<void(RpcRequest)> onrequest,
-                     std::function<void(std::string)> oncancel) {
+                     std::function<void(const std::string_view)> oncancel) {
   CDeleter<a0_rpc_server_t> deleter;
   deleter.also.push_back([shm]() {});
 
@@ -570,7 +668,7 @@ RpcServer::RpcServer(Shm shm,
       .fn = nullptr,
   };
   if (oncancel) {
-    auto heap_oncancel = new std::function<void(std::string)>(std::move(oncancel));
+    auto heap_oncancel = new std::function<void(const std::string_view)>(std::move(oncancel));
     deleter.also.push_back([heap_oncancel]() {
       delete heap_oncancel;
     });
@@ -578,7 +676,7 @@ RpcServer::RpcServer(Shm shm,
         .user_data = heap_oncancel,
         .fn =
             [](void* user_data, a0_packet_id_t id) {
-              (*(std::function<void(std::string)>*)user_data)(id);
+              (*(std::function<void(const std::string_view)>*)user_data)(id);
             },
     };
   }
@@ -597,9 +695,9 @@ RpcServer::RpcServer(Shm shm,
       deleter);
 }
 
-RpcServer::RpcServer(const std::string& topic,
+RpcServer::RpcServer(const std::string_view topic,
                      std::function<void(RpcRequest)> onrequest,
-                     std::function<void(std::string)> oncancel)
+                     std::function<void(const std::string_view)> oncancel)
     : RpcServer(global_topic_manager().rpc_server_topic(topic),
                 std::move(onrequest),
                 std::move(oncancel)) {}
@@ -644,7 +742,7 @@ RpcClient::RpcClient(Shm shm) {
       deleter);
 }
 
-RpcClient::RpcClient(const std::string& topic)
+RpcClient::RpcClient(const std::string_view topic)
     : RpcClient(global_topic_manager().rpc_client_topic(topic)) {}
 
 void RpcClient::async_close(std::function<void()> fn) {
@@ -669,44 +767,55 @@ void RpcClient::async_close(std::function<void()> fn) {
   check(a0_rpc_client_async_close(&*heap_data->c, callback));
 }
 
-void RpcClient::send(const Packet& pkt, std::function<void(PacketView)> fn) {
+void RpcClient::send(const PacketView& pkt, std::function<void(const PacketView&)> fn) {
   a0_packet_callback_t callback = {
       .user_data = nullptr,
       .fn = nullptr,
   };
   if (fn) {
-    auto heap_fn = new std::function<void(PacketView)>(std::move(fn));
+    auto heap_fn = new std::function<void(const PacketView&)>(std::move(fn));
     callback = {
         .user_data = heap_fn,
         .fn =
-            [](void* user_data, a0_packet_t c_pkt) {
-              auto* fn = (std::function<void(PacketView)>*)user_data;
-              (*fn)(PacketView{.c = c_pkt});
+            [](void* user_data, a0_packet_t pkt) {
+              auto* fn = (std::function<void(const PacketView&)>*)user_data;
+              (*fn)(pkt);
               delete fn;
             },
     };
   }
-  check(a0_rpc_send(&*c, pkt.c(), callback));
+  check(a0_rpc_send(&*c, *pkt.c, callback));
 }
 
-void RpcClient::send(std::string_view payload, std::function<void(PacketView)> fn) {
-  send(Packet(payload), std::move(fn));
+void RpcClient::send(std::vector<std::pair<std::string, std::string>> headers,
+                     const std::string_view payload,
+                     std::function<void(const PacketView&)> cb) {
+  send(PacketView(headers, payload), cb);
 }
 
-std::future<Packet> RpcClient::send(const Packet& pkt) {
+void RpcClient::send(const std::string_view payload, std::function<void(const PacketView&)> cb) {
+  send({}, payload, cb);
+}
+
+std::future<Packet> RpcClient::send(const PacketView& pkt) {
   auto p = std::make_shared<std::promise<Packet>>();
-  send(pkt, [p](a0::PacketView reply) {
-    p->set_value(reply);
+  send(pkt, [p](a0::PacketView resp) {
+    p->set_value(Packet(resp));
   });
   return p->get_future();
 }
 
-std::future<Packet> RpcClient::send(std::string_view payload) {
-  return send(Packet(payload));
+std::future<Packet> RpcClient::send(std::vector<std::pair<std::string, std::string>> headers,
+                                    const std::string_view payload) {
+  return send(PacketView(headers, payload));
 }
 
-void RpcClient::cancel(const std::string& id) {
-  check(a0_rpc_cancel(&*c, id.c_str()));
+std::future<Packet> RpcClient::send(const std::string_view payload) {
+  return send({}, payload);
+}
+
+void RpcClient::cancel(const std::string_view id) {
+  check(a0_rpc_cancel(&*c, id.data()));
 }
 
 PrpcServer PrpcConnection::server() {
@@ -717,20 +826,26 @@ PrpcServer PrpcConnection::server() {
 }
 
 PacketView PrpcConnection::pkt() {
-  return PacketView{.c = c->pkt};
+  return c->pkt;
 }
 
-void PrpcConnection::send(const Packet& pkt, bool done) {
-  check(a0_prpc_send(*c, pkt.c(), done));
+void PrpcConnection::send(const PacketView& pkt, bool done) {
+  check(a0_prpc_send(*c, *pkt.c, done));
 }
 
-void PrpcConnection::send(std::string_view payload, bool done) {
-  send(Packet(payload), done);
+void PrpcConnection::send(std::vector<std::pair<std::string, std::string>> headers,
+                          const std::string_view payload,
+                          bool done) {
+  send(PacketView(std::move(headers), payload), done);
+}
+
+void PrpcConnection::send(const std::string_view payload, bool done) {
+  send({}, payload, done);
 }
 
 PrpcServer::PrpcServer(Shm shm,
                        std::function<void(PrpcConnection)> onconnect,
-                       std::function<void(std::string)> oncancel) {
+                       std::function<void(const std::string_view)> oncancel) {
   CDeleter<a0_prpc_server_t> deleter;
   deleter.also.push_back([shm]() {});
 
@@ -752,7 +867,7 @@ PrpcServer::PrpcServer(Shm shm,
       .fn = nullptr,
   };
   if (oncancel) {
-    auto heap_oncancel = new std::function<void(std::string)>(std::move(oncancel));
+    auto heap_oncancel = new std::function<void(const std::string_view)>(std::move(oncancel));
     deleter.also.push_back([heap_oncancel]() {
       delete heap_oncancel;
     });
@@ -760,7 +875,7 @@ PrpcServer::PrpcServer(Shm shm,
         .user_data = heap_oncancel,
         .fn =
             [](void* user_data, a0_packet_id_t id) {
-              (*(std::function<void(std::string)>*)user_data)(id);
+              (*(std::function<void(const std::string_view)>*)user_data)(id);
             },
     };
   }
@@ -779,9 +894,9 @@ PrpcServer::PrpcServer(Shm shm,
       deleter);
 }
 
-PrpcServer::PrpcServer(const std::string& topic,
+PrpcServer::PrpcServer(const std::string_view topic,
                        std::function<void(PrpcConnection)> onconnect,
-                       std::function<void(std::string)> oncancel)
+                       std::function<void(const std::string_view)> oncancel)
     : PrpcServer(global_topic_manager().prpc_server_topic(topic),
                  std::move(onconnect),
                  std::move(oncancel)) {}
@@ -826,7 +941,7 @@ PrpcClient::PrpcClient(Shm shm) {
       deleter);
 }
 
-PrpcClient::PrpcClient(const std::string& topic)
+PrpcClient::PrpcClient(const std::string_view topic)
     : PrpcClient(global_topic_manager().prpc_client_topic(topic)) {}
 
 void PrpcClient::async_close(std::function<void()> fn) {
@@ -851,28 +966,34 @@ void PrpcClient::async_close(std::function<void()> fn) {
   check(a0_prpc_client_async_close(&*heap_data->c, callback));
 }
 
-void PrpcClient::connect(const Packet& pkt, std::function<void(PacketView, bool)> fn) {
-  auto heap_fn = new std::function<void(PacketView, bool)>(std::move(fn));
+void PrpcClient::connect(const PacketView& pkt, std::function<void(const PacketView&, bool)> fn) {
+  auto heap_fn = new std::function<void(const PacketView&, bool)>(std::move(fn));
   a0_prpc_callback_t callback = {
       .user_data = heap_fn,
       .fn =
-          [](void* user_data, a0_packet_t c_pkt, bool done) {
-            auto* fn = (std::function<void(PacketView, bool)>*)user_data;
-            (*fn)(PacketView{.c = c_pkt}, done);
+          [](void* user_data, a0_packet_t pkt, bool done) {
+            auto* fn = (std::function<void(const PacketView&, bool)>*)user_data;
+            (*fn)(pkt, done);
             if (done) {
               delete fn;
             }
           },
   };
-  check(a0_prpc_connect(&*c, pkt.c(), callback));
+  check(a0_prpc_connect(&*c, *pkt.c, callback));
 }
 
-void PrpcClient::connect(std::string_view payload, std::function<void(PacketView, bool)> fn) {
-  connect(Packet(payload), std::move(fn));
+void PrpcClient::connect(std::vector<std::pair<std::string, std::string>> headers,
+                         const std::string_view payload,
+                         std::function<void(const PacketView&, bool)> cb) {
+  connect(PacketView(std::move(headers), payload), cb);
+}
+void PrpcClient::connect(const std::string_view payload,
+                         std::function<void(const PacketView&, bool)> cb) {
+  connect({}, payload, cb);
 }
 
-void PrpcClient::cancel(const std::string& id) {
-  check(a0_prpc_cancel(&*c, id.c_str()));
+void PrpcClient::cancel(const std::string_view id) {
+  check(a0_prpc_cancel(&*c, id.data()));
 }
 
 }  // namespace a0
