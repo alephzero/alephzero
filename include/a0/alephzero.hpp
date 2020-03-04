@@ -95,6 +95,7 @@ struct TopicManager {
 };
 
 void InitGlobalTopicManager(TopicManager);
+TopicManager& GlobalTopicManager();
 
 struct Publisher {
   std::shared_ptr<a0_publisher_t> c;
@@ -156,6 +157,11 @@ struct Subscriber {
 
 Subscriber onconfig(std::function<void(const PacketView&)>);
 Packet read_config(int flags = 0);
+void write_config(const TopicManager&, const PacketView&);
+void write_config(const TopicManager&,
+                  std::vector<std::pair<std::string, std::string>> headers,
+                  const std::string_view payload);
+void write_config(const TopicManager&, const std::string_view payload);
 
 struct RpcServer;
 
@@ -254,4 +260,4 @@ struct PrpcClient {
   void cancel(const std::string_view);
 };
 
-}  // namespace a0;
+}  // namespace a0

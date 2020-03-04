@@ -23,13 +23,7 @@ TEST_CASE("Test logger") {
   a0_buf_t buf_dbg{arena_dbg.data(), arena_dbg.size()};
 
   a0_logger_t log;
-  REQUIRE_OK(a0_logger_init(
-      &log,
-      buf_crit,
-buf_err,
-buf_warn,
-buf_info,
-buf_dbg));
+  REQUIRE_OK(a0_logger_init(&log, buf_crit, buf_err, buf_warn, buf_info, buf_dbg));
 
   a0_packet_t pkt;
   a0_packet_init(&pkt);
@@ -51,26 +45,23 @@ buf_dbg));
 
   auto REQUIRE_MSG = [](a0_buf_t arena, std::string msg) {
     a0_packet_t read_pkt;
-    REQUIRE_OK(a0_subscriber_read_one(arena,
-                                a0::test::allocator(),
-                                A0_INIT_MOST_RECENT,
-                                0,
-                                &read_pkt));
+    REQUIRE_OK(
+        a0_subscriber_read_one(arena, a0::test::allocator(), A0_INIT_MOST_RECENT, 0, &read_pkt));
     REQUIRE(std::string((char*)read_pkt.payload.ptr) == msg);
   };
 
-REQUIRE_MSG(buf_crit, "crit");
-REQUIRE_MSG(buf_err, "err");
-REQUIRE_MSG(buf_warn, "warn");
-REQUIRE_MSG(buf_info, "info");
-REQUIRE_MSG(buf_dbg, "dbg");
+  REQUIRE_MSG(buf_crit, "crit");
+  REQUIRE_MSG(buf_err, "err");
+  REQUIRE_MSG(buf_warn, "warn");
+  REQUIRE_MSG(buf_info, "info");
+  REQUIRE_MSG(buf_dbg, "dbg");
 
   REQUIRE_OK(a0_logger_close(&log));
 
   REQUIRE(a0_logger_close(&log) == ESHUTDOWN);
   REQUIRE(a0_log_crit(&log, pkt) == ESHUTDOWN);
-REQUIRE(a0_log_err(&log, pkt) == ESHUTDOWN);
-REQUIRE(a0_log_warn(&log, pkt) == ESHUTDOWN);
-REQUIRE(a0_log_info(&log, pkt) == ESHUTDOWN);
-REQUIRE(a0_log_dbg(&log, pkt) == ESHUTDOWN);
+  REQUIRE(a0_log_err(&log, pkt) == ESHUTDOWN);
+  REQUIRE(a0_log_warn(&log, pkt) == ESHUTDOWN);
+  REQUIRE(a0_log_info(&log, pkt) == ESHUTDOWN);
+  REQUIRE(a0_log_dbg(&log, pkt) == ESHUTDOWN);
 }

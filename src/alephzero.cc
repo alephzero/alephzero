@@ -430,13 +430,13 @@ Shm TopicManager::prpc_client_topic(const std::string_view name) const {
       delete_after<a0_shm_t>(a0_shm_close)));
 }
 
-TopicManager& global_topic_manager() {
+TopicManager& GlobalTopicManager() {
   static TopicManager tm;
   return tm;
 }
 
 void InitGlobalTopicManager(TopicManager tm) {
-  global_topic_manager() = std::move(tm);
+  GlobalTopicManager() = std::move(tm);
 }
 
 Publisher::Publisher(Shm shm) {
@@ -451,7 +451,7 @@ Publisher::Publisher(Shm shm) {
 }
 
 Publisher::Publisher(const std::string_view topic)
-    : Publisher(global_topic_manager().publisher_topic(topic)) {}
+    : Publisher(GlobalTopicManager().publisher_topic(topic)) {}
 
 void Publisher::pub(const PacketView& pkt) {
   check(a0_pub(&*c, *pkt.c));
@@ -487,7 +487,7 @@ Logger::Logger(const TopicManager& topic_manager) {
       });
 }
 
-Logger::Logger() : Logger(global_topic_manager()) {}
+Logger::Logger() : Logger(GlobalTopicManager()) {}
 
 void Logger::crit(const PacketView& pkt) {
   check(a0_log_crit(&*c, *pkt.c));
@@ -521,7 +521,7 @@ SubscriberSync::SubscriberSync(Shm shm, a0_subscriber_init_t init, a0_subscriber
 SubscriberSync::SubscriberSync(const std::string_view topic,
                                a0_subscriber_init_t init,
                                a0_subscriber_iter_t iter)
-    : SubscriberSync(global_topic_manager().subscriber_topic(topic), init, iter) {}
+    : SubscriberSync(GlobalTopicManager().subscriber_topic(topic), init, iter) {}
 
 bool SubscriberSync::has_next() {
   bool has_next;
@@ -572,7 +572,7 @@ Subscriber::Subscriber(const std::string_view topic,
                        a0_subscriber_init_t init,
                        a0_subscriber_iter_t iter,
                        std::function<void(const PacketView&)> fn)
-    : Subscriber(global_topic_manager().subscriber_topic(topic), init, iter, std::move(fn)) {}
+    : Subscriber(GlobalTopicManager().subscriber_topic(topic), init, iter, std::move(fn)) {}
 
 void Subscriber::async_close(std::function<void()> fn) {
   auto* deleter = std::get_deleter<CDeleter<a0_subscriber_t>>(c);
@@ -607,17 +607,29 @@ Packet Subscriber::read_one(Shm shm, a0_subscriber_init_t init, int flags) {
 }
 
 Packet Subscriber::read_one(const std::string_view topic, a0_subscriber_init_t init, int flags) {
-  return Subscriber::read_one(global_topic_manager().subscriber_topic(topic), init, flags);
+  return Subscriber::read_one(GlobalTopicManager().subscriber_topic(topic), init, flags);
 }
 
 Subscriber onconfig(std::function<void(const PacketView&)> fn) {
-  return Subscriber(global_topic_manager().config_topic(),
+  return Subscriber(GlobalTopicManager().config_topic(),
                     A0_INIT_MOST_RECENT,
                     A0_ITER_NEWEST,
                     std::move(fn));
 }
 Packet read_config(int flags) {
-  return Subscriber::read_one(global_topic_manager().config_topic(), A0_INIT_MOST_RECENT, flags);
+  return Subscriber::read_one(GlobalTopicManager().config_topic(), A0_INIT_MOST_RECENT, flags);
+}
+void write_config(const TopicManager& tm, const PacketView& pkt) {
+  Publisher p(tm.config_topic());
+  p.pub(pkt);
+}
+void write_config(const TopicManager& tm,
+                  std::vector<std::pair<std::string, std::string>> headers,
+                  const std::string_view payload) {
+  write_config(tm, PacketView(std::move(headers), payload));
+}
+void write_config(const TopicManager& tm, const std::string_view payload) {
+  write_config(tm, {}, payload);
 }
 
 RpcServer RpcRequest::server() {
@@ -698,7 +710,7 @@ RpcServer::RpcServer(Shm shm,
 RpcServer::RpcServer(const std::string_view topic,
                      std::function<void(RpcRequest)> onrequest,
                      std::function<void(const std::string_view)> oncancel)
-    : RpcServer(global_topic_manager().rpc_server_topic(topic),
+    : RpcServer(GlobalTopicManager().rpc_server_topic(topic),
                 std::move(onrequest),
                 std::move(oncancel)) {}
 
@@ -743,7 +755,7 @@ RpcClient::RpcClient(Shm shm) {
 }
 
 RpcClient::RpcClient(const std::string_view topic)
-    : RpcClient(global_topic_manager().rpc_client_topic(topic)) {}
+    : RpcClient(GlobalTopicManager().rpc_client_topic(topic)) {}
 
 void RpcClient::async_close(std::function<void()> fn) {
   auto* deleter = std::get_deleter<CDeleter<a0_rpc_client_t>>(c);
@@ -897,7 +909,7 @@ PrpcServer::PrpcServer(Shm shm,
 PrpcServer::PrpcServer(const std::string_view topic,
                        std::function<void(PrpcConnection)> onconnect,
                        std::function<void(const std::string_view)> oncancel)
-    : PrpcServer(global_topic_manager().prpc_server_topic(topic),
+    : PrpcServer(GlobalTopicManager().prpc_server_topic(topic),
                  std::move(onconnect),
                  std::move(oncancel)) {}
 
@@ -942,7 +954,7 @@ PrpcClient::PrpcClient(Shm shm) {
 }
 
 PrpcClient::PrpcClient(const std::string_view topic)
-    : PrpcClient(global_topic_manager().prpc_client_topic(topic)) {}
+    : PrpcClient(GlobalTopicManager().prpc_client_topic(topic)) {}
 
 void PrpcClient::async_close(std::function<void()> fn) {
   auto* deleter = std::get_deleter<CDeleter<a0_prpc_client_t>>(c);

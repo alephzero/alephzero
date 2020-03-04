@@ -16,6 +16,8 @@ struct CppPubsubFixture {
     a0::Shm::unlink(kTestShm);
 
     shm = a0::Shm(kTestShm, a0::Shm::Options{.size = 16 * 1024 * 1024});
+
+    a0::GlobalTopicManager() = {};
   }
 
   ~CppPubsubFixture() {
@@ -92,6 +94,26 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test topic manager") {
   REQUIRE_THROWS_WITH(tm.subscriber_topic("not_subby"), "Invalid argument");
   REQUIRE_THROWS_WITH(tm.rpc_client_topic("not_rpcy"), "Invalid argument");
   REQUIRE_THROWS_WITH(tm.prpc_client_topic("not_prpcy"), "Invalid argument");
+}
+
+TEST_CASE_FIXTURE(CppPubsubFixture, "Test config") {
+  a0::Shm::unlink("/a0_config__test");
+  a0::Shm::unlink("/a0_config__test_other");
+
+  a0::InitGlobalTopicManager(a0::TopicManager{.container = "test"});
+
+  a0::write_config(a0::GlobalTopicManager(), R"({"foo": "aaa"})");
+  a0::write_config(a0::TopicManager{.container = "test_other"}, R"({"foo": "bbb"})");
+
+  REQUIRE(a0::read_config().payload() == R"({"foo": "aaa"})");
+  a0::GlobalTopicManager().container = "test_other";
+  REQUIRE(a0::read_config().payload() == R"({"foo": "bbb"})");
+
+  a0::write_config(a0::GlobalTopicManager(), R"({"foo": "ccc"})");
+  REQUIRE(a0::read_config().payload() == R"({"foo": "ccc"})");
+
+  a0::Shm::unlink("/a0_config__test");
+  a0::Shm::unlink("/a0_config__test_other");
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub sync") {
