@@ -1,3 +1,6 @@
+#ifndef A0_H
+#define A0_H
+
 #include <a0/alloc.h>
 #include <a0/common.h>
 #include <a0/packet.h>
@@ -10,3 +13,5 @@
 #ifdef __cplusplus
 #include <a0/alephzero.hpp>
 #endif
+
+#endif  // A0_H

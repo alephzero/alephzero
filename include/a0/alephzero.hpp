@@ -1,3 +1,5 @@
+#pragma once
+
 #include <a0/logger.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
