@@ -57,7 +57,7 @@ typedef struct a0_locked_transport_s {
 
 errno_t a0_transport_init(a0_transport_t*,
                           a0_buf_t arena,
-                          a0_buf_t metadata,
+                          size_t metadata_size,
                           a0_transport_init_status_t* status_out,
                           a0_locked_transport_t* lk_out);
 // Awakens all outstanding awaits. Future await attempts fail.

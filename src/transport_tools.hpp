@@ -159,7 +159,7 @@ struct transport_thread {
   std::shared_ptr<state_t> state;
 
   errno_t init(a0_buf_t arena,
-               a0_buf_t metadata,
+               size_t metadata_size,
                std::function<errno_t(a0_locked_transport_t, a0_transport_init_status_t)> on_transport_init,
                std::function<void(a0_locked_transport_t)> on_transport_nonempty,
                std::function<void(a0_locked_transport_t)> on_transport_hasnext) {
@@ -169,7 +169,7 @@ struct transport_thread {
 
     a0_transport_init_status_t init_status;
     a0_locked_transport_t tlk;
-    a0_transport_init(&state->transport, arena, metadata, &init_status, &tlk);
+    a0_transport_init(&state->transport, arena, metadata_size, &init_status, &tlk);
     errno_t err = on_transport_init(tlk, init_status);
     a0_transport_unlock(tlk);
     if (err) {

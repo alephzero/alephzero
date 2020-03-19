@@ -67,13 +67,6 @@ transport_off_t a0_transport_workspace_off(a0_transport_hdr_t* hdr) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_transport_init_metadata(a0_transport_hdr_t* hdr, a0_buf_t metadata) {
-  hdr->metadata_size = metadata.size;
-  memcpy((uint8_t*)hdr + a0_transport_metadata_off(), metadata.ptr, metadata.size);
-  return A0_OK;
-}
-
-A0_STATIC_INLINE
 errno_t a0_transport_init_mutex(pthread_mutex_t* mu) {
   pthread_mutexattr_t mu_attr;
   pthread_mutexattr_init(&mu_attr);
@@ -90,17 +83,17 @@ errno_t a0_transport_init_mutex(pthread_mutex_t* mu) {
 
 A0_STATIC_INLINE
 errno_t a0_transport_init_create(a0_transport_t* transport,
-                                 a0_buf_t metadata,
+                                 size_t metadata_size,
                                  a0_transport_init_status_t* status_out,
                                  a0_locked_transport_t* lk_out) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)transport->_arena.ptr;
 
-  if (sizeof(a0_transport_hdr_t) + metadata.size + 64 >= (uint64_t)transport->_arena.size) {
+  if (sizeof(a0_transport_hdr_t) + metadata_size + 64 >= (uint64_t)transport->_arena.size) {
     return ENOMEM;
   }
 
   hdr->shm_size = transport->_arena.size;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_init_metadata(hdr, metadata));
+  hdr->metadata_size = metadata_size;
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_init_mutex(&hdr->mu));
 
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_lock(transport, lk_out));
@@ -113,7 +106,7 @@ errno_t a0_transport_init_create(a0_transport_t* transport,
 
 errno_t a0_transport_init(a0_transport_t* transport,
                           a0_buf_t arena,
-                          a0_buf_t metadata,
+                          size_t metadata_size,
                           a0_transport_init_status_t* status_out,
                           a0_locked_transport_t* lk_out) {
   // The arena is expected to be either:
@@ -126,7 +119,7 @@ errno_t a0_transport_init(a0_transport_t* transport,
   transport->_arena = arena;
 
   if (!a0_cas(&hdr->init_started, 0, 1)) {
-    return a0_transport_init_create(transport, metadata, status_out, lk_out);
+    return a0_transport_init_create(transport, metadata_size, status_out, lk_out);
   }
 
   // Spin until transport is initialized.

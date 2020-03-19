@@ -40,12 +40,12 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport construct") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.buf, 0, &init_status, &lk));
   REQUIRE_OK(a0_transport_unlock(lk));
   REQUIRE(init_status == A0_TRANSPORT_CREATED);
   REQUIRE_OK(a0_transport_close(&transport));
 
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.buf, 0, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
 
   require_debugstr(lk, R"(
@@ -75,7 +75,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport construct") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test metadata too large") {
+TEST_CASE_FIXTURE(StreamTestFixture, "Test metadata") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
@@ -90,22 +90,18 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test metadata too large") {
       .ptr = (uint8_t*)"Hello, foo!",
       .size = 11,
   };
-  REQUIRE_OK(a0_transport_init(&transport, arena, metadata_orig, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, metadata_orig.size, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CREATED);
 
   a0_buf_t got_metadata;
   REQUIRE_OK(a0_transport_metadata(lk, &got_metadata));
   REQUIRE(got_metadata.size == metadata_orig.size);
-  REQUIRE(!memcmp(got_metadata.ptr, metadata_orig.ptr, metadata_orig.size));
+  memcpy(got_metadata.ptr, metadata_orig.ptr, metadata_orig.size);
 
   REQUIRE_OK(a0_transport_unlock(lk));
   REQUIRE_OK(a0_transport_close(&transport));
 
-  a0_buf_t metadata_repl = {
-      .ptr = (uint8_t*)"Hello, bar!",
-      .size = 11,
-  };
-  REQUIRE_OK(a0_transport_init(&transport, arena, metadata_repl, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, 99, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
   REQUIRE_OK(a0_transport_metadata(lk, &got_metadata));
   REQUIRE(got_metadata.size == metadata_orig.size);
@@ -150,11 +146,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test metadata too large") {
       .size = 1024,
   };
   memset(arena.ptr, 0, arena.size);
-  a0_buf_t metadata = {
-      .ptr = nullptr,
-      .size = 1024,
-  };
-  REQUIRE(a0_transport_init(&transport, arena, metadata, &init_status, &lk) == ENOMEM);
+  REQUIRE(a0_transport_init(&transport, arena, 1024, &init_status, &lk) == ENOMEM);
   free(arena.ptr);
 }
 

@@ -15,12 +15,24 @@
 #include "sync.hpp"
 #include "transport_tools.hpp"
 
+namespace {
+
+struct a0_pubsub_metadata_t {
+  uint64_t transport_seq;
+};
+
+};  // namespace
+
 /////////////////
 //  Publisher  //
 /////////////////
 
+static const char kPublisherSeq[] = "a0_publisher_seq";
+static const char kTransportSeq[] = "a0_transport_seq";
+
 struct a0_publisher_impl_s {
   a0_transport_t transport;
+  uint64_t publisher_seq{0};
 };
 
 errno_t a0_publisher_init(a0_publisher_t* pub, a0_buf_t arena) {
@@ -28,7 +40,11 @@ errno_t a0_publisher_init(a0_publisher_t* pub, a0_buf_t arena) {
 
   a0_transport_init_status_t init_status;
   a0_locked_transport_t tlk;
-  a0_transport_init(&pub->_impl->transport, arena, A0_NONE, &init_status, &tlk);
+  a0_transport_init(&pub->_impl->transport,
+                    arena,
+                    sizeof(a0_pubsub_metadata_t),
+                    &init_status,
+                    &tlk);
   a0_transport_unlock(tlk);
 
   return A0_OK;
@@ -55,10 +71,22 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
   char wall_str[36];
   a0::time_strings(mono_str, wall_str);
 
-  constexpr size_t num_extra_headers = 2;
+  a0::scoped_transport_lock stlk(&pub->_impl->transport);
+
+  char pseq_str[20];
+  a0::to_chars(pseq_str, pseq_str + 20, pub->_impl->publisher_seq++);
+
+  char tseq_str[20];
+  a0_buf_t metadata;
+  a0_transport_metadata(stlk.tlk, &metadata);
+  a0::to_chars(tseq_str, tseq_str + 20, ((a0_pubsub_metadata_t*)metadata.ptr)->transport_seq++);
+
+  constexpr size_t num_extra_headers = 4;
   a0_packet_header_t extra_headers[num_extra_headers] = {
       {kMonoTime, mono_str},
       {kWallTime, wall_str},
+      {kPublisherSeq, pseq_str},
+      {kTransportSeq, tseq_str},
   };
 
   a0_packet_t full_pkt = pkt;
@@ -68,7 +96,6 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
       .next_block = (a0_packet_headers_block_t*)&pkt.headers_block,
   };
 
-  a0::scoped_transport_lock stlk(&pub->_impl->transport);
   A0_INTERNAL_RETURN_ERR_ON_ERR(
       a0_packet_serialize(full_pkt, a0::transport_allocator(&stlk.tlk), nullptr));
   return a0_transport_commit(stlk.tlk);
@@ -99,7 +126,11 @@ errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
 
   a0_transport_init_status_t init_status;
   a0_locked_transport_t tlk;
-  a0_transport_init(&sub_sync_zc->_impl->transport, arena, A0_NONE, &init_status, &tlk);
+  a0_transport_init(&sub_sync_zc->_impl->transport,
+                    arena,
+                    sizeof(a0_pubsub_metadata_t),
+                    &init_status,
+                    &tlk);
   a0_transport_unlock(tlk);
 
   return A0_OK;
@@ -298,7 +329,7 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
   };
 
   return sub_zc->_impl->worker.init(arena,
-                                    A0_NONE,
+                                    sizeof(a0_pubsub_metadata_t),
                                     on_transport_init,
                                     on_transport_nonempty,
                                     on_transport_hasnext);

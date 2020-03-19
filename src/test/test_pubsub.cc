@@ -60,6 +60,16 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
     REQUIRE_OK(a0_publisher_close(&pub));
   }
+  {
+    a0_publisher_t pub;
+    REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
+
+    a0_packet_header_t hdr = {"key", "val"};
+
+    REQUIRE_OK(a0_pub(&pub, make_packet(&hdr, "msg #2")));
+
+    REQUIRE_OK(a0_publisher_close(&pub));
+  }
 
   {
     a0_subscriber_sync_t sub;
@@ -77,7 +87,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
 
-      REQUIRE(pkt.headers_block.size == 3);
+      REQUIRE(pkt.headers_block.size == 5);
       REQUIRE(pkt.headers_block.next_block == nullptr);
 
       std::map<std::string, std::string> hdrs;
@@ -88,12 +98,16 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
       REQUIRE(hdrs.count("key"));
       REQUIRE(hdrs.count("a0_mono_time"));
       REQUIRE(hdrs.count("a0_wall_time"));
+      REQUIRE(hdrs.count("a0_publisher_seq"));
+      REQUIRE(hdrs.count("a0_transport_seq"));
 
       REQUIRE(a0::test::str(pkt.payload) == "msg #0");
 
       REQUIRE(hdrs["key"] == "val");
       REQUIRE(hdrs["a0_mono_time"].size() < 20);
       REQUIRE(hdrs["a0_wall_time"].size() == 35);
+      REQUIRE(hdrs["a0_publisher_seq"] == "0");
+      REQUIRE(hdrs["a0_transport_seq"] == "0");
       REQUIRE(stoull(hdrs["a0_mono_time"]) <
               std::chrono::duration_cast<std::chrono::nanoseconds>(
                   std::chrono::steady_clock::now().time_since_epoch())
@@ -107,7 +121,43 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
+
+      std::map<std::string, std::string> hdrs;
+      for (size_t i = 0; i < pkt.headers_block.size; i++) {
+        auto hdr = pkt.headers_block.headers[i];
+        hdrs[hdr.key] = hdr.val;
+      }
+
       REQUIRE(a0::test::str(pkt.payload) == "msg #1");
+
+      REQUIRE(hdrs["key"] == "val");
+      REQUIRE(hdrs["a0_mono_time"].size() < 20);
+      REQUIRE(hdrs["a0_wall_time"].size() == 35);
+      REQUIRE(hdrs["a0_publisher_seq"] == "1");
+      REQUIRE(hdrs["a0_transport_seq"] == "1");
+    }
+
+    {
+      bool has_next;
+      REQUIRE_OK(a0_subscriber_sync_has_next(&sub, &has_next));
+      REQUIRE(has_next);
+
+      a0_packet_t pkt;
+      REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
+
+      std::map<std::string, std::string> hdrs;
+      for (size_t i = 0; i < pkt.headers_block.size; i++) {
+        auto hdr = pkt.headers_block.headers[i];
+        hdrs[hdr.key] = hdr.val;
+      }
+
+      REQUIRE(a0::test::str(pkt.payload) == "msg #2");
+
+      REQUIRE(hdrs["key"] == "val");
+      REQUIRE(hdrs["a0_mono_time"].size() < 20);
+      REQUIRE(hdrs["a0_wall_time"].size() == 35);
+      REQUIRE(hdrs["a0_publisher_seq"] == "0");
+      REQUIRE(hdrs["a0_transport_seq"] == "2");
     }
 
     {
@@ -134,7 +184,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
 
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
-      REQUIRE(a0::test::str(pkt.payload) == "msg #1");
+      REQUIRE(a0::test::str(pkt.payload) == "msg #2");
     }
 
     {

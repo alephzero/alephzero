@@ -135,7 +135,10 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub sync") {
       for (auto&& kv : pkt_view.headers()) {
         hdr_keys.insert(kv.first);
       }
-      REQUIRE(hdr_keys == std::set<std::string>{"a0_mono_time", "a0_wall_time"});
+      REQUIRE(hdr_keys == std::set<std::string>{"a0_mono_time",
+                                                "a0_wall_time",
+                                                "a0_publisher_seq",
+                                                "a0_transport_seq"});
     }
 
     REQUIRE(pkt_view.payload() == "msg #0");
@@ -154,7 +157,11 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub sync") {
       for (auto&& kv : pkt_view.headers()) {
         hdr_keys.insert(kv.first);
       }
-      REQUIRE(hdr_keys == std::set<std::string>{"key", "a0_mono_time", "a0_wall_time"});
+      REQUIRE(hdr_keys == std::set<std::string>{"key",
+                                                "a0_mono_time",
+                                                "a0_wall_time",
+                                                "a0_publisher_seq",
+                                                "a0_transport_seq"});
     }
 
     REQUIRE(!sub.has_next());
