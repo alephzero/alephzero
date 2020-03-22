@@ -95,6 +95,8 @@ errno_t a0_transport_frame(a0_locked_transport_t, a0_transport_frame_t* frame_ou
 // Note: if an alloc evicts an old frame, that frame is lost, even if no
 // commit call is issued.
 errno_t a0_transport_alloc(a0_locked_transport_t, size_t, a0_transport_frame_t* frame_out);
+// Whether an alloc would evict.
+errno_t a0_transport_alloc_evicts(a0_locked_transport_t, size_t, bool*);
 errno_t a0_transport_commit(a0_locked_transport_t);
 
 #ifdef __cplusplus

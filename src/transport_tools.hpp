@@ -158,11 +158,12 @@ struct transport_thread {
 
   std::shared_ptr<state_t> state;
 
-  errno_t init(a0_buf_t arena,
-               size_t metadata_size,
-               std::function<errno_t(a0_locked_transport_t, a0_transport_init_status_t)> on_transport_init,
-               std::function<void(a0_locked_transport_t)> on_transport_nonempty,
-               std::function<void(a0_locked_transport_t)> on_transport_hasnext) {
+  errno_t init(
+      a0_buf_t arena,
+      size_t metadata_size,
+      std::function<errno_t(a0_locked_transport_t, a0_transport_init_status_t)> on_transport_init,
+      std::function<void(a0_locked_transport_t)> on_transport_nonempty,
+      std::function<void(a0_locked_transport_t)> on_transport_hasnext) {
     state = std::make_shared<state_t>();
     state->on_transport_nonempty = on_transport_nonempty;
     state->on_transport_hasnext = on_transport_hasnext;

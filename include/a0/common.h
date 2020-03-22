@@ -23,7 +23,8 @@ typedef struct a0_callback_s {
   void (*fn)(void* user_data);
 } a0_callback_t;
 
-#define A0_NONE { 0 }
+#define A0_NONE \
+  { 0 }
 
 #ifdef __cplusplus
 }

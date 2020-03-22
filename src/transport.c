@@ -500,6 +500,21 @@ void a0_transport_update_tail(a0_transport_hdr_t* hdr,
   state->off_tail = frame_hdr->off;
 }
 
+errno_t a0_transport_alloc_evicts(a0_locked_transport_t lk, size_t size, bool* out) {
+  size_t frame_size = sizeof(a0_transport_frame_hdr_t) + size;
+
+  transport_off_t off;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_find_slot(lk, frame_size, &off));
+
+  transport_off_t head_off;
+  size_t head_size;
+  a0_transport_state_t* state = a0_transport_working_page(lk);
+  *out = a0_transport_head_interval(lk, state, &head_off, &head_size) &&
+         a0_transport_frame_intersects(off, frame_size, head_off, head_size);
+
+  return A0_OK;
+}
+
 errno_t a0_transport_alloc(a0_locked_transport_t lk, size_t size, a0_transport_frame_t* frame_out) {
   size_t frame_size = sizeof(a0_transport_frame_hdr_t) + size;
 

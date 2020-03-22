@@ -277,6 +277,29 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport alloc/commit") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
+TEST_CASE_FIXTURE(StreamTestFixture, "Test transport alloc/commit") {
+  a0_transport_t transport;
+  a0_transport_init_status_t init_status;
+  a0_locked_transport_t lk;
+  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+
+  bool evicts;
+
+  REQUIRE_OK(a0_transport_alloc_evicts(lk, 2 * 1024, &evicts));
+  REQUIRE(!evicts);
+
+  a0_transport_frame_t frame;
+  REQUIRE_OK(a0_transport_alloc(lk, 2 * 1024, &frame));
+
+  REQUIRE_OK(a0_transport_alloc_evicts(lk, 2 * 1024, &evicts));
+  REQUIRE(evicts);
+
+  REQUIRE(a0_transport_alloc_evicts(lk, 4 * 1024, &evicts) == EOVERFLOW);
+
+  REQUIRE_OK(a0_transport_unlock(lk));
+  REQUIRE_OK(a0_transport_close(&transport));
+}
+
 TEST_CASE_FIXTURE(StreamTestFixture, "Test transport iteration") {
   // Create transport and close it.
   {
