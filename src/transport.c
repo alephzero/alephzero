@@ -540,6 +540,20 @@ errno_t a0_transport_alloc(a0_locked_transport_t lk, size_t size, a0_transport_f
   return A0_OK;
 }
 
+A0_STATIC_INLINE
+void a0_transport_allocator_impl(void* user_data, size_t size, a0_buf_t* buf_out) {
+  a0_transport_frame_t frame;
+  a0_transport_alloc(*(a0_locked_transport_t*)user_data, size, &frame);
+  buf_out->ptr = frame.data;
+  buf_out->size = frame.hdr.data_size;
+}
+
+errno_t a0_transport_allocator(a0_locked_transport_t* lk, a0_alloc_t* alloc_out) {
+  alloc_out->user_data = lk;
+  alloc_out->fn = a0_transport_allocator_impl;
+  return A0_OK;
+}
+
 errno_t a0_transport_commit(a0_locked_transport_t lk) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
   // Assume page A was the previously committed page and page B is the working

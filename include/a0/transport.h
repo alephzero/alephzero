@@ -1,6 +1,7 @@
 #ifndef A0_TRANSPORT_H
 #define A0_TRANSPORT_H
 
+#include <a0/alloc.h>
 #include <a0/common.h>
 
 #include <stdbool.h>
@@ -97,6 +98,7 @@ errno_t a0_transport_frame(a0_locked_transport_t, a0_transport_frame_t* frame_ou
 errno_t a0_transport_alloc(a0_locked_transport_t, size_t, a0_transport_frame_t* frame_out);
 // Whether an alloc would evict.
 errno_t a0_transport_alloc_evicts(a0_locked_transport_t, size_t, bool*);
+errno_t a0_transport_allocator(a0_locked_transport_t*, a0_alloc_t*);
 errno_t a0_transport_commit(a0_locked_transport_t);
 
 #ifdef __cplusplus

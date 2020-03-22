@@ -96,8 +96,9 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
       .next_block = (a0_packet_headers_block_t*)&pkt.headers_block,
   };
 
-  A0_INTERNAL_RETURN_ERR_ON_ERR(
-      a0_packet_serialize(full_pkt, a0::transport_allocator(&stlk.tlk), nullptr));
+  a0_alloc_t alloc;
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_allocator(&stlk.tlk, &alloc));
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_serialize(full_pkt, alloc, nullptr));
   return a0_transport_commit(stlk.tlk);
 }
 

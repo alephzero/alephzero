@@ -102,18 +102,6 @@ struct scoped_transport_unlock {
   }
 };
 
-inline a0_alloc_t transport_allocator(a0_locked_transport_t* tlk) {
-  return a0_alloc_t{
-      .user_data = tlk,
-      .fn =
-          [](void* data, size_t size, a0_buf_t* out) {
-            a0_transport_frame_t frame;
-            a0_transport_alloc(*(a0_locked_transport_t*)data, size, &frame);
-            *out = buf(frame);
-          },
-  };
-}
-
 struct transport_thread {
   struct state_t {
     a0_transport_t transport;
