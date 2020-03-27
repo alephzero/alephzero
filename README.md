@@ -4,6 +4,8 @@ TODO: What is it? Why is it? Who is it????
 
 See https://github.com/alephzero/playground for examples.
 
+[Presentation from March 25, 2020]( https://docs.google.com/presentation/d/12KE9UucjZPtpVnM1NljxOqBolBBKECWJdrCoE2yJaBw/edit#slide=id.p)
+
 ## Install Instructions
 
 ```sh
