@@ -40,11 +40,6 @@ void robust_init() {
 }
 
 A0_STATIC_INLINE
-bool robust_empty() {
-  return a0_robust_head.list.next == &a0_robust_head.list;
-}
-
-A0_STATIC_INLINE
 bool robust_is_head(a0_mtx_t* mtx) {
   return mtx == (a0_mtx_t*)&a0_robust_head;
 }

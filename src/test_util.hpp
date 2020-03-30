@@ -7,11 +7,10 @@
 #include <mutex>
 #include <set>
 #include <string>
+#include <unistd.h>
 
 #include "src/sync.hpp"
 #include "src/transport_tools.hpp"
-
-#define REQUIRE_OK(err) REQUIRE((err) == A0_OK);
 
 namespace a0 {
 namespace test {
@@ -71,5 +70,23 @@ inline bool is_valgrind() {
   return env && std::string(env) != "0";
 }
 
+template <typename Fn>
+inline pid_t subproc(Fn&& fn) {
+  pid_t pid = fork();
+  if (!pid) {
+    fn();
+    exit(0);
+  }
+  return pid;
+}
+
 }  // namespace test
 }  // namespace a0
+
+#define REQUIRE_OK(err) REQUIRE((err) == A0_OK);
+#define REQUIRE_EXIT(FN_BODY)                                            \
+  {                                                                      \
+    int _ret_code_##__LINE__;                                            \
+    waitpid(a0::test::subproc([&]() FN_BODY), &_ret_code_##__LINE__, 0); \
+    REQUIRE(WIFEXITED(_ret_code_##__LINE__));                            \
+  }
