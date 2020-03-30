@@ -3,6 +3,8 @@
 
 #include <a0/common.h>
 
+#include <time.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -10,8 +12,11 @@ extern "C" {
 extern const char kMonoTime[];
 extern const char kWallTime[];
 
-errno_t a0_time_mono_str(char mono_str[20]);
-errno_t a0_time_wall_str(char wall_str[36]);
+errno_t a0_time_mono_now(uint64_t*);
+errno_t a0_time_wall_now(timespec*);
+
+errno_t a0_time_mono_str(uint64_t, char mono_str[20]);
+errno_t a0_time_wall_str(timespec, char wall_str[36]);
 
 #ifdef __cplusplus
 }

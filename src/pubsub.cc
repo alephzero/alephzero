@@ -69,11 +69,15 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
     return ESHUTDOWN;
   }
 
+  uint64_t mono_time;
+  a0_time_mono_now(&mono_time);
   char mono_str[20];
-  a0_time_mono_str(mono_str);
+  a0_time_mono_str(mono_time, mono_str);
 
+  timespec wall_time;
+  a0_time_wall_now(&wall_time);
   char wall_str[36];
-  a0_time_wall_str(wall_str);
+  a0_time_wall_str(wall_time, wall_str);
 
   a0::scoped_transport_lock stlk(&pub->_impl->transport);
 
