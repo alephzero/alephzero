@@ -2,6 +2,7 @@
 #include <a0/common.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
+#include <a0/time.h>
 #include <a0/transport.h>
 
 #include <errno.h>
@@ -13,6 +14,7 @@
 #include "macros.h"
 #include "scope.hpp"
 #include "sync.hpp"
+#include "to_chars.hpp"
 #include "transport_tools.hpp"
 
 namespace {
@@ -68,8 +70,10 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
   }
 
   char mono_str[20];
+  a0_time_mono_str(mono_str);
+
   char wall_str[36];
-  a0::time_strings(mono_str, wall_str);
+  a0_time_wall_str(wall_str);
 
   a0::scoped_transport_lock stlk(&pub->_impl->transport);
 
