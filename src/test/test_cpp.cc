@@ -25,7 +25,7 @@ struct CppPubsubFixture {
   }
 };
 
-TEST_CASE_FIXTURE(CppPubsubFixture, "Test shm") {
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
   REQUIRE(shm.path() == kTestShm);
 
   shm = a0::Shm(kTestShm);
@@ -33,7 +33,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test shm") {
   REQUIRE(shm.c->buf.size == 16 * 1024 * 1024);
 }
 
-TEST_CASE_FIXTURE(CppPubsubFixture, "Test pkt") {
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
   a0::Packet pkt({{"hdr-key", "hdr-val"}}, "Hello, World!");
   REQUIRE(pkt.payload() == "Hello, World!");
   REQUIRE(pkt.headers().size() == 1);
@@ -56,7 +56,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test pkt") {
   REQUIRE(pkt.payload().data() != pkt2.payload().data());
 }
 
-TEST_CASE_FIXTURE(CppPubsubFixture, "Test topic manager") {
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] topic manager") {
   a0::TopicManager tm = {
       .container = "aaa",
       .subscriber_aliases =
@@ -96,7 +96,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test topic manager") {
   REQUIRE_THROWS_WITH(tm.prpc_client_topic("not_prpcy"), "Invalid argument");
 }
 
-TEST_CASE_FIXTURE(CppPubsubFixture, "Test config") {
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] config") {
   a0::Shm::unlink("/a0_config__test");
   a0::Shm::unlink("/a0_config__test_other");
 
@@ -116,7 +116,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test config") {
   a0::Shm::unlink("/a0_config__test_other");
 }
 
-TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub sync") {
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub sync") {
   a0::Publisher p(shm);
 
   p.pub("msg #0");
@@ -177,7 +177,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub sync") {
   }
 }
 
-TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub") {
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub") {
   a0::Publisher p(shm);
   p.pub("msg #0");
   p.pub("msg #1");
@@ -210,7 +210,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test pubsub") {
                       "Resource temporarily unavailable");
 }
 
-TEST_CASE_FIXTURE(CppPubsubFixture, "Test rpc") {
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] rpc") {
   auto onrequest = [](a0::RpcRequest req) {
     REQUIRE(req.pkt().payload() == "foo");
     req.reply("bar");
@@ -238,7 +238,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test rpc") {
   cancel_event.wait();
 }
 
-TEST_CASE_FIXTURE(CppPubsubFixture, "Test rpc null callback") {
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] rpc null callback") {
   a0::Event req_evt;
   auto onrequest = [&](a0::RpcRequest) {
     req_evt.set();
@@ -255,7 +255,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test rpc null callback") {
   req_evt.wait();
 }
 
-TEST_CASE_FIXTURE(CppPubsubFixture, "Test prpc") {
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] prpc") {
   auto onconnect = [](a0::PrpcConnection conn) {
     REQUIRE(conn.pkt().payload() == "foo");
     conn.send("msg #0", false);
@@ -293,7 +293,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "Test prpc") {
   cancel_event.wait();
 }
 
-TEST_CASE_FIXTURE(CppPubsubFixture, "Test prpc null callback") {
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] prpc null callback") {
   auto onconnect = [](a0::PrpcConnection conn) {
     conn.send("msg", true);
   };

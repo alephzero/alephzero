@@ -6,7 +6,7 @@
 
 #include "src/test_util.hpp"
 
-TEST_CASE("Test packet init") {
+TEST_CASE("packet] init") {
   a0_packet_t pkt;
   REQUIRE_OK(a0_packet_init(&pkt));
 
@@ -27,7 +27,7 @@ TEST_CASE("Test packet init") {
   REQUIRE(pkt.payload.size == 0);
 }
 
-TEST_CASE("Test packet stats") {
+TEST_CASE("packet] stats") {
   a0_packet_header_t grp_a[2] = {
       {"a", "b"},
       {"c", "d"},
@@ -68,7 +68,7 @@ TEST_CASE("Test packet stats") {
   REQUIRE(stats.serial_size == want_serial_size);
 }
 
-TEST_CASE("Test packet for_each_header") {
+TEST_CASE("packet] for_each_header") {
   a0_packet_header_t grp_a[2] = {
       {"a", "b"},
       {"c", "d"},
@@ -103,7 +103,7 @@ TEST_CASE("Test packet for_each_header") {
                 });
 }
 
-TEST_CASE("Test packet serialize deserialize") {
+TEST_CASE("packet] serialize deserialize") {
   a0_packet_header_t grp_a[2] = {
       {"a", "b"},
       {"c", "d"},
@@ -150,7 +150,7 @@ TEST_CASE("Test packet serialize deserialize") {
                 });
 }
 
-TEST_CASE("Test packet deep_copy") {
+TEST_CASE("packet] deep_copy") {
   a0_packet_header_t grp_a[2] = {
       {"a", "b"},
       {"c", "d"},

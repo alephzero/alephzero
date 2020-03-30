@@ -9,7 +9,7 @@
 
 #include "src/test_util.hpp"
 
-TEST_CASE("Test logger") {
+TEST_CASE("logger] basic") {
   std::vector<uint8_t> arena_crit(1 * 1024 * 1024);
   std::vector<uint8_t> arena_err(1 * 1024 * 1024);
   std::vector<uint8_t> arena_warn(1 * 1024 * 1024);

@@ -28,7 +28,7 @@ struct RpcFixture {
   }
 };
 
-TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
+TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
   struct data_t {
     size_t reply_cnt;
     size_t cancel_cnt;
@@ -99,7 +99,7 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc") {
   REQUIRE_OK(a0_rpc_server_close(&server));
 }
 
-TEST_CASE_FIXTURE(RpcFixture, "Test rpc empty oncancel onreply") {
+TEST_CASE_FIXTURE(RpcFixture, "rpc] empty oncancel onreply") {
   a0_rpc_request_callback_t onrequest = {
       .user_data = nullptr,
       .fn =
@@ -132,7 +132,7 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc empty oncancel onreply") {
   REQUIRE_OK(a0_rpc_server_close(&server));
 }
 
-TEST_CASE_FIXTURE(RpcFixture, "Test rpc server async close") {
+TEST_CASE_FIXTURE(RpcFixture, "rpc] server async close") {
   struct data_t {
     size_t reply_cnt;
     size_t close_cnt;
@@ -194,7 +194,7 @@ TEST_CASE_FIXTURE(RpcFixture, "Test rpc server async close") {
   REQUIRE_OK(a0_rpc_client_close(&client));
 }
 
-TEST_CASE_FIXTURE(RpcFixture, "Test rpc client async close") {
+TEST_CASE_FIXTURE(RpcFixture, "rpc] client async close") {
   a0_rpc_request_callback_t onrequest = {
       .user_data = nullptr,
       .fn =

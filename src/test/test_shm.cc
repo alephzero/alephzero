@@ -8,17 +8,17 @@
 
 static const char* kTestShm = "/test.shm";
 
-struct ShmObjTestFixture {
-  ShmObjTestFixture() {
+struct ShmTestFixture {
+  ShmTestFixture() {
     a0_shm_unlink(kTestShm);
   }
 
-  ~ShmObjTestFixture() {
+  ~ShmTestFixture() {
     a0_shm_unlink(kTestShm);
   }
 };
 
-TEST_CASE_FIXTURE(ShmObjTestFixture, "Test shared memory objects") {
+TEST_CASE_FIXTURE(ShmTestFixture, "shm] basic") {
   a0_shm_t shm;
   REQUIRE(a0_shm_open(kTestShm, nullptr, &shm) == EINVAL);
 
@@ -50,7 +50,7 @@ TEST_CASE_FIXTURE(ShmObjTestFixture, "Test shared memory objects") {
   }
 }
 
-TEST_CASE_FIXTURE(ShmObjTestFixture, "Test shared memory bad path") {
+TEST_CASE_FIXTURE(ShmTestFixture, "shm] bad path") {
   a0_shm_options_t shmopt;
   shmopt.size = 16 * 1024 * 1024;
 

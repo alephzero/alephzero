@@ -7,7 +7,7 @@
 
 #include "src/test_util.hpp"
 
-TEST_CASE("Test malloc") {
+TEST_CASE("alloc] malloc") {
   auto alloc = a0_malloc_allocator();
 
   a0_buf_t buf_0;
@@ -27,7 +27,7 @@ TEST_CASE("Test malloc") {
   a0_free_malloc_allocator(alloc);
 }
 
-TEST_CASE("Test realloc") {
+TEST_CASE("alloc] realloc") {
   auto alloc = a0_realloc_allocator();
   a0_buf_t buf_0;
   alloc.fn(alloc.user_data, 10, &buf_0);

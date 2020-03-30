@@ -28,7 +28,7 @@ struct PrpcFixture {
   }
 };
 
-TEST_CASE_FIXTURE(PrpcFixture, "Test prpc") {
+TEST_CASE_FIXTURE(PrpcFixture, "prpc] basic") {
   struct data_t {
     size_t msg_cnt;
     size_t done_cnt;
@@ -85,7 +85,7 @@ TEST_CASE_FIXTURE(PrpcFixture, "Test prpc") {
   REQUIRE_OK(a0_prpc_server_close(&server));
 }
 
-TEST_CASE_FIXTURE(PrpcFixture, "Test cancel prpc") {
+TEST_CASE_FIXTURE(PrpcFixture, "prpc] cancel") {
   struct data_t {
     size_t msg_cnt;
     size_t cancel_cnt;
@@ -152,7 +152,7 @@ TEST_CASE_FIXTURE(PrpcFixture, "Test cancel prpc") {
   REQUIRE_OK(a0_prpc_server_close(&server));
 }
 
-TEST_CASE_FIXTURE(PrpcFixture, "Test prpc server async close") {
+TEST_CASE_FIXTURE(PrpcFixture, "prpc] server async close") {
   struct data_t {
     size_t msg_cnt;
     size_t done_cnt;
@@ -223,7 +223,7 @@ TEST_CASE_FIXTURE(PrpcFixture, "Test prpc server async close") {
   REQUIRE_OK(a0_prpc_client_close(&client));
 }
 
-TEST_CASE_FIXTURE(PrpcFixture, "Test prpc client async close") {
+TEST_CASE_FIXTURE(PrpcFixture, "prpc] client async close") {
   a0_prpc_connection_callback_t onconnect = {
       .user_data = nullptr,
       .fn =

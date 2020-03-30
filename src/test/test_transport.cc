@@ -36,7 +36,7 @@ struct StreamTestFixture {
   a0_shm_t shm;
 };
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test transport construct") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] construct") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
@@ -75,7 +75,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport construct") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test metadata") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
@@ -136,7 +136,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test metadata") {
   free(arena.ptr);
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test metadata too large") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata too large") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
@@ -150,7 +150,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test metadata too large") {
   free(arena.ptr);
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test transport alloc/commit") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
@@ -199,31 +199,31 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport alloc/commit") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 160,
-      "off_tail": 160
+      "off_head": 144,
+      "off_tail": 144
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 160,
-      "off_tail": 224
+      "off_head": 144,
+      "off_tail": 208
     }
   },
   "metadata": "",
   "data": [
     {
-      "off": 160,
+      "off": 144,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 224,
+      "next_off": 208,
       "data_size": 10,
       "data": "0123456789"
     },
     {
       "committed": false,
-      "off": 224,
+      "off": 208,
       "seq": 2,
-      "prev_off": 160,
+      "prev_off": 144,
       "next_off": 0,
       "data_size": 40,
       "data": "01234567890123456789012345678..."
@@ -241,30 +241,30 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport alloc/commit") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 160,
-      "off_tail": 224
+      "off_head": 144,
+      "off_tail": 208
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 160,
-      "off_tail": 224
+      "off_head": 144,
+      "off_tail": 208
     }
   },
   "metadata": "",
   "data": [
     {
-      "off": 160,
+      "off": 144,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 224,
+      "next_off": 208,
       "data_size": 10,
       "data": "0123456789"
     },
     {
-      "off": 224,
+      "off": 208,
       "seq": 2,
-      "prev_off": 160,
+      "prev_off": 144,
       "next_off": 0,
       "data_size": 40,
       "data": "01234567890123456789012345678..."
@@ -277,7 +277,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport alloc/commit") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test transport alloc/commit") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
@@ -300,7 +300,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport alloc/commit") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test transport iteration") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
   // Create transport and close it.
   {
     a0_transport_t transport;
@@ -397,7 +397,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport iteration") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test empty jumps") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] empty jumps") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
@@ -420,7 +420,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test empty jumps") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test transport wrap around") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] wrap around") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
@@ -442,38 +442,38 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport wrap around") {
     "committed_state": {
       "seq_low": 18,
       "seq_high": 20,
-      "off_head": 2304,
-      "off_tail": 1232
+      "off_head": 2288,
+      "off_tail": 1216
     },
     "working_state": {
       "seq_low": 18,
       "seq_high": 20,
-      "off_head": 2304,
-      "off_tail": 1232
+      "off_head": 2288,
+      "off_tail": 1216
     }
   },
   "metadata": "",
   "data": [
     {
-      "off": 2304,
+      "off": 2288,
       "seq": 18,
       "prev_off": 0,
-      "next_off": 160,
+      "next_off": 144,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     },
     {
-      "off": 160,
+      "off": 144,
       "seq": 19,
-      "prev_off": 2304,
-      "next_off": 1232,
+      "prev_off": 2288,
+      "next_off": 1216,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     },
     {
-      "off": 1232,
+      "off": 1216,
       "seq": 20,
-      "prev_off": 160,
+      "prev_off": 144,
       "next_off": 0,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
@@ -486,7 +486,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport wrap around") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test expired next") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] expired next") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
@@ -545,7 +545,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test expired next") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test transport large alloc") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] large alloc") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
@@ -566,20 +566,20 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport large alloc") {
     "committed_state": {
       "seq_low": 5,
       "seq_high": 5,
-      "off_head": 160,
-      "off_tail": 160
+      "off_head": 144,
+      "off_tail": 144
     },
     "working_state": {
       "seq_low": 5,
       "seq_high": 5,
-      "off_head": 160,
-      "off_tail": 160
+      "off_head": 144,
+      "off_tail": 144
     }
   },
   "metadata": "",
   "data": [
     {
-      "off": 160,
+      "off": 144,
       "seq": 5,
       "prev_off": 0,
       "next_off": 0,
@@ -613,7 +613,7 @@ void fork_sleep_push(a0_transport_t* transport, const std::string& str) {
   }
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test transport await") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] await") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
@@ -647,7 +647,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport await") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test transport robust") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
   int child_pid = fork();
   if (!child_pid) {
     a0_transport_t transport;
@@ -686,31 +686,31 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport robust") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 160,
-      "off_tail": 160
+      "off_head": 144,
+      "off_tail": 144
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 160,
-      "off_tail": 208
+      "off_head": 144,
+      "off_tail": 192
     }
   },
   "metadata": "",
   "data": [
     {
-      "off": 160,
+      "off": 144,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 208,
+      "next_off": 192,
       "data_size": 3,
       "data": "YES"
     },
     {
       "committed": false,
-      "off": 208,
+      "off": 192,
       "seq": 2,
-      "prev_off": 160,
+      "prev_off": 144,
       "next_off": 0,
       "data_size": 2,
       "data": "NO"
@@ -740,23 +740,23 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport robust") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 160,
-      "off_tail": 160
+      "off_head": 144,
+      "off_tail": 144
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 160,
-      "off_tail": 160
+      "off_head": 144,
+      "off_tail": 144
     }
   },
   "metadata": "",
   "data": [
     {
-      "off": 160,
+      "off": 144,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 208,
+      "next_off": 192,
       "data_size": 3,
       "data": "YES"
     }
@@ -782,7 +782,7 @@ std::string random_string(size_t length) {
   return str;
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test transport robust fuzz") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust fuzz") {
   int child_pid = fork();
   if (!child_pid) {
     a0_transport_t transport;
@@ -845,7 +845,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "Test transport robust fuzz") {
 
 static const char kCopyShm[] = "/copy.shm";
 
-TEST_CASE_FIXTURE(StreamTestFixture, "Test transport robust copy") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy") {
   std::string str = "Original String";
 
   int child_pid = fork();

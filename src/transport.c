@@ -1,4 +1,5 @@
 #include <a0/common.h>
+#include <a0/shm_sync.h>
 #include <a0/transport.h>
 
 #include <errno.h>
@@ -26,7 +27,7 @@ typedef struct a0_transport_hdr_s {
   bool init_started;
   bool init_completed;
 
-  pthread_mutex_t mu;
+  a0_mtx_t mu;
 
   a0_futex_t fucv;
   uint32_t next_fucv_tkn;
@@ -67,21 +68,6 @@ transport_off_t a0_transport_workspace_off(a0_transport_hdr_t* hdr) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_transport_init_mutex(pthread_mutex_t* mu) {
-  pthread_mutexattr_t mu_attr;
-  pthread_mutexattr_init(&mu_attr);
-
-  pthread_mutexattr_setpshared(&mu_attr, PTHREAD_PROCESS_SHARED);
-  pthread_mutexattr_setrobust(&mu_attr, PTHREAD_MUTEX_ROBUST);
-  pthread_mutexattr_settype(&mu_attr, PTHREAD_MUTEX_ERRORCHECK);
-
-  pthread_mutex_init(mu, &mu_attr);
-  pthread_mutexattr_destroy(&mu_attr);
-
-  return A0_OK;
-}
-
-A0_STATIC_INLINE
 errno_t a0_transport_init_create(a0_transport_t* transport,
                                  size_t metadata_size,
                                  a0_transport_init_status_t* status_out,
@@ -94,7 +80,7 @@ errno_t a0_transport_init_create(a0_transport_t* transport,
 
   hdr->shm_size = transport->_arena.size;
   hdr->metadata_size = metadata_size;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_init_mutex(&hdr->mu));
+  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_mtx_init(&hdr->mu));
 
   A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_lock(transport, lk_out));
   A0_TSAN_ANNOTATE_HAPPENS_BEFORE(&hdr->init_completed);
@@ -171,10 +157,10 @@ errno_t a0_transport_lock(a0_transport_t* transport, a0_locked_transport_t* lk_o
 
   lk_out->transport = transport;
 
-  errno_t lock_status = pthread_mutex_lock(&hdr->mu);
+  errno_t lock_status = a0_mtx_lock(&hdr->mu);
   if (A0_UNLIKELY(lock_status == EOWNERDEAD)) {
     // The data is always consistent by design.
-    lock_status = pthread_mutex_consistent(&hdr->mu);
+    lock_status = a0_mtx_consistent(&hdr->mu);
     a0_schedule_notify(*lk_out);
   }
 
@@ -199,7 +185,7 @@ errno_t a0_transport_unlock(a0_locked_transport_t lk) {
     hdr->fucv = lk.transport->_lk_tkn;
     a0_futex_broadcast(&hdr->fucv);
   }
-  pthread_mutex_unlock(&hdr->mu);
+  a0_mtx_unlock(&hdr->mu);
   return A0_OK;
 }
 

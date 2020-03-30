@@ -15,7 +15,7 @@
 #include "src/strutil.hpp"
 #include "src/test_util.hpp"
 
-TEST_CASE("Test topic manager") {
+TEST_CASE("topic_manager] basic") {
   a0_topic_alias_t subscriber_aliases[2] = {{
       .name = "ps0",
       .target_container = "ps0_container",

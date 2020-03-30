@@ -48,7 +48,7 @@ struct PubsubFixture {
   }
 };
 
-TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   {
     a0_publisher_t pub;
     REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
@@ -197,7 +197,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub sync") {
   }
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub seek immediately await_new") {
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately await_new") {
   a0::sync<std::string> msg;
 
   a0_packet_callback_t cb = {
@@ -232,7 +232,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub seek immediately await_new") {
   REQUIRE_OK(a0_subscriber_close(&sub));
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub seek immediately most_recent") {
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately most_recent") {
   a0::sync<std::string> msg;
 
   a0_packet_callback_t cb = {
@@ -271,7 +271,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub seek immediately most_recent") {
   REQUIRE_OK(a0_subscriber_close(&sub));
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
   {
     a0_publisher_t pub;
     REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
@@ -312,7 +312,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub multithread") {
   REQUIRE_OK(a0_subscriber_close(&sub));
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub read one") {
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // TODO: Blocking, oldest, not available.
   // TODO: Blocking, most recent, not available.
   // TODO: Blocking, await new.
@@ -391,11 +391,11 @@ TEST_CASE_FIXTURE(PubsubFixture, "Test pubsub read one") {
   }
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "Test close before publish") {
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] close before publish") {
   // TODO(mac): DO THIS.
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "Test Pubsub many publisher fuzz") {
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
   constexpr int NUM_THREADS = 10;
   constexpr int NUM_PACKETS = 500;
   std::vector<std::thread> threads;

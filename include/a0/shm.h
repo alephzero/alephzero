@@ -1,5 +1,5 @@
-#ifndef A0_SHMOBJ_H
-#define A0_SHMOBJ_H
+#ifndef A0_SHM_H
+#define A0_SHM_H
 
 #include <a0/common.h>
 
@@ -33,4 +33,4 @@ errno_t a0_shm_close(a0_shm_t*);
 }
 #endif
 
-#endif  // A0_SHMOBJ_H
+#endif  // A0_SHM_H

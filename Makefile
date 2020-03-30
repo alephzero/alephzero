@@ -55,7 +55,7 @@ ubsan: LDFLAGS += -fsanitize=undefined -lubsan
 ifeq ($(DEBUG), 1)
 	CXFLAGS += -O0 -g3 -ggdb3 -DDEBUG
 else
-	CXFLAGS += -O2
+	CXFLAGS += -O2 -DNDEBUG
 endif
 
 ifeq ($(PROFILE), 1)
