@@ -204,7 +204,7 @@ TEST_CASE_FIXTURE(ShmSyncTestFixture, "shm_sync] owner died with lock, not consi
   });
 }
 
-TEST_CASE_FIXTURE(ShmSyncTestFixture, "shm_sync] owner died with lock, consistent, lock XXXX") {
+TEST_CASE_FIXTURE(ShmSyncTestFixture, "shm_sync] owner died with lock, consistent, lock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 

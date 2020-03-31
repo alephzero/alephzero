@@ -11,6 +11,50 @@
 
 #include "macros.h"
 
+const unsigned __tsan_mutex_linker_init = 1 << 0;
+const unsigned __tsan_mutex_write_reentrant = 1 << 1;
+const unsigned __tsan_mutex_read_reentrant = 1 << 2;
+const unsigned __tsan_mutex_not_static = 1 << 8;
+const unsigned __tsan_mutex_read_lock = 1 << 3;
+const unsigned __tsan_mutex_try_lock = 1 << 4;
+const unsigned __tsan_mutex_try_lock_failed = 1 << 5;
+const unsigned __tsan_mutex_recursive_lock = 1 << 6;
+const unsigned __tsan_mutex_recursive_unlock = 1 << 7;
+
+#ifdef A0_TSAN_ENABLED
+
+void __tsan_mutex_create(void* addr, unsigned flags);
+void __tsan_mutex_destroy(void* addr, unsigned flags);
+void __tsan_mutex_pre_lock(void* addr, unsigned flags);
+void __tsan_mutex_post_lock(void* addr, unsigned flags, int recursion);
+int __tsan_mutex_pre_unlock(void* addr, unsigned flags);
+void __tsan_mutex_post_unlock(void* addr, unsigned flags);
+void __tsan_mutex_pre_signal(void* addr, unsigned flags);
+void __tsan_mutex_post_signal(void* addr, unsigned flags);
+void __tsan_mutex_pre_divert(void* addr, unsigned flags);
+void __tsan_mutex_post_divert(void* addr, unsigned flags);
+
+#else
+
+#define _U_ __attribute__((unused))
+
+A0_STATIC_INLINE void _U_ __tsan_mutex_create(void* _U_ addr, unsigned _U_ flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_destroy(void* _U_ addr, unsigned _U_ flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_pre_lock(void* _U_ addr, unsigned _U_ flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_post_lock(void* _U_ addr,
+                                                 unsigned _U_ flags,
+                                                 int _U_ recursion) {}
+A0_STATIC_INLINE int _U_ __tsan_mutex_pre_unlock(void* _U_ addr, unsigned _U_ flags) {
+  return 0;
+}
+A0_STATIC_INLINE void _U_ __tsan_mutex_post_unlock(void* _U_ addr, unsigned _U_ flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_pre_signal(void* _U_ addr, unsigned _U_ flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_post_signal(void* _U_ addr, unsigned _U_ flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_pre_divert(void* _U_ addr, unsigned _U_ flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_post_divert(void* _U_ addr, unsigned _U_ flags) {}
+
+#endif
+
 A0_STATIC_INLINE
 void memory_barrier() {
   asm volatile("" : : : "memory", "cc");
@@ -123,31 +167,12 @@ uint32_t a0_tid() {
 
 errno_t a0_mtx_init(a0_mtx_t* m) {
   *m = (a0_mtx_t){0};
+  __tsan_mutex_create(m, 0);
   return A0_OK;
 }
 
-errno_t a0_mtx_lock(a0_mtx_t* m) {
-  errno_t ret = a0_mtx_trylock(m);
-  if (ret != EBUSY) {
-    return ret;
-  }
-
-  robust_op_start(m);
-
-  do {
-    ret = futex_lock_pi(&m->ftx, 0, NULL);
-  } while (ret == EINTR);
-
-  if (!ret) {
-    m->count = -1;
-    return a0_mtx_trylock(m);
-  }
-
-  robust_op_end(m);
-  return ret;
-}
-
-errno_t a0_mtx_trylock(a0_mtx_t* m) {
+A0_STATIC_INLINE
+errno_t a0_mtx_trylock_impl(a0_mtx_t* m) {
   int32_t tid = a0_tid();
 
   int32_t old = m->ftx;
@@ -196,6 +221,47 @@ success:
   return A0_OK;
 }
 
+A0_STATIC_INLINE
+errno_t a0_mtx_lock_impl(a0_mtx_t* m) {
+  errno_t ret = a0_mtx_trylock_impl(m);
+  if (ret != EBUSY) {
+    return ret;
+  }
+
+  robust_op_start(m);
+
+  do {
+    ret = futex_lock_pi(&m->ftx, 0, NULL);
+  } while (ret == EINTR);
+
+  if (!ret) {
+    m->count = -1;
+    ret = a0_mtx_trylock_impl(m);
+    return ret;
+  }
+
+  robust_op_end(m);
+  return ret;
+}
+
+errno_t a0_mtx_lock(a0_mtx_t* m) {
+  __tsan_mutex_pre_lock(m, 0);
+  errno_t ret = a0_mtx_lock_impl(m);
+  __tsan_mutex_post_lock(m, 0, 0);
+  return ret;
+}
+
+errno_t a0_mtx_trylock(a0_mtx_t* m) {
+  __tsan_mutex_pre_lock(m, __tsan_mutex_try_lock);
+  errno_t ret = a0_mtx_trylock_impl(m);
+  if (ret == EBUSY || ret == ENOTRECOVERABLE) {
+    __tsan_mutex_post_lock(m, __tsan_mutex_try_lock | __tsan_mutex_try_lock_failed, 0);
+  } else {
+    __tsan_mutex_post_lock(m, __tsan_mutex_try_lock, 0);
+  }
+  return ret;
+}
+
 errno_t a0_mtx_consistent(a0_mtx_t* m) {
   int32_t old = m->ftx;
   int32_t own = old & FUTEX_TID_MASK;
@@ -224,6 +290,7 @@ errno_t a0_mtx_unlock(a0_mtx_t* m) {
     return EPERM;
   }
 
+  __tsan_mutex_pre_unlock(m, 0);
   if (old & FUTEX_OWNER_DIED) {
     new = FUTEX_TID_MASK | FUTEX_OWNER_DIED;
   }
@@ -239,6 +306,7 @@ errno_t a0_mtx_unlock(a0_mtx_t* m) {
   }
 
   robust_op_end(m);
+  __tsan_mutex_post_unlock(m, 0);
 
   return A0_OK;
 }
