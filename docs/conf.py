@@ -4,18 +4,9 @@ author = 'Leonid Shamis'
 
 extensions = []
 
-extensions += ['breathe', 'exhale']
+extensions += ['breathe']
 breathe_projects = {'AlephZero': './doxygen_build/xml/'}
 breathe_default_project = 'AlephZero'
-
-exhale_args = {
-    "containmentFolder":     "./api",
-    "rootFileName":          "library_root.rst",
-    "rootFileTitle":         "Library API",
-    "doxygenStripFromPath":  "..",
-    "createTreeView":        False,
-}
-
 
 templates_path = ['_templates']
 
@@ -25,3 +16,16 @@ extensions += ['sphinx_rtd_theme']
 html_theme = 'sphinx_rtd_theme'
 
 html_static_path = ['_static']
+
+import subprocess
+import sys
+
+def run_doxygen(app):
+    try:
+        subprocess.check_call(['make', 'doxygen'])
+    except subprocess.CalledProcessError as err:
+        sys.stderr.write("doxygen execution failed: %s" % err)
+
+
+def setup(app):
+    app.connect('builder-inited', run_doxygen)
