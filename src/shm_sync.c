@@ -38,26 +38,26 @@ void __tsan_mutex_post_divert(void* addr, unsigned flags);
 
 #define _U_ __attribute__((unused))
 
-A0_STATIC_INLINE void _U_ __tsan_mutex_create(void* _U_ addr, unsigned _U_ flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_destroy(void* _U_ addr, unsigned _U_ flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_pre_lock(void* _U_ addr, unsigned _U_ flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_post_lock(void* _U_ addr,
-                                                 unsigned _U_ flags,
-                                                 int _U_ recursion) {}
-A0_STATIC_INLINE int _U_ __tsan_mutex_pre_unlock(void* _U_ addr, unsigned _U_ flags) {
+A0_STATIC_INLINE void _U_ __tsan_mutex_create(_U_ void* addr, _U_ unsigned flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_destroy(_U_ void* addr, _U_ unsigned flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_pre_lock(_U_ void* addr, _U_ unsigned flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_post_lock(_U_ void* addr,
+                                                 _U_ unsigned flags,
+                                                 _U_ int recursion) {}
+A0_STATIC_INLINE int _U_ __tsan_mutex_pre_unlock(_U_ void* addr, _U_ unsigned flags) {
   return 0;
 }
-A0_STATIC_INLINE void _U_ __tsan_mutex_post_unlock(void* _U_ addr, unsigned _U_ flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_pre_signal(void* _U_ addr, unsigned _U_ flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_post_signal(void* _U_ addr, unsigned _U_ flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_pre_divert(void* _U_ addr, unsigned _U_ flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_post_divert(void* _U_ addr, unsigned _U_ flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_post_unlock(_U_ void* addr, _U_ unsigned flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_pre_signal(_U_ void* addr, _U_ unsigned flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_post_signal(_U_ void* addr, _U_ unsigned flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_pre_divert(_U_ void* addr, _U_ unsigned flags) {}
+A0_STATIC_INLINE void _U_ __tsan_mutex_post_divert(_U_ void* addr, _U_ unsigned flags) {}
 
 #endif
 
 A0_STATIC_INLINE
 void memory_barrier() {
-  asm volatile("" : : : "memory", "cc");
+  asm volatile("" : : : "memory");
 }
 
 A0_STATIC_INLINE
@@ -254,10 +254,10 @@ errno_t a0_mtx_lock(a0_mtx_t* m) {
 errno_t a0_mtx_trylock(a0_mtx_t* m) {
   __tsan_mutex_pre_lock(m, __tsan_mutex_try_lock);
   errno_t ret = a0_mtx_trylock_impl(m);
-  if (ret == EBUSY || ret == ENOTRECOVERABLE) {
-    __tsan_mutex_post_lock(m, __tsan_mutex_try_lock | __tsan_mutex_try_lock_failed, 0);
-  } else {
+  if (!ret || ret == EOWNERDEAD) {
     __tsan_mutex_post_lock(m, __tsan_mutex_try_lock, 0);
+  } else {
+    __tsan_mutex_post_lock(m, __tsan_mutex_try_lock | __tsan_mutex_try_lock_failed, 0);
   }
   return ret;
 }

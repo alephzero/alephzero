@@ -20,10 +20,11 @@ typedef struct a0_mtx_s a0_mtx_t;
 // * Process shared.
 // * Robust.
 // * Error checking.
+// * Priority inheriting.
 //
 // "Inherits" from robust_list, which requires:
 // * The first field MUST be a next pointer.
-// * There must be a futex.
+// * There must be a futex, which makes the mutex immovable.
 struct a0_mtx_s {
   a0_mtx_t* next;
   a0_mtx_t* prev;
