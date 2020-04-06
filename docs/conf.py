@@ -12,7 +12,7 @@ exhale_args = {
     "containmentFolder":     "./api",
     "rootFileName":          "library_root.rst",
     "rootFileTitle":         "Library API",
-    "doxygenStripFromPath":  "../../alephzero",
+    "doxygenStripFromPath":  "..",
     "createTreeView":        False,
 }
 
