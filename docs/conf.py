@@ -22,7 +22,7 @@ import sys
 
 def run_doxygen(app):
     try:
-        subprocess.check_call(['make', 'doxygen'])
+        subprocess.check_call(['doxygen'])
     except subprocess.CalledProcessError as err:
         sys.stderr.write("doxygen execution failed: %s" % err)
 
