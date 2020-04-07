@@ -1,6 +1,14 @@
+###########################################################################
+#          General Info                                                   #
+###########################################################################
+
 project = 'AlephZero'
-copyright = '2020, Leonid Shamis'
+copyright = '2021, Leonid Shamis'
 author = 'Leonid Shamis'
+
+###########################################################################
+#          Extensions                                                     #
+###########################################################################
 
 extensions = []
 
@@ -8,21 +16,19 @@ extensions += ['breathe']
 breathe_projects = {'AlephZero': './doxygen_build/xml/'}
 breathe_default_project = 'AlephZero'
 
-templates_path = ['_templates']
+###########################################################################
+#          Scripts                                                        #
+###########################################################################
 
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-
-extensions += ['sphinx_rtd_theme']
-html_theme = 'sphinx_rtd_theme'
-
-html_static_path = ['_static']
-
+import os
 import subprocess
 import sys
 
 def run_doxygen(app):
     try:
         subprocess.check_call(['doxygen'])
+        print('cwd', os.getcwd(), file=sys.stderr, flush=True)
+        print('listdir', os.listdir(), file=sys.stderr, flush=True)
     except subprocess.CalledProcessError as err:
         sys.stderr.write("doxygen execution failed: %s" % err)
 
