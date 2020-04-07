@@ -29,8 +29,9 @@ def run_doxygen(app):
         subprocess.check_call(['doxygen'])
         print('cwd', os.getcwd(), file=sys.stderr, flush=True)
         print('listdir', os.listdir(), file=sys.stderr, flush=True)
+        print('listdir doxygen_build/xml', os.listdir('doxygen_build/xml'), file=sys.stderr, flush=True)
     except subprocess.CalledProcessError as err:
-        sys.stderr.write("doxygen execution failed: %s" % err)
+        print('doxygen failed:', err, file=sys.stderr)
 
 
 def setup(app):
