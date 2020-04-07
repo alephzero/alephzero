@@ -22,8 +22,13 @@ extern "C" {
 //
 // A packet is implemented as a flat buffer. The layout is described below.
 
+/**
+  A single packet header.
+*/
 typedef struct a0_packet_header_s {
+  /** UTF-8 key. */
   const char* key;
+  /** UTF-8 value. */
   const char* val;
 } a0_packet_header_t;
 
