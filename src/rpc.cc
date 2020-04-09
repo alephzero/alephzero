@@ -127,7 +127,7 @@ errno_t a0_rpc_reply(a0_rpc_request_t req, const a0_packet_t resp) {
   a0_packet_header_t extra_headers[num_extra_headers] = {
       {kRpcType, kRpcTypeResponse},
       {kRequestId, req.pkt.id},
-      {a0_packet_dep_key(), req.pkt.id},
+      {a0_packet_dep_key, req.pkt.id},
   };
 
   a0_packet_t full_resp = resp;
@@ -272,7 +272,7 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, const a0_packet_id_t req_id) {
   constexpr size_t num_headers = 2;
   a0_packet_header_t headers[num_headers] = {
       {kRpcType, kRpcTypeCancel},
-      {a0_packet_dep_key(), req_id},
+      {a0_packet_dep_key, req_id},
   };
 
   a0_packet_t pkt;

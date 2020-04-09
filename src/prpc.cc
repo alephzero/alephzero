@@ -133,7 +133,7 @@ errno_t a0_prpc_send(a0_prpc_connection_t conn, const a0_packet_t prog, bool don
   a0_packet_header_t extra_headers[num_extra_headers] = {
       {kPrpcType, done ? kPrpcTypeComplete : kPrpcTypeProgress},
       {kPrpcConnId, conn.pkt.id},
-      {a0_packet_dep_key(), conn.pkt.id},
+      {a0_packet_dep_key, conn.pkt.id},
   };
 
   a0_packet_t full_prog = prog;
@@ -285,7 +285,7 @@ errno_t a0_prpc_cancel(a0_prpc_client_t* client, const a0_packet_id_t conn_id) {
   constexpr size_t num_headers = 2;
   a0_packet_header_t headers[num_headers] = {
       {kPrpcType, kPrpcTypeCancel},
-      {a0_packet_dep_key(), conn_id},
+      {a0_packet_dep_key, conn_id},
   };
 
   a0_packet_t pkt;

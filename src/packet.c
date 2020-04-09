@@ -9,11 +9,7 @@
 #include "macros.h"
 #include "rand.h"
 
-static const char kDepKey[] = "a0_dep";
-
-const char* a0_packet_dep_key() {
-  return kDepKey;
-}
+const char* a0_packet_dep_key = "a0_dep";
 
 errno_t a0_packet_init(a0_packet_t* pkt) {
   memset(pkt, 0, sizeof(a0_packet_t));
