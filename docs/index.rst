@@ -7,7 +7,7 @@ TODO...
    :maxdepth: 2
    :caption: Contents:
 
-   Packets <packet>
+   packet
 
 
 Indices and tables
