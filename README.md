@@ -1,4 +1,5 @@
 # Aleph Zero
+[![Build Status](https://travis-ci.com/alephzero/alephzero.svg?branch=master)](https://travis-ci.com/alephzero/alephzero)
 
 TODO: What is it? Why is it? Who is it????
 
