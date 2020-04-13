@@ -1,0 +1,11 @@
+language: cpp
+
+matrix:
+  - os: linux
+    compiler: gcc
+
+  - os: linux
+    compiler: clang
+
+script:
+  make test -j
