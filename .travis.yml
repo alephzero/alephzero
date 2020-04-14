@@ -3,10 +3,24 @@ language: cpp
 
 matrix:
   - os: linux
+    env:
+      - TASK="bionic gcc"
     compiler: gcc
+    script:
+      - make test -j
 
   - os: linux
+    env:
+      - TASK="bionic clang"
     compiler: clang
+    script:
+      - make test -j
 
-script:
-  make test -j
+  - os: linux
+    env:
+      - TASK="cov"
+    compiler: gcc
+    script:
+      - make cov -j
+    after_success:
+      - bash <(curl -s https://codecov.io/bash)
