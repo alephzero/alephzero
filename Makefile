@@ -67,7 +67,7 @@ ifeq ($(PREFIX),)
 	PREFIX := /usr
 endif
 
-.PHONY: all bench clean cov install test uninstall valgrind
+.PHONY: all asan bench clean cov covweb install test tsan ubsan uninstall valgrind
 
 all:
 	@echo "TODO"
@@ -132,21 +132,23 @@ bench: $(BIN_DIR)/bench
 asan tsan ubsan: $(BIN_DIR)/test
 	RUNNING_ON_VALGRIND=1 $(BIN_DIR)/test
 
-cov: $(BIN_DIR)/test
-	@mkdir -p cov/web
-	$(BIN_DIR)/test
-	gcov -o $(OBJ_DIR) -bmr $(SRC_DIR)/*
-	lcov --capture --quiet --rc lcov_branch_coverage=1 --directory . --no-external --output-file cov/tmp.info
-	lcov --rc lcov_branch_coverage=1 --remove cov/tmp.info "*/third_party/*" "*/test/*" > cov/coverage.info
-	genhtml cov/coverage.info --branch-coverage --output-directory cov/web
-	(cd cov/web ; python3 -m http.server)
-
 valgrind: $(BIN_DIR)/test
 	@command -v valgrind >/dev/null 2>&1 || {                   \
 		echo "\e[01;31mError: valgrind is not installed\e[0m";  \
 		exit 1;                                                 \
 	}
 	RUNNING_ON_VALGRIND=1 valgrind --tool=memcheck --leak-check=yes ./bin/test
+
+cov: $(BIN_DIR)/test
+	$(BIN_DIR)/test
+	gcov -o $(OBJ_DIR) -bmr $(SRC_DIR)/*
+
+covweb: cov
+	@mkdir -p cov/web
+	lcov --capture --quiet --rc lcov_branch_coverage=1 --directory . --no-external --output-file cov/tmp.info
+	lcov --rc lcov_branch_coverage=1 --remove cov/tmp.info "*/third_party/*" "*/test/*" --output-file cov/coverage.info
+	genhtml cov/coverage.info --branch-coverage --output-directory cov/web
+	(cd cov/web ; python3 -m http.server)
 
 clean:
 	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ cov/ *.gcov
