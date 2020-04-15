@@ -27,12 +27,12 @@ errno_t a0_time_mono_str(uint64_t mono_ts, char mono_str[20]) {
 }
 
 errno_t a0_time_wall_str(timespec wall_ts, char wall_str[36]) {
-  // Wall time in RFC 3999 Nano: "2006-01-02T15:04:05.999999999Z07:00"
+  // Wall time in RFC 3999 Nano: "2006-01-02T15:04:05.999999999-07:00"
   std::tm wall_tm;
   gmtime_r(&wall_ts.tv_sec, &wall_tm);
 
   std::strftime(&wall_str[0], 20, "%Y-%m-%dT%H:%M:%S", &wall_tm);
-  std::snprintf(&wall_str[19], 17, ".%09ldZ00:00", wall_ts.tv_nsec);
+  std::snprintf(&wall_str[19], 17, ".%09ld-00:00", wall_ts.tv_nsec);
   wall_str[35] = '\0';
 
   return A0_OK;
