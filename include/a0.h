@@ -3,10 +3,13 @@
 
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/logger.h>
 #include <a0/packet.h>
+#include <a0/prpc.h>
 #include <a0/pubsub.h>
 #include <a0/rpc.h>
 #include <a0/shm.h>
+#include <a0/time.h>
 #include <a0/topic_manager.h>
 #include <a0/transport.h>
 
