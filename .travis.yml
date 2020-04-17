@@ -18,6 +18,24 @@ matrix:
 
   - os: linux
     env:
+      - TASK="asan"
+    script:
+      - make asan -j
+
+  - os: linux
+    env:
+      - TASK="tsan"
+    script:
+      - make tsan -j
+
+  - os: linux
+    env:
+      - TASK="ubsan"
+    script:
+      - make ubsan -j
+
+  - os: linux
+    env:
       - TASK="cov"
     compiler: gcc
     script:
