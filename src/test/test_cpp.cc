@@ -15,7 +15,7 @@ struct CppPubsubFixture {
   CppPubsubFixture() {
     a0::Shm::unlink(TEST_SHM);
 
-    shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = 16 * 1024 * 1024});
+    shm = a0::Shm(TEST_SHM);
 
     a0::GlobalTopicManager() = {};
   }
@@ -30,7 +30,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
 
   shm = a0::Shm(TEST_SHM);
   REQUIRE(shm.path() == TEST_SHM);
-  REQUIRE(shm.c->buf.size == 16 * 1024 * 1024);
+  REQUIRE(shm.c->buf.size == A0_SHM_OPTIONS_DEFAULT.size);
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {

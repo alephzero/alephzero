@@ -12,7 +12,17 @@
 
 #include "macros.h"
 
-errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts, a0_shm_t* out) {
+const a0_shm_options_t A0_SHM_OPTIONS_DEFAULT = {
+  .size = 16 * 1024 * 1024,
+  .resize = false,
+};
+
+errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts_, a0_shm_t* out) {
+  const a0_shm_options_t* opts = opts_;
+  if (!opts) {
+    opts = &A0_SHM_OPTIONS_DEFAULT;
+  }
+
   int fd = shm_open(path, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
   A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(fd);
 
@@ -20,11 +30,9 @@ errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts, a0_shm_t* ou
   A0_INTERNAL_CLEANUP_ON_MINUS_ONE(fstat(fd, &stat));
 
   out->buf.size = stat.st_size;
-  if (opts) {
-    if (opts->size != stat.st_size) {
-      A0_INTERNAL_CLEANUP_ON_MINUS_ONE(ftruncate(fd, opts->size));
-      out->buf.size = opts->size;
-    }
+  if ((opts->resize || !stat.st_size) && opts->size != stat.st_size) {
+    A0_INTERNAL_CLEANUP_ON_MINUS_ONE(ftruncate(fd, opts->size));
+    out->buf.size = opts->size;
   }
 
   out->buf.ptr = (uint8_t*)mmap(

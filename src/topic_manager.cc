@@ -24,13 +24,6 @@ errno_t find_alias(a0_topic_alias_t* aliases,
   return EINVAL;
 }
 
-// TODO: Make this configurable.
-A0_STATIC_INLINE
-const a0_shm_options_t* default_shm_options() {
-  static a0_shm_options_t shmopt{.size = 16 * 1024 * 1024};
-  return &shmopt;
-}
-
 constexpr char TOPIC_TMPL_CONFIG[] = "/a0_config__%s";
 constexpr char TOPIC_TMPL_LOG[] = "/a0_log_%s__%s";
 constexpr char TOPIC_TMPL_PUBSUB[] = "/a0_pubsub__%s__%s";
@@ -39,35 +32,35 @@ constexpr char TOPIC_TMPL_PRPC[] = "/a0_prpc__%s__%s";
 
 errno_t a0_topic_manager_open_config_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
   auto path = a0::strutil::fmt(TOPIC_TMPL_CONFIG, tm->container);
-  return a0_shm_open(path.c_str(), default_shm_options(), out);
+  return a0_shm_open(path.c_str(), nullptr, out);
 }
 
 errno_t a0_topic_manager_open_log_crit_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
   auto path = a0::strutil::fmt(TOPIC_TMPL_LOG, "crit", tm->container);
-  return a0_shm_open(path.c_str(), default_shm_options(), out);
+  return a0_shm_open(path.c_str(), nullptr, out);
 }
 errno_t a0_topic_manager_open_log_err_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
   auto path = a0::strutil::fmt(TOPIC_TMPL_LOG, "err", tm->container);
-  return a0_shm_open(path.c_str(), default_shm_options(), out);
+  return a0_shm_open(path.c_str(), nullptr, out);
 }
 errno_t a0_topic_manager_open_log_warn_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
   auto path = a0::strutil::fmt(TOPIC_TMPL_LOG, "warn", tm->container);
-  return a0_shm_open(path.c_str(), default_shm_options(), out);
+  return a0_shm_open(path.c_str(), nullptr, out);
 }
 errno_t a0_topic_manager_open_log_info_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
   auto path = a0::strutil::fmt(TOPIC_TMPL_LOG, "info", tm->container);
-  return a0_shm_open(path.c_str(), default_shm_options(), out);
+  return a0_shm_open(path.c_str(), nullptr, out);
 }
 errno_t a0_topic_manager_open_log_dbg_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
   auto path = a0::strutil::fmt(TOPIC_TMPL_LOG, "dbg", tm->container);
-  return a0_shm_open(path.c_str(), default_shm_options(), out);
+  return a0_shm_open(path.c_str(), nullptr, out);
 }
 
 errno_t a0_topic_manager_open_publisher_topic(const a0_topic_manager_t* tm,
                                               const char* name,
                                               a0_shm_t* out) {
   auto path = a0::strutil::fmt(TOPIC_TMPL_PUBSUB, tm->container, name);
-  return a0_shm_open(path.c_str(), default_shm_options(), out);
+  return a0_shm_open(path.c_str(), nullptr, out);
 }
 
 errno_t a0_topic_manager_open_subscriber_topic(const a0_topic_manager_t* tm,
@@ -77,14 +70,14 @@ errno_t a0_topic_manager_open_subscriber_topic(const a0_topic_manager_t* tm,
   A0_INTERNAL_RETURN_ERR_ON_ERR(
       find_alias(tm->subscriber_aliases, tm->subscriber_aliases_size, name, &alias));
   auto path = a0::strutil::fmt(TOPIC_TMPL_PUBSUB, alias->target_container, alias->target_topic);
-  return a0_shm_open(path.c_str(), default_shm_options(), out);
+  return a0_shm_open(path.c_str(), nullptr, out);
 }
 
 errno_t a0_topic_manager_open_rpc_server_topic(const a0_topic_manager_t* tm,
                                                const char* name,
                                                a0_shm_t* out) {
   auto path = a0::strutil::fmt(TOPIC_TMPL_RPC, tm->container, name);
-  return a0_shm_open(path.c_str(), default_shm_options(), out);
+  return a0_shm_open(path.c_str(), nullptr, out);
 }
 
 errno_t a0_topic_manager_open_rpc_client_topic(const a0_topic_manager_t* tm,
@@ -94,14 +87,14 @@ errno_t a0_topic_manager_open_rpc_client_topic(const a0_topic_manager_t* tm,
   A0_INTERNAL_RETURN_ERR_ON_ERR(
       find_alias(tm->rpc_client_aliases, tm->rpc_client_aliases_size, name, &alias));
   auto path = a0::strutil::fmt(TOPIC_TMPL_RPC, alias->target_container, alias->target_topic);
-  return a0_shm_open(path.c_str(), default_shm_options(), out);
+  return a0_shm_open(path.c_str(), nullptr, out);
 }
 
 errno_t a0_topic_manager_open_prpc_server_topic(const a0_topic_manager_t* tm,
                                                 const char* name,
                                                 a0_shm_t* out) {
   auto path = a0::strutil::fmt(TOPIC_TMPL_PRPC, tm->container, name);
-  return a0_shm_open(path.c_str(), default_shm_options(), out);
+  return a0_shm_open(path.c_str(), nullptr, out);
 }
 
 errno_t a0_topic_manager_open_prpc_client_topic(const a0_topic_manager_t* tm,
@@ -111,5 +104,5 @@ errno_t a0_topic_manager_open_prpc_client_topic(const a0_topic_manager_t* tm,
   A0_INTERNAL_RETURN_ERR_ON_ERR(
       find_alias(tm->prpc_client_aliases, tm->prpc_client_aliases_size, name, &alias));
   auto path = a0::strutil::fmt(TOPIC_TMPL_PRPC, alias->target_container, alias->target_topic);
-  return a0_shm_open(path.c_str(), default_shm_options(), out);
+  return a0_shm_open(path.c_str(), nullptr, out);
 }
