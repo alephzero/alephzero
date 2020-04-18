@@ -3,6 +3,7 @@
 
 #include <a0/common.h>
 
+#include <stdbool.h>
 #include <sys/stat.h>
 
 #ifdef __cplusplus
@@ -13,16 +14,17 @@ typedef struct stat stat_t;
 
 typedef struct a0_shm_options_s {
   off_t size;
+  bool resize;
 } a0_shm_options_t;
+
+extern const a0_shm_options_t A0_SHM_OPTIONS_DEFAULT;
 
 typedef struct a0_shm_s {
   const char* path;  // memcpy-ed in a0_shm_open.
   a0_buf_t buf;
 } a0_shm_t;
 
-// Note: a0_shm_options_t may be only by NULL if the file already exists.
-//       If a0_shm_options_t is provided, and the file already exists, the
-//       file will be resized to the given size.
+// Note: A0_SHM_OPTIONS_DEFAULT is used if a0_shm_options_t is NULL.
 // Note: ftruncate is used to resize the file. This guarantees the file is
 //       zero-ed out.
 errno_t a0_shm_open(const char* path, const a0_shm_options_t*, a0_shm_t* out);

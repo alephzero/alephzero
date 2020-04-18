@@ -14,8 +14,7 @@ static inline void use(const T& t) {
 struct BenchFixture {
   BenchFixture() {
     a0_shm_unlink(BENCH_SHM);
-    shmopt.size = 16 * 1024 * 1024;
-    a0_shm_open(BENCH_SHM, &shmopt, &shm);
+    a0_shm_open(BENCH_SHM, nullptr, &shm);
 
     a0_transport_init_status_t init_status;
     a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk);
@@ -54,7 +53,7 @@ auto bench_memcpy_slots(int msg_size) {
     BenchFixture fixture;
     (void)fixture;
 
-    int slots = 16 * 1024 * 1024 / msg_size;
+    int slots = A0_SHM_OPTIONS_DEFAULT.size / msg_size;
     char** array = (char**)malloc(slots * sizeof(char*));
     for (int i = 0; i < slots; i++) {
       array[i] = (char*)malloc(msg_size);
@@ -92,7 +91,7 @@ auto bench_malloc_slots(int msg_size) {
     BenchFixture fixture;
     (void)fixture;
 
-    int slots = 16 * 1024 * 1024 / msg_size;
+    int slots = A0_SHM_OPTIONS_DEFAULT.size / msg_size;
     char** array = (char**)malloc(slots * sizeof(char*));
     for (int i = 0; i < slots; i++) {
       array[i] = (char*)malloc(msg_size);
@@ -118,7 +117,7 @@ auto bench_malloc_memcpy_slots(int msg_size) {
     BenchFixture fixture;
     (void)fixture;
 
-    int slots = 16 * 1024 * 1024 / msg_size;
+    int slots = A0_SHM_OPTIONS_DEFAULT.size / msg_size;
     char** array = (char**)malloc(slots * sizeof(char*));
     for (int i = 0; i < slots; i++) {
       array[i] = (char*)malloc(msg_size);

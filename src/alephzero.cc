@@ -94,17 +94,17 @@ std::string_view as_string_view(a0_buf_t buf) {
 
 }  // namespace
 
-Shm::Shm(const std::string_view path) {
-  c = c_shared<a0_shm_t>(
-      [&](a0_shm_t* c) {
-        return a0_shm_open(path.data(), nullptr, c);
-      },
-      delete_after<a0_shm_t>(a0_shm_close));
-}
+Shm::Options Shm::Options::DEFAULT = {
+  .size = A0_SHM_OPTIONS_DEFAULT.size,
+  .resize = A0_SHM_OPTIONS_DEFAULT.resize,
+};
+
+Shm::Shm(const std::string_view path) : Shm(path, Options::DEFAULT) {}
 
 Shm::Shm(const std::string_view path, const Options& opts) {
   a0_shm_options_t c_shm_opts{
       .size = opts.size,
+      .resize = opts.resize,
   };
   c = c_shared<a0_shm_t>(
       [&](a0_shm_t* c) {

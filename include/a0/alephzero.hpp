@@ -25,6 +25,9 @@ struct Shm {
 
   struct Options {
     off_t size;
+    bool resize;
+
+    static Options DEFAULT;
   };
 
   Shm() = default;

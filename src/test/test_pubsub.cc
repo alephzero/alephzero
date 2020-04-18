@@ -24,9 +24,7 @@ struct PubsubFixture {
   PubsubFixture() {
     a0_shm_unlink(TEST_SHM);
 
-    a0_shm_options_t shmopt;
-    shmopt.size = 16 * 1024 * 1024;
-    a0_shm_open(TEST_SHM, &shmopt, &shm);
+    a0_shm_open(TEST_SHM, nullptr, &shm);
   }
 
   ~PubsubFixture() {
