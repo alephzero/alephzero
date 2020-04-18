@@ -29,8 +29,8 @@ struct a0_pubsub_metadata_t {
 //  Publisher  //
 /////////////////
 
-static const char kPublisherSeq[] = "a0_publisher_seq";
-static const char kTransportSeq[] = "a0_transport_seq";
+static const char SEQ_PUBLISHER[] = "a0_seq_publisher";
+static const char SEQ_TRANSPORT[] = "a0_seq_transport";
 
 struct a0_publisher_impl_s {
   a0_transport_t transport;
@@ -69,15 +69,15 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
     return ESHUTDOWN;
   }
 
-  uint64_t mono_time;
-  a0_time_mono_now(&mono_time);
+  uint64_t time_mono;
+  a0_time_mono_now(&time_mono);
   char mono_str[20];
-  a0_time_mono_str(mono_time, mono_str);
+  a0_time_mono_str(time_mono, mono_str);
 
-  timespec wall_time;
-  a0_time_wall_now(&wall_time);
+  timespec time_wall;
+  a0_time_wall_now(&time_wall);
   char wall_str[36];
-  a0_time_wall_str(wall_time, wall_str);
+  a0_time_wall_str(time_wall, wall_str);
 
   a0::scoped_transport_lock stlk(&pub->_impl->transport);
 
@@ -91,10 +91,10 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
 
   constexpr size_t num_extra_headers = 4;
   a0_packet_header_t extra_headers[num_extra_headers] = {
-      {kMonoTime, mono_str},
-      {kWallTime, wall_str},
-      {kPublisherSeq, pseq_str},
-      {kTransportSeq, tseq_str},
+      {A0_TIME_MONO, mono_str},
+      {A0_TIME_WALL, wall_str},
+      {SEQ_PUBLISHER, pseq_str},
+      {SEQ_TRANSPORT, tseq_str},
   };
 
   a0_packet_t full_pkt = pkt;

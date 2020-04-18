@@ -9,8 +9,8 @@
 extern "C" {
 #endif
 
-extern const char kMonoTime[];
-extern const char kWallTime[];
+extern const char A0_TIME_MONO[];
+extern const char A0_TIME_WALL[];
 
 errno_t a0_time_mono_now(uint64_t*);
 errno_t a0_time_wall_now(timespec*);

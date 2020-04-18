@@ -4,8 +4,8 @@
 
 #include "to_chars.hpp"
 
-const char kMonoTime[] = "a0_mono_time";
-const char kWallTime[] = "a0_wall_time";
+const char A0_TIME_MONO[] = "a0_time_mono";
+const char A0_TIME_WALL[] = "a0_time_wall";
 
 errno_t a0_time_mono_now(uint64_t* out) {
   timespec mono_ts;

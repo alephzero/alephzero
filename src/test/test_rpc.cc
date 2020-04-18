@@ -9,22 +9,22 @@
 #include "src/strutil.hpp"
 #include "src/test_util.hpp"
 
-static const char kTestShm[] = "/test.shm";
+static const char TEST_SHM[] = "/test.shm";
 
 struct RpcFixture {
   a0_shm_t shm;
 
   RpcFixture() {
-    a0_shm_unlink(kTestShm);
+    a0_shm_unlink(TEST_SHM);
 
     a0_shm_options_t shmopt;
     shmopt.size = 16 * 1024 * 1024;
-    a0_shm_open(kTestShm, &shmopt, &shm);
+    a0_shm_open(TEST_SHM, &shmopt, &shm);
   }
 
   ~RpcFixture() {
     a0_shm_close(&shm);
-    a0_shm_unlink(kTestShm);
+    a0_shm_unlink(TEST_SHM);
   }
 };
 

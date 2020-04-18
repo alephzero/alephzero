@@ -4,8 +4,7 @@
 #include <a0.h>
 #include <picobench/picobench.hpp>
 
-static const char kBenchShm[] = "/bench.shm";
-static const char kProtocolName[] = "benchmark";
+static const char BENCH_SHM[] = "/bench.shm";
 
 template <typename T>
 static inline void use(const T& t) {
@@ -14,9 +13,9 @@ static inline void use(const T& t) {
 
 struct BenchFixture {
   BenchFixture() {
-    a0_shm_unlink(kBenchShm);
+    a0_shm_unlink(BENCH_SHM);
     shmopt.size = 16 * 1024 * 1024;
-    a0_shm_open(kBenchShm, &shmopt, &shm);
+    a0_shm_open(BENCH_SHM, &shmopt, &shm);
 
     a0_transport_init_status_t init_status;
     a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk);
@@ -26,7 +25,7 @@ struct BenchFixture {
     a0_transport_unlock(lk);
     a0_transport_close(&transport);
     a0_shm_close(&shm);
-    a0_shm_unlink(kBenchShm);
+    a0_shm_unlink(BENCH_SHM);
   }
 
   a0_shm_options_t shmopt;
