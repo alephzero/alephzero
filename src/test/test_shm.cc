@@ -57,3 +57,13 @@ TEST_CASE_FIXTURE(ShmTestFixture, "shm] bad path") {
   a0_shm_t shm;
   REQUIRE(a0_shm_open("/foo/bar", &shmopt, &shm) == EINVAL);
 }
+
+TEST_CASE_FIXTURE(ShmTestFixture, "shm] double close") {
+  a0_shm_options_t shmopt;
+  shmopt.size = 16 * 1024 * 1024;
+
+  a0_shm_t shm;
+  REQUIRE_OK(a0_shm_open(kTestShm, &shmopt, &shm));
+  REQUIRE_OK(a0_shm_close(&shm));
+  REQUIRE(a0_shm_close(&shm) == EBADF);
+}
