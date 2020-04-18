@@ -56,11 +56,17 @@ errno_t a0_shm_unlink(const char* path) {
 }
 
 errno_t a0_shm_close(a0_shm_t* shm) {
+  if (!shm->buf.ptr && !shm->path) {
+    return EBADF;
+  }
+
   if (shm->buf.ptr) {
     A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(munmap(shm->buf.ptr, shm->buf.size));
+    shm->buf.ptr = NULL;
   }
   if (shm->path) {
     free((void*)shm->path);
+    shm->path = NULL;
   }
   return A0_OK;
 }
