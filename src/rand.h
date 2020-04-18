@@ -29,9 +29,9 @@ A0_STATIC_INLINE long int a0_mrand48() {
   return jrand48(a0_xsubi);
 }
 
-static const size_t kUuidSize = 37;
+static const size_t UUID_SIZE = 37;
 
-static const char kHexDigits[] =
+static const char HEX_DIGITS[] =
     "000102030405060708090A0B0C0D0E0F"
     "101112131415161718191A1B1C1D1E1F"
     "202122232425262728292A2B2C2D2E2F"
@@ -50,7 +50,7 @@ static const char kHexDigits[] =
     "F0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF";
 
 A0_STATIC_INLINE
-void a0_uuidv4(uint8_t out[kUuidSize]) {
+void a0_uuidv4(uint8_t out[UUID_SIZE]) {
   uint32_t data[4] = {
       (uint32_t)a0_mrand48(),
       ((uint32_t)a0_mrand48() & 0xFF0FFFFF) | 0x00400000,
@@ -60,26 +60,26 @@ void a0_uuidv4(uint8_t out[kUuidSize]) {
 
   uint8_t* bytes = (uint8_t*)data;
 
-  memcpy(&out[0], &kHexDigits[bytes[0] * 2], sizeof(uint16_t));
-  memcpy(&out[2], &kHexDigits[bytes[1] * 2], sizeof(uint16_t));
-  memcpy(&out[4], &kHexDigits[bytes[2] * 2], sizeof(uint16_t));
-  memcpy(&out[6], &kHexDigits[bytes[3] * 2], sizeof(uint16_t));
+  memcpy(&out[0], &HEX_DIGITS[bytes[0] * 2], sizeof(uint16_t));
+  memcpy(&out[2], &HEX_DIGITS[bytes[1] * 2], sizeof(uint16_t));
+  memcpy(&out[4], &HEX_DIGITS[bytes[2] * 2], sizeof(uint16_t));
+  memcpy(&out[6], &HEX_DIGITS[bytes[3] * 2], sizeof(uint16_t));
   out[8] = '-';
-  memcpy(&out[9], &kHexDigits[bytes[4] * 2], sizeof(uint16_t));
-  memcpy(&out[11], &kHexDigits[bytes[5] * 2], sizeof(uint16_t));
+  memcpy(&out[9], &HEX_DIGITS[bytes[4] * 2], sizeof(uint16_t));
+  memcpy(&out[11], &HEX_DIGITS[bytes[5] * 2], sizeof(uint16_t));
   out[13] = '-';
-  memcpy(&out[14], &kHexDigits[bytes[6] * 2], sizeof(uint16_t));
-  memcpy(&out[16], &kHexDigits[bytes[7] * 2], sizeof(uint16_t));
+  memcpy(&out[14], &HEX_DIGITS[bytes[6] * 2], sizeof(uint16_t));
+  memcpy(&out[16], &HEX_DIGITS[bytes[7] * 2], sizeof(uint16_t));
   out[18] = '-';
-  memcpy(&out[19], &kHexDigits[bytes[8] * 2], sizeof(uint16_t));
-  memcpy(&out[21], &kHexDigits[bytes[9] * 2], sizeof(uint16_t));
+  memcpy(&out[19], &HEX_DIGITS[bytes[8] * 2], sizeof(uint16_t));
+  memcpy(&out[21], &HEX_DIGITS[bytes[9] * 2], sizeof(uint16_t));
   out[23] = '-';
-  memcpy(&out[24], &kHexDigits[bytes[10] * 2], sizeof(uint16_t));
-  memcpy(&out[26], &kHexDigits[bytes[11] * 2], sizeof(uint16_t));
-  memcpy(&out[28], &kHexDigits[bytes[12] * 2], sizeof(uint16_t));
-  memcpy(&out[30], &kHexDigits[bytes[13] * 2], sizeof(uint16_t));
-  memcpy(&out[32], &kHexDigits[bytes[14] * 2], sizeof(uint16_t));
-  memcpy(&out[34], &kHexDigits[bytes[15] * 2], sizeof(uint16_t));
+  memcpy(&out[24], &HEX_DIGITS[bytes[10] * 2], sizeof(uint16_t));
+  memcpy(&out[26], &HEX_DIGITS[bytes[11] * 2], sizeof(uint16_t));
+  memcpy(&out[28], &HEX_DIGITS[bytes[12] * 2], sizeof(uint16_t));
+  memcpy(&out[30], &HEX_DIGITS[bytes[13] * 2], sizeof(uint16_t));
+  memcpy(&out[32], &HEX_DIGITS[bytes[14] * 2], sizeof(uint16_t));
+  memcpy(&out[34], &HEX_DIGITS[bytes[15] * 2], sizeof(uint16_t));
   out[36] = 0;
 }
 

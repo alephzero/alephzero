@@ -12,17 +12,17 @@
 #include "src/test_util.hpp"
 #include "src/transport_debug.h"
 
-static const char kTestShm[] = "/test.shm";
+static const char TEST_SHM[] = "/test.shm";
 
 struct StreamTestFixture {
   StreamTestFixture() {
-    a0_shm_unlink(kTestShm);
+    a0_shm_unlink(TEST_SHM);
     shmopt.size = 4096;
-    a0_shm_open(kTestShm, &shmopt, &shm);
+    a0_shm_open(TEST_SHM, &shmopt, &shm);
   }
   ~StreamTestFixture() {
     a0_shm_close(&shm);
-    a0_shm_unlink(kTestShm);
+    a0_shm_unlink(TEST_SHM);
   }
 
   void require_debugstr(a0_locked_transport_t lk, const std::string& expected) {
@@ -843,7 +843,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust fuzz") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
-static const char kCopyShm[] = "/copy.shm";
+static const char COPY_SHM[] = "/copy.shm";
 
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy") {
   std::string str = "Original String";
@@ -875,18 +875,18 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy") {
 
   // Copy the shm file to disk.
   {
-    auto cmd = a0::strutil::fmt("cp /dev/shm%s /tmp%s", kTestShm, kCopyShm);
+    auto cmd = a0::strutil::fmt("cp /dev/shm%s /tmp%s", TEST_SHM, COPY_SHM);
     REQUIRE_OK(system(cmd.c_str()));
   }
 
   // Copy the disk file to memory.
   {
-    auto cmd = a0::strutil::fmt("cp /tmp%s /dev/shm%s", kCopyShm, kCopyShm);
+    auto cmd = a0::strutil::fmt("cp /tmp%s /dev/shm%s", COPY_SHM, COPY_SHM);
     REQUIRE_OK(system(cmd.c_str()));
   }
 
   a0_shm_t copied_shm;
-  a0_shm_open(kCopyShm, &shmopt, &copied_shm);
+  a0_shm_open(COPY_SHM, &shmopt, &copied_shm);
 
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
@@ -902,11 +902,11 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy") {
   REQUIRE_OK(a0_transport_unlock(lk));
 
   a0_shm_close(&copied_shm);
-  a0_shm_unlink(kCopyShm);
+  a0_shm_unlink(COPY_SHM);
 
   // Remove the disk file.
   {
-    auto cmd = a0::strutil::fmt("rm /tmp%s", kCopyShm);
+    auto cmd = a0::strutil::fmt("rm /tmp%s", COPY_SHM);
     REQUIRE_OK(system(cmd.c_str()));
   }
 }

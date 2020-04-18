@@ -18,13 +18,13 @@
 //  Prpc Common  //
 ///////////////////
 
-static const char kPrpcType[] = "a0_prpc_type";
-static const char kPrpcTypeConnect[] = "connect";
-static const char kPrpcTypeProgress[] = "progress";
-static const char kPrpcTypeComplete[] = "complete";
-static const char kPrpcTypeCancel[] = "cancel";
+static const char PRPC_TYPE[] = "a0_prpc_type";
+static const char PRPC_TYPE_CONNECT[] = "connect";
+static const char PRPC_TYPE_PROGRESS[] = "progress";
+static const char PRPC_TYPE_COMPLETE[] = "complete";
+static const char PRPC_TYPE_CANCEL[] = "cancel";
 
-static const char kPrpcConnId[] = "a0_conn_id";
+static const char PRPC_CONN_ID[] = "a0_conn_id";
 
 //////////////
 //  Server  //
@@ -54,14 +54,14 @@ errno_t a0_prpc_server_init(a0_prpc_server_t* server,
             auto* server = (a0_prpc_server_t*)user_data;
             auto* impl = server->_impl;
 
-            const char* prpc_type = a0::find_header(pkt, kPrpcType);
-            if (!strcmp(prpc_type, kPrpcTypeConnect)) {
+            const char* prpc_type = a0::find_header(pkt, PRPC_TYPE);
+            if (!strcmp(prpc_type, PRPC_TYPE_CONNECT)) {
               impl->onconnect.fn(impl->onconnect.user_data,
                                  a0_prpc_connection_t{
                                      .server = server,
                                      .pkt = pkt,
                                  });
-            } else if (bool(impl->oncancel.fn) && !strcmp(prpc_type, kPrpcTypeCancel)) {
+            } else if (bool(impl->oncancel.fn) && !strcmp(prpc_type, PRPC_TYPE_CANCEL)) {
               impl->oncancel.fn(impl->oncancel.user_data, (char*)pkt.payload.ptr);
             }
           },
@@ -131,9 +131,9 @@ errno_t a0_prpc_send(a0_prpc_connection_t conn, const a0_packet_t prog, bool don
 
   constexpr size_t num_extra_headers = 3;
   a0_packet_header_t extra_headers[num_extra_headers] = {
-      {kPrpcType, done ? kPrpcTypeComplete : kPrpcTypeProgress},
-      {kPrpcConnId, conn.pkt.id},
-      {a0_packet_dep_key, conn.pkt.id},
+      {PRPC_TYPE, done ? PRPC_TYPE_COMPLETE : PRPC_TYPE_PROGRESS},
+      {PRPC_CONN_ID, conn.pkt.id},
+      {A0_PACKET_DEP_KEY, conn.pkt.id},
   };
 
   a0_packet_t full_prog = prog;
@@ -167,15 +167,15 @@ errno_t a0_prpc_client_init(a0_prpc_client_t* client, a0_buf_t arena, a0_alloc_t
             auto* client = (a0_prpc_client_t*)user_data;
             auto* impl = client->_impl;
 
-            const char* prpc_type = a0::find_header(pkt, kPrpcType);
+            const char* prpc_type = a0::find_header(pkt, PRPC_TYPE);
 
-            bool is_progress = !strcmp(prpc_type, kPrpcTypeProgress);
-            bool is_complete = !strcmp(prpc_type, kPrpcTypeComplete);
+            bool is_progress = !strcmp(prpc_type, PRPC_TYPE_PROGRESS);
+            bool is_complete = !strcmp(prpc_type, PRPC_TYPE_COMPLETE);
             if (!is_progress && !is_complete) {
               return;
             }
 
-            const char* conn_id = a0::find_header(pkt, kPrpcConnId);
+            const char* conn_id = a0::find_header(pkt, PRPC_CONN_ID);
 
             auto callback =
                 impl->outstanding.with_lock([&](auto* outstanding_) -> a0_prpc_callback_t {
@@ -260,7 +260,7 @@ errno_t a0_prpc_connect(a0_prpc_client_t* client,
 
   constexpr size_t num_extra_headers = 1;
   a0_packet_header_t extra_headers[num_extra_headers] = {
-      {kPrpcType, kPrpcTypeConnect},
+      {PRPC_TYPE, PRPC_TYPE_CONNECT},
   };
 
   a0_packet_t full_pkt = pkt;
@@ -284,8 +284,8 @@ errno_t a0_prpc_cancel(a0_prpc_client_t* client, const a0_packet_id_t conn_id) {
 
   constexpr size_t num_headers = 2;
   a0_packet_header_t headers[num_headers] = {
-      {kPrpcType, kPrpcTypeCancel},
-      {a0_packet_dep_key, conn_id},
+      {PRPC_TYPE, PRPC_TYPE_CANCEL},
+      {A0_PACKET_DEP_KEY, conn_id},
   };
 
   a0_packet_t pkt;

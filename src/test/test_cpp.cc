@@ -7,29 +7,29 @@
 
 #include "src/test_util.hpp"
 
-static const char kTestShm[] = "/test.shm";
+static const char TEST_SHM[] = "/test.shm";
 
 struct CppPubsubFixture {
   a0::Shm shm;
 
   CppPubsubFixture() {
-    a0::Shm::unlink(kTestShm);
+    a0::Shm::unlink(TEST_SHM);
 
-    shm = a0::Shm(kTestShm, a0::Shm::Options{.size = 16 * 1024 * 1024});
+    shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = 16 * 1024 * 1024});
 
     a0::GlobalTopicManager() = {};
   }
 
   ~CppPubsubFixture() {
-    a0::Shm::unlink(kTestShm);
+    a0::Shm::unlink(TEST_SHM);
   }
 };
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
-  REQUIRE(shm.path() == kTestShm);
+  REQUIRE(shm.path() == TEST_SHM);
 
-  shm = a0::Shm(kTestShm);
-  REQUIRE(shm.path() == kTestShm);
+  shm = a0::Shm(TEST_SHM);
+  REQUIRE(shm.path() == TEST_SHM);
   REQUIRE(shm.c->buf.size == 16 * 1024 * 1024);
 }
 
@@ -135,10 +135,10 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub sync") {
       for (auto&& kv : pkt_view.headers()) {
         hdr_keys.insert(kv.first);
       }
-      REQUIRE(hdr_keys == std::set<std::string>{"a0_mono_time",
-                                                "a0_wall_time",
-                                                "a0_publisher_seq",
-                                                "a0_transport_seq"});
+      REQUIRE(hdr_keys == std::set<std::string>{"a0_time_mono",
+                                                "a0_time_wall",
+                                                "a0_seq_publisher",
+                                                "a0_seq_transport"});
     }
 
     REQUIRE(pkt_view.payload() == "msg #0");
@@ -158,10 +158,10 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub sync") {
         hdr_keys.insert(kv.first);
       }
       REQUIRE(hdr_keys == std::set<std::string>{"key",
-                                                "a0_mono_time",
-                                                "a0_wall_time",
-                                                "a0_publisher_seq",
-                                                "a0_transport_seq"});
+                                                "a0_time_mono",
+                                                "a0_time_wall",
+                                                "a0_seq_publisher",
+                                                "a0_seq_transport"});
     }
 
     REQUIRE(!sub.has_next());

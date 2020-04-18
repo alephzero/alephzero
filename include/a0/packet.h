@@ -132,7 +132,7 @@ typedef struct a0_packet_s {
 // The following are special keys.
 // The returned buffers should not be cleaned up.
 
-extern const char* a0_packet_dep_key;
+extern const char* A0_PACKET_DEP_KEY;
 
 // Callback definition where packet is the only argument.
 
