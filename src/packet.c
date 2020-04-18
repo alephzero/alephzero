@@ -129,17 +129,26 @@ errno_t a0_packet_deserialize(const a0_buf_t buf, a0_alloc_t alloc, a0_packet_t*
 
   size_t* hdr_idx_ptr = (size_t*)(buf.ptr + sizeof(a0_packet_id_t) + sizeof(size_t));
   for (size_t i = 0; i < num_header; i++) {
+    size_t key_off, val_off;
+    memcpy(&key_off, hdr_idx_ptr + (2 * i), sizeof(size_t));
+    memcpy(&val_off, hdr_idx_ptr + (2 * i + 1), sizeof(size_t));
     out->headers_block.headers[i] = (a0_packet_header_t){
-        .key = (char*)(buf.ptr + hdr_idx_ptr[2 * i]),
-        .val = (char*)(buf.ptr + hdr_idx_ptr[2 * i + 1]),
+        .key = (char*)(buf.ptr + key_off),
+        .val = (char*)(buf.ptr + val_off),
     };
   }
   out->headers_block.next_block = NULL;
 
-  size_t payload_off = *(size_t*)(buf.ptr                                //
-                                  + sizeof(a0_packet_id_t)               // ID.
-                                  + sizeof(size_t)                       // Num headers.
-                                  + (2 * num_header) * sizeof(size_t));  // Header offsets.
+  size_t payload_off;
+  memcpy(&payload_off,
+         buf.ptr
+             // ID.
+             + sizeof(a0_packet_id_t)
+             // Num headers.
+             + sizeof(size_t)
+             // Header offsets.
+             + (2 * num_header) * sizeof(size_t),
+         sizeof(size_t));
 
   out->payload = (a0_buf_t){
       .ptr = buf.ptr + payload_off,

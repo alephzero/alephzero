@@ -43,13 +43,13 @@ endif
 cov: CXFLAGS += -fprofile-arcs -ftest-coverage --coverage
 cov: LDFLAGS += -lgcov
 
-asan: CXFLAGS += -fsanitize=address -fsanitize=leak
+asan: CXFLAGS += -fsanitize=address -fsanitize=leak -fno-sanitize-recover=address
 asan: LDFLAGS += -fsanitize=address -fsanitize=leak
 
-tsan: CXFLAGS += -fsanitize=thread
+tsan: CXFLAGS += -fsanitize=thread -fno-sanitize-recover=thread
 tsan: LDFLAGS += -fsanitize=thread
 
-ubsan: CXFLAGS += -fsanitize=undefined
+ubsan: CXFLAGS += -fsanitize=undefined -fno-sanitize-recover=undefined
 ubsan: LDFLAGS += -fsanitize=undefined -lubsan
 
 ifeq ($(DEBUG), 1)
