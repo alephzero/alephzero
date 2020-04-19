@@ -1,71 +1,86 @@
 /**
- * @file packet.h
- *
- * A packet is a simple data wrapper two parts:
- *
- * * **headers**: a multimap of utf8 key-value pairs.
- * * **payload**: a binary string.
- *
- * Header fields whose keys start with **a0_** are special cased.
- * Among them are:
- *
- * * **a0_id**: The unique id of the packet.<br/>
- *   It may NOT be added! It will be provided automatically on construction.
- * * **a0_deps**: The **a0_id** of dependent packets.<br/>
- *   May be used as a key multiple times.
- *
+ * \file packet.h
  * \rst
- * .. note::
  *
- *   **TODO**: Expand list with headers used by protocols.
- * \endrst
+ * What is a packet
+ *   | A simple container with the following elements: **ID**, **Headers**, **Payload**.
+ *   | Capable of being serialized and deserialed.
  *
- * The serialized form has four parts:
- * * Packet id.
- * * Index.
- * * Header contents.
- * * Payload content.
+ * ID
+ *  | Unique UUID associated with the packet.
+ *  | Provided on construction and immutable.
  *
- * The index is added for O(1) lookup of headers and the payload.
+ * Headers
+ *   Headers are a multipmap of utf8 key-value pairs.
  *
- * \rst
- * +-------------------------------+
- * | id (a0_packet_id_t)           |
- * +-------------------------------+
- * | num headers (size_t)          |
- * +-------------------------------+
- * | offset for hdr 0 key (size_t) |
- * +-------------------------------+
- * | offset for hdr 0 val (size_t) |
- * +-------------------------------+
- * |   .   .   .   .   .   .   .   |
- * +-------------------------------+
- * |   .   .   .   .   .   .   .   |
- * +-------------------------------+
- * | offset for hdr N key (size_t) |
- * +-------------------------------+
- * | offset for hdr N val (size_t) |
- * +-------------------------------+
- * | offset for payload (size_t)   |
- * +-------------------------------+
- * | hdr 0 key content             |
- * +-------------------------------+
- * | hdr 0 val content             |
- * +-------------------------------+
- * |   .   .   .   .   .   .   .   |
- * +-------------------------------+
- * |   .   .   .   .   .   .   .   |
- * +-------------------------------+
- * | hdr N key content             |
- * +-------------------------------+
- * | hdr N val content             |
- * +-------------------------------+
- * | payload content               |
- * +-------------------------------+
+ *   Keys starting with **a0_** are reserved for AlephZero internals.
+ *   Among them are:
  *
- * .. note::
+ *   * **a0_deps**:
+ *     The **ID** of dependent packets.
+ *     May be used as a key multiple times.
+ *   * **a0_time_mono**:
+ *     Monotonic/steady clock value.
+ *     See `time.h </time.html>`_ for more info.
+ *   * **a0_time_wall**:
+ *     Wall/system clock value (in RFC3339 / ISO8601 format).
+ *     See `time.h </time.html>`_ for more info.
+ *   * **a0_seq_transport**:
+ *     Sequence number among all packets in the transport.
+ *   * **a0_seq_publisher**:
+ *     Sequence number from the publisher.
+ *   * **...**
  *
- *   Header keys & values are c-strings and include a null terminator.
+ *   .. note::
+ *
+ *     Header keys & values are c-strings and include a null terminator.
+ *
+ * Payload
+ *  Arbitrary binary string.
+ *
+ * Serialization Format
+ *   The serialized form has four parts:
+ *   * Packet id.
+ *   * Index.
+ *   * Header contents.
+ *   * Payload content.
+ *
+ *   The index is added for O(1) lookup of headers and the payload.
+ *
+ *   +-------------------------------+
+ *   | ID (a0_packet_id_t)           |
+ *   +-------------------------------+
+ *   | num headers (size_t)          |
+ *   +-------------------------------+
+ *   | offset for hdr 0 key (size_t) |
+ *   +-------------------------------+
+ *   | offset for hdr 0 val (size_t) |
+ *   +-------------------------------+
+ *   |   .   .   .   .   .   .   .   |
+ *   +-------------------------------+
+ *   |   .   .   .   .   .   .   .   |
+ *   +-------------------------------+
+ *   | offset for hdr N key (size_t) |
+ *   +-------------------------------+
+ *   | offset for hdr N val (size_t) |
+ *   +-------------------------------+
+ *   | offset for payload (size_t)   |
+ *   +-------------------------------+
+ *   | hdr 0 key content             |
+ *   +-------------------------------+
+ *   | hdr 0 val content             |
+ *   +-------------------------------+
+ *   |   .   .   .   .   .   .   .   |
+ *   +-------------------------------+
+ *   |   .   .   .   .   .   .   .   |
+ *   +-------------------------------+
+ *   | hdr N key content             |
+ *   +-------------------------------+
+ *   | hdr N val content             |
+ *   +-------------------------------+
+ *   | payload content               |
+ *   +-------------------------------+
+ *
  * \endrst
  */
 

@@ -11,7 +11,7 @@ docker run \
   -it \
   -d \
   --name a0_doc_preview \
-  -p 8002:8000 \
+  -p 8000:8000 \
   a0_doc_preview_image bash
 
 shutdown()

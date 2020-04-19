@@ -22,5 +22,4 @@ RUN $VENV_PIP \
     "sphinx<2" \
     "sphinx-rtd-theme<0.5" \
     "readthedocs-sphinx-ext<1.1"
-RUN $VENV_PIP "breathe==4.15.0"
 RUN $VENV_PIP sphinx-server gunicorn
