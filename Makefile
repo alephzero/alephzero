@@ -10,27 +10,27 @@ CXXFLAGS += -std=c++17 -Wno-missing-field-initializers -Wno-braced-scalar-init
 LDFLAGS += -lm -lpthread -lrt
 
 SRC_C := $(wildcard $(SRC_DIR)/*.c)
-SRC_CXX := $(wildcard $(SRC_DIR)/*.cc)
+SRC_CXX := $(wildcard $(SRC_DIR)/*.cpp)
 
 OBJ := $(SRC_C:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
-OBJ += $(SRC_CXX:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
+OBJ += $(SRC_CXX:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 
 DEP = $(OBJ:%.o=%.d)
 
 TEST_SRC_C := $(wildcard $(SRC_DIR)/test/*.c)
-TEST_SRC_CXX := $(wildcard $(SRC_DIR)/test/*.cc)
+TEST_SRC_CXX := $(wildcard $(SRC_DIR)/test/*.cpp)
 
 TEST_OBJ := $(TEST_SRC_C:$(SRC_DIR)/test/%.c=$(OBJ_DIR)/test/%.o)
-TEST_OBJ += $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cc=$(OBJ_DIR)/test/%.o)
+TEST_OBJ += $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cpp=$(OBJ_DIR)/test/%.o)
 
 TEST_CXXFLAGS += -I. -Itest -Ithird_party/doctest/doctest
 TEST_LDFLAGS += -lm
 
 BENCH_SRC_C := $(wildcard $(SRC_DIR)/bench/*.c)
-BENCH_SRC_CXX := $(wildcard $(SRC_DIR)/bench/*.cc)
+BENCH_SRC_CXX := $(wildcard $(SRC_DIR)/bench/*.cpp)
 
 BENCH_OBJ := $(BENCH_SRC_C:$(SRC_DIR)/bench/%.c=$(OBJ_DIR)/bench/%.o)
-BENCH_OBJ += $(BENCH_SRC_CXX:$(SRC_DIR)/bench/%.cc=$(OBJ_DIR)/bench/%.o)
+BENCH_OBJ += $(BENCH_SRC_CXX:$(SRC_DIR)/bench/%.cpp=$(OBJ_DIR)/bench/%.o)
 
 BENCH_CXXFLAGS += -I. -Ibench -Ithird_party/picobench/include
 
@@ -78,11 +78,11 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CXFLAGS) -MMD -c $< -o $@
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXFLAGS) $(CXXFLAGS) -MMD -c $< -o $@
 
-$(OBJ_DIR)/test/%.o: $(SRC_DIR)/test/%.cc
+$(OBJ_DIR)/test/%.o: $(SRC_DIR)/test/%.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXFLAGS) $(CXXFLAGS) $(TEST_CXXFLAGS) -MMD -c $< -o $@
 
@@ -90,7 +90,7 @@ $(BIN_DIR)/test: $(TEST_OBJ) $(OBJ)
 	@mkdir -p $(@D)
 	$(CXX) $^ $(LDFLAGS) $(TEST_LDFLAGS) -o $@
 
-$(OBJ_DIR)/bench/%.o: $(SRC_DIR)/bench/%.cc
+$(OBJ_DIR)/bench/%.o: $(SRC_DIR)/bench/%.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXFLAGS) $(CXXFLAGS) $(BENCH_CXXFLAGS) -MMD -c $< -o $@
 
