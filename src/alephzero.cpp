@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "alloc_util.hpp"
 #include "macros.h"
 #include "scope.hpp"
 
@@ -300,19 +301,13 @@ a0_topic_manager_t c(const TopicManager* cpp_) {
   c_.rpc_client_aliases_size = cpp_->rpc_client_aliases.size();
   c_.prpc_client_aliases_size = cpp_->prpc_client_aliases.size();
 
-  auto make_realloc_allocator = []() {
-    a0_alloc_t alloc;
-    check(a0_realloc_allocator_init(&alloc));
-    return alloc;
-  };
+  thread_local a0::scope<a0_alloc_t> subscriber_aliases_alloc = a0::scope_realloc();
+  thread_local a0::scope<a0_alloc_t> rpc_client_aliases_alloc = a0::scope_realloc();
+  thread_local a0::scope<a0_alloc_t> prpc_client_aliases_alloc = a0::scope_realloc();
 
-  thread_local a0_alloc_t subscriber_aliases_alloc = make_realloc_allocator();
-  thread_local a0_alloc_t rpc_client_aliases_alloc = make_realloc_allocator();
-  thread_local a0_alloc_t prpc_client_aliases_alloc = make_realloc_allocator();
-
-  c_.subscriber_aliases = copy_aliases(&cpp_->subscriber_aliases, subscriber_aliases_alloc);
-  c_.rpc_client_aliases = copy_aliases(&cpp_->rpc_client_aliases, rpc_client_aliases_alloc);
-  c_.prpc_client_aliases = copy_aliases(&cpp_->prpc_client_aliases, prpc_client_aliases_alloc);
+  c_.subscriber_aliases = copy_aliases(&cpp_->subscriber_aliases, *subscriber_aliases_alloc);
+  c_.rpc_client_aliases = copy_aliases(&cpp_->rpc_client_aliases, *rpc_client_aliases_alloc);
+  c_.prpc_client_aliases = copy_aliases(&cpp_->prpc_client_aliases, *prpc_client_aliases_alloc);
 
   return c_;
 }
