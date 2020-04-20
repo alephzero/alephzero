@@ -440,6 +440,33 @@ void InitGlobalTopicManager(TopicManager tm) {
   GlobalTopicManager() = std::move(tm);
 }
 
+PublisherRaw::PublisherRaw(Shm shm) {
+  c = c_shared<a0_publisher_raw_t>(
+      [&](a0_publisher_raw_t* c) {
+        return a0_publisher_raw_init(c, shm.c->buf);
+      },
+      [shm](a0_publisher_raw_t* c) {
+        a0_publisher_raw_close(c);
+        delete c;
+      });
+}
+
+PublisherRaw::PublisherRaw(const std::string_view topic)
+    : PublisherRaw(GlobalTopicManager().publisher_topic(topic)) {}
+
+void PublisherRaw::pub(const PacketView& pkt) {
+  check(a0_pub_raw(&*c, *pkt.c));
+}
+
+void PublisherRaw::pub(std::vector<std::pair<std::string, std::string>> headers,
+                       const std::string_view payload) {
+  pub(PacketView(std::move(headers), payload));
+}
+
+void PublisherRaw::pub(const std::string_view payload) {
+  pub({}, payload);
+}
+
 Publisher::Publisher(Shm shm) {
   c = c_shared<a0_publisher_t>(
       [&](a0_publisher_t* c) {

@@ -102,6 +102,20 @@ struct TopicManager {
 void InitGlobalTopicManager(TopicManager);
 TopicManager& GlobalTopicManager();
 
+struct PublisherRaw {
+  std::shared_ptr<a0_publisher_raw_t> c;
+
+  PublisherRaw() = default;
+  PublisherRaw(Shm);
+  // User-friendly constructor that uses GlobalTopicManager publisher_topic for shm.
+  PublisherRaw(const std::string_view);
+
+  void pub(const PacketView&);
+  void pub(std::vector<std::pair<std::string, std::string>> headers,
+           const std::string_view payload);
+  void pub(const std::string_view payload);
+};
+
 struct Publisher {
   std::shared_ptr<a0_publisher_t> c;
 
