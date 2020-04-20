@@ -95,8 +95,8 @@ std::string_view as_string_view(a0_buf_t buf) {
 }  // namespace
 
 Shm::Options Shm::Options::DEFAULT = {
-  .size = A0_SHM_OPTIONS_DEFAULT.size,
-  .resize = A0_SHM_OPTIONS_DEFAULT.resize,
+    .size = A0_SHM_OPTIONS_DEFAULT.size,
+    .resize = A0_SHM_OPTIONS_DEFAULT.resize,
 };
 
 Shm::Shm(const std::string_view path) : Shm(path, Options::DEFAULT) {}

@@ -1,5 +1,5 @@
-#ifndef A0_INTERNAL_SYNC_H
-#define A0_INTERNAL_SYNC_H
+#ifndef A0_SRC_SYNC_H
+#define A0_SRC_SYNC_H
 
 #include <limits.h>
 #include <linux/futex.h>
@@ -17,7 +17,7 @@ errno_t a0_futex(a0_futex_t* addr1,
                  const struct timespec* timeout,
                  a0_futex_t* addr2,
                  int val3) {
-  A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(syscall(SYS_futex, addr1, op, val1, timeout, addr2, val3));
+  A0_RETURN_ERR_ON_MINUS_ONE(syscall(SYS_futex, addr1, op, val1, timeout, addr2, val3));
   return A0_OK;
 }
 
@@ -55,4 +55,4 @@ errno_t a0_futex_broadcast(a0_futex_t* fu) {
 
 #define a0_cas(P, OV, NV) __sync_val_compare_and_swap((P), (OV), (NV))
 
-#endif  // A0_INTERNAL_SYNC_H
+#endif  // A0_SRC_SYNC_H

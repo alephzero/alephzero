@@ -80,9 +80,9 @@ errno_t a0_transport_init_create(a0_transport_t* transport,
 
   hdr->shm_size = transport->_arena.size;
   hdr->metadata_size = metadata_size;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_mtx_init(&hdr->mu));
+  A0_RETURN_ERR_ON_ERR(a0_mtx_init(&hdr->mu));
 
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_lock(transport, lk_out));
+  A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, lk_out));
   A0_TSAN_ANNOTATE_HAPPENS_BEFORE(&hdr->init_completed);
   a0_atomic_store(&hdr->init_completed, true);
   *status_out = A0_TRANSPORT_CREATED;
@@ -113,7 +113,7 @@ errno_t a0_transport_init(a0_transport_t* transport,
     a0_spin();
   }
   A0_TSAN_ANNOTATE_HAPPENS_AFTER(&hdr->init_completed);
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_lock(transport, lk_out));
+  A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, lk_out));
   *status_out = A0_TRANSPORT_CONNECTED;
   return A0_OK;
 }
@@ -219,7 +219,7 @@ errno_t a0_transport_jump_head(a0_locked_transport_t lk) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool empty;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
+  A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
   if (A0_UNLIKELY(empty)) {
     return EAGAIN;
   }
@@ -233,7 +233,7 @@ errno_t a0_transport_jump_tail(a0_locked_transport_t lk) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool empty;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
+  A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
   if (A0_UNLIKELY(empty)) {
     return EAGAIN;
   }
@@ -245,7 +245,7 @@ errno_t a0_transport_jump_tail(a0_locked_transport_t lk) {
 
 errno_t a0_transport_has_next(a0_locked_transport_t lk, bool* out) {
   bool empty;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
+  A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
 
   a0_transport_state_t* state = a0_transport_working_page(lk);
   *out = !empty && (lk.transport->_seq < state->seq_high);
@@ -256,7 +256,7 @@ errno_t a0_transport_next(a0_locked_transport_t lk) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool has_next;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_has_next(lk, &has_next));
+  A0_RETURN_ERR_ON_ERR(a0_transport_has_next(lk, &has_next));
   if (A0_UNLIKELY(!has_next)) {
     return EAGAIN;
   }
@@ -281,7 +281,7 @@ errno_t a0_transport_next(a0_locked_transport_t lk) {
 
 errno_t a0_transport_has_prev(a0_locked_transport_t lk, bool* out) {
   bool empty;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
+  A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
 
   a0_transport_state_t* state = a0_transport_working_page(lk);
   *out = !empty && (lk.transport->_seq > state->seq_low);
@@ -290,7 +290,7 @@ errno_t a0_transport_has_prev(a0_locked_transport_t lk, bool* out) {
 
 errno_t a0_transport_prev(a0_locked_transport_t lk) {
   bool has_prev;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_has_prev(lk, &has_prev));
+  A0_RETURN_ERR_ON_ERR(a0_transport_has_prev(lk, &has_prev));
   if (A0_UNLIKELY(!has_prev)) {
     return EAGAIN;
   }
@@ -419,7 +419,7 @@ errno_t a0_transport_find_slot(a0_locked_transport_t lk, size_t frame_size, tran
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool empty;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
+  A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
 
   if (A0_UNLIKELY(empty)) {
     *off = a0_transport_workspace_off(hdr);
@@ -490,7 +490,7 @@ errno_t a0_transport_alloc_evicts(a0_locked_transport_t lk, size_t size, bool* o
   size_t frame_size = sizeof(a0_transport_frame_hdr_t) + size;
 
   transport_off_t off;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_find_slot(lk, frame_size, &off));
+  A0_RETURN_ERR_ON_ERR(a0_transport_find_slot(lk, frame_size, &off));
 
   transport_off_t head_off;
   size_t head_size;
@@ -505,7 +505,7 @@ errno_t a0_transport_alloc(a0_locked_transport_t lk, size_t size, a0_transport_f
   size_t frame_size = sizeof(a0_transport_frame_hdr_t) + size;
 
   transport_off_t off;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_find_slot(lk, frame_size, &off));
+  A0_RETURN_ERR_ON_ERR(a0_transport_find_slot(lk, frame_size, &off));
 
   a0_transport_clear_space(lk, off, frame_size);
 

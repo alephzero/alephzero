@@ -18,8 +18,8 @@ struct StreamTestFixture {
   StreamTestFixture() {
     a0_shm_unlink(TEST_SHM);
     shmopt = {
-      .size = 4096,
-      .resize = false,
+        .size = 4096,
+        .resize = false,
     };
     a0_shm_open(TEST_SHM, &shmopt, &shm);
   }

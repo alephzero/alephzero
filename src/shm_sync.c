@@ -62,13 +62,13 @@ void memory_barrier() {
 
 A0_STATIC_INLINE
 errno_t futex_lock_pi(a0_ftx_t* addr1, int val1, const struct timespec* timeout) {
-  A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(syscall(SYS_futex, addr1, FUTEX_LOCK_PI, val1, timeout));
+  A0_RETURN_ERR_ON_MINUS_ONE(syscall(SYS_futex, addr1, FUTEX_LOCK_PI, val1, timeout));
   return A0_OK;
 }
 
 A0_STATIC_INLINE
 errno_t futex_unlock_pi(a0_ftx_t* addr1) {
-  A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(syscall(SYS_futex, addr1, FUTEX_UNLOCK_PI));
+  A0_RETURN_ERR_ON_MINUS_ONE(syscall(SYS_futex, addr1, FUTEX_UNLOCK_PI));
   return A0_OK;
 }
 

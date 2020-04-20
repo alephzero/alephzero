@@ -111,7 +111,8 @@ typedef struct a0_packet_headers_block_s a0_packet_headers_block_t;
  *
  * https://en.wikipedia.org/wiki/Unrolled_linked_list
  *
- * This is meant to make it easier for abstractions to add additional headers without allocating heap space.
+ * This is meant to make it easier for abstractions to add additional headers without allocating
+ * heap space.
  *
  * \rst
  * .. code-block:: cpp
