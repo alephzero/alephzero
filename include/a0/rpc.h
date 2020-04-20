@@ -55,7 +55,7 @@ errno_t a0_rpc_client_close(a0_rpc_client_t*);
 errno_t a0_rpc_client_async_close(a0_rpc_client_t*, a0_callback_t);
 errno_t a0_rpc_send(a0_rpc_client_t*, const a0_packet_t, a0_packet_callback_t);
 // Note: use the same packet that was provided to a0_rpc_send.
-errno_t a0_rpc_cancel(a0_rpc_client_t*, const a0_packet_id_t);
+errno_t a0_rpc_cancel(a0_rpc_client_t*, const a0_uuid_t);
 
 #ifdef __cplusplus
 }

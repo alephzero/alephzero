@@ -61,7 +61,7 @@ errno_t a0_prpc_client_close(a0_prpc_client_t*);
 errno_t a0_prpc_client_async_close(a0_prpc_client_t*, a0_callback_t);
 errno_t a0_prpc_connect(a0_prpc_client_t*, const a0_packet_t, a0_prpc_callback_t);
 // Note: use the same packet that was provided to a0_prpc_connect.
-errno_t a0_prpc_cancel(a0_prpc_client_t*, const a0_packet_id_t);
+errno_t a0_prpc_cancel(a0_prpc_client_t*, const a0_uuid_t);
 
 #ifdef __cplusplus
 }

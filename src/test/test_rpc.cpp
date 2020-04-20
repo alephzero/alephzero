@@ -49,7 +49,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
   a0_packet_id_callback_t oncancel = {
       .user_data = &data,
       .fn =
-          [](void* user_data, a0_packet_id_t) {
+          [](void* user_data, a0_uuid_t) {
             auto* data = (a0::sync<data_t>*)user_data;
             data->notify_all([](auto* data_) {
               data_->cancel_cnt++;

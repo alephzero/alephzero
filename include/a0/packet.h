@@ -25,10 +25,12 @@
  *   * **a0_time_wall**:
  *     Wall/system clock value (in RFC3339 / ISO8601 format).
  *     See `time.h </time.html>`_ for more info.
- *   * **a0_seq_transport**:
+ *   * **a0_transport_seq**:
  *     Sequence number among all packets in the transport.
- *   * **a0_seq_publisher**:
+ *   * **a0_publisher_seq**:
  *     Sequence number from the publisher.
+ *   * **a0_publisher_id**:
+ *     UUID of the publisher.
  *   * **...**
  *
  *   .. note::
@@ -48,7 +50,7 @@
  *   The index is added for O(1) lookup of headers and the payload.
  *
  *   +-------------------------------+
- *   | ID (a0_packet_id_t)           |
+ *   | ID (a0_uuid_t)                |
  *   +-------------------------------+
  *   | num headers (size_t)          |
  *   +-------------------------------+
@@ -135,12 +137,8 @@ struct a0_packet_headers_block_s {
   a0_packet_headers_block_t* next_block;
 };
 
-/// Packet ids are human-readable uuidv4.
-#define A0_PACKET_ID_SIZE 37
-typedef char a0_packet_id_t[A0_PACKET_ID_SIZE];
-
 typedef struct a0_packet_s {
-  a0_packet_id_t id;
+  a0_uuid_t id;
   a0_packet_headers_block_t headers_block;
   a0_buf_t payload;
 } a0_packet_t;
@@ -164,7 +162,7 @@ typedef struct a0_packet_header_callback_s {
 
 typedef struct a0_packet_id_callback_s {
   void* user_data;
-  void (*fn)(void* user_data, a0_packet_id_t);
+  void (*fn)(void* user_data, a0_uuid_t);
 } a0_packet_id_callback_t;
 
 /// Initializes a packet. This includes setting the id.

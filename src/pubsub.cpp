@@ -13,6 +13,7 @@
 
 #include "alloc_util.hpp"
 #include "macros.h"
+#include "rand.h"
 #include "scope.hpp"
 #include "sync.hpp"
 #include "to_chars.hpp"
@@ -30,16 +31,12 @@ struct a0_pubsub_metadata_t {
 //  Publisher  //
 /////////////////
 
-static const char SEQ_PUBLISHER[] = "a0_seq_publisher";
-static const char SEQ_TRANSPORT[] = "a0_seq_transport";
-
-struct a0_publisher_impl_s {
+struct a0_publisher_raw_impl_s {
   a0_transport_t transport;
-  uint64_t publisher_seq{0};
 };
 
-errno_t a0_publisher_init(a0_publisher_t* pub, a0_buf_t arena) {
-  pub->_impl = new a0_publisher_impl_t;
+errno_t a0_publisher_raw_init(a0_publisher_raw_t* pub, a0_buf_t arena) {
+  pub->_impl = new a0_publisher_raw_impl_t;
 
   a0_transport_init_status_t init_status;
   a0_locked_transport_t tlk;
@@ -53,7 +50,7 @@ errno_t a0_publisher_init(a0_publisher_t* pub, a0_buf_t arena) {
   return A0_OK;
 }
 
-errno_t a0_publisher_close(a0_publisher_t* pub) {
+errno_t a0_publisher_raw_close(a0_publisher_raw_t* pub) {
   if (!pub->_impl) {
     return ESHUTDOWN;
   }
@@ -65,8 +62,48 @@ errno_t a0_publisher_close(a0_publisher_t* pub) {
   return A0_OK;
 }
 
+errno_t a0_pub_raw(a0_publisher_raw_t* pub, const a0_packet_t pkt) {
+  if (!pub->_impl) {
+    return ESHUTDOWN;
+  }
+
+  a0::scoped_transport_lock stlk(&pub->_impl->transport);
+  a0_alloc_t alloc;
+  A0_RETURN_ERR_ON_ERR(a0_transport_allocator(&stlk.tlk, &alloc));
+  A0_RETURN_ERR_ON_ERR(a0_packet_serialize(pkt, alloc, nullptr));
+  return a0_transport_commit(stlk.tlk);
+}
+
+static const char TRANSPORT_SEQ[] = "a0_transport_seq";
+static const char PUBLISHER_SEQ[] = "a0_publisher_seq";
+static const char PUBLISHER_ID[] = "a0_publisher_id";
+
+struct a0_publisher_impl_s {
+  a0_publisher_raw_t raw;
+  uint64_t publisher_seq{0};
+  a0_uuid_t id;
+};
+
+errno_t a0_publisher_init(a0_publisher_t* pub, a0_buf_t arena) {
+  pub->_impl = new a0_publisher_impl_t;
+  a0_uuidv4((uint8_t*)pub->_impl->id);
+  return a0_publisher_raw_init(&pub->_impl->raw, arena);
+}
+
+errno_t a0_publisher_close(a0_publisher_t* pub) {
+  if (!pub->_impl) {
+    return ESHUTDOWN;
+  }
+
+  a0_publisher_raw_close(&pub->_impl->raw);
+  delete pub->_impl;
+  pub->_impl = nullptr;
+
+  return A0_OK;
+}
+
 errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
-  if (!pub || !pub->_impl) {
+  if (!pub->_impl) {
     return ESHUTDOWN;
   }
 
@@ -80,22 +117,24 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
   char wall_str[36];
   a0_time_wall_str(time_wall, wall_str);
 
-  a0::scoped_transport_lock stlk(&pub->_impl->transport);
-
   char pseq_str[20];
   a0::to_chars(pseq_str, pseq_str + 20, pub->_impl->publisher_seq++);
 
   char tseq_str[20];
-  a0_buf_t metadata;
-  a0_transport_metadata(stlk.tlk, &metadata);
-  a0::to_chars(tseq_str, tseq_str + 20, ((a0_pubsub_metadata_t*)metadata.ptr)->transport_seq++);
+  {
+    a0::scoped_transport_lock stlk(&pub->_impl->raw._impl->transport);
+    a0_buf_t metadata;
+    a0_transport_metadata(stlk.tlk, &metadata);
+    a0::to_chars(tseq_str, tseq_str + 20, ((a0_pubsub_metadata_t*)metadata.ptr)->transport_seq++);
+  }
 
-  constexpr size_t num_extra_headers = 4;
+  constexpr size_t num_extra_headers = 5;
   a0_packet_header_t extra_headers[num_extra_headers] = {
       {A0_TIME_MONO, mono_str},
       {A0_TIME_WALL, wall_str},
-      {SEQ_PUBLISHER, pseq_str},
-      {SEQ_TRANSPORT, tseq_str},
+      {TRANSPORT_SEQ, tseq_str},
+      {PUBLISHER_SEQ, pseq_str},
+      {PUBLISHER_ID, pub->_impl->id},
   };
 
   a0_packet_t full_pkt = pkt;
@@ -105,10 +144,7 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
       .next_block = (a0_packet_headers_block_t*)&pkt.headers_block,
   };
 
-  a0_alloc_t alloc;
-  A0_RETURN_ERR_ON_ERR(a0_transport_allocator(&stlk.tlk, &alloc));
-  A0_RETURN_ERR_ON_ERR(a0_packet_serialize(full_pkt, alloc, nullptr));
-  return a0_transport_commit(stlk.tlk);
+  return a0_pub_raw(&pub->_impl->raw, full_pkt);
 }
 
 //////////////////
