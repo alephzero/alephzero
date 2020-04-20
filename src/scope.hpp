@@ -40,4 +40,19 @@ class scope {
   }
 };
 
+template <>
+class scope<void> {
+  std::function<void()> atexit;
+
+ public:
+  scope(std::function<void()> atexit_) : atexit{std::move(atexit_)} {}
+
+  scope(const scope&) = delete;
+  scope& operator=(const scope&) = delete;
+
+  ~scope() {
+    atexit();
+  }
+};
+
 }  // namespace a0

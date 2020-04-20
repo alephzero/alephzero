@@ -10,6 +10,7 @@ EXTENSION_MAPPING      = h=C hpp=C++ py=Python
 MARKDOWN_SUPPORT       = YES
 AUTOLINK_SUPPORT       = YES
 BUILTIN_STL_SUPPORT    = YES
+TYPEDEF_HIDES_STRUCT   = YES
 
 #---------------------------------------------------------------------------
 # Build related configuration options

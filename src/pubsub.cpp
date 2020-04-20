@@ -193,11 +193,16 @@ errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t* sub_sync_zc,
   a0_transport_frame_t frame;
   a0_transport_frame(stlk.tlk, &frame);
 
-  thread_local a0::scope<a0_alloc_t> headers_alloc(a0_realloc_allocator(),
-                                                   a0_free_realloc_allocator);
+  auto make_realloc_allocator = []() {
+    a0_alloc_t alloc;
+    a0_realloc_allocator_init(&alloc);
+    return alloc;
+  };
+
+  thread_local a0_alloc_t headers_alloc = make_realloc_allocator();
 
   a0_packet_t pkt;
-  a0_packet_deserialize(a0::buf(frame), *headers_alloc, &pkt);
+  a0_packet_deserialize(a0::buf(frame), headers_alloc, &pkt);
 
   cb.fn(cb.user_data, stlk.tlk, pkt);
   sub_sync_zc->_impl->read_first = true;
@@ -299,11 +304,16 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
     a0_transport_frame_t frame;
     a0_transport_frame(tlk, &frame);
 
-    thread_local a0::scope<a0_alloc_t> headers_alloc(a0_realloc_allocator(),
-                                                     a0_free_realloc_allocator);
+    auto make_realloc_allocator = []() {
+      a0_alloc_t alloc;
+      a0_realloc_allocator_init(&alloc);
+      return alloc;
+    };
+
+    thread_local a0_alloc_t headers_alloc = make_realloc_allocator();
 
     a0_packet_t pkt;
-    a0_packet_deserialize(a0::buf(frame), *headers_alloc, &pkt);
+    a0_packet_deserialize(a0::buf(frame), headers_alloc, &pkt);
 
     onmsg.fn(onmsg.user_data, tlk, pkt);
   };

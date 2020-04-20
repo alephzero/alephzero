@@ -279,7 +279,7 @@ a0_topic_manager_t c(const TopicManager* cpp_) {
   auto copy_aliases = [](const std::map<std::string, TopicAliasTarget>* cpp_aliases,
                          a0_alloc_t alloc) {
     a0_buf_t mem;
-    alloc.fn(alloc.user_data, cpp_aliases->size() * sizeof(a0_topic_alias_t), &mem);
+    check(alloc.alloc(alloc.user_data, cpp_aliases->size() * sizeof(a0_topic_alias_t), &mem));
     auto* c_aliases = (a0_topic_alias_t*)mem.ptr;
 
     size_t i = 0;
@@ -300,9 +300,15 @@ a0_topic_manager_t c(const TopicManager* cpp_) {
   c_.rpc_client_aliases_size = cpp_->rpc_client_aliases.size();
   c_.prpc_client_aliases_size = cpp_->prpc_client_aliases.size();
 
-  thread_local a0_alloc_t subscriber_aliases_alloc = a0_realloc_allocator();
-  thread_local a0_alloc_t rpc_client_aliases_alloc = a0_realloc_allocator();
-  thread_local a0_alloc_t prpc_client_aliases_alloc = a0_realloc_allocator();
+  auto make_realloc_allocator = []() {
+    a0_alloc_t alloc;
+    check(a0_realloc_allocator_init(&alloc));
+    return alloc;
+  };
+
+  thread_local a0_alloc_t subscriber_aliases_alloc = make_realloc_allocator();
+  thread_local a0_alloc_t rpc_client_aliases_alloc = make_realloc_allocator();
+  thread_local a0_alloc_t prpc_client_aliases_alloc = make_realloc_allocator();
 
   c_.subscriber_aliases = copy_aliases(&cpp_->subscriber_aliases, subscriber_aliases_alloc);
   c_.rpc_client_aliases = copy_aliases(&cpp_->rpc_client_aliases, rpc_client_aliases_alloc);
@@ -506,14 +512,15 @@ void Logger::dbg(const PacketView& pkt) {
 }
 
 SubscriberSync::SubscriberSync(Shm shm, a0_subscriber_init_t init, a0_subscriber_iter_t iter) {
-  auto alloc = a0_realloc_allocator();
+  a0_alloc_t alloc;
+  check(a0_realloc_allocator_init(&alloc));
   c = c_shared<a0_subscriber_sync_t>(
       [&](a0_subscriber_sync_t* c) {
         return a0_subscriber_sync_init(c, shm.c->buf, alloc, init, iter);
       },
-      [shm, alloc](a0_subscriber_sync_t* c) {
+      [shm, alloc](a0_subscriber_sync_t* c) mutable {
         a0_subscriber_sync_close(c);
-        a0_free_realloc_allocator(alloc);
+        a0_realloc_allocator_close(&alloc);
         delete c;
       });
 }
@@ -554,9 +561,10 @@ Subscriber::Subscriber(Shm shm,
     delete heap_fn;
   });
 
-  auto alloc = a0_realloc_allocator();
-  deleter.also.push_back([alloc]() {
-    a0_free_realloc_allocator(alloc);
+  a0_alloc_t alloc;
+  check(a0_realloc_allocator_init(&alloc));
+  deleter.also.push_back([alloc]() mutable {
+    a0_realloc_allocator_close(&alloc);
   });
 
   deleter.primary = a0_subscriber_close;
@@ -597,12 +605,14 @@ void Subscriber::async_close(std::function<void()> fn) {
 }
 
 Packet Subscriber::read_one(Shm shm, a0_subscriber_init_t init, int flags) {
-  a0::scope<a0_alloc_t> alloc(a0_realloc_allocator(), [](a0_alloc_t* alloc_) {
-    a0_free_realloc_allocator(*alloc_);
+  a0_alloc_t alloc;
+  check(a0_realloc_allocator_init(&alloc));
+  a0::scope<void> alloc_destroyer([&]() mutable {
+    a0_realloc_allocator_close(&alloc);
   });
 
   a0_packet_t pkt;
-  check(a0_subscriber_read_one(shm.c->buf, *alloc, init, flags, &pkt));
+  check(a0_subscriber_read_one(shm.c->buf, alloc, init, flags, &pkt));
   return Packet(pkt);
 }
 
@@ -693,9 +703,10 @@ RpcServer::RpcServer(Shm shm,
     };
   }
 
-  auto alloc = a0_realloc_allocator();
-  deleter.also.push_back([alloc]() {
-    a0_free_realloc_allocator(alloc);
+  a0_alloc_t alloc;
+  check(a0_realloc_allocator_init(&alloc));
+  deleter.also.push_back([alloc]() mutable {
+    a0_realloc_allocator_close(&alloc);
   });
 
   deleter.primary = a0_rpc_server_close;
@@ -740,9 +751,10 @@ RpcClient::RpcClient(Shm shm) {
   CDeleter<a0_rpc_client_t> deleter;
   deleter.also.push_back([shm]() {});
 
-  auto alloc = a0_realloc_allocator();
-  deleter.also.push_back([alloc]() {
-    a0_free_realloc_allocator(alloc);
+  a0_alloc_t alloc;
+  check(a0_realloc_allocator_init(&alloc));
+  deleter.also.push_back([alloc]() mutable {
+    a0_realloc_allocator_close(&alloc);
   });
 
   deleter.primary = a0_rpc_client_close;
@@ -892,9 +904,10 @@ PrpcServer::PrpcServer(Shm shm,
     };
   }
 
-  auto alloc = a0_realloc_allocator();
-  deleter.also.push_back([alloc]() {
-    a0_free_realloc_allocator(alloc);
+  a0_alloc_t alloc;
+  check(a0_realloc_allocator_init(&alloc));
+  deleter.also.push_back([alloc]() mutable {
+    a0_realloc_allocator_close(&alloc);
   });
 
   deleter.primary = a0_prpc_server_close;
@@ -939,9 +952,10 @@ PrpcClient::PrpcClient(Shm shm) {
   CDeleter<a0_prpc_client_t> deleter;
   deleter.also.push_back([shm]() {});
 
-  auto alloc = a0_realloc_allocator();
-  deleter.also.push_back([alloc]() {
-    a0_free_realloc_allocator(alloc);
+  a0_alloc_t alloc;
+  check(a0_realloc_allocator_init(&alloc));
+  deleter.also.push_back([alloc]() mutable {
+    a0_realloc_allocator_close(&alloc);
   });
 
   deleter.primary = a0_prpc_client_close;
