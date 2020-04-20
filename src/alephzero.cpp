@@ -280,7 +280,7 @@ a0_topic_manager_t c(const TopicManager* cpp_) {
   auto copy_aliases = [](const std::map<std::string, TopicAliasTarget>* cpp_aliases,
                          a0_alloc_t alloc) {
     a0_buf_t mem;
-    check(alloc.alloc(alloc.user_data, cpp_aliases->size() * sizeof(a0_topic_alias_t), &mem));
+    check(a0_alloc(alloc, cpp_aliases->size() * sizeof(a0_topic_alias_t), &mem));
     auto* c_aliases = (a0_topic_alias_t*)mem.ptr;
 
     size_t i = 0;

@@ -1,45 +1,34 @@
+os: linux
 dist: bionic
 language: cpp
 
 matrix:
-  - os: linux
-    env:
-      - TASK="bionic gcc"
+  - name: "bionic gcc"
     compiler: gcc
     script:
       - make test -j
 
-  - os: linux
-    env:
-      - TASK="bionic clang"
+  - name: "bionic clang"
     compiler: clang
     script:
       - make test -j
 
-  - os: linux
-    env:
-      - TASK="asan"
+  - name: "asan"
     compiler: gcc
     script:
       - make asan -j
 
-  - os: linux
-    env:
-      - TASK="tsan"
+  - name: "tsan"
     compiler: gcc
     script:
       - make tsan -j
 
-  - os: linux
-    env:
-      - TASK="ubsan"
+  - name: "ubsan"
     compiler: gcc
     script:
       - make ubsan -j
 
-  - os: linux
-    env:
-      - TASK="cov"
+  - name: "cov"
     compiler: gcc
     script:
       - make cov -j

@@ -42,7 +42,7 @@ inline a0_alloc_t allocator() {
 
   return (a0_alloc_t){
       .user_data = &data,
-      .alloc =
+      .fn =
           [](void* user_data, size_t size, a0_buf_t* out) {
             auto* data = (sync<std::map<size_t, std::string>>*)user_data;
             data->with_lock([&](auto* dump) {
@@ -51,10 +51,6 @@ inline a0_alloc_t allocator() {
               out->size = size;
               out->ptr = (uint8_t*)((*dump)[key].c_str());
             });
-            return A0_OK;
-          },
-      .dealloc =
-          [](void*, a0_buf_t) {
             return A0_OK;
           },
   };
