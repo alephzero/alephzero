@@ -2,6 +2,10 @@ os: linux
 dist: bionic
 language: cpp
 
+branches:
+  only:
+    - master
+
 matrix:
   - name: "bionic gcc"
     compiler: gcc
@@ -27,6 +31,15 @@ matrix:
     compiler: gcc
     script:
       - make ubsan -j
+
+  - name: "valgrind"
+    addons:
+      apt:
+        packages:
+          - valgrind
+    compiler: gcc
+    script:
+      - make valgrind -j
 
   - name: "cov"
     compiler: gcc
