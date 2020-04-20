@@ -27,8 +27,8 @@ TEST_CASE_FIXTURE(ShmTestFixture, "shm] basic") {
   REQUIRE_OK(a0_shm_close(&shm));
 
   a0_shm_options_t shmopt = {
-    .size = 32 * 1024 * 1024,
-    .resize = false,
+      .size = 32 * 1024 * 1024,
+      .resize = false,
   };
   REQUIRE_OK(a0_shm_open(TEST_SHM, &shmopt, &shm));
   REQUIRE(shm.buf.size == A0_SHM_OPTIONS_DEFAULT.size);
@@ -55,8 +55,8 @@ TEST_CASE_FIXTURE(ShmTestFixture, "shm] basic") {
 TEST_CASE_FIXTURE(ShmTestFixture, "shm] bad size") {
   a0_shm_t shm;
   a0_shm_options_t shmopt = {
-    .size = std::numeric_limits<off_t>::max(),
-    .resize = false,
+      .size = std::numeric_limits<off_t>::max(),
+      .resize = false,
   };
   REQUIRE(a0_shm_open("/foo/bar", &shmopt, &shm) == EINVAL);
 

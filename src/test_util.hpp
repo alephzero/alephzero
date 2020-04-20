@@ -3,11 +3,12 @@
 #include <a0/common.h>
 #include <a0/packet.h>
 
+#include <unistd.h>
+
 #include <map>
 #include <mutex>
 #include <set>
 #include <string>
-#include <unistd.h>
 
 #include "src/sync.hpp"
 #include "src/transport_tools.hpp"

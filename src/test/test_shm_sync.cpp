@@ -27,8 +27,8 @@ struct ShmSyncTestFixture {
 
     a0_shm_t shm;
     a0_shm_options_t shmopt = {
-      .size = sizeof(a0_mtx_t),
-      .resize = false,
+        .size = sizeof(a0_mtx_t),
+        .resize = false,
     };
     REQUIRE_OK(a0_shm_open(name.c_str(), &shmopt, &shm));
     shms.push_back(shm);

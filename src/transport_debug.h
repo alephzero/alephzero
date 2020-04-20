@@ -1,5 +1,5 @@
-#ifndef A0_INTERNAL_TRANSPORT_DEBUG_H
-#define A0_INTERNAL_TRANSPORT_DEBUG_H
+#ifndef A0_SRC_TRANSPORT_DEBUG_H
+#define A0_SRC_TRANSPORT_DEBUG_H
 
 #include <a0/transport.h>
 
@@ -13,4 +13,4 @@ void a0_transport_debugstr(a0_locked_transport_t, a0_buf_t* out);
 }
 #endif
 
-#endif  // A0_INTERNAL_TRANSPORT_DEBUG_H
+#endif  // A0_SRC_TRANSPORT_DEBUG_H

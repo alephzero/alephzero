@@ -13,8 +13,8 @@
 #include "macros.h"
 
 const a0_shm_options_t A0_SHM_OPTIONS_DEFAULT = {
-  .size = 16 * 1024 * 1024,
-  .resize = false,
+    .size = 16 * 1024 * 1024,
+    .resize = false,
 };
 
 errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts_, a0_shm_t* out) {
@@ -24,14 +24,14 @@ errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts_, a0_shm_t* o
   }
 
   int fd = shm_open(path, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
-  A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(fd);
+  A0_RETURN_ERR_ON_MINUS_ONE(fd);
 
   stat_t stat;
-  A0_INTERNAL_CLEANUP_ON_MINUS_ONE(fstat(fd, &stat));
+  A0_CLEANUP_ON_MINUS_ONE(fstat(fd, &stat));
 
   out->buf.size = stat.st_size;
   if ((opts->resize || !stat.st_size) && opts->size != stat.st_size) {
-    A0_INTERNAL_CLEANUP_ON_MINUS_ONE(ftruncate(fd, opts->size));
+    A0_CLEANUP_ON_MINUS_ONE(ftruncate(fd, opts->size));
     out->buf.size = opts->size;
   }
 
@@ -42,7 +42,7 @@ errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts_, a0_shm_t* o
       /* flags  = */ MAP_SHARED,
       /* fd     = */ fd,
       /* offset = */ 0);
-  A0_INTERNAL_CLEANUP_ON_MINUS_ONE((intptr_t)out->buf.ptr);
+  A0_CLEANUP_ON_MINUS_ONE((intptr_t)out->buf.ptr);
 
   close(fd);
 
@@ -59,7 +59,7 @@ cleanup:;
 }
 
 errno_t a0_shm_unlink(const char* path) {
-  A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(shm_unlink(path));
+  A0_RETURN_ERR_ON_MINUS_ONE(shm_unlink(path));
   return A0_OK;
 }
 
@@ -69,7 +69,7 @@ errno_t a0_shm_close(a0_shm_t* shm) {
   }
 
   if (shm->buf.ptr) {
-    A0_INTERNAL_RETURN_ERR_ON_MINUS_ONE(munmap(shm->buf.ptr, shm->buf.size));
+    A0_RETURN_ERR_ON_MINUS_ONE(munmap(shm->buf.ptr, shm->buf.size));
     shm->buf.ptr = NULL;
   }
   if (shm->path) {

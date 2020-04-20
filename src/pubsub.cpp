@@ -105,8 +105,8 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
   };
 
   a0_alloc_t alloc;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_transport_allocator(&stlk.tlk, &alloc));
-  A0_INTERNAL_RETURN_ERR_ON_ERR(a0_packet_serialize(full_pkt, alloc, nullptr));
+  A0_RETURN_ERR_ON_ERR(a0_transport_allocator(&stlk.tlk, &alloc));
+  A0_RETURN_ERR_ON_ERR(a0_packet_serialize(full_pkt, alloc, nullptr));
   return a0_transport_commit(stlk.tlk);
 }
 
@@ -457,8 +457,7 @@ errno_t a0_subscriber_read_one(a0_buf_t arena,
     }
 
     a0_subscriber_sync_t sub_sync;
-    A0_INTERNAL_RETURN_ERR_ON_ERR(
-        a0_subscriber_sync_init(&sub_sync, arena, alloc, sub_init, A0_ITER_NEXT));
+    A0_RETURN_ERR_ON_ERR(a0_subscriber_sync_init(&sub_sync, arena, alloc, sub_init, A0_ITER_NEXT));
     struct sub_guard {
       a0_subscriber_sync_t* sub_sync;
       ~sub_guard() {
@@ -467,11 +466,11 @@ errno_t a0_subscriber_read_one(a0_buf_t arena,
     } sub_guard_{&sub_sync};
 
     bool has_next;
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_sync_has_next(&sub_sync, &has_next));
+    A0_RETURN_ERR_ON_ERR(a0_subscriber_sync_has_next(&sub_sync, &has_next));
     if (!has_next) {
       return EAGAIN;
     }
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_sync_next(&sub_sync, out));
+    A0_RETURN_ERR_ON_ERR(a0_subscriber_sync_next(&sub_sync, out));
   } else {
     struct data_ {
       a0_packet_t* pkt;
@@ -496,13 +495,12 @@ errno_t a0_subscriber_read_one(a0_buf_t arena,
     };
 
     a0_subscriber_t sub;
-    A0_INTERNAL_RETURN_ERR_ON_ERR(
-        a0_subscriber_init(&sub, arena, alloc, sub_init, A0_ITER_NEXT, cb));
+    A0_RETURN_ERR_ON_ERR(a0_subscriber_init(&sub, arena, alloc, sub_init, A0_ITER_NEXT, cb));
 
     data.sub_event.set();
     data.done_event.wait();
 
-    A0_INTERNAL_RETURN_ERR_ON_ERR(a0_subscriber_close(&sub));
+    A0_RETURN_ERR_ON_ERR(a0_subscriber_close(&sub));
   }
 
   return A0_OK;

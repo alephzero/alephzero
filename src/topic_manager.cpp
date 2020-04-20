@@ -67,7 +67,7 @@ errno_t a0_topic_manager_open_subscriber_topic(const a0_topic_manager_t* tm,
                                                const char* name,
                                                a0_shm_t* out) {
   const a0_topic_alias_t* alias;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(
+  A0_RETURN_ERR_ON_ERR(
       find_alias(tm->subscriber_aliases, tm->subscriber_aliases_size, name, &alias));
   auto path = a0::strutil::fmt(TOPIC_TMPL_PUBSUB, alias->target_container, alias->target_topic);
   return a0_shm_open(path.c_str(), nullptr, out);
@@ -84,7 +84,7 @@ errno_t a0_topic_manager_open_rpc_client_topic(const a0_topic_manager_t* tm,
                                                const char* name,
                                                a0_shm_t* out) {
   const a0_topic_alias_t* alias;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(
+  A0_RETURN_ERR_ON_ERR(
       find_alias(tm->rpc_client_aliases, tm->rpc_client_aliases_size, name, &alias));
   auto path = a0::strutil::fmt(TOPIC_TMPL_RPC, alias->target_container, alias->target_topic);
   return a0_shm_open(path.c_str(), nullptr, out);
@@ -101,7 +101,7 @@ errno_t a0_topic_manager_open_prpc_client_topic(const a0_topic_manager_t* tm,
                                                 const char* name,
                                                 a0_shm_t* out) {
   const a0_topic_alias_t* alias;
-  A0_INTERNAL_RETURN_ERR_ON_ERR(
+  A0_RETURN_ERR_ON_ERR(
       find_alias(tm->prpc_client_aliases, tm->prpc_client_aliases_size, name, &alias));
   auto path = a0::strutil::fmt(TOPIC_TMPL_PRPC, alias->target_container, alias->target_topic);
   return a0_shm_open(path.c_str(), nullptr, out);

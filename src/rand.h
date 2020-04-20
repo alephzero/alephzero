@@ -1,5 +1,5 @@
-#ifndef A0_INTERNAL_RAND_H
-#define A0_INTERNAL_RAND_H
+#ifndef A0_SRC_RAND_H
+#define A0_SRC_RAND_H
 
 #include <fcntl.h>
 #include <stdbool.h>
@@ -87,4 +87,4 @@ void a0_uuidv4(uint8_t out[UUID_SIZE]) {
 }
 #endif
 
-#endif  // A0_INTERNAL_RAND_H
+#endif  // A0_SRC_RAND_H
