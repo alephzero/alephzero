@@ -23,6 +23,10 @@ typedef struct a0_callback_s {
   void (*fn)(void* user_data);
 } a0_callback_t;
 
+// My kingdom for a constexpr.
+#define A0_UUID_SIZE 37
+typedef char a0_uuid_t[A0_UUID_SIZE];
+
 #define A0_NONE \
   { 0 }
 

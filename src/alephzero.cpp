@@ -151,9 +151,9 @@ std::shared_ptr<a0_packet_t> make_cpp_packet(const std::string_view id) {
   if (id.empty()) {
     // Create a new ID.
     check(a0_packet_init(&*c));
-  } else if (A0_LIKELY(id.size() == A0_PACKET_ID_SIZE - 1)) {
-    memcpy(c->id, id.data(), A0_PACKET_ID_SIZE - 1);
-    c->id[A0_PACKET_ID_SIZE - 1] = '\0';
+  } else if (A0_LIKELY(id.size() == A0_UUID_SIZE - 1)) {
+    memcpy(c->id, id.data(), A0_UUID_SIZE - 1);
+    c->id[A0_UUID_SIZE - 1] = '\0';
   } else {
     throw;  // TODO
   }
@@ -692,7 +692,7 @@ RpcServer::RpcServer(Shm shm,
     c_oncancel = {
         .user_data = heap_oncancel,
         .fn =
-            [](void* user_data, a0_packet_id_t id) {
+            [](void* user_data, a0_uuid_t id) {
               (*(std::function<void(const std::string_view)>*)user_data)(id);
             },
     };
@@ -893,7 +893,7 @@ PrpcServer::PrpcServer(Shm shm,
     c_oncancel = {
         .user_data = heap_oncancel,
         .fn =
-            [](void* user_data, a0_packet_id_t id) {
+            [](void* user_data, a0_uuid_t id) {
               (*(std::function<void(const std::string_view)>*)user_data)(id);
             },
     };

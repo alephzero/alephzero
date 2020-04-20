@@ -260,7 +260,7 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, const a0_packet_t pkt, a0_packet_ca
   return a0_pub(&client->_impl->req_writer, full_pkt);
 }
 
-errno_t a0_rpc_cancel(a0_rpc_client_t* client, const a0_packet_id_t req_id) {
+errno_t a0_rpc_cancel(a0_rpc_client_t* client, const a0_uuid_t req_id) {
   if (!client->_impl) {
     return ESHUTDOWN;
   }
@@ -284,7 +284,7 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, const a0_packet_id_t req_id) {
   };
   pkt.payload = {
       .ptr = (uint8_t*)req_id,
-      .size = sizeof(a0_packet_id_t),
+      .size = sizeof(a0_uuid_t),
   };
 
   return a0_pub(&client->_impl->req_writer, pkt);

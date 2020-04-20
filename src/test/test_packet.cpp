@@ -58,7 +58,7 @@ TEST_CASE("packet] stats") {
   // Serialized buffer has the content
   size_t want_serial_size = want_content_size;
   // and an ID
-  want_serial_size += A0_PACKET_ID_SIZE;
+  want_serial_size += A0_UUID_SIZE;
   // and the number of headers
   want_serial_size += sizeof(size_t);
   // and an offset for each header key & value

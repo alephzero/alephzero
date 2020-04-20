@@ -8,6 +8,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <a0/common.h>
+
 #include "macros.h"
 
 #ifdef __cplusplus
@@ -29,8 +31,6 @@ A0_STATIC_INLINE long int a0_mrand48() {
   return jrand48(a0_xsubi);
 }
 
-static const size_t UUID_SIZE = 37;
-
 static const char HEX_DIGITS[] =
     "000102030405060708090A0B0C0D0E0F"
     "101112131415161718191A1B1C1D1E1F"
@@ -50,7 +50,7 @@ static const char HEX_DIGITS[] =
     "F0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF";
 
 A0_STATIC_INLINE
-void a0_uuidv4(uint8_t out[UUID_SIZE]) {
+void a0_uuidv4(uint8_t out[A0_UUID_SIZE]) {
   uint32_t data[4] = {
       (uint32_t)a0_mrand48(),
       ((uint32_t)a0_mrand48() & 0xFF0FFFFF) | 0x00400000,

@@ -273,7 +273,7 @@ errno_t a0_prpc_connect(a0_prpc_client_t* client,
   return a0_pub(&client->_impl->conn_writer, full_pkt);
 }
 
-errno_t a0_prpc_cancel(a0_prpc_client_t* client, const a0_packet_id_t conn_id) {
+errno_t a0_prpc_cancel(a0_prpc_client_t* client, const a0_uuid_t conn_id) {
   if (!client->_impl) {
     return ESHUTDOWN;
   }
@@ -297,7 +297,7 @@ errno_t a0_prpc_cancel(a0_prpc_client_t* client, const a0_packet_id_t conn_id) {
   };
   pkt.payload = {
       .ptr = (uint8_t*)conn_id,
-      .size = sizeof(a0_packet_id_t),
+      .size = sizeof(a0_uuid_t),
   };
 
   return a0_pub(&client->_impl->conn_writer, pkt);
