@@ -65,7 +65,7 @@ errno_t a0_packet_serialize(const a0_packet_t pkt, a0_alloc_t alloc, a0_buf_t* o
   a0_packet_stats_t stats;
   A0_RETURN_ERR_ON_ERR(a0_packet_stats(pkt, &stats));
 
-  alloc.fn(alloc.user_data, stats.serial_size, out);
+  alloc.alloc(alloc.user_data, stats.serial_size, out);
 
   // Write pointer into index.
   size_t idx_off = 0;
@@ -124,7 +124,7 @@ errno_t a0_packet_deserialize(const a0_buf_t buf, a0_alloc_t alloc, a0_packet_t*
   size_t num_header = *(size_t*)(buf.ptr + sizeof(a0_packet_id_t));
   out->headers_block.size = num_header;
   a0_buf_t hdr_idx_space;
-  alloc.fn(alloc.user_data, num_header * sizeof(a0_packet_header_t), &hdr_idx_space);
+  alloc.alloc(alloc.user_data, num_header * sizeof(a0_packet_header_t), &hdr_idx_space);
   out->headers_block.headers = (a0_packet_header_t*)hdr_idx_space.ptr;
 
   size_t* hdr_idx_ptr = (size_t*)(buf.ptr + sizeof(a0_packet_id_t) + sizeof(size_t));
@@ -165,9 +165,9 @@ errno_t a0_packet_deep_copy(const a0_packet_t in, a0_alloc_t alloc, a0_packet_t*
   A0_RETURN_ERR_ON_ERR(a0_packet_stats(in, &stats));
 
   a0_buf_t space;
-  alloc.fn(alloc.user_data,
-           stats.num_hdrs * sizeof(a0_packet_header_t) + stats.content_size,
-           &space);
+  alloc.alloc(alloc.user_data,
+              stats.num_hdrs * sizeof(a0_packet_header_t) + stats.content_size,
+              &space);
 
   out->headers_block.headers = (a0_packet_header_t*)space.ptr;
   out->headers_block.size = stats.num_hdrs;

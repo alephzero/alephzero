@@ -1,6 +1,5 @@
 Time
 =====================================
 
-.. doxygengroup:: TIME_MONO
-
-.. doxygengroup:: TIME_WALL
+.. doxygenfile:: time.h
+  :sections: detaileddescription
