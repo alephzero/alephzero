@@ -16,18 +16,10 @@ errno_t malloc_alloc_impl(void* user_data, size_t size, a0_buf_t* out) {
   return A0_OK;
 }
 
-A0_STATIC_INLINE
-errno_t malloc_dealloc_impl(void* user_data, a0_buf_t buf) {
-  (void)user_data;
-  free(buf.ptr);
-  return A0_OK;
-}
-
 errno_t a0_malloc_allocator_init(a0_alloc_t* alloc) {
   *alloc = (a0_alloc_t){
       .user_data = NULL,
-      .alloc = &malloc_alloc_impl,
-      .dealloc = &malloc_dealloc_impl,
+      .fn = &malloc_alloc_impl,
   };
   return A0_OK;
 }
@@ -53,13 +45,6 @@ errno_t realloc_alloc_impl(void* user_data, size_t size, a0_buf_t* out) {
   return A0_OK;
 }
 
-A0_STATIC_INLINE
-errno_t realloc_dealloc_impl(void* user_data, a0_buf_t buf) {
-  (void)user_data;
-  (void)buf;
-  return A0_OK;
-}
-
 errno_t a0_realloc_allocator_init(a0_alloc_t* alloc) {
   a0_buf_t* data = malloc(sizeof(a0_buf_t));
   if (!data) {
@@ -75,8 +60,7 @@ errno_t a0_realloc_allocator_init(a0_alloc_t* alloc) {
   }
   *alloc = (a0_alloc_t){
       .user_data = data,
-      .alloc = &realloc_alloc_impl,
-      .dealloc = &realloc_dealloc_impl,
+      .fn = &realloc_alloc_impl,
   };
   return A0_OK;
 }
