@@ -8,6 +8,7 @@ TODO...
    :caption: Contents:
 
    packet
+   utils
 
 
 Indices and tables
