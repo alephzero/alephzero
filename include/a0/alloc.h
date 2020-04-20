@@ -9,9 +9,11 @@
 extern "C" {
 #endif
 
-/// Defines a strategy for allocating memory buffers.
-///
-/// TODO: Add explicit deallocation. For now, that falls on the user.
+/**
+ * Defines a strategy for allocating memory buffers.
+ *
+ * **TODO**: Add explicit deallocation. For now, that falls on the user.
+ */
 typedef struct a0_alloc_s {
   /// User data to be passed as context to other a0_alloc_t methods.
   void* user_data;
