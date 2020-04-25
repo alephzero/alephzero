@@ -4,16 +4,14 @@
 
 namespace a0 {
 
-// Type wrapper the requires all access to the underlying object be thread-safe.
+template <typename...>
+constexpr std::false_type INVALID_SYNC_FUNCTION{};
+
 template <typename T>
 class sync {
   T val;
   mutable std::shared_mutex mu;
   mutable std::condition_variable_any cv;
-
-  int constexpr_fail(int x) {
-    return x;
-  }
 
   template <typename Fn>
   auto invoke(Fn&& fn) {
@@ -24,20 +22,20 @@ class sync {
     } else if constexpr (std::is_invocable_v<Fn>) {
       return fn();
     } else if constexpr (true) {
-      constexpr_fail(0);
+      static_assert(INVALID_SYNC_FUNCTION<Fn>);
     }
   }
 
   template <typename Fn>
   auto invoke(Fn&& fn) const {
-    if constexpr (std::is_invocable_v<Fn, T>) {
+    if constexpr (std::is_invocable_v<Fn, T> || std::is_invocable_v<Fn, const T&>) {
       return fn(val);
     } else if constexpr (std::is_invocable_v<Fn, const T*>) {
       return fn(&val);
     } else if constexpr (std::is_invocable_v<Fn>) {
       return fn();
     } else if constexpr (true) {
-      constexpr_fail(0);
+      static_assert(INVALID_SYNC_FUNCTION<Fn>);
     }
   }
 
@@ -70,18 +68,10 @@ class sync {
     });
   }
 
-  template <typename Fn0, typename Fn1>
-  auto wait(Fn0&& fn0, Fn1&& fn1) {
-    std::unique_lock<std::shared_mutex> lk{mu};
-    cv.wait(lk, [&]() {
-      return invoke(std::forward<Fn0>(fn0));
+  T&& release() {
+    return with_lock([](T* val) {
+      return std::move(*val);
     });
-    return invoke(std::forward<Fn1>(fn1));
-  }
-
-  template <typename Fn0>
-  auto wait(Fn0&& fn0) {
-    wait(std::forward<Fn0>(fn0), [](T*) {});
   }
 
   void wait() {
@@ -89,23 +79,25 @@ class sync {
     cv.wait(lk);
   }
 
-  template <typename Fn0, typename Fn1>
-  auto shared_wait(Fn0&& fn0, Fn1&& fn1) const {
-    std::shared_lock<std::shared_mutex> lk{mu};
-    cv.wait(lk, [&]() {
-      return invoke(std::forward<Fn0>(fn0));
-    });
-    return invoke(std::forward<Fn1>(fn1));
-  }
-
-  template <typename Fn0>
-  auto shared_wait(Fn0&& fn0) const {
-    shared_wait(std::forward<Fn0>(fn0), [](const T&) {});
+  template <typename Fn>
+  void wait(Fn&& fn) {
+    std::unique_lock<std::shared_mutex> lk{mu};
+    cv.wait(lk, [&]() { return invoke(std::forward<Fn>(fn)); });
   }
 
   void shared_wait() const {
     std::shared_lock<std::shared_mutex> lk{mu};
     cv.wait(lk);
+  }
+
+  template <typename Fn>
+  void shared_wait(Fn&& fn) const {
+    std::shared_lock<std::shared_mutex> lk{mu};
+    cv.wait(lk, [&]() { return invoke(std::forward<Fn>(fn)); });
+  }
+
+  auto notify_one() {
+    cv.notify_one();
   }
 
   template <typename Fn>
@@ -115,8 +107,20 @@ class sync {
     return invoke(std::forward<Fn>(fn));
   }
 
-  auto notify_one() {
-    notify_one([](T*) {});
+  auto shared_notify_one() const {
+    cv.notify_one();
+  }
+
+  template <typename Fn>
+  auto shared_notify_one(Fn&& fn) const {
+    std::shared_lock<std::shared_mutex> lk{mu};
+    cv.notify_one();
+    return invoke(std::forward<Fn>(fn));
+  }
+
+  auto notify_all() {
+    std::unique_lock<std::shared_mutex> lk{mu};
+    cv.notify_all();
   }
 
   template <typename Fn>
@@ -126,8 +130,15 @@ class sync {
     return invoke(std::forward<Fn>(fn));
   }
 
-  auto notify_all() {
-    notify_all([](T*) {});
+  auto shared_notify_all() const {
+    cv.notify_all();
+  }
+
+  template <typename Fn>
+  auto shared_notify_all(Fn&& fn) const {
+    std::shared_lock<std::shared_mutex> lk{mu};
+    cv.notify_all();
+    return invoke(std::forward<Fn>(fn));
   }
 };
 
