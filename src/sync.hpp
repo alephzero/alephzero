@@ -46,16 +46,6 @@ class sync {
     }
   }
 
-  void upgrade() {
-    auto id = std::this_thread::get_id();
-    unique_locked_threads[id] = std::unique_lock<std::mutex>{mu};
-  }
-
-  void downgrade() {
-    auto id = std::this_thread::get_id();
-    unique_locked_threads.erase(id);
-  }
-
   struct guard_t {
     std::function<void()> fn;
     ~guard_t() { fn(); }
@@ -67,36 +57,28 @@ class sync {
 
   template <typename Fn>
   auto with_lock(Fn&& fn) {
-    auto id = std::this_thread::get_id();
-    if (unique_locked_threads.count(id)) {
-      return invoke(std::forward<Fn>(fn));
-    } else if (shared_locked_threads.count(id)) {
-      upgrade();
-      guard_t guard_upgrad{[&]() { downgrade(); }};
-      return invoke(std::forward<Fn>(fn));
-    } else {
-      shared_locked_threads[id] = std::shared_lock<std::shared_mutex>{sh_mu};
-      guard_t guard_share{[&]() { shared_locked_threads.erase(id); }};
+    return with_shared_lock([&]() {
+      auto id = std::this_thread::get_id();
+      if (unique_locked_threads.count(id)) {
+        return invoke(std::forward<Fn>(fn));
+      }
 
       unique_locked_threads[id] = std::unique_lock<std::mutex>{mu};
-      guard_t guard_uniqu{[&]() { unique_locked_threads.erase(id); }};
-
+      guard_t guard_upgrade{[&]() { unique_locked_threads.erase(id); }};
       return invoke(std::forward<Fn>(fn));
-    }
+    });
   }
 
   template <typename Fn>
   auto with_shared_lock(Fn&& fn) const {
     auto id = std::this_thread::get_id();
-    if (unique_locked_threads.count(id)) {
-      return invoke(std::forward<Fn>(fn));
-    } else if (shared_locked_threads.count(id)) {
-      return invoke(std::forward<Fn>(fn));
-    } else {
-      shared_locked_threads[id] = std::shared_lock<std::shared_mutex>{sh_mu};
-      guard_t guard_shared{[&]() { shared_locked_threads.erase(id); }};
+    if (shared_locked_threads.count(id)) {
       return invoke(std::forward<Fn>(fn));
     }
+
+    shared_locked_threads[id] = std::shared_lock<std::shared_mutex>{sh_mu};
+    guard_t guard_shared{[&]() { shared_locked_threads.erase(id); }};
+    return invoke(std::forward<Fn>(fn));
   }
 
   template <typename U>
