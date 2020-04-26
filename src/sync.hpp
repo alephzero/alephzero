@@ -1,55 +1,58 @@
 #pragma once
 
-#include <functional>
 #include <shared_mutex>
-#include <thread>
-#include <unordered_map>
 
 namespace a0 {
 
 template <typename...>
 constexpr std::false_type INVALID_SYNC_FUNCTION{};
 
-template <typename T>
-class sync;
+struct monitor {
+  std::shared_mutex mu;
+  std::condition_variable_any cv;
 
-template <typename T>
-thread_local std::unique_ptr<std::unordered_map<const sync<T>*, std::unique_lock<std::mutex>>> unique_locked_sync_;
-template <typename T>
-std::unordered_map<const sync<T>*, std::unique_lock<std::mutex>>& unique_locked_sync() {
-  if (!unique_locked_sync_<T>) {
-    unique_locked_sync_<T> = std::make_unique<std::unordered_map<const sync<T>*, std::unique_lock<std::mutex>>>();
+  void notify_one() noexcept {
+    cv.notify_one();
   }
-  return *unique_locked_sync_<T>.get();
-}
 
-template <typename T>
-thread_local std::unique_ptr<std::unordered_map<const sync<T>*, std::shared_lock<std::shared_mutex>>> shared_locked_sync_;
-template <typename T>
-std::unordered_map<const sync<T>*, std::shared_lock<std::shared_mutex>>& shared_locked_sync() {
-  fprintf(stderr, "AAA %d\n", std::this_thread::get_id());
-  if (!shared_locked_sync_<T>) {
-    fprintf(stderr, "BBB %d\n", std::this_thread::get_id());
-    shared_locked_sync_<T> = std::make_unique<std::unordered_map<const sync<T>*, std::shared_lock<std::shared_mutex>>>();
+  void notify_all() noexcept {
+    cv.notify_all();
   }
-  fprintf(stderr, "CCC %d\n", std::this_thread::get_id());
-  auto& ret = *shared_locked_sync_<T>.get();
-  fprintf(stderr, "DDD %d\n", std::this_thread::get_id());
-  return ret;
-}
 
+  void wait() {
+    cv.wait(mu);
+  }
+
+  template <typename Pred>
+  void wait(Pred&& pred) {
+    cv.wait(mu, std::forward<Pred>(pred));
+  }
+
+  template <typename Rep, typename Period>
+  std::cv_status wait_for(const std::chrono::duration<Rep, Period>& rel_time) {
+    return cv.wait_for(mu, rel_time);
+  }
+
+  template <typename Rep, typename Period, typename Pred>
+  bool wait_for(const std::chrono::duration<Rep, Period>& rel_time, Pred&& pred) {
+    return cv.wait_for(mu, rel_time, std::forward<Pred>(pred));
+  }
+
+  template <typename Clock, typename Duration>
+  std::cv_status wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time) {
+    return cv.wait_for(mu, timeout_time);
+  }
+
+  template <typename Clock, typename Duration, typename Pred>
+  bool wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time, Pred&& pred) {
+    return cv.wait_until(mu, timeout_time, std::forward<Pred>(pred));
+  }
+};
 
 template <typename T>
 class sync {
   T val;
-  mutable std::mutex mu;
-  mutable std::shared_mutex sh_mu;
-  mutable std::condition_variable_any cv;
-
-  // mutable std::unordered_map<std::thread::id, std::unique_lock<std::mutex>> unique_locked_threads;
-  // mutable std::mutex unique_table_mu;
-  // mutable std::unordered_map<std::thread::id, std::shared_lock<std::shared_mutex>> shared_locked_threads;
-  // mutable std::mutex shared_table_mu;
+  mutable monitor mon;
 
   template <typename Fn>
   auto invoke(Fn&& fn) {
@@ -59,6 +62,12 @@ class sync {
       return fn(&val);
     } else if constexpr (std::is_invocable_v<Fn>) {
       return fn();
+    } else if constexpr (std::is_invocable_v<Fn, monitor*, T> || std::is_invocable_v<Fn, monitor*, T&>) {
+      return fn(&mon, val);
+    } else if constexpr (std::is_invocable_v<Fn, monitor*, T*>) {
+      return fn(&mon, &val);
+    } else if constexpr (std::is_invocable_v<Fn, monitor*>) {
+      return fn(&mon);
     } else if constexpr (true) {
       static_assert(INVALID_SYNC_FUNCTION<Fn>);
     }
@@ -72,15 +81,26 @@ class sync {
       return fn(&val);
     } else if constexpr (std::is_invocable_v<Fn>) {
       return fn();
+    } else if constexpr (std::is_invocable_v<Fn, monitor*, T> || std::is_invocable_v<Fn, monitor*, const T&>) {
+      return fn(&mon, val);
+    } else if constexpr (std::is_invocable_v<Fn, monitor*, const T*>) {
+      return fn(&mon, &val);
+    } else if constexpr (std::is_invocable_v<Fn, monitor*>) {
+      return fn(&mon);
     } else if constexpr (true) {
       static_assert(INVALID_SYNC_FUNCTION<Fn>);
     }
   }
 
-  struct guard_t {
-    std::function<void()> fn;
-    ~guard_t() { fn(); }
-  };
+  template <typename Fn>
+  auto bind(Fn&& fn) {
+    return [this, fn = std::forward<Fn>(fn)]() { return invoke(fn); };
+  }
+
+  template <typename Fn>
+  auto bind(Fn&& fn) const {
+    return [this, fn = std::forward<Fn>(fn)]() { return invoke(fn); };
+  }
 
  public:
   template <typename... Args>
@@ -88,36 +108,20 @@ class sync {
 
   template <typename Fn>
   auto with_lock(Fn&& fn) {
-    return with_shared_lock([&]() {
-      if (unique_locked_sync<T>().count(this)) {
-        return invoke(std::forward<Fn>(fn));
-      }
-
-      unique_locked_sync<T>()[this] = std::unique_lock<std::mutex>{mu};
-      guard_t guard_upgrade{[&]() {
-        unique_locked_sync<T>().erase(this);
-      }};
-      return invoke(std::forward<Fn>(fn));
-    });
+    std::unique_lock<std::shared_mutex> lk{mon.mu};
+    return invoke(std::forward<Fn>(fn));
   }
 
   template <typename Fn>
   auto with_shared_lock(Fn&& fn) const {
-    if (shared_locked_sync<T>().count(this)) {
-      return invoke(std::forward<Fn>(fn));
-    }
-
-    shared_locked_sync<T>()[this] = std::shared_lock<std::shared_mutex>{sh_mu};
-    guard_t guard_shared{[&]() {
-      shared_locked_sync<T>().erase(this);
-    }};
+    std::shared_lock<std::shared_mutex> lk{mon.mu};
     return invoke(std::forward<Fn>(fn));
   }
 
   template <typename U>
   void set(U&& new_val) {
-    with_lock([&](T* t) {
-      *t = std::forward<U>(new_val);
+    with_lock([&](T& t) {
+      t = std::forward<U>(new_val);
     });
   }
 
@@ -128,91 +132,137 @@ class sync {
   }
 
   T&& release() {
-    return with_lock([](T* val) {
-      return std::move(*val);
+    return with_lock([](T& val) {
+      return std::move(val);
     });
   }
 
   void wait() {
-    shared_wait();
+    with_lock([&]() {
+      mon.wait();
+    });
   }
 
   template <typename Fn>
   void wait(Fn&& fn) {
-    return with_shared_lock([&]() {
-      auto* lk = &shared_locked_sync<T>()[this];
+    with_lock([&]() {
+      mon.wait(bind(std::forward<Fn>(fn)));
+    });
+  }
 
-      cv.wait(
-        *lk,
-        [&]() {
-          return with_lock([&]() {
-            return invoke(std::forward<Fn>(fn));
-          });
-        });
+  template <typename Rep, typename Period>
+  std::cv_status wait_for(const std::chrono::duration<Rep, Period>& rel_time) {
+    return with_lock([&]() {
+      return mon.wait_for(rel_time);
+    });
+  }
+
+  template <typename Rep, typename Period, typename Fn>
+  bool wait_for(const std::chrono::duration<Rep, Period>& rel_time, Fn&& fn) {
+    return with_lock([&]() {
+      return mon.wait_for(rel_time, bind(std::forward<Fn>(fn)));
+    });
+  }
+
+  template <typename Clock, typename Duration>
+  std::cv_status wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time) {
+    return with_lock([&]() {
+      return mon.wait_for(timeout_time);
+    });
+  }
+
+  template <typename Clock, typename Duration, typename Fn>
+  bool wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time, Fn&& fn) {
+    return with_lock([&]() {
+      return mon.wait_until(timeout_time, bind(std::forward<Fn>(fn)));
     });
   }
 
   void shared_wait() const {
-    return with_shared_lock([&]() {
-      auto* lk = &shared_locked_sync<T>()[this];
-      cv.wait(*lk);
+    with_shared_lock([&]() {
+      mon.wait();
     });
   }
 
   template <typename Fn>
   void shared_wait(Fn&& fn) const {
+    with_shared_lock([&]() {
+      mon.wait(bind(std::forward<Fn>(fn)));
+    });
+  }
+
+  template <typename Rep, typename Period>
+  std::cv_status wait_for(const std::chrono::duration<Rep, Period>& rel_time) const {
     return with_shared_lock([&]() {
-      auto* lk = &shared_locked_sync<T>()[this];
-      cv.wait(
-        *lk,
-        [&]() { return invoke(std::forward<Fn>(fn)); });
+      return mon.wait_for(rel_time);
+    });
+  }
+
+  template <typename Rep, typename Period, typename Fn>
+  bool wait_for(const std::chrono::duration<Rep, Period>& rel_time, Fn&& fn) const {
+    return with_shared_lock([&]() {
+      return mon.wait_for(rel_time, bind(std::forward<Fn>(fn)));
+    });
+  }
+
+  template <typename Clock, typename Duration>
+  std::cv_status wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time) const {
+    return with_shared_lock([&]() {
+      return mon.wait_for(timeout_time);
+    });
+  }
+
+  template <typename Clock, typename Duration, typename Fn>
+  bool wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time, Fn&& fn) const {
+    return with_shared_lock([&]() {
+      return mon.wait_until(timeout_time, bind(std::forward<Fn>(fn)));
     });
   }
 
   auto notify_one() {
-    shared_notify_one();
+    mon.notify_one();
   }
 
   template <typename Fn>
   auto notify_one(Fn&& fn) {
-    return with_lock([&]() {
-      cv.notify_one();
+    with_lock([&]() {
+      mon.notify_one();
       return invoke(std::forward<Fn>(fn));
     });
   }
 
   auto shared_notify_one() const {
-    cv.notify_one();
+    mon.notify_one();
   }
 
   template <typename Fn>
   auto shared_notify_one(Fn&& fn) const {
-    return with_shared_lock([&]() {
-      cv.notify_one();
+    with_shared_lock([&]() {
+      mon.notify_one();
       return invoke(std::forward<Fn>(fn));
     });
   }
 
   auto notify_all() {
-    shared_notify_all();
+    mon.notify_all();
   }
 
   template <typename Fn>
   auto notify_all(Fn&& fn) {
-    return with_lock([&]() {
-      cv.notify_all();
+    with_lock([&]() {
+      mon.notify_all();
       return invoke(std::forward<Fn>(fn));
     });
   }
 
   auto shared_notify_all() const {
-    cv.notify_all();
+    mon.notify_all();
   }
 
   template <typename Fn>
   auto shared_notify_all(Fn&& fn) const {
-    return with_shared_lock([&]() {
-      cv.notify_all();
+    with_shared_lock([&]() {
+      mon.notify_all();
       return invoke(std::forward<Fn>(fn));
     });
   }
@@ -233,14 +283,14 @@ class Event {
   }
 
   void set() {
-    evt.notify_all([](bool* ready) {
-      *ready = true;
+    evt.notify_all([](bool& ready) {
+      ready = true;
     });
   }
 
   void clear() {
-    evt.notify_all([](bool* ready) {
-      *ready = false;
+    evt.notify_all([](bool& ready) {
+      ready = false;
     });
   }
 };
