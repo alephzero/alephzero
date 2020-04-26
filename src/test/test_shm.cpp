@@ -58,7 +58,8 @@ TEST_CASE_FIXTURE(ShmTestFixture, "shm] bad size") {
       .size = std::numeric_limits<off_t>::max(),
       .resize = false,
   };
-  REQUIRE(a0_shm_open("/foo", &shmopt, &shm) == ENOMEM);
+  errno_t err = a0_shm_open("/foo", &shmopt, &shm);
+  REQUIRE((err == ENOMEM || err == EINVAL));
 
   shmopt.size = -1;
   REQUIRE(a0_shm_open("/bar", &shmopt, &shm) == EINVAL);
