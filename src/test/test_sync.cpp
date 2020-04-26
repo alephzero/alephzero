@@ -1,5 +1,6 @@
 #include <doctest.h>
 
+#include <atomic>
 #include <map>
 #include <vector>
 
@@ -142,6 +143,30 @@ void ensure_compiles() {
   abc_const_sync.shared_notify_all([](const ABC*) {});
 }
 
+TEST_CASE("sync] with_lock") {
+  a0::sync<int> x{0};
+  int y = 0;
+  x.with_lock([&]() { y++; });
+  x.with_lock([&](int x) { if (!x) y++; });
+  x.with_lock([&](int& x) { x += 2; y++; });
+  x.with_lock([&](const int& x) { if (x) y++; });
+  x.with_lock([&](int* x) { *x += 2; y++; });
+  x.with_lock([&](a0::monitor*) { y++; });
+  x.with_lock([&](a0::monitor*, int x) { if (x) y++; });
+  x.with_lock([&](a0::monitor*, int& x) { x += 2; y++; });
+  x.with_lock([&](a0::monitor*, int* x) { *x += 2; y++; });
+  x.with_shared_lock([&]() { y++; });
+  x.with_shared_lock([&](int x) { if (x) y++; });
+  x.with_shared_lock([&](const int& x) { if (x) y++; });
+  x.with_shared_lock([&](const int* x) { if (*x) y++; });
+  x.with_shared_lock([&](a0::monitor*) { y++; });
+  x.with_shared_lock([&](a0::monitor*, int x) { if (x) y++; });
+  x.with_shared_lock([&](a0::monitor*, const int& x) { if (x) y++; });
+  x.with_shared_lock([&](a0::monitor*, const int* x) { if (*x) y++; });
+  REQUIRE(x.copy() == 8);
+  REQUIRE(y == 17);
+}
+
 TEST_CASE("sync] set copy") {
   a0::sync<int> x{1};
   REQUIRE(x.copy() == 1);
@@ -149,16 +174,55 @@ TEST_CASE("sync] set copy") {
   REQUIRE(x.copy() == 2);
 }
 
-TEST_CASE("sync] wait notify") {
+TEST_CASE("sync] notify one") {
   a0::sync<int> x{1};
+  std::atomic<bool> y{false};
   std::thread t([&]() {
     x.wait([](int x_) { return x_ == 2; });
-    x.notify_all([](int& x_) { x_ = 3; });
+    x.notify_one([](int& x_) { x_ = 3; });
+    x.shared_wait([](const int& x_) { return x_ == 4; });
+    x.shared_notify_one([&]() { y = true; });
   });
-  x.notify_all([](int& x_) { x_ = 2; });
+  x.set(2);
+  x.notify_one();
   x.wait([](int x_) { return x_ == 3; });
   REQUIRE(x.copy() == 3);
+  x.with_lock([](int* x) { *x = 4; });
+  x.shared_notify_one();
+  x.wait([&]() { return bool(y); });
   t.join();
+}
+
+TEST_CASE("sync] notify all") {
+  a0::sync<int> x{0};
+  std::atomic<int> y{0};
+  std::atomic<int> z{0};
+  std::vector<std::thread> ts;
+
+  for (int i = 0; i < 10; i++) {
+    ts.emplace_back([&]() {
+      x.notify_all([](int& x) { x++; });
+      while (y != 1) {
+        x.shared_wait();
+      }
+      x.notify_all([](int& x) { x++; });
+      while (y != 2) {
+        x.wait();
+      }
+      x.shared_notify_all([&]() { z++; });
+    });
+  }
+
+  x.wait([](int x_) { return x_ == 10; });
+  y = 1;
+  x.notify_all();
+  x.wait([](int x_) { return x_ == 20; });
+  y = 2;
+  x.shared_notify_all();
+  x.wait([&]() { return z == 10; });
+  for (auto&& t : ts) {
+    t.join();
+  }
 }
 
 TEST_CASE("sync] Event set") {

@@ -11,6 +11,14 @@ struct monitor {
   std::shared_mutex mu;
   std::condition_variable_any cv;
 
+  void lock() { mu.lock(); }
+  void try_lock() { mu.try_lock(); }
+  void unlock() { mu.unlock(); }
+
+  void lock_shared() { mu.lock_shared(); }
+  void try_lock_shared() { mu.try_lock_shared(); }
+  void unlock_shared() { mu.unlock_shared(); }
+
   void notify_one() noexcept {
     cv.notify_one();
   }
@@ -108,13 +116,13 @@ class sync {
 
   template <typename Fn>
   auto with_lock(Fn&& fn) {
-    std::unique_lock<std::shared_mutex> lk{mon.mu};
+    std::unique_lock<monitor> lk{mon};
     return invoke(std::forward<Fn>(fn));
   }
 
   template <typename Fn>
   auto with_shared_lock(Fn&& fn) const {
-    std::shared_lock<std::shared_mutex> lk{mon.mu};
+    std::shared_lock<monitor> lk{mon};
     return invoke(std::forward<Fn>(fn));
   }
 
