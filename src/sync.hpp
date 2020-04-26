@@ -11,14 +11,45 @@ template <typename...>
 constexpr std::false_type INVALID_SYNC_FUNCTION{};
 
 template <typename T>
+class sync;
+
+template <typename T>
+thread_local std::unique_ptr<std::unordered_map<const sync<T>*, std::unique_lock<std::mutex>>> unique_locked_sync_;
+template <typename T>
+std::unordered_map<const sync<T>*, std::unique_lock<std::mutex>>& unique_locked_sync() {
+  if (!unique_locked_sync_<T>) {
+    unique_locked_sync_<T> = std::make_unique<std::unordered_map<const sync<T>*, std::unique_lock<std::mutex>>>();
+  }
+  return *unique_locked_sync_<T>.get();
+}
+
+template <typename T>
+thread_local std::unique_ptr<std::unordered_map<const sync<T>*, std::shared_lock<std::shared_mutex>>> shared_locked_sync_;
+template <typename T>
+std::unordered_map<const sync<T>*, std::shared_lock<std::shared_mutex>>& shared_locked_sync() {
+  fprintf(stderr, "AAA %d\n", std::this_thread::get_id());
+  if (!shared_locked_sync_<T>) {
+    fprintf(stderr, "BBB %d\n", std::this_thread::get_id());
+    shared_locked_sync_<T> = std::make_unique<std::unordered_map<const sync<T>*, std::shared_lock<std::shared_mutex>>>();
+  }
+  fprintf(stderr, "CCC %d\n", std::this_thread::get_id());
+  auto& ret = *shared_locked_sync_<T>.get();
+  fprintf(stderr, "DDD %d\n", std::this_thread::get_id());
+  return ret;
+}
+
+
+template <typename T>
 class sync {
   T val;
   mutable std::mutex mu;
   mutable std::shared_mutex sh_mu;
   mutable std::condition_variable_any cv;
 
-  mutable std::unordered_map<std::thread::id, std::unique_lock<std::mutex>> unique_locked_threads;
-  mutable std::unordered_map<std::thread::id, std::shared_lock<std::shared_mutex>> shared_locked_threads;
+  // mutable std::unordered_map<std::thread::id, std::unique_lock<std::mutex>> unique_locked_threads;
+  // mutable std::mutex unique_table_mu;
+  // mutable std::unordered_map<std::thread::id, std::shared_lock<std::shared_mutex>> shared_locked_threads;
+  // mutable std::mutex shared_table_mu;
 
   template <typename Fn>
   auto invoke(Fn&& fn) {
@@ -58,26 +89,28 @@ class sync {
   template <typename Fn>
   auto with_lock(Fn&& fn) {
     return with_shared_lock([&]() {
-      auto id = std::this_thread::get_id();
-      if (unique_locked_threads.count(id)) {
+      if (unique_locked_sync<T>().count(this)) {
         return invoke(std::forward<Fn>(fn));
       }
 
-      unique_locked_threads[id] = std::unique_lock<std::mutex>{mu};
-      guard_t guard_upgrade{[&]() { unique_locked_threads.erase(id); }};
+      unique_locked_sync<T>()[this] = std::unique_lock<std::mutex>{mu};
+      guard_t guard_upgrade{[&]() {
+        unique_locked_sync<T>().erase(this);
+      }};
       return invoke(std::forward<Fn>(fn));
     });
   }
 
   template <typename Fn>
   auto with_shared_lock(Fn&& fn) const {
-    auto id = std::this_thread::get_id();
-    if (shared_locked_threads.count(id)) {
+    if (shared_locked_sync<T>().count(this)) {
       return invoke(std::forward<Fn>(fn));
     }
 
-    shared_locked_threads[id] = std::shared_lock<std::shared_mutex>{sh_mu};
-    guard_t guard_shared{[&]() { shared_locked_threads.erase(id); }};
+    shared_locked_sync<T>()[this] = std::shared_lock<std::shared_mutex>{sh_mu};
+    guard_t guard_shared{[&]() {
+      shared_locked_sync<T>().erase(this);
+    }};
     return invoke(std::forward<Fn>(fn));
   }
 
@@ -107,8 +140,10 @@ class sync {
   template <typename Fn>
   void wait(Fn&& fn) {
     return with_shared_lock([&]() {
+      auto* lk = &shared_locked_sync<T>()[this];
+
       cv.wait(
-        shared_locked_threads[std::this_thread::get_id()],
+        *lk,
         [&]() {
           return with_lock([&]() {
             return invoke(std::forward<Fn>(fn));
@@ -119,15 +154,17 @@ class sync {
 
   void shared_wait() const {
     return with_shared_lock([&]() {
-      cv.wait(shared_locked_threads[std::this_thread::get_id()]);
+      auto* lk = &shared_locked_sync<T>()[this];
+      cv.wait(*lk);
     });
   }
 
   template <typename Fn>
   void shared_wait(Fn&& fn) const {
     return with_shared_lock([&]() {
+      auto* lk = &shared_locked_sync<T>()[this];
       cv.wait(
-        shared_locked_threads[std::this_thread::get_id()],
+        *lk,
         [&]() { return invoke(std::forward<Fn>(fn)); });
     });
   }
