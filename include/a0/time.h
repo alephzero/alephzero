@@ -38,14 +38,17 @@ extern "C" {
  *  @{
  */
 
-/// Header key for monotonic timestamps.
+/// Header key for mono timestamps.
 extern const char A0_TIME_MONO[];
 
-/// Get the current monotonic timestamps.
+/// Get the current mono timestamps.
 errno_t a0_time_mono_now(uint64_t*);
 
-/// Stringify a given monotonic timestamps.
+/// Stringify a given mono timestamps.
 errno_t a0_time_mono_str(uint64_t, char mono_str[20]);
+
+/// Parse a stringified mono timestamps.
+errno_t a0_time_mono_parse(const char mono_str[20], uint64_t*);
 /** @}*/
 
 /** \addtogroup TIME_WALL
@@ -60,6 +63,9 @@ errno_t a0_time_wall_now(timespec*);
 
 /// Stringify a given wall timestamps.
 errno_t a0_time_wall_str(timespec, char wall_str[36]);
+
+/// Parse a stringified wall timestamps.
+errno_t a0_time_wall_parse(const char wall_str[36], timespec*);
 /** @}*/
 
 #ifdef __cplusplus
