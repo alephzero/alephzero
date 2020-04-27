@@ -31,7 +31,9 @@ using std::to_chars;
 }  // namespace a0
 #else
 #include <a0/common.h>
+
 #include <string.h>
+
 #include <string>
 
 #include "macros.h"
@@ -45,7 +47,7 @@ errno_t from_chars(const char* start, const char* end, T& val) {
   try {
     val = std::stoll(start);
     return A0_OK;
-  } catch(...) {
+  } catch (...) {
     return EINVAL;
   }
 }
