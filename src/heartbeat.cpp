@@ -35,6 +35,7 @@ errno_t a0_heartbeat_init(a0_heartbeat_t* h, a0_buf_t arena, const a0_heartbeat_
     while (!impl_->stop_event.is_set()) {
       a0_packet_t pkt;
       a0_packet_init(&pkt);
+      pkt.payload.ptr = (uint8_t*)"";
       a0_pub(&impl_->publisher, pkt);
       impl_->stop_event.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / impl_->opts.freq)));
     }
