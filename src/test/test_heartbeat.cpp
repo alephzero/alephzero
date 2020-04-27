@@ -4,6 +4,7 @@
 
 #include <doctest.h>
 
+#include <atomic>
 #include <chrono>
 #include <thread>
 
@@ -92,21 +93,21 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] hb start, hbl start, hb close, h
       .min_freq = 90,
   };
 
-  int detected_cnt = 0;
-  int missed_cnt = 0;
+  std::atomic<int> detected_cnt = 0;
+  std::atomic<int> missed_cnt = 0;
 
   a0_callback_t ondetected = {
       .user_data = &detected_cnt,
       .fn =
           [](void* user_data) {
-            (*(int*)user_data)++;
+            (*(std::atomic<int>*)user_data)++;
           },
   };
   a0_callback_t onmissed = {
       .user_data = &missed_cnt,
       .fn =
           [](void* user_data) {
-            (*(int*)user_data)++;
+            (*(std::atomic<int>*)user_data)++;
           },
   };
 
@@ -135,21 +136,21 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] hbl start, hb start, hb close, h
       .min_freq = 90,
   };
 
-  int detected_cnt = 0;
-  int missed_cnt = 0;
+  std::atomic<int> detected_cnt = 0;
+  std::atomic<int> missed_cnt = 0;
 
   a0_callback_t ondetected = {
       .user_data = &detected_cnt,
       .fn =
           [](void* user_data) {
-            (*(int*)user_data)++;
+            (*(std::atomic<int>*)user_data)++;
           },
   };
   a0_callback_t onmissed = {
       .user_data = &missed_cnt,
       .fn =
           [](void* user_data) {
-            (*(int*)user_data)++;
+            (*(std::atomic<int>*)user_data)++;
           },
   };
 
@@ -205,21 +206,21 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] ignore old") {
       .min_freq = 90,
   };
 
-  int detected_cnt = 0;
-  int missed_cnt = 0;
+  std::atomic<int> detected_cnt = 0;
+  std::atomic<int> missed_cnt = 0;
 
   a0_callback_t ondetected = {
       .user_data = &detected_cnt,
       .fn =
           [](void* user_data) {
-            (*(int*)user_data)++;
+            (*(std::atomic<int>*)user_data)++;
           },
   };
   a0_callback_t onmissed = {
       .user_data = &missed_cnt,
       .fn =
           [](void* user_data) {
-            (*(int*)user_data)++;
+            (*(std::atomic<int>*)user_data)++;
           },
   };
 

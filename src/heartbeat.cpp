@@ -30,16 +30,16 @@ errno_t a0_heartbeat_init(a0_heartbeat_t* h, a0_buf_t arena, const a0_heartbeat_
   impl->opts = *opts;
   A0_RETURN_ERR_ON_ERR(a0_publisher_init(&impl->publisher, arena));
 
-  impl->thrd = std::thread([h]() {
-    while (!h->_impl->stop_event.is_set()) {
+  h->_impl = impl.release();
+  h->_impl->thrd = std::thread([impl_ = h->_impl]() {
+    while (!impl_->stop_event.is_set()) {
       a0_packet_t pkt;
       a0_packet_init(&pkt);
-      a0_pub(&h->_impl->publisher, pkt);
-      h->_impl->stop_event.wait_for(std::chrono::nanoseconds(1) * 1e9 / h->_impl->opts.freq);
+      a0_pub(&impl_->publisher, pkt);
+      impl_->stop_event.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / impl_->opts.freq)));
     }
   });
 
-  h->_impl = impl.release();
   return A0_OK;
 }
 
@@ -66,6 +66,7 @@ const a0_heartbeat_listener_options_t A0_HEARTBEAT_LISTENER_OPTIONS_DEFAULT = {
 struct a0_heartbeat_listener_impl_s {
   a0_heartbeat_listener_options_t opts;
   a0_subscriber_sync_t sub;
+  a0::Event init_event;
   a0::Event stop_event;
   std::thread thrd;
 
@@ -97,7 +98,8 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
 
   auto sleep_dur = std::chrono::nanoseconds(uint64_t(1e9 / opts->min_freq));
 
-  impl->thrd = std::thread([impl_ = impl.get(), sleep_dur]() {
+  hl->_impl = impl.release();
+  hl->_impl->thrd = std::thread([impl_ = hl->_impl, sleep_dur]() {
     auto* hli = impl_;
     while (!hli->stop_event.is_set()) {
       // Check if a packet is available.
@@ -155,8 +157,8 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
       }
     }
   });
+  hl->_impl->init_event.set();
 
-  hl->_impl = impl.release();
   return A0_OK;
 }
 
@@ -180,9 +182,11 @@ errno_t a0_heartbeat_listener_async_close(a0_heartbeat_listener_t* hl, a0_callba
     return ESHUTDOWN;
   }
 
+  hl->_impl->init_event.wait();
   hl->_impl->stop_event.set();
   std::thread t([hli = hl->_impl, cb]() {
     hli->thrd.join();
+    a0_subscriber_sync_close(&hli->sub);
     delete hli;
     cb.fn(cb.user_data);
   });
