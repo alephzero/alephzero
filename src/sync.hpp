@@ -70,7 +70,8 @@ class sync {
       return fn(&val);
     } else if constexpr (std::is_invocable_v<Fn>) {
       return fn();
-    } else if constexpr (std::is_invocable_v<Fn, monitor*, T> || std::is_invocable_v<Fn, monitor*, T&>) {
+    } else if constexpr (std::is_invocable_v<Fn, monitor*, T> ||
+                         std::is_invocable_v<Fn, monitor*, T&>) {
       return fn(&mon, val);
     } else if constexpr (std::is_invocable_v<Fn, monitor*, T*>) {
       return fn(&mon, &val);
@@ -89,7 +90,8 @@ class sync {
       return fn(&val);
     } else if constexpr (std::is_invocable_v<Fn>) {
       return fn();
-    } else if constexpr (std::is_invocable_v<Fn, monitor*, T> || std::is_invocable_v<Fn, monitor*, const T&>) {
+    } else if constexpr (std::is_invocable_v<Fn, monitor*, T> ||
+                         std::is_invocable_v<Fn, monitor*, const T&>) {
       return fn(&mon, val);
     } else if constexpr (std::is_invocable_v<Fn, monitor*, const T*>) {
       return fn(&mon, &val);
@@ -102,12 +104,16 @@ class sync {
 
   template <typename Fn>
   auto bind(Fn&& fn) {
-    return [this, fn = std::forward<Fn>(fn)]() { return invoke(fn); };
+    return [this, fn = std::forward<Fn>(fn)]() {
+      return invoke(fn);
+    };
   }
 
   template <typename Fn>
   auto bind(Fn&& fn) const {
-    return [this, fn = std::forward<Fn>(fn)]() { return invoke(fn); };
+    return [this, fn = std::forward<Fn>(fn)]() {
+      return invoke(fn);
+    };
   }
 
  public:
@@ -288,12 +294,24 @@ class Event {
 
   template <typename Rep, typename Period>
   std::cv_status wait_for(const std::chrono::duration<Rep, Period>& rel_time) const {
-    return evt.wait_for(rel_time, [](bool b) { return b; });
+    if (evt.wait_for(rel_time, [](bool b) {
+          return b;
+        })) {
+      return std::cv_status::no_timeout;
+    } else {
+      return std::cv_status::timeout;
+    }
   }
 
   template <typename Clock, typename Duration>
   std::cv_status wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time) const {
-    return evt.wait_until(timeout_time, [](bool b) { return b; });
+    if (evt.wait_until(timeout_time, [](bool b) {
+          return b;
+        })) {
+      return std::cv_status::no_timeout;
+    } else {
+      return std::cv_status::timeout;
+    }
   }
 
   bool is_set() const {

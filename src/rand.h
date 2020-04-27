@@ -1,14 +1,14 @@
 #ifndef A0_SRC_RAND_H
 #define A0_SRC_RAND_H
 
+#include <a0/common.h>
+
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include <a0/common.h>
 
 #include "macros.h"
 
