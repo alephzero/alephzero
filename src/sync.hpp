@@ -286,6 +286,16 @@ class Event {
     });
   }
 
+  template <typename Rep, typename Period>
+  std::cv_status wait_for(const std::chrono::duration<Rep, Period>& rel_time) const {
+    return evt.wait_for(rel_time, [](bool b) { return b; });
+  }
+
+  template <typename Clock, typename Duration>
+  std::cv_status wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time) const {
+    return evt.wait_until(timeout_time, [](bool b) { return b; });
+  }
+
   bool is_set() const {
     return evt.copy();
   }
