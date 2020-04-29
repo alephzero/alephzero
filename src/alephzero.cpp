@@ -582,7 +582,7 @@ void Subscriber::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_subscriber_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{std::move(c), std::move(fn)};
+  auto heap_data = new data_t{c, std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -725,7 +725,7 @@ void RpcServer::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_rpc_server_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{std::move(c), std::move(fn)};
+  auto heap_data = new data_t{c, std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -769,7 +769,7 @@ void RpcClient::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_rpc_client_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{std::move(c), std::move(fn)};
+  auto heap_data = new data_t{c, std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -926,7 +926,7 @@ void PrpcServer::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_prpc_server_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{std::move(c), std::move(fn)};
+  auto heap_data = new data_t{c, std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -970,7 +970,7 @@ void PrpcClient::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_prpc_client_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{std::move(c), std::move(fn)};
+  auto heap_data = new data_t{c, std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -1180,7 +1180,7 @@ void HeartbeatListener::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_heartbeat_listener_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{std::move(c), std::move(fn)};
+  auto heap_data = new data_t{c, std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
