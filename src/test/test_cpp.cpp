@@ -79,6 +79,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] topic manager") {
   };
 
   REQUIRE_PATH(tm.config_topic(), "/a0_config__aaa");
+  REQUIRE_PATH(tm.heartbeat_topic(), "/a0_heartbeat__aaa");
   REQUIRE_PATH(tm.log_crit_topic(), "/a0_log_crit__aaa");
   REQUIRE_PATH(tm.log_err_topic(), "/a0_log_err__aaa");
   REQUIRE_PATH(tm.log_warn_topic(), "/a0_log_warn__aaa");
