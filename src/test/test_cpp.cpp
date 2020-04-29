@@ -427,18 +427,21 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat ignore old") {
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat listener async close") {
   auto hb = std::make_unique<a0::Heartbeat>(shm, a0::Heartbeat::Options{.freq=100});
 
-  a0::Event evt;
+  a0::Event init_event;
+  a0::Event stop_event;
+
   std::unique_ptr<a0::HeartbeatListener> hbl;
-  
   hbl = std::make_unique<a0::HeartbeatListener>(
     shm,
     a0::HeartbeatListener::Options{.min_freq=90},
-    [&hbl, &evt]() {
-      hbl->async_close([&evt]() {
-        evt.set();
+    [&]() {
+      init_event.set();
+      hbl->async_close([&]() {
+        stop_event.set();
       });
     },
     nullptr);
-
-  REQUIRE(evt.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / 50))) == std::cv_status::no_timeout);
+  REQUIRE(init_event.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / 50))) == std::cv_status::no_timeout);
+  REQUIRE(stop_event.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / 50))) == std::cv_status::no_timeout);
+  hbl = nullptr;
 }
