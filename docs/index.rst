@@ -4,12 +4,12 @@ Welcome to AlephZero's documentation!
 TODO...
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
    packet
    heartbeat
-   utils
+   time
    ref_c
 
 

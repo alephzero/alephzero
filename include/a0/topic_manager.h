@@ -34,6 +34,8 @@ typedef struct a0_topic_manager_s {
 
 errno_t a0_topic_manager_open_config_topic(const a0_topic_manager_t*, a0_shm_t* out);
 
+errno_t a0_topic_manager_open_heartbeat_topic(const a0_topic_manager_t*, a0_shm_t* out);
+
 errno_t a0_topic_manager_open_log_crit_topic(const a0_topic_manager_t*, a0_shm_t* out);
 errno_t a0_topic_manager_open_log_err_topic(const a0_topic_manager_t*, a0_shm_t* out);
 errno_t a0_topic_manager_open_log_warn_topic(const a0_topic_manager_t*, a0_shm_t* out);

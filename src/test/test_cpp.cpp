@@ -309,3 +309,136 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] prpc null callback") {
   // TODO: be better!
   std::this_thread::sleep_for(std::chrono::milliseconds(1));
 }
+
+
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hb start, hbl start, hbl close, hb close") {
+  auto hb = std::make_unique<a0::Heartbeat>(shm, a0::Heartbeat::Options{.freq=100});
+
+  a0::Subscriber::read_one(shm, A0_INIT_MOST_RECENT, 0);
+
+  int detected_cnt = 0;
+  int missed_cnt = 0;
+
+  auto hbl = std::make_unique<a0::HeartbeatListener>(
+    shm,
+    a0::HeartbeatListener::Options{.min_freq=90},
+    [&detected_cnt]() { detected_cnt++; },
+    [&missed_cnt]() { missed_cnt++; });
+
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+
+  hbl = nullptr;
+
+  REQUIRE(detected_cnt == 1);
+  REQUIRE(missed_cnt == 0);
+}
+
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hb start, hbl start, hb close, hbl close") {
+  auto hb = std::make_unique<a0::Heartbeat>(shm, a0::Heartbeat::Options{.freq=100});
+
+  a0::Subscriber::read_one(shm, A0_INIT_MOST_RECENT, 0);
+
+  std::atomic<int> detected_cnt = 0;
+  std::atomic<int> missed_cnt = 0;
+
+  auto hbl = std::make_unique<a0::HeartbeatListener>(
+    shm,
+    a0::HeartbeatListener::Options{.min_freq=90},
+    [&detected_cnt]() { detected_cnt++; },
+    [&missed_cnt]() { missed_cnt++; });
+
+
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+
+  REQUIRE(detected_cnt == 1);
+  REQUIRE(missed_cnt == 0);
+
+  hb = nullptr;
+
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+
+  REQUIRE(detected_cnt == 1);
+  REQUIRE(missed_cnt == 1);
+}
+
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hbl start, hb start, hb close, hbl close") {
+  std::atomic<int> detected_cnt = 0;
+  std::atomic<int> missed_cnt = 0;
+
+  auto hbl = std::make_unique<a0::HeartbeatListener>(
+    shm,
+    a0::HeartbeatListener::Options{.min_freq=90},
+    [&detected_cnt]() { detected_cnt++; },
+    [&missed_cnt]() { missed_cnt++; });
+
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+
+  REQUIRE(detected_cnt == 0);
+  REQUIRE(missed_cnt == 0);
+
+  auto hb = std::make_unique<a0::Heartbeat>(shm, a0::Heartbeat::Options{.freq=100});
+
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+
+  REQUIRE(detected_cnt == 1);
+  REQUIRE(missed_cnt == 0);
+
+  hb = nullptr;
+
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+
+  REQUIRE(detected_cnt == 1);
+  REQUIRE(missed_cnt == 1);
+}
+
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat ignore old") {
+  auto hb = std::make_unique<a0::Heartbeat>(shm, a0::Heartbeat::Options{.freq=100});
+
+  a0::Subscriber::read_one(shm, A0_INIT_MOST_RECENT, 0);
+
+  hb = nullptr;
+
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+
+  // At this point, a heartbeat is written, but old.
+
+  std::atomic<int> detected_cnt = 0;
+  std::atomic<int> missed_cnt = 0;
+
+  auto hbl = std::make_unique<a0::HeartbeatListener>(
+    shm,
+    a0::HeartbeatListener::Options{.min_freq=90},
+    [&detected_cnt]() { detected_cnt++; },
+    [&missed_cnt]() { missed_cnt++; });
+
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+
+  REQUIRE(detected_cnt == 0);
+  REQUIRE(missed_cnt == 0);
+
+  hb = std::make_unique<a0::Heartbeat>(shm, a0::Heartbeat::Options{.freq=100});
+
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+
+  REQUIRE(detected_cnt == 1);
+  REQUIRE(missed_cnt == 0);
+}
+
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat listener async close") {
+  auto hb = std::make_unique<a0::Heartbeat>(shm, a0::Heartbeat::Options{.freq=100});
+
+  a0::Event evt;
+  std::unique_ptr<a0::HeartbeatListener> hbl;
+  
+  hbl = std::make_unique<a0::HeartbeatListener>(
+    shm,
+    a0::HeartbeatListener::Options{.min_freq=90},
+    [&hbl, &evt]() {
+      hbl->async_close([&evt]() {
+        evt.set();
+      });
+    },
+    nullptr);
+
+  REQUIRE(evt.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / 50))) == std::cv_status::no_timeout);
+}

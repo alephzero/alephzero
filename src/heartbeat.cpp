@@ -115,7 +115,9 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
           hli->stop_event.wait_for(sleep_dur);
           continue;
         } else {
-          hli->onmissed.fn(hli->onmissed.user_data);
+          if (hli->onmissed.fn) {
+            hli->onmissed.fn(hli->onmissed.user_data);
+          }
           break;
         }
       }
@@ -145,7 +147,9 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
       if (!hli->detected) {
         if (now_ts < pkt_ts + (uint64_t)sleep_dur.count()) {
           hli->detected = true;
-          hli->ondetected.fn(hli->ondetected.user_data);
+          if (hli->ondetected.fn) {
+            hli->ondetected.fn(hli->ondetected.user_data);
+          }
           a0_time_mono_now(&now_ts);
         } else {
           hli->stop_event.wait_for(sleep_dur);
