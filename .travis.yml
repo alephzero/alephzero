@@ -20,17 +20,17 @@ matrix:
   - name: "asan"
     compiler: gcc
     script:
-      - make asan -j
+      - make asan -j DEBUG=1
 
   - name: "tsan"
     compiler: gcc
     script:
-      - make tsan -j
+      - make tsan -j DEBUG=1
 
   - name: "ubsan"
     compiler: gcc
     script:
-      - make ubsan -j
+      - make ubsan -j DEBUG=1
 
   - name: "valgrind"
     addons:
@@ -39,11 +39,11 @@ matrix:
           - valgrind
     compiler: gcc
     script:
-      - make valgrind -j
+      - make valgrind -j DEBUG=1
 
   - name: "cov"
     compiler: gcc
     script:
-      - make cov -j
+      - make cov -j DEBUG=1
     after_success:
       - bash <(curl -s https://codecov.io/bash)
