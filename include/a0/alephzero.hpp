@@ -1,5 +1,6 @@
 #pragma once
 
+#include <a0/heartbeat.h>
 #include <a0/logger.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
@@ -32,7 +33,7 @@ struct Shm {
 
   Shm() = default;
   Shm(const std::string_view path);
-  Shm(const std::string_view path, const Options&);
+  Shm(const std::string_view path, Options);
 
   std::string path() const;
 
@@ -86,6 +87,7 @@ struct TopicManager {
   std::map<std::string, TopicAliasTarget> prpc_client_aliases;
 
   Shm config_topic() const;
+  Shm heartbeat_topic() const;
   Shm log_crit_topic() const;
   Shm log_err_topic() const;
   Shm log_warn_topic() const;
@@ -128,19 +130,6 @@ struct Publisher {
   void pub(std::vector<std::pair<std::string, std::string>> headers,
            const std::string_view payload);
   void pub(const std::string_view payload);
-};
-
-struct Logger {
-  std::shared_ptr<a0_logger_t> c;
-
-  Logger(const TopicManager&);
-  Logger();
-
-  void crit(const PacketView&);
-  void err(const PacketView&);
-  void warn(const PacketView&);
-  void info(const PacketView&);
-  void dbg(const PacketView&);
 };
 
 struct SubscriberSync {
@@ -277,6 +266,70 @@ struct PrpcClient {
   void connect(const std::string_view payload, std::function<void(const PacketView&, bool)>);
 
   void cancel(const std::string_view);
+};
+
+struct Logger {
+  std::shared_ptr<a0_logger_t> c;
+
+  Logger(const TopicManager&);
+  Logger();
+
+  void crit(const PacketView&);
+  void err(const PacketView&);
+  void warn(const PacketView&);
+  void info(const PacketView&);
+  void dbg(const PacketView&);
+};
+
+struct Heartbeat {
+  std::shared_ptr<a0_heartbeat_t> c;
+
+  struct Options {
+    double freq;
+
+    static Options DEFAULT;
+  };
+
+  Heartbeat(Shm);
+  Heartbeat(Shm, Options);
+  // User-friendly constructor that uses GlobalTopicManager heartbeat_topic for shm.
+  Heartbeat();
+  Heartbeat(Options);
+};
+
+struct HeartbeatListener {
+  std::shared_ptr<a0_heartbeat_listener_t> c;
+
+  struct Options {
+    double min_freq;
+
+    static Options DEFAULT;
+  };
+
+  HeartbeatListener() = default;
+
+  HeartbeatListener(Shm,
+                    Options,
+                    std::function<void()> ondetected,
+                    std::function<void()> onmissed);
+  HeartbeatListener(Shm,
+                    std::function<void()> ondetected,
+                    std::function<void()> onmissed);
+  HeartbeatListener(const std::string_view container,
+                    Options,
+                    std::function<void()> ondetected,
+                    std::function<void()> onmissed);
+  HeartbeatListener(const std::string_view container,
+                    std::function<void()> ondetected,
+                    std::function<void()> onmissed);
+  // User-friendly constructor that uses GlobalTopicManager heartbeat_topic for shm.
+  HeartbeatListener(Options,
+                    std::function<void()> ondetected,
+                    std::function<void()> onmissed);
+  HeartbeatListener(std::function<void()> ondetected,
+                    std::function<void()> onmissed);
+
+  void async_close(std::function<void()>);
 };
 
 }  // namespace a0

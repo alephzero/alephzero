@@ -3,6 +3,7 @@
 
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/heartbeat.h>
 #include <a0/logger.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>

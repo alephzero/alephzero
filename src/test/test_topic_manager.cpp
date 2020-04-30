@@ -68,6 +68,7 @@ TEST_CASE("topic_manager] basic") {
       };
 
   REQUIRE_PATH(a0_topic_manager_open_config_topic, "/a0_config__this_container");
+  REQUIRE_PATH(a0_topic_manager_open_heartbeat_topic, "/a0_heartbeat__this_container");
   REQUIRE_PATH(a0_topic_manager_open_log_crit_topic, "/a0_log_crit__this_container");
   REQUIRE_PATH(a0_topic_manager_open_log_err_topic, "/a0_log_err__this_container");
   REQUIRE_PATH(a0_topic_manager_open_log_warn_topic, "/a0_log_warn__this_container");
