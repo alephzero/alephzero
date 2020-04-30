@@ -36,36 +36,18 @@ void check(errno_t err) {
   }
 }
 
-template <typename C, typename InitFn, typename CloserFn>
-std::shared_ptr<C> c_shared(InitFn&& init, CloserFn&& closer) {
-  C* c = new C;
-  errno_t err = init(c);
-  if (err) {
-    delete c;
-    check(err);
-  }
-  return std::shared_ptr<C>(c, std::forward<CloserFn>(closer));
-}
-
-template <typename C>
-std::function<void(C*)> delete_after(std::function<void(C*)> closer) {
-  return [closer](C* c) {
-    closer(c);
-    delete c;
-  };
-}
-
-template <typename CPP, typename C>
-CPP to_cpp(std::shared_ptr<C> c) {
-  CPP cpp;
-  cpp.c = std::move(c);
-  return cpp;
-}
-
 template <typename C>
 struct CDeleter {
   std::function<void(C*)> primary;
   std::vector<std::function<void()>> also;
+
+  CDeleter() = default;
+  CDeleter(std::function<void(C*)> primary) : primary{std::move(primary)} {}
+
+  CDeleter(const CDeleter&) = delete;
+  CDeleter(CDeleter&&) noexcept = default;
+  CDeleter& operator=(const CDeleter&) = delete;
+  CDeleter& operator=(CDeleter&&) noexcept = default;
 
   void operator()(C* c) {
     if (primary) {
@@ -79,6 +61,29 @@ struct CDeleter {
     }
   }
 };
+
+template <typename C, typename InitFn, typename Closer>
+void set_c(std::shared_ptr<C>* c, InitFn&& init, Closer&& closer) {
+  set_c(c, std::forward<InitFn>(init), CDeleter<C>(std::move(closer)));
+}
+
+template <typename C, typename InitFn>
+void set_c(std::shared_ptr<C>* c, InitFn&& init, CDeleter<C> deleter) {
+  *c = std::shared_ptr<C>(new C, std::move(deleter));
+  errno_t err = init(c->get());
+  if (err) {
+    std::get_deleter<CDeleter<C>>(*c)->primary = nullptr;
+    *c = nullptr;
+    check(err);
+  }
+}
+
+template <typename CPP, typename InitFn, typename Closer>
+CPP make_cpp(InitFn&& init, Closer&& closer) {
+  CPP cpp;
+  set_c(&cpp.c, std::forward<InitFn>(init), std::forward<Closer>(closer));
+  return cpp;
+}
 
 template <typename T>
 A0_STATIC_INLINE a0_buf_t as_buf(T* mem) {
@@ -107,11 +112,12 @@ Shm::Shm(const std::string_view path, Options opts) {
       .size = opts.size,
       .resize = opts.resize,
   };
-  c = c_shared<a0_shm_t>(
+  set_c(
+      &c,
       [&](a0_shm_t* c) {
         return a0_shm_open(path.data(), &c_opts, c);
       },
-      delete_after<a0_shm_t>(a0_shm_close));
+      a0_shm_close);
 }
 
 std::string Shm::path() const {
@@ -140,7 +146,13 @@ struct PacketImpl {
 
 A0_STATIC_INLINE
 std::shared_ptr<a0_packet_t> make_cpp_packet() {
-  return c_shared<a0_packet_t>(a0_packet_init, PacketImpl{});
+  auto* c = new a0_packet_t;
+  errno_t err = a0_packet_init(c);
+  if (err) {
+    delete c;
+    check(err);
+  }
+  return std::shared_ptr<a0_packet_t>(c, PacketImpl{});
 }
 
 A0_STATIC_INLINE
@@ -314,130 +326,132 @@ a0_topic_manager_t c(const TopicManager* cpp_) {
 
 Shm TopicManager::config_topic() const {
   a0_topic_manager_t ctm = c(this);
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_config_topic(&ctm, shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 Shm TopicManager::heartbeat_topic() const {
   a0_topic_manager_t ctm = c(this);
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_heartbeat_topic(&ctm, shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 Shm TopicManager::log_crit_topic() const {
   a0_topic_manager_t ctm = c(this);
 
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_log_crit_topic(&ctm, shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 Shm TopicManager::log_err_topic() const {
   a0_topic_manager_t ctm = c(this);
 
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_log_err_topic(&ctm, shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 Shm TopicManager::log_warn_topic() const {
   a0_topic_manager_t ctm = c(this);
 
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_log_warn_topic(&ctm, shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 Shm TopicManager::log_info_topic() const {
   a0_topic_manager_t ctm = c(this);
 
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_log_info_topic(&ctm, shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 Shm TopicManager::log_dbg_topic() const {
   a0_topic_manager_t ctm = c(this);
 
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_log_dbg_topic(&ctm, shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 Shm TopicManager::publisher_topic(const std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_publisher_topic(&ctm, name.data(), shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 Shm TopicManager::subscriber_topic(const std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_subscriber_topic(&ctm, name.data(), shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 Shm TopicManager::rpc_server_topic(const std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_rpc_server_topic(&ctm, name.data(), shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 Shm TopicManager::rpc_client_topic(const std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_rpc_client_topic(&ctm, name.data(), shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 Shm TopicManager::prpc_server_topic(const std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_prpc_server_topic(&ctm, name.data(), shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 Shm TopicManager::prpc_client_topic(const std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
-  return to_cpp<Shm>(c_shared<a0_shm_t>(
+  return make_cpp<Shm>(
       [&](a0_shm_t* shm) {
         return a0_topic_manager_open_prpc_client_topic(&ctm, name.data(), shm);
       },
-      delete_after<a0_shm_t>(a0_shm_close)));
+      a0_shm_close);
 }
 
 TopicManager& GlobalTopicManager() {
@@ -450,13 +464,13 @@ void InitGlobalTopicManager(TopicManager tm) {
 }
 
 PublisherRaw::PublisherRaw(Shm shm) {
-  c = c_shared<a0_publisher_raw_t>(
+  set_c(
+      &c,
       [&](a0_publisher_raw_t* c) {
         return a0_publisher_raw_init(c, shm.c->buf);
       },
       [shm](a0_publisher_raw_t* c) {
         a0_publisher_raw_close(c);
-        delete c;
       });
 }
 
@@ -477,13 +491,13 @@ void PublisherRaw::pub(const std::string_view payload) {
 }
 
 Publisher::Publisher(Shm shm) {
-  c = c_shared<a0_publisher_t>(
+  set_c(
+      &c,
       [&](a0_publisher_t* c) {
         return a0_publisher_init(c, shm.c->buf);
       },
       [shm](a0_publisher_t* c) {
         a0_publisher_close(c);
-        delete c;
       });
 }
 
@@ -506,14 +520,14 @@ void Publisher::pub(const std::string_view payload) {
 SubscriberSync::SubscriberSync(Shm shm, a0_subscriber_init_t init, a0_subscriber_iter_t iter) {
   a0_alloc_t alloc;
   check(a0_realloc_allocator_init(&alloc));
-  c = c_shared<a0_subscriber_sync_t>(
+  set_c(
+      &c,
       [&](a0_subscriber_sync_t* c) {
         return a0_subscriber_sync_init(c, shm.c->buf, alloc, init, iter);
       },
       [shm, alloc](a0_subscriber_sync_t* c) mutable {
         a0_subscriber_sync_close(c);
         a0_realloc_allocator_close(&alloc);
-        delete c;
       });
 }
 
@@ -561,11 +575,12 @@ Subscriber::Subscriber(Shm shm,
 
   deleter.primary = a0_subscriber_close;
 
-  c = c_shared<a0_subscriber_t>(
+  set_c(
+      &c,
       [&](a0_subscriber_t* c) {
         return a0_subscriber_init(c, shm.c->buf, alloc, init, iter, callback);
       },
-      deleter);
+      std::move(deleter));
 }
 
 Subscriber::Subscriber(const std::string_view topic,
@@ -703,11 +718,12 @@ RpcServer::RpcServer(Shm shm,
 
   deleter.primary = a0_rpc_server_close;
 
-  c = c_shared<a0_rpc_server_t>(
+  set_c(
+      &c,
       [&](a0_rpc_server_t* c) {
         return a0_rpc_server_init(c, shm.c->buf, alloc, c_onrequest, c_oncancel);
       },
-      deleter);
+      std::move(deleter));
 }
 
 RpcServer::RpcServer(const std::string_view topic,
@@ -751,11 +767,12 @@ RpcClient::RpcClient(Shm shm) {
 
   deleter.primary = a0_rpc_client_close;
 
-  c = c_shared<a0_rpc_client_t>(
+  set_c(
+      &c,
       [&](a0_rpc_client_t* c) {
         return a0_rpc_client_init(c, shm.c->buf, alloc);
       },
-      deleter);
+      std::move(deleter));
 }
 
 RpcClient::RpcClient(const std::string_view topic)
@@ -904,11 +921,12 @@ PrpcServer::PrpcServer(Shm shm,
 
   deleter.primary = a0_prpc_server_close;
 
-  c = c_shared<a0_prpc_server_t>(
+  set_c(
+      &c,
       [&](a0_prpc_server_t* c) {
         return a0_prpc_server_init(c, shm.c->buf, alloc, c_onconnect, c_oncancel);
       },
-      deleter);
+      std::move(deleter));
 }
 
 PrpcServer::PrpcServer(const std::string_view topic,
@@ -952,11 +970,12 @@ PrpcClient::PrpcClient(Shm shm) {
 
   deleter.primary = a0_prpc_client_close;
 
-  c = c_shared<a0_prpc_client_t>(
+  set_c(
+      &c,
       [&](a0_prpc_client_t* c) {
         return a0_prpc_client_init(c, shm.c->buf, alloc);
       },
-      deleter);
+      std::move(deleter));
 }
 
 PrpcClient::PrpcClient(const std::string_view topic)
@@ -1020,7 +1039,8 @@ Logger::Logger(const TopicManager& topic_manager) {
   auto shm_warn = topic_manager.log_warn_topic();
   auto shm_info = topic_manager.log_info_topic();
   auto shm_dbg = topic_manager.log_dbg_topic();
-  c = c_shared<a0_logger_t>(
+  set_c(
+      &c,
       [&](a0_logger_t* c) {
         return a0_logger_init(c,
                               shm_crit.c->buf,
@@ -1031,7 +1051,6 @@ Logger::Logger(const TopicManager& topic_manager) {
       },
       [shm_crit, shm_err, shm_warn, shm_info, shm_dbg](a0_logger_t* c) {
         a0_logger_close(c);
-        delete c;
       });
 }
 
@@ -1061,34 +1080,30 @@ Heartbeat::Heartbeat(Shm shm, Options opts) {
   a0_heartbeat_options_t c_opts{
       .freq = opts.freq,
   };
-  c = c_shared<a0_heartbeat_t>(
+  set_c(
+      &c,
       [&](a0_heartbeat_t* c) {
         return a0_heartbeat_init(c, shm.c->buf, &c_opts);
       },
       [shm](a0_heartbeat_t* c) {
         a0_heartbeat_close(c);
-        delete c;
       });
 }
 
 Heartbeat::Heartbeat(Shm shm) : Heartbeat(shm, Options::DEFAULT) {}
 
-Heartbeat::Heartbeat(Options opts)
-    : Heartbeat(GlobalTopicManager().heartbeat_topic(), opts) {}
+Heartbeat::Heartbeat(Options opts) : Heartbeat(GlobalTopicManager().heartbeat_topic(), opts) {}
 
-Heartbeat::Heartbeat()
-    : Heartbeat(Options::DEFAULT) {}
-
+Heartbeat::Heartbeat() : Heartbeat(Options::DEFAULT) {}
 
 HeartbeatListener::Options HeartbeatListener::Options::DEFAULT = {
     .min_freq = A0_HEARTBEAT_LISTENER_OPTIONS_DEFAULT.min_freq,
 };
 
-HeartbeatListener::HeartbeatListener(
-    Shm shm,
-    Options opts,
-    std::function<void()> ondetected,
-    std::function<void()> onmissed) {
+HeartbeatListener::HeartbeatListener(Shm shm,
+                                     Options opts,
+                                     std::function<void()> ondetected,
+                                     std::function<void()> onmissed) {
   a0_heartbeat_listener_options_t c_opts{
       .min_freq = opts.min_freq,
   };
@@ -1132,44 +1147,43 @@ HeartbeatListener::HeartbeatListener(
 
   deleter.primary = a0_heartbeat_listener_close;
 
-  c = c_shared<a0_heartbeat_listener_t>(
+  set_c(
+      &c,
       [&](a0_heartbeat_listener_t* c) {
         return a0_heartbeat_listener_init(c, shm.c->buf, alloc, &c_opts, c_ondetected, c_onmissed);
       },
-      deleter);
+      std::move(deleter));
 }
 
-HeartbeatListener::HeartbeatListener(
-    Shm shm,
-    std::function<void()> ondetected,
-    std::function<void()> onmissed)
+HeartbeatListener::HeartbeatListener(Shm shm,
+                                     std::function<void()> ondetected,
+                                     std::function<void()> onmissed)
     : HeartbeatListener(shm, Options::DEFAULT, ondetected, onmissed) {}
-HeartbeatListener::HeartbeatListener(
-    const std::string_view container,
-    Options opts,
-    std::function<void()> ondetected,
-    std::function<void()> onmissed)
+HeartbeatListener::HeartbeatListener(const std::string_view container,
+                                     Options opts,
+                                     std::function<void()> ondetected,
+                                     std::function<void()> onmissed)
     : HeartbeatListener(
-        TopicManager{
-          .container = std::string(container),
-          .subscriber_aliases = {},
-          .rpc_client_aliases = {},
-          .prpc_client_aliases = {},
-        }.heartbeat_topic(),
-        opts, ondetected, onmissed) {}
-HeartbeatListener::HeartbeatListener(
-    const std::string_view container,
-    std::function<void()> ondetected,
-    std::function<void()> onmissed)
+          TopicManager{
+              .container = std::string(container),
+              .subscriber_aliases = {},
+              .rpc_client_aliases = {},
+              .prpc_client_aliases = {},
+          }
+              .heartbeat_topic(),
+          opts,
+          ondetected,
+          onmissed) {}
+HeartbeatListener::HeartbeatListener(const std::string_view container,
+                                     std::function<void()> ondetected,
+                                     std::function<void()> onmissed)
     : HeartbeatListener(container, Options::DEFAULT, ondetected, onmissed) {}
-HeartbeatListener::HeartbeatListener(
-    Options opts,
-    std::function<void()> ondetected,
-    std::function<void()> onmissed)
+HeartbeatListener::HeartbeatListener(Options opts,
+                                     std::function<void()> ondetected,
+                                     std::function<void()> onmissed)
     : HeartbeatListener(GlobalTopicManager().container, opts, ondetected, onmissed) {}
-HeartbeatListener::HeartbeatListener(
-    std::function<void()> ondetected,
-    std::function<void()> onmissed)
+HeartbeatListener::HeartbeatListener(std::function<void()> ondetected,
+                                     std::function<void()> onmissed)
     : HeartbeatListener(Options::DEFAULT, ondetected, onmissed) {}
 
 void HeartbeatListener::async_close(std::function<void()> fn) {
