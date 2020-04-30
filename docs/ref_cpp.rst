@@ -1,12 +1,8 @@
-Heartbeats
+Reference (C++)
 =====================================
-
-.. doxygenfile:: heartbeat.h
-  :sections: detaileddescription
 
 .. toctree::
    :maxdepth: 1
    :caption: Contents:
 
-   heartbeat_c
    heartbeat_cpp

@@ -281,54 +281,87 @@ struct Logger {
   void dbg(const PacketView&);
 };
 
-struct Heartbeat {
+class Heartbeat {
+ public:
   std::shared_ptr<a0_heartbeat_t> c;
 
   struct Options {
+    /// Frequency at which heartbeat packets will be published.
     double freq;
 
+    /// The default options to be used if no options are explicitly provided.
+    /// Default freq is 10Hz.
     static Options DEFAULT;
   };
 
-  Heartbeat(Shm);
+  /// Primary constructor.
   Heartbeat(Shm, Options);
-  // User-friendly constructor that uses GlobalTopicManager heartbeat_topic for shm.
-  Heartbeat();
+  /// User-friendly constructor.
+  /// * Uses default options.
+  Heartbeat(Shm);
+  /// User-friendly constructor.
+  /// * Uses GlobalTopicManager heartbeat_topic to get the shm.
   Heartbeat(Options);
+  /// User-friendly constructor.
+  /// * Uses default options.
+  /// * Uses GlobalTopicManager heartbeat_topic to get the shm.
+  Heartbeat();
 };
 
-struct HeartbeatListener {
+class HeartbeatListener {
+ public:
   std::shared_ptr<a0_heartbeat_listener_t> c;
 
   struct Options {
+    /// Frequency at which heartbeat packets will be checked.
+    /// This should be less than the frequency at which the associated Heartbeat publishes.
     double min_freq;
 
+    /// The default options to be used if no options are explicitly provided.
+    /// Default freq is 5Hz.
     static Options DEFAULT;
   };
 
   HeartbeatListener() = default;
 
+  /// Primary constructor.
+  /// ondetected will be executed once, when the first heartbeat packet is read.
+  /// onmissed will be executed once, after ondetected, when a period of time passes,
+  ///          defined by min_freq, without a heartbeat packet is read.
   HeartbeatListener(Shm,
                     Options,
                     std::function<void()> ondetected,
                     std::function<void()> onmissed);
+  /// User-friendly constructor.
+  /// * Uses default options.
   HeartbeatListener(Shm,
                     std::function<void()> ondetected,
                     std::function<void()> onmissed);
+  /// User-friendly constructor.
+  /// * Constructs the Shm from the target container name.
   HeartbeatListener(const std::string_view container,
                     Options,
                     std::function<void()> ondetected,
                     std::function<void()> onmissed);
+  /// User-friendly constructor.
+  /// * Uses default options.
+  /// * Constructs the Shm from the target container name.
   HeartbeatListener(const std::string_view container,
                     std::function<void()> ondetected,
                     std::function<void()> onmissed);
-  // User-friendly constructor that uses GlobalTopicManager heartbeat_topic for shm.
+  /// User-friendly constructor.
+  /// * Constructs the Shm from the current container, using GlobalTopicManager.
   HeartbeatListener(Options,
                     std::function<void()> ondetected,
                     std::function<void()> onmissed);
+  /// User-friendly constructor.
+  /// * Uses default options.
+  /// * Constructs the Shm from the current container, using GlobalTopicManager.
   HeartbeatListener(std::function<void()> ondetected,
                     std::function<void()> onmissed);
 
+  /// Closes HeartbeatListener.
+  /// Unlike the destructor, this can be called from within a callback.
   void async_close(std::function<void()>);
 };
 
