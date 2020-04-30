@@ -321,7 +321,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hb start, hbl start, hbl clo
 
   auto hbl = std::make_unique<a0::HeartbeatListener>(
       shm,
-      a0::HeartbeatListener::Options{.min_freq = 90},
+      a0::HeartbeatListener::Options{.min_freq = 75},
       [&]() { detected_cnt++; },
       [&]() { missed_cnt++; });
 
@@ -343,7 +343,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hb start, hbl start, hb clos
 
   auto hbl = std::make_unique<a0::HeartbeatListener>(
       shm,
-      a0::HeartbeatListener::Options{.min_freq = 90},
+      a0::HeartbeatListener::Options{.min_freq = 75},
       [&]() { detected_cnt++; },
       [&]() { missed_cnt++; });
 
@@ -366,7 +366,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hbl start, hb start, hb clos
 
   auto hbl = std::make_unique<a0::HeartbeatListener>(
       shm,
-      a0::HeartbeatListener::Options{.min_freq = 90},
+      a0::HeartbeatListener::Options{.min_freq = 75},
       [&]() { detected_cnt++; },
       [&]() { missed_cnt++; });
 
@@ -406,7 +406,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat ignore old") {
 
   auto hbl = std::make_unique<a0::HeartbeatListener>(
       shm,
-      a0::HeartbeatListener::Options{.min_freq = 90},
+      a0::HeartbeatListener::Options{.min_freq = 75},
       [&]() { detected_cnt++; },
       [&]() { missed_cnt++; });
 
@@ -432,7 +432,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat listener async close") {
   std::unique_ptr<a0::HeartbeatListener> hbl;
   hbl = std::make_unique<a0::HeartbeatListener>(
       shm,
-      a0::HeartbeatListener::Options{.min_freq = 90},
+      a0::HeartbeatListener::Options{.min_freq = 75},
       [&]() {
         init_event.set();
         hbl->async_close([&]() {

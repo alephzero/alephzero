@@ -590,6 +590,10 @@ Subscriber::Subscriber(const std::string_view topic,
     : Subscriber(GlobalTopicManager().subscriber_topic(topic), init, iter, std::move(fn)) {}
 
 void Subscriber::async_close(std::function<void()> fn) {
+  if (!c) {
+    fn();
+    return;
+  }
   auto* deleter = std::get_deleter<CDeleter<a0_subscriber_t>>(c);
   deleter->primary = nullptr;
 
@@ -734,6 +738,10 @@ RpcServer::RpcServer(const std::string_view topic,
                 std::move(oncancel)) {}
 
 void RpcServer::async_close(std::function<void()> fn) {
+  if (!c) {
+    fn();
+    return;
+  }
   auto* deleter = std::get_deleter<CDeleter<a0_rpc_server_t>>(c);
   deleter->primary = nullptr;
 
@@ -779,6 +787,10 @@ RpcClient::RpcClient(const std::string_view topic)
     : RpcClient(GlobalTopicManager().rpc_client_topic(topic)) {}
 
 void RpcClient::async_close(std::function<void()> fn) {
+  if (!c) {
+    fn();
+    return;
+  }
   auto* deleter = std::get_deleter<CDeleter<a0_rpc_client_t>>(c);
   deleter->primary = nullptr;
 
@@ -937,6 +949,10 @@ PrpcServer::PrpcServer(const std::string_view topic,
                  std::move(oncancel)) {}
 
 void PrpcServer::async_close(std::function<void()> fn) {
+  if (!c) {
+    fn();
+    return;
+  }
   auto* deleter = std::get_deleter<CDeleter<a0_prpc_server_t>>(c);
   deleter->primary = nullptr;
 
@@ -982,6 +998,10 @@ PrpcClient::PrpcClient(const std::string_view topic)
     : PrpcClient(GlobalTopicManager().prpc_client_topic(topic)) {}
 
 void PrpcClient::async_close(std::function<void()> fn) {
+  if (!c) {
+    fn();
+    return;
+  }
   auto* deleter = std::get_deleter<CDeleter<a0_prpc_client_t>>(c);
   deleter->primary = nullptr;
 
@@ -1187,6 +1207,10 @@ HeartbeatListener::HeartbeatListener(std::function<void()> ondetected,
     : HeartbeatListener(Options::DEFAULT, ondetected, onmissed) {}
 
 void HeartbeatListener::async_close(std::function<void()> fn) {
+  if (!c) {
+    fn();
+    return;
+  }
   auto* deleter = std::get_deleter<CDeleter<a0_heartbeat_listener_t>>(c);
   deleter->primary = nullptr;
 
