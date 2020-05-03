@@ -46,7 +46,7 @@ matrix:
       apt:
         packages:
           - iwyu
-    compiler: gcc
+    compiler: clang
     script:
       - make iwyu
 
