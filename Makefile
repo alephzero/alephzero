@@ -152,12 +152,12 @@ covweb: cov
 
 iwyu/%.c.ok: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
-	iwyu $(CFLAGS) $(CXFLAGS) -Xiwyu --mapping_file=./iwyu.mapping -c $< ; \
+	iwyu $(CFLAGS) $(CXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu/%.cpp.ok: $(SRC_DIR)/%.cpp
 	@mkdir -p $(@D)
-	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.mapping -c $< ; \
+	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu: $(SRC_C:$(SRC_DIR)/%.c=iwyu/%.c.ok) $(SRC_CXX:$(SRC_DIR)/%.cpp=iwyu/%.cpp.ok)
