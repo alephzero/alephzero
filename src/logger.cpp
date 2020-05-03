@@ -3,10 +3,7 @@
 #include <a0/packet.h>
 #include <a0/pubsub.h>
 
-#include <errno.h>
-#include <stddef.h>
-
-#include "macros.h"
+#include <cerrno>
 
 struct a0_logger_impl_s {
   a0_publisher_t publisher_crit;

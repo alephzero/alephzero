@@ -1,15 +1,19 @@
+#include <a0/common.h>
 #include <a0/shm_sync.h>
 
 #include <assert.h>
-#include <limits.h>
+#include <errno.h>
 #include <linux/futex.h>
 #include <pthread.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <sys/syscall.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <syscall.h>
 #include <unistd.h>
 
 #include "macros.h"
+
+struct timespec;
 
 const unsigned __tsan_mutex_linker_init = 1 << 0;
 const unsigned __tsan_mutex_write_reentrant = 1 << 1;

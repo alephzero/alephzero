@@ -41,6 +41,15 @@ matrix:
     script:
       - make valgrind -j DEBUG=1
 
+  - name: "iwyu"
+    addons:
+      apt:
+        packages:
+          - iwyu
+    compiler: gcc
+    script:
+      - make iwyu
+
   - name: "cov"
     compiler: gcc
     script:

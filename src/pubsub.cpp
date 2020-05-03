@@ -5,11 +5,11 @@
 #include <a0/time.h>
 #include <a0/transport.h>
 
-#include <errno.h>
 #include <fcntl.h>
-#include <string.h>
 
-#include <functional>
+#include <cerrno>
+#include <cstdint>
+#include <ctime>
 
 #include "alloc_util.hpp"
 #include "charconv.hpp"

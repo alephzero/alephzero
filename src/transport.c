@@ -1,9 +1,9 @@
+#include <a0/alloc.h>
 #include <a0/common.h>
 #include <a0/shm_sync.h>
 #include <a0/transport.h>
 
 #include <errno.h>
-#include <pthread.h>
 #include <stdalign.h>
 #include <stdbool.h>
 #include <stddef.h>

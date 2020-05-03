@@ -3,22 +3,26 @@
  * \rst
  *
  * Mono Time
- *  | Mono time is a number of nanoseconds from some unknown start time.
- *  | This time cannot decrease and duration between ticks is constant.
- *  | This time is not related to wall clock time.
- *  | This time is most suitable for measuring durations.
- *  |
- *  | As a string, it is represented as a 20 char number:
- *  | **18446744072709551615**
+ * ---------
+ *
+ * | Mono time is a number of nanoseconds from some unknown start time.
+ * | This time cannot decrease and duration between ticks is constant.
+ * | This time is not related to wall clock time.
+ * | This time is most suitable for measuring durations.
+ * |
+ * | As a string, it is represented as a 20 char number:
+ * | **18446744072709551615**
  *
  * Wall Time
- *  | Wall time is an time object representing human-readable wall clock time.
- *  | This time can decrease and duration between ticks is not constant.
- *  | This time is most related to wall clock time.
- *  | This time is not suitable for measuring durations.
- *  |
- *  | As a string, it is represented as a 36 char RFC 3999 Nano / ISO 8601:
- *  | **2006-01-02T15:04:05.999999999-07:00**
+ * ---------
+ *
+ * | Wall time is an time object representing human-readable wall clock time.
+ * | This time can decrease and duration between ticks is not constant.
+ * | This time is most related to wall clock time.
+ * | This time is not suitable for measuring durations.
+ * |
+ * | As a string, it is represented as a 36 char RFC 3999 Nano / ISO 8601:
+ * | **2006-01-02T15:04:05.999999999-07:00**
  *
  * \endrst
  */
@@ -28,7 +32,9 @@
 
 #include <a0/common.h>
 
-#include <time.h>
+#include <stdint.h>
+
+struct timespec;
 
 #ifdef __cplusplus
 extern "C" {

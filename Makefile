@@ -67,7 +67,7 @@ ifeq ($(PREFIX),)
 	PREFIX := /usr
 endif
 
-.PHONY: all asan bench clean cov covweb install test tsan ubsan uninstall valgrind
+.PHONY: all asan bench clean cov covweb install iwyu test tsan ubsan uninstall valgrind
 
 all:
 	@echo "TODO"
@@ -150,5 +150,17 @@ covweb: cov
 	genhtml cov/coverage.info --branch-coverage --output-directory cov/web
 	(cd cov/web ; python3 -m http.server)
 
+iwyu/%.c.ok: $(SRC_DIR)/%.c
+	@mkdir -p $(@D)
+	iwyu $(CFLAGS) $(CXFLAGS) -Xiwyu --mapping_file=./iwyu.mapping -c $< ; \
+	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
+
+iwyu/%.cpp.ok: $(SRC_DIR)/%.cpp
+	@mkdir -p $(@D)
+	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.mapping -c $< ; \
+	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
+
+iwyu: $(SRC_C:$(SRC_DIR)/%.c=iwyu/%.c.ok) $(SRC_CXX:$(SRC_DIR)/%.cpp=iwyu/%.cpp.ok)
+
 clean:
-	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ cov/ *.gcov
+	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ cov/ iwyu/ *.gcov
