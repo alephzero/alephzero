@@ -45,6 +45,7 @@ matrix:
     addons:
       apt:
         packages:
+          - clang-tidy-9
           - iwyu
     compiler: clang
     script:
