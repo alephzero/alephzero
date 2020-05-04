@@ -49,7 +49,6 @@ matrix:
           - iwyu
     compiler: clang
     script:
-      - strings /usr/bin/iwyu | grep LLVM
       - make iwyu
 
   - name: "cov"
