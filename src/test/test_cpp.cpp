@@ -450,16 +450,16 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat listener async close") {
       shm,
       a0::HeartbeatListener::Options{.min_freq = 50},
       [&]() {
-        init_event.set();
+        REQUIRE(init_event.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / 10))) ==
+                std::cv_status::no_timeout);
         hbl->async_close([&]() {
           hbl = nullptr;
           stop_event.set();
         });
       },
       nullptr);
-  REQUIRE(init_event.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / 10))) ==
-          std::cv_status::no_timeout);
+  init_event.set();
   REQUIRE(stop_event.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / 10))) ==
           std::cv_status::no_timeout);
-  hbl = nullptr;
+  REQUIRE(!hbl);
 }
