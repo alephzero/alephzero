@@ -1,8 +1,18 @@
+#include <a0/alloc.h>
+#include <a0/common.h>
 #include <a0/heartbeat.h>
+#include <a0/packet.h>
 #include <a0/pubsub.h>
 #include <a0/time.h>
 
+#include <cxxabi.h>  // iwyu: for __forced_unwind  why?
+
+#include <cerrno>
 #include <chrono>
+#include <cstdint>
+#include <cstring>
+#include <memory>
+#include <ratio>
 #include <thread>
 
 #include "macros.h"
@@ -126,7 +136,7 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
       a0_packet_t pkt;
       a0_subscriber_sync_next(&hli->sub, &pkt);
 
-      uint64_t pkt_ts;
+      uint64_t pkt_ts = 0;
       for (size_t i = 0; i < pkt.headers_block.size; i++) {
         if (!strcmp(pkt.headers_block.headers[i].key, A0_TIME_MONO)) {
           a0_time_mono_parse(pkt.headers_block.headers[i].val, &pkt_ts);

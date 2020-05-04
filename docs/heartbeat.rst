@@ -1,10 +1,10 @@
 Heartbeats
-=====================================
+==========
 
 .. doxygenfile:: heartbeat.h
   :sections: detaileddescription
 
-References:
--------------------------------------
+References
+----------
 * :doc:`heartbeat_c`
 * :doc:`heartbeat_cpp`

@@ -20,17 +20,17 @@ matrix:
   - name: "asan"
     compiler: gcc
     script:
-      - make asan -j DEBUG=1
+      - make asan -j
 
   - name: "tsan"
     compiler: gcc
     script:
-      - make tsan -j DEBUG=1
+      - make tsan -j
 
   - name: "ubsan"
     compiler: gcc
     script:
-      - make ubsan -j DEBUG=1
+      - make ubsan -j
 
   - name: "valgrind"
     addons:
@@ -39,11 +39,21 @@ matrix:
           - valgrind
     compiler: gcc
     script:
-      - make valgrind -j DEBUG=1
+      - make valgrind -j
+
+  - name: "iwyu"
+    addons:
+      apt:
+        packages:
+          - clang-5.0
+          - iwyu
+    compiler: clang
+    script:
+      - make iwyu
 
   - name: "cov"
     compiler: gcc
     script:
-      - make cov -j DEBUG=1
+      - make cov -j
     after_success:
       - bash <(curl -s https://codecov.io/bash)

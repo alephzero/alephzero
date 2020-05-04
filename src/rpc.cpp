@@ -4,10 +4,9 @@
 #include <a0/pubsub.h>
 #include <a0/rpc.h>
 
-#include <errno.h>
-#include <stdint.h>
-#include <string.h>
-
+#include <cerrno>
+#include <cstdint>
+#include <cstring>
 #include <string>
 #include <unordered_map>
 

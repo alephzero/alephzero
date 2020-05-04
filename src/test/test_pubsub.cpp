@@ -5,8 +5,8 @@
 
 #include <doctest.h>
 #include <fcntl.h>
-#include <string.h>
 
+#include <cstring>
 #include <map>
 #include <set>
 #include <thread>

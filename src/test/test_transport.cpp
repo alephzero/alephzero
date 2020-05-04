@@ -3,10 +3,11 @@
 
 #include <doctest.h>
 #include <signal.h>
-#include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <cstring>
 
 #include "src/strutil.hpp"
 #include "src/test_util.hpp"

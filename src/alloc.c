@@ -1,6 +1,7 @@
 #include <a0/alloc.h>
 #include <a0/common.h>
 
+#include <errno.h>
 #include <stdlib.h>
 
 #include "macros.h"

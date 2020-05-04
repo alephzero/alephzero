@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <linux/futex.h>
 #include <sys/syscall.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "macros.h"

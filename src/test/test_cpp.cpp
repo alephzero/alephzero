@@ -1,9 +1,10 @@
 #include <a0/alephzero.hpp>
 
 #include <doctest.h>
-#include <errno.h>
 #include <fcntl.h>
-#include <math.h>
+
+#include <cerrno>
+#include <cmath>
 
 #include "src/test_util.hpp"
 

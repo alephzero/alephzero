@@ -3,85 +3,95 @@
  * \rst
  *
  * What is a packet
- *   | A simple container with the following elements: **ID**, **Headers**, **Payload**.
- *   | Capable of being serialized and deserialed.
+ * ----------------
+ *
+ * | A simple container with the following elements: **ID**, **Headers**, **Payload**.
+ * | Capable of being serialized and deserialed.
  *
  * ID
- *  | Unique UUID associated with the packet.
- *  | Provided on construction and immutable.
+ * --
+ *
+ * | Unique UUID associated with the packet.
+ * | Provided on construction and immutable.
  *
  * Headers
- *   Headers are a multipmap of utf8 key-value pairs.
+ * -------
  *
- *   Keys starting with **a0_** are reserved for AlephZero internals.
- *   Among them are:
+ *  Headers are a multipmap of utf8 key-value pairs.
  *
- *   * **a0_deps**:
- *     The **ID** of dependent packets.
- *     May be used as a key multiple times.
- *   * **a0_time_mono**:
- *     Monotonic/steady clock value.
- *     See `time.h </time.html>`_ for more info.
- *   * **a0_time_wall**:
- *     Wall/system clock value (in RFC3339 / ISO8601 format).
- *     See `time.h </time.html>`_ for more info.
- *   * **a0_transport_seq**:
- *     Sequence number among all packets in the transport.
- *   * **a0_publisher_seq**:
- *     Sequence number from the publisher.
- *   * **a0_publisher_id**:
- *     UUID of the publisher.
- *   * **...**
+ *  Keys starting with **a0_** are reserved for AlephZero internals.
+ *  Among them are:
  *
- *   .. note::
+ *  * **a0_deps**:
+ *    The **ID** of dependent packets.
+ *    May be used as a key multiple times.
+ *  * **a0_time_mono**:
+ *    Monotonic/steady clock value.
+ *    See :doc:`time` for more info.
+ *  * **a0_time_wall**:
+ *    Wall/system clock value (in RFC3339 / ISO8601 format).
+ *    See :doc:`time` for more info.
+ *  * **a0_transport_seq**:
+ *    Sequence number among all packets in the transport.
+ *  * **a0_publisher_seq**:
+ *    Sequence number from the publisher.
+ *  * **a0_publisher_id**:
+ *    UUID of the publisher.
+ *  * **...**
  *
- *     Header keys & values are c-strings and include a null terminator.
+ *  .. note::
+ *
+ *    Header keys & values are c-strings and include a null terminator.
  *
  * Payload
- *  Arbitrary binary string.
+ * -------
+ *
+ * Arbitrary binary string.
  *
  * Serialization Format
- *   The serialized form has four parts:
- *   * Packet id.
- *   * Index.
- *   * Header contents.
- *   * Payload content.
+ * --------------------
  *
- *   The index is added for O(1) lookup of headers and the payload.
+ *  The serialized form has four parts:
+ *  * Packet id.
+ *  * Index.
+ *  * Header contents.
+ *  * Payload content.
  *
- *   +-------------------------------+
- *   | ID (a0_uuid_t)                |
- *   +-------------------------------+
- *   | num headers (size_t)          |
- *   +-------------------------------+
- *   | offset for hdr 0 key (size_t) |
- *   +-------------------------------+
- *   | offset for hdr 0 val (size_t) |
- *   +-------------------------------+
- *   |   .   .   .   .   .   .   .   |
- *   +-------------------------------+
- *   |   .   .   .   .   .   .   .   |
- *   +-------------------------------+
- *   | offset for hdr N key (size_t) |
- *   +-------------------------------+
- *   | offset for hdr N val (size_t) |
- *   +-------------------------------+
- *   | offset for payload (size_t)   |
- *   +-------------------------------+
- *   | hdr 0 key content             |
- *   +-------------------------------+
- *   | hdr 0 val content             |
- *   +-------------------------------+
- *   |   .   .   .   .   .   .   .   |
- *   +-------------------------------+
- *   |   .   .   .   .   .   .   .   |
- *   +-------------------------------+
- *   | hdr N key content             |
- *   +-------------------------------+
- *   | hdr N val content             |
- *   +-------------------------------+
- *   | payload content               |
- *   +-------------------------------+
+ *  The index is added for O(1) lookup of headers and the payload.
+ *
+ *  +-------------------------------+
+ *  | ID (a0_uuid_t)                |
+ *  +-------------------------------+
+ *  | num headers (size_t)          |
+ *  +-------------------------------+
+ *  | offset for hdr 0 key (size_t) |
+ *  +-------------------------------+
+ *  | offset for hdr 0 val (size_t) |
+ *  +-------------------------------+
+ *  |   .   .   .   .   .   .   .   |
+ *  +-------------------------------+
+ *  |   .   .   .   .   .   .   .   |
+ *  +-------------------------------+
+ *  | offset for hdr N key (size_t) |
+ *  +-------------------------------+
+ *  | offset for hdr N val (size_t) |
+ *  +-------------------------------+
+ *  | offset for payload (size_t)   |
+ *  +-------------------------------+
+ *  | hdr 0 key content             |
+ *  +-------------------------------+
+ *  | hdr 0 val content             |
+ *  +-------------------------------+
+ *  |   .   .   .   .   .   .   .   |
+ *  +-------------------------------+
+ *  |   .   .   .   .   .   .   .   |
+ *  +-------------------------------+
+ *  | hdr N key content             |
+ *  +-------------------------------+
+ *  | hdr N val content             |
+ *  +-------------------------------+
+ *  | payload content               |
+ *  +-------------------------------+
  *
  * \endrst
  */

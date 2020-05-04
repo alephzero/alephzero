@@ -1,9 +1,9 @@
 Time
-=====================================
+====
 
 .. doxygenfile:: time.h
   :sections: detaileddescription
 
-References:
--------------------------------------
+References
+----------
 * :doc:`time_c`

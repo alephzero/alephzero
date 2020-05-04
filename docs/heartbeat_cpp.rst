@@ -1,8 +1,8 @@
 Heartbeat (C++-API)
-=====================================
+===================
 
-This page describes the C++ implementation of :doc:`heartbeat`.
--------------------------------------
+This page describes the C++ implementation of :doc:`heartbeat`
+--------------------------------------------------------------
 
 .. doxygenclass:: a0::Heartbeat
    :members:

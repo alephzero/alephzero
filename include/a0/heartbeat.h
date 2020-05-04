@@ -3,35 +3,39 @@
  * \rst
  *
  * Heartbeat
- *  A heartbeat is a signal, published at a fixed frequency, which can act as
- *  a proof of life to listeners. On its own, it does not convey any health
- *  status information more granular than the last published timestamp.
+ * ---------
  *
- *  A Heartbeat is parameterized by its publish frequency. For example, a
- *  frequency of 10 is interpreted as 10Hz and will publish every 100ms.
+ * A heartbeat is a signal, published at a fixed frequency, which can act as
+ * a proof of life to listeners. On its own, it does not convey any health
+ * status information more granular than the last published timestamp.
  *
- *  If a publish frequency is not provided, it defaults to 10Hz.
+ * A Heartbeat is parameterized by its publish frequency. For example, a
+ * frequency of 10 is interpreted as 10Hz and will publish every 100ms.
+ *
+ * If a publish frequency is not provided, it defaults to 10Hz.
  *
  * Heartbeat Listener
- *  A heartbeat listener subscribes to some heartbeat and will execute
- *  callbacks based on changes in state.
+ * ------------------
  *
- *  The first callback, **ondetected**, will be triggered as soon as the first
- *  heartbeat is detected. This may be immediately if there a heartbeat was
- *  recently published on the given arena.
+ * A heartbeat listener subscribes to some heartbeat and will execute
+ * callbacks based on changes in state.
  *
- *  The second callback, **onmissed**, will only trigger after **ondetected**,
- *  when a heartbeat takes longer than a given minimum frequency.
+ * The first callback, **ondetected**, will be triggered as soon as the first
+ * heartbeat is detected. This may be immediately if there a heartbeat was
+ * recently published on the given arena.
  *
- *  Both callbacks may trigger at most once.
+ * The second callback, **onmissed**, will only trigger after **ondetected**,
+ * when a heartbeat takes longer than a given minimum frequency.
  *
- *  .. note::
+ * Both callbacks may trigger at most once.
+ * 
+ * If a minimum frequency is not provided, it defaults to 5Hz.
  *
- *     Heartbeat Listener is parameterized by a **minimum** acceptable
- *     frequency. This should be less than the heartbeat frequency, otherwise
- *     false positives are likely to occur.
+ * .. note::
  *
- *     Defaults to 5Hz.
+ *    Heartbeat Listener is parameterized by a **minimum** acceptable
+ *    frequency. This should be less than the heartbeat frequency, otherwise
+ *    false positives are likely to occur.
  *
  * \endrst
  */

@@ -1,5 +1,5 @@
 Alloc (C-API)
-=====================================
+=============
 
 .. doxygenstruct:: a0_alloc_t
    :members:

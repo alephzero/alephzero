@@ -5,8 +5,8 @@
 #include <a0/topic_manager.h>
 
 #include <doctest.h>
-#include <string.h>
 
+#include <cstring>
 #include <map>
 #include <set>
 #include <thread>

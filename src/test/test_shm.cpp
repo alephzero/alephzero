@@ -1,8 +1,9 @@
 #include <a0/shm.h>
 
 #include <doctest.h>
-#include <errno.h>
-#include <math.h>
+
+#include <cerrno>
+#include <cmath>
 
 #include "src/test_util.hpp"
 

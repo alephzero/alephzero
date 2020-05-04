@@ -5,9 +5,9 @@
 #include <a0/pubsub.h>
 
 #include <errno.h>
-#include <stdint.h>
-#include <string.h>
 
+#include <cstdint>
+#include <cstring>
 #include <string>
 #include <unordered_map>
 

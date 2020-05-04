@@ -2,9 +2,8 @@
 #include <a0/shm.h>
 #include <a0/topic_manager.h>
 
-#include <errno.h>
-#include <string.h>
-
+#include <cerrno>
+#include <cstring>
 #include <string>
 
 #include "macros.h"

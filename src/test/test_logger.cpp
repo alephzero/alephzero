@@ -1,10 +1,13 @@
+#include <a0/common.h>
 #include <a0/logger.h>
+#include <a0/packet.h>
 #include <a0/pubsub.h>
 
 #include <doctest.h>
-#include <errno.h>
-#include <math.h>
 
+#include <cerrno>
+#include <cstdint>
+#include <string>
 #include <vector>
 
 #include "src/test_util.hpp"

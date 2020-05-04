@@ -36,8 +36,8 @@ BENCH_CXXFLAGS += -I. -Ibench -Ithird_party/picobench/include
 
 DEBUG ?= 0
 ifneq ($(DEBUG), 1)
-	REQUIRE_DEBUG := $(filter $(MAKECMDGOALS),asan tsan ubsan cov covweb)
-	DEBUG = $(if $(REQUIRE_DEBUG), 1, 0)
+	REQUIRE_DEBUG := $(filter $(MAKECMDGOALS),asan tsan ubsan valgrind cov covweb)
+	DEBUG = $(if $(REQUIRE_DEBUG),1,0)
 endif
 
 cov: CXFLAGS += -fprofile-arcs -ftest-coverage --coverage
@@ -67,7 +67,7 @@ ifeq ($(PREFIX),)
 	PREFIX := /usr
 endif
 
-.PHONY: all asan bench clean cov covweb install test tsan ubsan uninstall valgrind
+.PHONY: all asan bench clean cov covweb install iwyu test tsan ubsan uninstall valgrind
 
 all:
 	@echo "TODO"
@@ -150,5 +150,17 @@ covweb: cov
 	genhtml cov/coverage.info --branch-coverage --output-directory cov/web
 	(cd cov/web ; python3 -m http.server)
 
+iwyu/%.c.ok: $(SRC_DIR)/%.c
+	@mkdir -p $(@D)
+	iwyu $(CFLAGS) $(CXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
+
+iwyu/%.cpp.ok: $(SRC_DIR)/%.cpp
+	@mkdir -p $(@D)
+	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
+
+iwyu: $(SRC_C:$(SRC_DIR)/%.c=iwyu/%.c.ok) $(SRC_CXX:$(SRC_DIR)/%.cpp=iwyu/%.cpp.ok)
+
 clean:
-	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ cov/ *.gcov
+	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ cov/ iwyu/ *.gcov

@@ -1,6 +1,7 @@
 #include <a0/alephzero.hpp>
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/heartbeat.h>
 #include <a0/logger.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
@@ -9,15 +10,13 @@
 #include <a0/shm.h>
 #include <a0/topic_manager.h>
 
-#include <errno.h>
-#include <sched.h>
-#include <stddef.h>
-#include <stdint.h>
-
+#include <cerrno>
+#include <cstdint>
+#include <cstring>
 #include <functional>
 #include <memory>
-#include <string>
 #include <string_view>
+#include <string>
 #include <system_error>
 #include <type_traits>
 #include <utility>
