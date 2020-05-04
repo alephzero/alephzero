@@ -36,8 +36,8 @@ BENCH_CXXFLAGS += -I. -Ibench -Ithird_party/picobench/include
 
 DEBUG ?= 0
 ifneq ($(DEBUG), 1)
-	REQUIRE_DEBUG := $(filter $(MAKECMDGOALS),asan tsan ubsan cov covweb)
-	DEBUG = $(if $(REQUIRE_DEBUG), 1, 0)
+	REQUIRE_DEBUG := $(filter $(MAKECMDGOALS),asan tsan ubsan valgrind cov covweb)
+	DEBUG = $(if $(REQUIRE_DEBUG),1,0)
 endif
 
 cov: CXFLAGS += -fprofile-arcs -ftest-coverage --coverage
