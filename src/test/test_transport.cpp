@@ -1,13 +1,21 @@
+#include <a0/common.h>
 #include <a0/shm.h>
 #include <a0/transport.h>
 
 #include <doctest.h>
 #include <signal.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <cerrno>
+#include <chrono>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <ostream>
+#include <string>
+#include <thread>
 
 #include "src/strutil.hpp"
 #include "src/test_util.hpp"

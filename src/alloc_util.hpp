@@ -2,6 +2,9 @@
 
 #include <a0/alloc.h>
 
+#include <algorithm>
+#include <functional>
+
 #include "macros.h"
 #include "scope.hpp"
 

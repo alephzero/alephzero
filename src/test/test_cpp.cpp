@@ -1,12 +1,27 @@
 #include <a0/alephzero.hpp>
+#include <a0/common.h>
+#include <a0/pubsub.h>
+#include <a0/shm.h>
 
 #include <doctest.h>
 #include <fcntl.h>
 
-#include <cerrno>
-#include <cmath>
+#include <cstdint>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <exception>
+#include <functional>
+#include <future>
+#include <memory>
+#include <set>
+#include <string>
+#include <string_view>
+#include <thread>
+#include <utility>
+#include <vector>
 
-#include "src/test_util.hpp"
+#include "src/sync.hpp"
 
 static const char TEST_SHM[] = "/test.shm";
 
@@ -437,6 +452,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat listener async close") {
       [&]() {
         init_event.set();
         hbl->async_close([&]() {
+          hbl = nullptr;
           stop_event.set();
         });
       },

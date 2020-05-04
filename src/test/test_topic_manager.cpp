@@ -1,18 +1,13 @@
 #include <a0/common.h>
-#include <a0/packet.h>
-#include <a0/pubsub.h>
 #include <a0/shm.h>
 #include <a0/topic_manager.h>
 
 #include <doctest.h>
 
-#include <cstring>
-#include <map>
-#include <set>
-#include <thread>
-#include <vector>
+#include <cerrno>
+#include <functional>
+#include <string>
 
-#include "src/strutil.hpp"
 #include "src/test_util.hpp"
 
 TEST_CASE("topic_manager] basic") {

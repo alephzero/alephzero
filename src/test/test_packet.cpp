@@ -1,8 +1,12 @@
+#include <a0/common.h>
 #include <a0/packet.h>
 
 #include <doctest.h>
 
+#include <cctype>
+#include <cstddef>
 #include <map>
+#include <string>
 
 #include "src/test_util.hpp"
 

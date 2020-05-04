@@ -32,11 +32,10 @@ using std::to_chars;
 #else
 #include <a0/common.h>
 
-#include <string.h>
-
+#include <cerrno>
+#include <cstring>
 #include <string>
 
-#include "macros.h"
 namespace a0 {
 namespace {
 

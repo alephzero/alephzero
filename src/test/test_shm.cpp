@@ -1,9 +1,13 @@
+#include <a0/common.h>
 #include <a0/shm.h>
 
 #include <doctest.h>
+#include <sys/types.h>
 
 #include <cerrno>
 #include <cmath>
+#include <cstring>
+#include <limits>
 
 #include "src/test_util.hpp"
 
