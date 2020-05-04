@@ -17,11 +17,9 @@ OBJ += $(SRC_CXX:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 
 DEP = $(OBJ:%.o=%.d)
 
-TEST_SRC_C := $(wildcard $(SRC_DIR)/test/*.c)
 TEST_SRC_CXX := $(wildcard $(SRC_DIR)/test/*.cpp)
 
-TEST_OBJ := $(TEST_SRC_C:$(SRC_DIR)/test/%.c=$(OBJ_DIR)/test/%.o)
-TEST_OBJ += $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cpp=$(OBJ_DIR)/test/%.o)
+TEST_OBJ := $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cpp=$(OBJ_DIR)/test/%.o)
 
 TEST_CXXFLAGS += -I. -Itest -Ithird_party/doctest/doctest
 TEST_LDFLAGS += -lm
@@ -150,17 +148,30 @@ covweb: cov
 	genhtml cov/coverage.info --branch-coverage --output-directory cov/web
 	(cd cov/web ; python3 -m http.server)
 
-iwyu/%.c.ok: $(SRC_DIR)/%.c
+iwyu/$(SRC_DIR)/%.c.ok: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
 	iwyu $(CFLAGS) $(CXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
-iwyu/%.cpp.ok: $(SRC_DIR)/%.cpp
+iwyu/$(SRC_DIR)/%.cpp.ok: $(SRC_DIR)/%.cpp
 	@mkdir -p $(@D)
 	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
-iwyu: $(SRC_C:$(SRC_DIR)/%.c=iwyu/%.c.ok) $(SRC_CXX:$(SRC_DIR)/%.cpp=iwyu/%.cpp.ok)
+iwyu/$(SRC_DIR)/%.hpp.ok: $(SRC_DIR)/%.hpp
+	@mkdir -p $(@D)
+	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
+
+iwyu/$(SRC_DIR)/test/%.cpp.ok: $(SRC_DIR)/test/%.cpp
+	@mkdir -p $(@D)
+	iwyu $(CXFLAGS) $(CXXFLAGS) $(TEST_CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
+
+iwyu: $(patsubst $(SRC_DIR)/%.c,iwyu/$(SRC_DIR)/%.c.ok,$(wildcard $(SRC_DIR)/*.c))
+iwyu: $(patsubst $(SRC_DIR)/%.cpp,iwyu/$(SRC_DIR)/%.cpp.ok,$(wildcard $(SRC_DIR)/*.cpp))
+iwyu: $(patsubst $(SRC_DIR)/%.hpp,iwyu/$(SRC_DIR)/%.hpp.ok,$(wildcard $(SRC_DIR)/*.hpp))
+iwyu: $(patsubst $(SRC_DIR)/test/%.cpp,iwyu/$(SRC_DIR)/test/%.cpp.ok,$(wildcard $(SRC_DIR)/test/*.cpp))
 
 clean:
 	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ cov/ iwyu/ *.gcov

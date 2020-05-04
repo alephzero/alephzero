@@ -5,12 +5,11 @@
 #include <a0/pubsub.h>
 #include <a0/time.h>
 
-#include <cxxabi.h>  // iwyu: for __forced_unwind  why?
-
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <memory>
 #include <ratio>
 #include <thread>

@@ -1,12 +1,27 @@
 #include <a0/alephzero.hpp>
+#include <a0/common.h>
+#include <a0/pubsub.h>
+#include <a0/shm.h>
 
 #include <doctest.h>
 #include <fcntl.h>
 
-#include <cerrno>
-#include <cmath>
+#include <cstdint>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <exception>
+#include <functional>
+#include <future>
+#include <memory>
+#include <set>
+#include <string>
+#include <string_view>
+#include <thread>
+#include <utility>
+#include <vector>
 
-#include "src/test_util.hpp"
+#include "src/sync.hpp"
 
 static const char TEST_SHM[] = "/test.shm";
 
@@ -322,11 +337,11 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hb start, hbl start, hbl clo
 
   auto hbl = std::make_unique<a0::HeartbeatListener>(
       shm,
-      a0::HeartbeatListener::Options{.min_freq = 75},
+      a0::HeartbeatListener::Options{.min_freq = 50},
       [&]() { detected_cnt++; },
       [&]() { missed_cnt++; });
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 10)));
 
   hbl = nullptr;
 
@@ -344,18 +359,18 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hb start, hbl start, hb clos
 
   auto hbl = std::make_unique<a0::HeartbeatListener>(
       shm,
-      a0::HeartbeatListener::Options{.min_freq = 75},
+      a0::HeartbeatListener::Options{.min_freq = 50},
       [&]() { detected_cnt++; },
       [&]() { missed_cnt++; });
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 10)));
 
   REQUIRE(detected_cnt == 1);
   REQUIRE(missed_cnt == 0);
 
   hb = nullptr;
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 10)));
 
   REQUIRE(detected_cnt == 1);
   REQUIRE(missed_cnt == 1);
@@ -367,25 +382,25 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hbl start, hb start, hb clos
 
   auto hbl = std::make_unique<a0::HeartbeatListener>(
       shm,
-      a0::HeartbeatListener::Options{.min_freq = 75},
+      a0::HeartbeatListener::Options{.min_freq = 50},
       [&]() { detected_cnt++; },
       [&]() { missed_cnt++; });
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 10)));
 
   REQUIRE(detected_cnt == 0);
   REQUIRE(missed_cnt == 0);
 
   auto hb = std::make_unique<a0::Heartbeat>(shm, a0::Heartbeat::Options{.freq = 100});
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 10)));
 
   REQUIRE(detected_cnt == 1);
   REQUIRE(missed_cnt == 0);
 
   hb = nullptr;
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 10)));
 
   REQUIRE(detected_cnt == 1);
   REQUIRE(missed_cnt == 1);
@@ -398,7 +413,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat ignore old") {
 
   hb = nullptr;
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 10)));
 
   // At this point, a heartbeat is written, but old.
 
@@ -407,18 +422,18 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat ignore old") {
 
   auto hbl = std::make_unique<a0::HeartbeatListener>(
       shm,
-      a0::HeartbeatListener::Options{.min_freq = 75},
+      a0::HeartbeatListener::Options{.min_freq = 50},
       [&]() { detected_cnt++; },
       [&]() { missed_cnt++; });
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 10)));
 
   REQUIRE(detected_cnt == 0);
   REQUIRE(missed_cnt == 0);
 
   hb = std::make_unique<a0::Heartbeat>(shm, a0::Heartbeat::Options{.freq = 100});
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 50)));
+  std::this_thread::sleep_for(std::chrono::nanoseconds(uint64_t(1e9 / 10)));
 
   REQUIRE(detected_cnt == 1);
   REQUIRE(missed_cnt == 0);
@@ -433,17 +448,18 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat listener async close") {
   std::unique_ptr<a0::HeartbeatListener> hbl;
   hbl = std::make_unique<a0::HeartbeatListener>(
       shm,
-      a0::HeartbeatListener::Options{.min_freq = 75},
+      a0::HeartbeatListener::Options{.min_freq = 50},
       [&]() {
-        init_event.set();
+        REQUIRE(init_event.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / 10))) ==
+                std::cv_status::no_timeout);
         hbl->async_close([&]() {
+          hbl = nullptr;
           stop_event.set();
         });
       },
       nullptr);
-  REQUIRE(init_event.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / 50))) ==
+  init_event.set();
+  REQUIRE(stop_event.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / 10))) ==
           std::cv_status::no_timeout);
-  // TODO: why is this so slow on TravisCI?
-  REQUIRE(stop_event.wait_for(std::chrono::milliseconds(100)) == std::cv_status::no_timeout);
-  hbl = nullptr;
+  REQUIRE(!hbl);
 }

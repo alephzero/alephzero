@@ -1,11 +1,11 @@
 #include <doctest.h>
 
 #include <atomic>
-#include <map>
+#include <exception>
+#include <thread>
 #include <vector>
 
 #include "src/sync.hpp"
-#include "src/test_util.hpp"
 
 // Note: This is not meant to be runnable code. It will block forever.
 // The commented out lines will (and should) cause compilation errors.

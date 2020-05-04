@@ -1,12 +1,16 @@
+#include <a0/common.h>
+#include <a0/packet.h>
 #include <a0/rpc.h>
 #include <a0/shm.h>
 
 #include <doctest.h>
 
-#include <functional>
-#include <map>
+#include <chrono>
+#include <cstring>
+#include <exception>
+#include <thread>
 
-#include "src/strutil.hpp"
+#include "src/sync.hpp"
 #include "src/test_util.hpp"
 
 static const char TEST_SHM[] = "/test.shm";

@@ -6,15 +6,21 @@
 #include <doctest.h>
 #include <fcntl.h>
 
+#include <cerrno>
+#include <chrono>
 #include <cstring>
+#include <exception>
 #include <map>
+#include <ostream>
 #include <set>
+#include <string>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 #include "src/strutil.hpp"
+#include "src/sync.hpp"
 #include "src/test_util.hpp"
-#include "src/transport_debug.h"
 
 static const char TEST_SHM[] = "/test.shm";
 

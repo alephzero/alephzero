@@ -1,17 +1,20 @@
 #pragma once
 
+#include <a0/alloc.h>
 #include <a0/common.h>
 #include <a0/packet.h>
+#include <a0/transport.h>
 
 #include <unistd.h>
 
+#include <cstdint>
+#include <cstdlib>
 #include <map>
-#include <mutex>
 #include <set>
 #include <string>
 
-#include "src/sync.hpp"
-#include "src/transport_tools.hpp"
+#include "sync.hpp"
+#include "transport_tools.hpp"
 
 namespace a0 {
 namespace test {

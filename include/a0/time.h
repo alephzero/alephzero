@@ -33,8 +33,7 @@
 #include <a0/common.h>
 
 #include <stdint.h>
-
-struct timespec;
+#include <time.h>
 
 #ifdef __cplusplus
 extern "C" {

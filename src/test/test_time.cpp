@@ -2,6 +2,9 @@
 
 #include <doctest.h>
 
+#include <cstdint>
+#include <ctime>
+
 #include "src/test_util.hpp"
 
 TEST_CASE("time] mono") {

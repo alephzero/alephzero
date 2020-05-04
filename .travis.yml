@@ -49,7 +49,7 @@ matrix:
           - iwyu
     compiler: clang
     script:
-      - make iwyu
+      - make iwyu -j
 
   - name: "cov"
     compiler: gcc

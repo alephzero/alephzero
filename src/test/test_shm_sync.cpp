@@ -1,12 +1,18 @@
+#include <a0/common.h>
 #include <a0/shm.h>
 #include <a0/shm_sync.h>
 
 #include <doctest.h>
-#include <linux/futex.h>
-#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include <cerrno>
+#include <chrono>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include "src/sync.hpp"
 #include "src/test_util.hpp"
 
 struct ShmSyncTestFixture {

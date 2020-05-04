@@ -1,9 +1,10 @@
+#include <a0/common.h>
 #include <a0/alloc.h>
 
 #include <doctest.h>
 
-#include <map>
-#include <vector>
+#include <cstdlib>
+#include <cstring>
 
 #include "src/test_util.hpp"
 
