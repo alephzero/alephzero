@@ -5,6 +5,7 @@
 #include <cerrno>
 #include <cstring>
 #include <string>
+#include <string_view>
 
 #include "macros.h"
 #include "strutil.hpp"

@@ -7,9 +7,9 @@
 
 #include <cerrno>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <cstring>
-#include <exception>
 #include <memory>
 #include <ratio>
 #include <thread>

@@ -5,8 +5,8 @@
 
 #include <doctest.h>
 
+#include <condition_variable>
 #include <cstring>
-#include <exception>
 
 #include "src/sync.hpp"
 #include "src/test_util.hpp"

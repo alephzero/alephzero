@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <ctime>
+#include <string_view>
 
 #include "alloc_util.hpp"
 #include "charconv.hpp"

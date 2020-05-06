@@ -4,10 +4,12 @@
 #include <a0/packet.h>
 #include <a0/transport.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <string_view>
 #include <thread>
 
 #include "macros.h"
