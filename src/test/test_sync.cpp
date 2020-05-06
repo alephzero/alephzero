@@ -1,5 +1,6 @@
 #include <doctest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <thread>

@@ -1,5 +1,4 @@
 os: linux
-dist: bionic
 language: cpp
 
 branches:
@@ -8,31 +7,49 @@ branches:
 
 matrix:
   - name: "bionic gcc"
+    dist: bionic
     compiler: gcc
     script:
       - make test -j
 
   - name: "bionic clang"
+    dist: bionic
+    compiler: clang
+    script:
+      - make test -j
+
+  - name: "focal gcc"
+    dist: focal
+    compiler: gcc
+    script:
+      - make test -j
+
+  - name: "focal clang"
+    dist: focal
     compiler: clang
     script:
       - make test -j
 
   - name: "asan"
+    dist: focal
     compiler: gcc
     script:
       - make asan -j
 
   - name: "tsan"
+    dist: focal
     compiler: gcc
     script:
       - make tsan -j
 
   - name: "ubsan"
+    dist: focal
     compiler: gcc
     script:
       - make ubsan -j
 
   - name: "valgrind"
+    dist: focal
     addons:
       apt:
         packages:
@@ -42,16 +59,18 @@ matrix:
       - make valgrind -j
 
   - name: "iwyu"
+    dist: focal
     addons:
       apt:
         packages:
-          - clang-5.0
+          - clang-9
           - iwyu
     compiler: clang
     script:
       - make iwyu -j
 
   - name: "clang-tidy"
+    dist: focal
     addons:
       apt:
         packages:
@@ -62,6 +81,7 @@ matrix:
       - clang-tidy src/*.cpp src/*.hpp -- -Iinclude -I. -std=c++17
 
   - name: "cov"
+    dist: focal
     compiler: gcc
     script:
       - make cov -j

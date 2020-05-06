@@ -7,6 +7,7 @@
 
 #include <condition_variable>
 #include <cstring>
+#include <memory>
 
 #include "src/sync.hpp"
 #include "src/test_util.hpp"

@@ -6,10 +6,11 @@
 #include <doctest.h>
 #include <fcntl.h>
 
-#include <cstdint>
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <future>
 #include <memory>
