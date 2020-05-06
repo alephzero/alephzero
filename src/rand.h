@@ -21,7 +21,7 @@ extern __thread bool a0_xsubi_init;
 
 A0_STATIC_INLINE long int a0_mrand48() {
   if (A0_UNLIKELY(!a0_xsubi_init)) {
-    // TODO: error handling.
+    // TODO(lshamis): error handling.
     int fd = open("/dev/urandom", O_RDONLY);
     ssize_t todo_use_this = read(fd, a0_xsubi, sizeof(a0_xsubi));
     (void)todo_use_this;

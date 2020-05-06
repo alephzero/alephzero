@@ -1,6 +1,6 @@
 [
   { include: [ "<__stddef_max_align_t.h>", private, "<stddef.h>", public ] },
-  { include: [ "<bits/cxxabi_forced.h>", private, "<exception>", public ] },
+  { include: [ "<bits/cxxabi_forced.h>", private, "<condition_variable>", public ] },
   { include: [ "<bits/exception.h>", private, "<exception>", public ] },
   { include: [ "<bits/exception.h>", private, "<exception>", public ] },
   { include: [ "<bits/refwrap.h>", private, "<functional>", public ] },

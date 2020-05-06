@@ -51,6 +51,16 @@ matrix:
     script:
       - make iwyu -j
 
+  - name: "clang-tidy"
+    addons:
+      apt:
+        packages:
+          - clang-tidy
+    compiler: clang
+    script:
+      - clang-tidy include/**/*.h src/*.c src/*.h -- -Iinclude
+      - clang-tidy src/*.cpp src/*.hpp -- -Iinclude -I. -std=c++17
+
   - name: "cov"
     compiler: gcc
     script:

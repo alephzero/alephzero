@@ -10,7 +10,6 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
-#include <exception>
 #include <functional>
 #include <future>
 #include <memory>
@@ -237,7 +236,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] rpc") {
 
   a0::Packet cancel_pkt("");
   a0::Event cancel_event;
-  auto oncancel = [&](const std::string_view id) {
+  auto oncancel = [&](std::string_view id) {
     REQUIRE(id == cancel_pkt.id());
     cancel_event.set();
   };
@@ -284,7 +283,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] prpc") {
 
   a0::Packet cancel_pkt;
   a0::Event cancel_event;
-  auto oncancel = [&](const std::string_view id) {
+  auto oncancel = [&](std::string_view id) {
     REQUIRE(id == cancel_pkt.id());
     cancel_event.set();
   };
@@ -296,7 +295,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] prpc") {
   std::vector<std::string> msgs;
   a0::Event done_event;
   client.connect("foo", [&](a0::PacketView pkt_view, bool done) {
-    msgs.push_back(std::string(pkt_view.payload()));
+    msgs.emplace_back(pkt_view.payload());
     if (done) {
       done_event.set();
     }

@@ -10,8 +10,8 @@
 extern "C" {
 #endif
 
-// TODO: Replace with a node class, to directly initializes protocols.
-//       With a topic-manager, rpc servers must use a single transport.
+// TODO(lshamis): Replace with a node class, to directly initializes protocols.
+//                With a topic-manager, rpc servers must use a single transport.
 
 typedef struct a0_topic_alias_s {
   const char* name;

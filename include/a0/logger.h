@@ -19,13 +19,13 @@ errno_t a0_logger_init(a0_logger_t*,
                        a0_buf_t arena_err,
                        a0_buf_t arena_warn,
                        a0_buf_t arena_info,
-                       a0_buf_t arena_dgb);
+                       a0_buf_t arena_dbg);
 errno_t a0_logger_close(a0_logger_t*);
-errno_t a0_log_crit(a0_logger_t*, const a0_packet_t);
-errno_t a0_log_err(a0_logger_t*, const a0_packet_t);
-errno_t a0_log_warn(a0_logger_t*, const a0_packet_t);
-errno_t a0_log_info(a0_logger_t*, const a0_packet_t);
-errno_t a0_log_dbg(a0_logger_t*, const a0_packet_t);
+errno_t a0_log_crit(a0_logger_t*, a0_packet_t);
+errno_t a0_log_err(a0_logger_t*, a0_packet_t);
+errno_t a0_log_warn(a0_logger_t*, a0_packet_t);
+errno_t a0_log_info(a0_logger_t*, a0_packet_t);
+errno_t a0_log_dbg(a0_logger_t*, a0_packet_t);
 
 #ifdef __cplusplus
 }

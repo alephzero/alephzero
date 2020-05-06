@@ -10,7 +10,6 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
-#include <exception>
 #include <thread>
 
 #include "src/sync.hpp"

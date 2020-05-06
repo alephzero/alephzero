@@ -129,8 +129,9 @@ errno_t a0_packet_deserialize(const a0_buf_t buf, a0_alloc_t alloc, a0_packet_t*
 
   size_t* hdr_idx_ptr = (size_t*)(buf.ptr + sizeof(a0_uuid_t) + sizeof(size_t));
   for (size_t i = 0; i < num_header; i++) {
-    size_t key_off, val_off;
+    size_t key_off;
     memcpy(&key_off, hdr_idx_ptr + (2 * i), sizeof(size_t));
+    size_t val_off;
     memcpy(&val_off, hdr_idx_ptr + (2 * i + 1), sizeof(size_t));
     out->headers_block.headers[i] = (a0_packet_header_t){
         .key = (char*)(buf.ptr + key_off),

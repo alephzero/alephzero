@@ -5,6 +5,7 @@
 #include <cerrno>
 #include <cstring>
 #include <string>
+#include <string_view>
 
 #include "macros.h"
 #include "strutil.hpp"
@@ -23,12 +24,12 @@ errno_t find_alias(a0_topic_alias_t* aliases,
   return EINVAL;
 }
 
-constexpr char TOPIC_TMPL_CONFIG[] = "/a0_config__%s";
-constexpr char TOPIC_TMPL_HEARTBEAT[] = "/a0_heartbeat__%s";
-constexpr char TOPIC_TMPL_LOG[] = "/a0_log_%s__%s";
-constexpr char TOPIC_TMPL_PUBSUB[] = "/a0_pubsub__%s__%s";
-constexpr char TOPIC_TMPL_RPC[] = "/a0_rpc__%s__%s";
-constexpr char TOPIC_TMPL_PRPC[] = "/a0_prpc__%s__%s";
+static constexpr std::string_view TOPIC_TMPL_CONFIG = "/a0_config__%s";
+static constexpr std::string_view TOPIC_TMPL_HEARTBEAT = "/a0_heartbeat__%s";
+static constexpr std::string_view TOPIC_TMPL_LOG = "/a0_log_%s__%s";
+static constexpr std::string_view TOPIC_TMPL_PUBSUB = "/a0_pubsub__%s__%s";
+static constexpr std::string_view TOPIC_TMPL_RPC = "/a0_rpc__%s__%s";
+static constexpr std::string_view TOPIC_TMPL_PRPC = "/a0_prpc__%s__%s";
 
 errno_t a0_topic_manager_open_config_topic(const a0_topic_manager_t* tm, a0_shm_t* out) {
   auto path = a0::strutil::fmt(TOPIC_TMPL_CONFIG, tm->container);

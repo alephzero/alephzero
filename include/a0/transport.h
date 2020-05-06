@@ -20,7 +20,7 @@ typedef struct a0_transport_s {
   uint64_t _off;
 
   // Number of active awaits using this transport connection.
-  // TODO: Could this be a bool?
+  // TODO(lshamis): Could this be a bool?
   uint32_t _await_cnt;
 
   // Whether the transport is in the process of disconnecting.
@@ -84,7 +84,7 @@ errno_t a0_transport_prev(a0_locked_transport_t);
 
 // Await until the given predicate is satisfied.
 // The predicate is checked when an event occurs on any transport wrapping shm.
-// TODO: should pred take user_data?
+// TODO(lshamis): should pred take user_data?
 errno_t a0_transport_await(a0_locked_transport_t, errno_t (*pred)(a0_locked_transport_t, bool*));
 
 // Caller does NOT own `frame_out->data` and should not clean it up!

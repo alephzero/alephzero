@@ -4,30 +4,35 @@
 #include <a0/packet.h>
 #include <a0/transport.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <string_view>
 #include <thread>
 
+#include "macros.h"
 #include "sync.hpp"
 
 namespace a0 {
 
-inline a0_buf_t buf(a0_transport_frame_t frame) {
+A0_STATIC_INLINE
+a0_buf_t buf(a0_transport_frame_t frame) {
   return a0_buf_t{
       .ptr = frame.data,
       .size = frame.hdr.data_size,
   };
 }
 
-inline const char* find_header(a0_packet_t pkt, const char* key) {
+A0_STATIC_INLINE
+std::string_view find_header(a0_packet_t pkt, std::string_view key) {
   for (const a0_packet_headers_block_t* block = &pkt.headers_block;
        block;
        block = block->next_block) {
     for (size_t i = 0; i < block->size; i++) {
       a0_packet_header_t* hdr = &block->headers[i];
-      if (!strcmp(key, hdr->key)) {
+      if (key == hdr->key) {
         return hdr->val;
       }
     }
@@ -38,7 +43,7 @@ inline const char* find_header(a0_packet_t pkt, const char* key) {
 struct scoped_transport_lock {
   a0_locked_transport_t tlk;
 
-  scoped_transport_lock(a0_transport_t* transport) {
+  explicit scoped_transport_lock(a0_transport_t* transport) {
     a0_transport_lock(transport, &tlk);
   }
   ~scoped_transport_lock() {
@@ -49,7 +54,7 @@ struct scoped_transport_lock {
 struct scoped_transport_unlock {
   a0_transport_t* transport;
 
-  scoped_transport_unlock(a0_locked_transport_t tlk) : transport{tlk.transport} {
+  explicit scoped_transport_unlock(a0_locked_transport_t tlk) : transport{tlk.transport} {
     a0_transport_unlock(tlk);
   }
   ~scoped_transport_unlock() {
@@ -105,12 +110,12 @@ struct transport_thread {
   errno_t init(
       a0_buf_t arena,
       size_t metadata_size,
-      std::function<errno_t(a0_locked_transport_t, a0_transport_init_status_t)> on_transport_init,
+      const std::function<errno_t(a0_locked_transport_t, a0_transport_init_status_t)>& on_transport_init,
       std::function<void(a0_locked_transport_t)> on_transport_nonempty,
       std::function<void(a0_locked_transport_t)> on_transport_hasnext) {
     state = std::make_shared<state_t>();
-    state->on_transport_nonempty = on_transport_nonempty;
-    state->on_transport_hasnext = on_transport_hasnext;
+    state->on_transport_nonempty = std::move(on_transport_nonempty);
+    state->on_transport_hasnext = std::move(on_transport_hasnext);
 
     a0_transport_init_status_t init_status;
     a0_locked_transport_t tlk;

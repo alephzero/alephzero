@@ -18,7 +18,7 @@
 struct ShmSyncTestFixture {
   std::vector<a0_shm_t> shms;
 
-  ShmSyncTestFixture() {}
+  ShmSyncTestFixture() = default;
 
   ~ShmSyncTestFixture() {
     for (auto&& shm : shms) {

@@ -6,8 +6,8 @@
 #include <doctest.h>
 
 #include <chrono>
+#include <condition_variable>
 #include <cstring>
-#include <exception>
 #include <thread>
 
 #include "src/sync.hpp"

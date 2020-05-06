@@ -1,7 +1,7 @@
 #include <doctest.h>
 
 #include <atomic>
-#include <exception>
+#include <condition_variable>
 #include <thread>
 #include <vector>
 

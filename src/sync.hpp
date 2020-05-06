@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
-#include <exception>
 #include <mutex>
 #include <shared_mutex>
 #include <type_traits>
@@ -70,7 +69,8 @@ class sync {
 
   template <typename Fn>
   auto invoke(Fn&& fn) {
-    if constexpr (std::is_invocable_v<Fn, T> || std::is_invocable_v<Fn, T&>) {
+    if constexpr (std::is_invocable_v<Fn, T> ||
+                  std::is_invocable_v<Fn, T&>) {
       return fn(val);
     } else if constexpr (std::is_invocable_v<Fn, T*>) {
       return fn(&val);
@@ -83,14 +83,15 @@ class sync {
       return fn(&mon, &val);
     } else if constexpr (std::is_invocable_v<Fn, monitor*>) {
       return fn(&mon);
-    } else if constexpr (true) {
+    } else {
       static_assert(INVALID_SYNC_FUNCTION<Fn>);
     }
   }
 
   template <typename Fn>
   auto invoke(Fn&& fn) const {
-    if constexpr (std::is_invocable_v<Fn, T> || std::is_invocable_v<Fn, const T&>) {
+    if constexpr (std::is_invocable_v<Fn, T> ||
+                  std::is_invocable_v<Fn, const T&>) {
       return fn(val);
     } else if constexpr (std::is_invocable_v<Fn, const T*>) {
       return fn(&val);
@@ -103,7 +104,7 @@ class sync {
       return fn(&mon, &val);
     } else if constexpr (std::is_invocable_v<Fn, monitor*>) {
       return fn(&mon);
-    } else if constexpr (true) {
+    } else {
       static_assert(INVALID_SYNC_FUNCTION<Fn>);
     }
   }
@@ -124,7 +125,7 @@ class sync {
 
  public:
   template <typename... Args>
-  sync(Args&&... args) : val(std::forward<Args>(args)...) {}
+  explicit sync(Args&&... args) : val(std::forward<Args>(args)...) {}
 
   template <typename Fn>
   auto with_lock(Fn&& fn) {
@@ -304,9 +305,8 @@ class Event {
           return b;
         })) {
       return std::cv_status::no_timeout;
-    } else {
-      return std::cv_status::timeout;
     }
+    return std::cv_status::timeout;
   }
 
   template <typename Clock, typename Duration>
@@ -315,9 +315,8 @@ class Event {
           return b;
         })) {
       return std::cv_status::no_timeout;
-    } else {
-      return std::cv_status::timeout;
     }
+    return std::cv_status::timeout;
   }
 
   bool is_set() const {

@@ -11,11 +11,13 @@ class scope {
   std::function<void(T*)> deleter;
 
  public:
-  scope(T&& val_, std::function<void(T*)> deleter_)
-      : val{std::forward<T>(val_)}, deleter{std::move(deleter_)} {}
+  template<typename U>
+  scope(U&& val_, std::function<void(T*)> deleter_)
+      : val{std::forward<U>(val_)}, deleter{std::move(deleter_)} {}
 
-  scope(T&& val_, std::function<void(T)> deleter_)
-      : val{std::forward<T>(val_)}, deleter{[del = std::move(deleter_)](T* t) {
+  template<typename U>
+  scope(U&& val_, std::function<void(T)> deleter_)
+      : val{std::forward<U>(val_)}, deleter{[del = std::move(deleter_)](T* t) {
           del(std::move(*t));
         }} {}
 
@@ -46,7 +48,7 @@ class scope<void> {
   std::function<void()> atexit;
 
  public:
-  scope(std::function<void()> atexit_) : atexit{std::move(atexit_)} {}
+  explicit scope(std::function<void()> atexit_) : atexit{std::move(atexit_)} {}
 
   scope(const scope&) = delete;
   scope& operator=(const scope&) = delete;

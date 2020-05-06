@@ -180,7 +180,7 @@ errno_t a0_transport_unlock(a0_locked_transport_t lk) {
     // wait_for_notify unlocks (using this function) before starting the futex_wait.
     // In all other cases, futex_broadcast should clear has_notify_listener.
     // The following line effectively checks whether the unlock is part of wait_for_notify.
-    // TODO: This code is piped weird and should be cleaned up.
+    // TODO(lshamis): This code is piped weird and should be cleaned up.
     hdr->has_notify_listener = (hdr->fucv == lk.transport->_lk_tkn);
     hdr->fucv = lk.transport->_lk_tkn;
     a0_futex_broadcast(&hdr->fucv);
@@ -406,7 +406,7 @@ void a0_transport_remove_head(a0_locked_transport_t lk, a0_transport_state_t* st
     head_hdr->prev_off = 0;
     // The following SHOULD work.
     // It is faster and passes all the tests, but I still have a weird feeling about it.
-    // TODO: Consider this alternative:
+    // TODO(lshamis): Consider this alternative:
     // state->off_head = head_hdr->next_off;
     // state->seq_low++;
   }
@@ -529,7 +529,7 @@ errno_t a0_transport_alloc(a0_locked_transport_t lk, size_t size, a0_transport_f
 A0_STATIC_INLINE
 errno_t a0_transport_alloc_impl(void* user_data, size_t size, a0_buf_t* buf_out) {
   a0_transport_frame_t frame;
-  a0_transport_alloc(*(a0_locked_transport_t*)user_data, size, &frame);
+  A0_RETURN_ERR_ON_ERR(a0_transport_alloc(*(a0_locked_transport_t*)user_data, size, &frame));
   buf_out->ptr = frame.data;
   buf_out->size = frame.hdr.data_size;
   return A0_OK;
@@ -602,13 +602,11 @@ void a0_transport_debugstr(a0_locked_transport_t lk, a0_buf_t* out) {
 
   if (working_state->off_head) {
     uint64_t off = working_state->off_head;
-    a0_transport_frame_hdr_t* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + off);
-    uint64_t seq = frame_hdr->seq;
     bool first = true;
     while (true) {
-      frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + off);
+      a0_transport_frame_hdr_t* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + off);
+      uint64_t seq = frame_hdr->seq;
 
-      seq = frame_hdr->seq;
       if (!first) {
         fprintf(ss, "    },\n");
       }

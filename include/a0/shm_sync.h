@@ -30,7 +30,7 @@ struct a0_mtx_s {
   a0_mtx_t* prev;
   a0_ftx_t ftx;
 
-  // TODO: Reconsider these fields.
+  // TODO(lshamis): Reconsider these fields.
   int32_t waiters;
   int32_t count;
 };
@@ -41,7 +41,7 @@ errno_t a0_mtx_trylock(a0_mtx_t*);
 errno_t a0_mtx_consistent(a0_mtx_t*);
 errno_t a0_mtx_unlock(a0_mtx_t*);
 
-// TODO:
+// TODO(lshamis): add a0_cnd_t.
 //
 // typedef a0_ftx_t a0_cnd_t;
 //
