@@ -37,7 +37,7 @@ std::string_view find_header(a0_packet_t pkt, std::string_view key) {
       }
     }
   }
-  return nullptr;
+  return {};
 }
 
 struct scoped_transport_lock {
