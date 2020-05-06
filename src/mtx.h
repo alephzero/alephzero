@@ -1,16 +1,13 @@
-#ifndef A0_SHM_SYNC_H
-#define A0_SHM_SYNC_H
+#ifndef A0_SRC_MTX_H
+#define A0_SRC_MTX_H
 
 #include <a0/common.h>
+
+#include "ftx.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-// Futex.
-// Operations rely on the address.
-// It should not be copied or moved.
-typedef uint32_t a0_ftx_t;
 
 typedef struct a0_mtx_s a0_mtx_t;
 
@@ -54,4 +51,4 @@ errno_t a0_mtx_unlock(a0_mtx_t*);
 }
 #endif
 
-#endif  // A0_SHM_SYNC_H
+#endif  // A0_SRC_MTX_H

@@ -1,5 +1,4 @@
 #include <a0/common.h>
-#include <a0/shm_sync.h>
 
 #include <assert.h>
 #include <errno.h>
@@ -12,6 +11,7 @@
 #include <unistd.h>
 
 #include "macros.h"
+#include "mtx.h"
 
 struct timespec;
 
@@ -59,23 +59,6 @@ A0_STATIC_INLINE void _U_ __tsan_mutex_post_divert(_U_ void* addr, _U_ unsigned 
 
 #endif
 
-A0_STATIC_INLINE
-void memory_barrier() {
-  asm volatile("" : : : "memory");
-}
-
-A0_STATIC_INLINE
-errno_t futex_lock_pi(a0_ftx_t* addr1, int val1, const struct timespec* timeout) {
-  A0_RETURN_ERR_ON_MINUS_ONE(syscall(SYS_futex, addr1, FUTEX_LOCK_PI, val1, timeout));
-  return A0_OK;
-}
-
-A0_STATIC_INLINE
-errno_t futex_unlock_pi(a0_ftx_t* addr1) {
-  A0_RETURN_ERR_ON_MINUS_ONE(syscall(SYS_futex, addr1, FUTEX_UNLOCK_PI));
-  return A0_OK;
-}
-
 typedef struct robust_list robust_list_t;
 _Thread_local struct robust_list_head a0_robust_head;
 
@@ -96,14 +79,14 @@ A0_STATIC_INLINE
 void robust_op_start(a0_mtx_t* m) {
   assert(!a0_robust_head.list_op_pending);
   a0_robust_head.list_op_pending = (struct robust_list*)m;
-  memory_barrier();
+  a0_barrier();
 }
 
 A0_STATIC_INLINE
 void robust_op_end(a0_mtx_t* m) {
   (void)m;
   assert(a0_robust_head.list_op_pending == (robust_list_t*)m);
-  memory_barrier();
+  a0_barrier();
   a0_robust_head.list_op_pending = NULL;
 }
 
@@ -115,7 +98,7 @@ void robust_op_add(a0_mtx_t* m) {
   m->prev = (a0_mtx_t*)&a0_robust_head;
   m->next = old_first;
 
-  memory_barrier();
+  a0_barrier();
 
   a0_robust_head.list.next = (robust_list_t*)m;
   if (!robust_is_head(old_first)) {
@@ -209,7 +192,7 @@ errno_t a0_mtx_trylock_impl(a0_mtx_t* m) {
 success:
 
   if (m->waiters) {
-    futex_unlock_pi(&m->ftx);
+    a0_ftx_unlock_pi(&m->ftx);
     robust_op_end(m);
     return ENOTRECOVERABLE;
   }
@@ -235,7 +218,7 @@ errno_t a0_mtx_lock_impl(a0_mtx_t* m) {
   robust_op_start(m);
 
   do {
-    ret = futex_lock_pi(&m->ftx, 0, NULL);
+    ret = a0_ftx_lock_pi(&m->ftx, 0, NULL);
   } while (ret == EINTR);
 
   if (!ret) {
@@ -306,7 +289,7 @@ errno_t a0_mtx_unlock(a0_mtx_t* m) {
     if (new) {
       __atomic_store_n(&m->waiters, -1, __ATOMIC_RELAXED);
     }
-    futex_unlock_pi(&m->ftx);
+    a0_ftx_unlock_pi(&m->ftx);
   }
 
   robust_op_end(m);

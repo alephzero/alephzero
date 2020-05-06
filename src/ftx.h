@@ -12,37 +12,50 @@
 
 #include "macros.h"
 
-typedef uint32_t a0_futex_t;
+// Futex.
+// Operations rely on the address.
+// It should not be copied or moved.
+typedef uint32_t a0_ftx_t;
 
 A0_STATIC_INLINE
-errno_t a0_futex(a0_futex_t* addr1,
+errno_t a0_futex(a0_ftx_t* addr1,
                  int op,
                  int val1,
                  const struct timespec* timeout,
-                 a0_futex_t* addr2,
+                 a0_ftx_t* addr2,
                  int val3) {
   A0_RETURN_ERR_ON_MINUS_ONE(syscall(SYS_futex, addr1, op, val1, timeout, addr2, val3));
   return A0_OK;
 }
 
 A0_STATIC_INLINE
-errno_t a0_futex_wait(a0_futex_t* fu, int val, const struct timespec* to) {
-  return a0_futex(fu, FUTEX_WAIT, val, to, NULL, 0);
+errno_t a0_ftx_wait(a0_ftx_t* ftx, int val, const struct timespec* to) {
+  return a0_futex(ftx, FUTEX_WAIT, val, to, NULL, 0);
 }
 
 A0_STATIC_INLINE
-errno_t a0_futex_wake(a0_futex_t* fu, int nr) {
-  return a0_futex(fu, FUTEX_WAKE, nr, NULL, NULL, 0);
+errno_t a0_ftx_wake(a0_ftx_t* ftx, int nr) {
+  return a0_futex(ftx, FUTEX_WAKE, nr, NULL, NULL, 0);
 }
 
 A0_STATIC_INLINE
-errno_t a0_futex_signal(a0_futex_t* fu) {
-  return a0_futex_wake(fu, 1);
+errno_t a0_ftx_signal(a0_ftx_t* ftx) {
+  return a0_ftx_wake(ftx, 1);
 }
 
 A0_STATIC_INLINE
-errno_t a0_futex_broadcast(a0_futex_t* fu) {
-  return a0_futex_wake(fu, INT_MAX);
+errno_t a0_ftx_broadcast(a0_ftx_t* ftx) {
+  return a0_ftx_wake(ftx, INT_MAX);
+}
+
+A0_STATIC_INLINE
+errno_t a0_ftx_lock_pi(a0_ftx_t* ftx, int val1, const struct timespec* timeout) {
+  return a0_futex(ftx, FUTEX_LOCK_PI, val1, timeout, NULL, 0);
+}
+
+A0_STATIC_INLINE
+errno_t a0_ftx_unlock_pi(a0_ftx_t* ftx) {
+  return a0_futex(ftx, FUTEX_UNLOCK_PI, 0, NULL, NULL, 0);
 }
 
 #define a0_barrier() asm volatile("" : : : "memory")

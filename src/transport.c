@@ -1,6 +1,5 @@
 #include <a0/alloc.h>
 #include <a0/common.h>
-#include <a0/shm_sync.h>
 #include <a0/transport.h>
 
 #include <errno.h>
@@ -12,7 +11,7 @@
 #include <string.h>
 
 #include "macros.h"
-#include "sync.h"
+#include "mtx.h"
 
 typedef uintptr_t transport_off_t;  // ptr offset from start of shm.
 
@@ -29,8 +28,8 @@ typedef struct a0_transport_hdr_s {
 
   a0_mtx_t mu;
 
-  a0_futex_t fucv;
-  uint32_t next_fucv_tkn;
+  a0_ftx_t ftxcv;
+  uint32_t next_ftxcv_tkn;
   bool has_notify_listener;
 
   a0_transport_state_t state_pages[2];
@@ -123,11 +122,11 @@ void a0_wait_for_notify(a0_locked_transport_t lk) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
 
   uint32_t key = lk.transport->_lk_tkn;
-  hdr->fucv = key;
+  hdr->ftxcv = key;
   hdr->has_notify_listener = true;
 
   a0_transport_unlock(lk);
-  a0_futex_wait(&hdr->fucv, key, NULL);
+  a0_ftx_wait(&hdr->ftxcv, key, NULL);
   a0_transport_lock(lk.transport, &lk);
 }
 
@@ -164,7 +163,7 @@ errno_t a0_transport_lock(a0_transport_t* transport, a0_locked_transport_t* lk_o
     a0_schedule_notify(*lk_out);
   }
 
-  lk_out->transport->_lk_tkn = a0_atomic_inc_fetch(&hdr->next_fucv_tkn);
+  lk_out->transport->_lk_tkn = a0_atomic_inc_fetch(&hdr->next_ftxcv_tkn);
 
   // Clear any incomplete changes.
   *a0_transport_working_page(*lk_out) = *a0_transport_committed_page(*lk_out);
@@ -181,9 +180,9 @@ errno_t a0_transport_unlock(a0_locked_transport_t lk) {
     // In all other cases, futex_broadcast should clear has_notify_listener.
     // The following line effectively checks whether the unlock is part of wait_for_notify.
     // TODO(lshamis): This code is piped weird and should be cleaned up.
-    hdr->has_notify_listener = (hdr->fucv == lk.transport->_lk_tkn);
-    hdr->fucv = lk.transport->_lk_tkn;
-    a0_futex_broadcast(&hdr->fucv);
+    hdr->has_notify_listener = (hdr->ftxcv == lk.transport->_lk_tkn);
+    hdr->ftxcv = lk.transport->_lk_tkn;
+    a0_ftx_broadcast(&hdr->ftxcv);
   }
   a0_mtx_unlock(&hdr->mu);
   return A0_OK;

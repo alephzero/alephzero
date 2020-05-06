@@ -27,8 +27,13 @@ typedef struct a0_callback_s {
 #define A0_UUID_SIZE 37
 typedef char a0_uuid_t[A0_UUID_SIZE];
 
+#ifdef __cplusplus
+#define A0_NONE \
+  {}
+#else
 #define A0_NONE \
   { 0 }
+#endif
 
 #ifdef __cplusplus
 }

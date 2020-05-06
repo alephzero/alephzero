@@ -117,10 +117,20 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] config") {
   a0::Shm::unlink("/a0_config__test");
   a0::Shm::unlink("/a0_config__test_other");
 
-  a0::InitGlobalTopicManager(a0::TopicManager{.container = "test"});
+  a0::InitGlobalTopicManager(a0::TopicManager{
+    .container = "test",
+    .subscriber_aliases = {},
+    .rpc_client_aliases = {},
+    .prpc_client_aliases = {},
+  });
 
   a0::write_config(a0::GlobalTopicManager(), R"({"foo": "aaa"})");
-  a0::write_config(a0::TopicManager{.container = "test_other"}, R"({"foo": "bbb"})");
+  a0::write_config(a0::TopicManager{
+    .container = "test_other",
+    .subscriber_aliases = {},
+    .rpc_client_aliases = {},
+    .prpc_client_aliases = {},
+  }, R"({"foo": "bbb"})");
 
   REQUIRE(a0::read_config().payload() == R"({"foo": "aaa"})");
   a0::GlobalTopicManager().container = "test_other";

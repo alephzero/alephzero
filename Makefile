@@ -6,7 +6,7 @@ LIB_DIR = lib
 BIN_DIR = bin
 
 CXFLAGS += -Wall -Wextra -fPIC -Iinclude
-CXXFLAGS += -std=c++17 -Wno-missing-field-initializers -Wno-braced-scalar-init
+CXXFLAGS += -std=c++17
 LDFLAGS += -lm -lpthread -lrt
 
 SRC_C := $(wildcard $(SRC_DIR)/*.c)
