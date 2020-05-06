@@ -8,6 +8,7 @@ Checks: 'bugprone-*,
          readability-*,
          -bugprone-branch-clone,
          -clang-analyzer-core.UndefinedBinaryOperatorResult,
+         -clang-analyzer-cplusplus.NewDeleteLeaks,
          -clang-analyzer-security.*,
          -modernize-use-trailing-return-type,
          -modernize-avoid-c-arrays,
@@ -34,6 +35,8 @@ WarningsAsErrors: '*'
 #     TODO(lshamis): fix this.
 # * clang-analyzer-core.UndefinedBinaryOperatorResult:
 #     See https://stackoverflow.com/questions/61603899/correct-clang-tidy-undefinedbinaryoperatorresult
+# * clang-analyzer-cplusplus.NewDeleteLeaks:
+#     TODO(lshamis): fix this.
 # * clang-analyzer-security.*:
 #     TODO(lshamis): fix this.
 # * modernize-use-trailing-return-type:
