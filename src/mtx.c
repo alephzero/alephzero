@@ -13,8 +13,6 @@
 #include "macros.h"
 #include "mtx.h"
 
-struct timespec;
-
 const unsigned __tsan_mutex_linker_init = 1 << 0;
 const unsigned __tsan_mutex_write_reentrant = 1 << 1;
 const unsigned __tsan_mutex_read_reentrant = 1 << 2;

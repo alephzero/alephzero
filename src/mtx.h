@@ -3,6 +3,8 @@
 
 #include <a0/common.h>
 
+#include <stdint.h>
+
 #include "ftx.h"
 
 #ifdef __cplusplus
