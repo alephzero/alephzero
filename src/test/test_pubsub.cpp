@@ -6,6 +6,7 @@
 #include <doctest.h>
 #include <fcntl.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <condition_variable>
@@ -15,7 +16,6 @@
 #include <set>
 #include <string>
 #include <thread>
-#include <type_traits>
 #include <vector>
 
 #include "src/strutil.hpp"

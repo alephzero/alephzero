@@ -1,7 +1,7 @@
 #pragma once
 
-#include <algorithm>
 #include <functional>
+#include <utility>
 
 namespace a0 {
 
