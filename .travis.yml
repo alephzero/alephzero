@@ -63,7 +63,7 @@ matrix:
     addons:
       apt:
         packages:
-          - clang-9.0
+          - clang-9
           - iwyu
     compiler: clang
     script:
