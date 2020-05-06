@@ -74,9 +74,9 @@ errno_t a0_pub_raw(a0_publisher_raw_t* pub, const a0_packet_t pkt) {
   return a0_transport_commit(stlk.tlk);
 }
 
-static const char TRANSPORT_SEQ[] = "a0_transport_seq";
-static const char PUBLISHER_SEQ[] = "a0_publisher_seq";
-static const char PUBLISHER_ID[] = "a0_publisher_id";
+static constexpr std::string_view TRANSPORT_SEQ = "a0_transport_seq";
+static constexpr std::string_view PUBLISHER_SEQ = "a0_publisher_seq";
+static constexpr std::string_view PUBLISHER_ID = "a0_publisher_id";
 
 struct a0_publisher_impl_s {
   a0_publisher_raw_t raw;
@@ -132,9 +132,9 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
   a0_packet_header_t extra_headers[num_extra_headers] = {
       {A0_TIME_MONO, mono_str},
       {A0_TIME_WALL, wall_str},
-      {TRANSPORT_SEQ, tseq_str},
-      {PUBLISHER_SEQ, pseq_str},
-      {PUBLISHER_ID, pub->_impl->id},
+      {TRANSPORT_SEQ.data(), tseq_str},
+      {PUBLISHER_SEQ.data(), pseq_str},
+      {PUBLISHER_ID.data(), pub->_impl->id},
   };
 
   a0_packet_t full_pkt = pkt;
@@ -214,9 +214,8 @@ errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t* sub_sync_zc,
   if (!sub_sync_zc->_impl->read_first) {
     if (sub_sync_zc->_impl->sub_init == A0_INIT_OLDEST) {
       a0_transport_jump_head(stlk.tlk);
-    } else if (sub_sync_zc->_impl->sub_init == A0_INIT_MOST_RECENT) {
-      a0_transport_jump_tail(stlk.tlk);
-    } else if (sub_sync_zc->_impl->sub_init == A0_INIT_AWAIT_NEW) {
+    } else if (sub_sync_zc->_impl->sub_init == A0_INIT_MOST_RECENT ||
+               sub_sync_zc->_impl->sub_init == A0_INIT_AWAIT_NEW) {
       a0_transport_jump_tail(stlk.tlk);
     }
   } else {
@@ -466,16 +465,22 @@ errno_t a0_subscriber_async_close(a0_subscriber_t* sub, a0_callback_t onclose) {
     a0_callback_t onclose_;
   };
 
-  a0_callback_t cb = {.user_data = new heap_data{sub, onclose}, .fn = [](void* user_data) {
-                        auto* data = (heap_data*)user_data;
-                        delete data->sub_->_impl;
-                        data->sub_->_impl = nullptr;
-                        if (data->onclose_.fn) {
-                          data->onclose_.fn(data->onclose_.user_data);
-                        }
-                        delete data;
-                      }};
+  a0_callback_t cb = {
+      .user_data = new heap_data{sub, onclose},
+      .fn = [](void* user_data) {
+        auto* data = (heap_data*)user_data;
+        delete data->sub_->_impl;
+        data->sub_->_impl = nullptr;
+        if (data->onclose_.fn) {
+          data->onclose_.fn(data->onclose_.user_data);
+        }
+        delete data;
+      },
+  };
 
+  // clang-tidy thinks the new heap_data is a leak.
+  // It can't track it through the callback.
+  // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
   return a0_subscriber_zc_async_close(&sub->_impl->sub_zc, cb);
 }
 

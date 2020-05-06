@@ -41,7 +41,7 @@ struct CDeleter {
   std::vector<std::function<void()>> also;
 
   CDeleter() = default;
-  CDeleter(std::function<void(C*)> primary) : primary{std::move(primary)} {}
+  explicit CDeleter(std::function<void(C*)> primary) : primary{std::move(primary)} {}
 
   CDeleter(const CDeleter&) = delete;
   CDeleter(CDeleter&&) noexcept = default;
@@ -55,15 +55,13 @@ struct CDeleter {
     for (auto&& fn : also) {
       fn();
     }
-    if (c) {
-      delete c;
-    }
+    delete c;
   }
 };
 
 template <typename C, typename InitFn, typename Closer>
 void set_c(std::shared_ptr<C>* c, InitFn&& init, Closer&& closer) {
-  set_c(c, std::forward<InitFn>(init), CDeleter<C>(std::move(closer)));
+  set_c(c, std::forward<InitFn>(init), CDeleter<C>(std::forward<Closer>(closer)));
 }
 
 template <typename C, typename InitFn>
@@ -85,14 +83,13 @@ CPP make_cpp(InitFn&& init, Closer&& closer) {
 }
 
 template <typename T>
-A0_STATIC_INLINE a0_buf_t as_buf(T* mem) {
+a0_buf_t as_buf(T* mem) {
   return a0_buf_t{
       .ptr = (uint8_t*)(mem->data()),
       .size = mem->size(),
   };
 }
 
-A0_STATIC_INLINE
 std::string_view as_string_view(a0_buf_t buf) {
   return std::string_view((char*)buf.ptr, buf.size);
 }
@@ -104,9 +101,9 @@ Shm::Options Shm::Options::DEFAULT = {
     .resize = A0_SHM_OPTIONS_DEFAULT.resize,
 };
 
-Shm::Shm(const std::string_view path) : Shm(path, Options::DEFAULT) {}
+Shm::Shm(std::string_view path) : Shm(path, Options::DEFAULT) {}
 
-Shm::Shm(const std::string_view path, Options opts) {
+Shm::Shm(std::string_view path, Options opts) {
   a0_shm_options_t c_opts{
       .size = opts.size,
       .resize = opts.resize,
@@ -123,7 +120,7 @@ std::string Shm::path() const {
   return c->path;
 }
 
-void Shm::unlink(const std::string_view path) {
+void Shm::unlink(std::string_view path) {
   auto err = a0_shm_unlink(path.data());
   // Ignore "No such file or directory" errors.
   if (err == ENOENT) {
@@ -155,7 +152,7 @@ std::shared_ptr<a0_packet_t> make_cpp_packet() {
 }
 
 A0_STATIC_INLINE
-std::shared_ptr<a0_packet_t> make_cpp_packet(const std::string_view id) {
+std::shared_ptr<a0_packet_t> make_cpp_packet(std::string_view id) {
   std::shared_ptr<a0_packet_t> c(new a0_packet_t, PacketImpl{});
   memset(&*c, 0, sizeof(a0_packet_t));
 
@@ -166,16 +163,17 @@ std::shared_ptr<a0_packet_t> make_cpp_packet(const std::string_view id) {
     memcpy(c->id, id.data(), A0_UUID_SIZE - 1);
     c->id[A0_UUID_SIZE - 1] = '\0';
   } else {
-    throw;  // TODO
+    // TODO(lshamis): Handle corrupt ids.
+    throw;
   }
 
   return c;
 }
 
 A0_STATIC_INLINE
-void cpp_packet_add_headers(std::shared_ptr<a0_packet_t>& c,
+void cpp_packet_add_headers(std::shared_ptr<a0_packet_t>* c,
                             std::vector<std::pair<std::string, std::string>> hdrs) {
-  auto* impl = std::get_deleter<PacketImpl>(c);
+  auto* impl = std::get_deleter<PacketImpl>(*c);
 
   impl->cpp_hdrs = std::move(hdrs);
 
@@ -186,7 +184,7 @@ void cpp_packet_add_headers(std::shared_ptr<a0_packet_t>& c,
     });
   }
 
-  c->headers_block = {
+  (*c)->headers_block = {
       .headers = impl->c_hdrs.data(),
       .size = impl->c_hdrs.size(),
       .next_block = nullptr,
@@ -194,32 +192,32 @@ void cpp_packet_add_headers(std::shared_ptr<a0_packet_t>& c,
 }
 
 A0_STATIC_INLINE
-void cpp_packet_add_payload(std::shared_ptr<a0_packet_t>& c, const std::string_view payload) {
-  c->payload = as_buf(&payload);
+void cpp_packet_add_payload(std::shared_ptr<a0_packet_t>* c, std::string_view payload) {
+  (*c)->payload = as_buf(&payload);
 }
 
 A0_STATIC_INLINE
-void cpp_packet_add_payload(std::shared_ptr<a0_packet_t>& c, std::string payload) {
-  auto* impl = std::get_deleter<PacketImpl>(c);
+void cpp_packet_add_payload(std::shared_ptr<a0_packet_t>* c, std::string payload) {
+  auto* impl = std::get_deleter<PacketImpl>(*c);
   impl->cpp_payload = std::move(payload);
   cpp_packet_add_payload(c, std::string_view(impl->cpp_payload));
 }
 
 PacketView::PacketView() : PacketView(std::string_view{}) {}
 
-PacketView::PacketView(const std::string_view payload) : PacketView({}, payload) {}
+PacketView::PacketView(std::string_view payload) : PacketView({}, payload) {}
 
-PacketView::PacketView(std::vector<std::pair<std::string, std::string>> hdrs,
-                       const std::string_view payload) {
+PacketView::PacketView(std::vector<std::pair<std::string, std::string>> headers,
+                       std::string_view payload) {
   c = make_cpp_packet();
-  cpp_packet_add_headers(c, std::move(hdrs));
-  cpp_packet_add_payload(c, payload);
+  cpp_packet_add_headers(&c, std::move(headers));
+  cpp_packet_add_payload(&c, payload);
 }
 
 PacketView::PacketView(const Packet& pkt) {
   c = make_cpp_packet(pkt.id());
-  cpp_packet_add_headers(c, pkt.headers());
-  cpp_packet_add_payload(c, pkt.payload());
+  cpp_packet_add_headers(&c, pkt.headers());
+  cpp_packet_add_payload(&c, pkt.payload());
 }
 
 PacketView::PacketView(a0_packet_t pkt) {
@@ -232,11 +230,11 @@ PacketView::PacketView(a0_packet_t pkt) {
        }}));
 
   c = make_cpp_packet(pkt.id);
-  cpp_packet_add_headers(c, std::move(hdrs));
-  cpp_packet_add_payload(c, as_string_view(pkt.payload));
+  cpp_packet_add_headers(&c, std::move(hdrs));
+  cpp_packet_add_payload(&c, as_string_view(pkt.payload));
 }
 
-const std::string_view PacketView::id() const {
+std::string_view PacketView::id() const {
   return c->id;
 }
 
@@ -245,35 +243,35 @@ const std::vector<std::pair<std::string, std::string>>& PacketView::headers() co
   return impl->cpp_hdrs;
 }
 
-const std::string_view PacketView::payload() const {
+std::string_view PacketView::payload() const {
   return as_string_view(c->payload);
 }
 
 Packet::Packet() : Packet(std::string{}) {}
 
-Packet::Packet(std::string payload) : Packet({}, payload) {}
+Packet::Packet(std::string payload) : Packet({}, std::move(payload)) {}
 
-Packet::Packet(std::vector<std::pair<std::string, std::string>> hdrs, std::string payload) {
+Packet::Packet(std::vector<std::pair<std::string, std::string>> headers, std::string payload) {
   c = make_cpp_packet();
-  cpp_packet_add_headers(c, std::move(hdrs));
-  cpp_packet_add_payload(c, std::move(payload));
+  cpp_packet_add_headers(&c, std::move(headers));
+  cpp_packet_add_payload(&c, std::move(payload));
 }
 
 Packet::Packet(const PacketView& view) {
   c = make_cpp_packet(view.id());
-  cpp_packet_add_headers(c, view.headers());
-  cpp_packet_add_payload(c, std::string(view.payload()));
+  cpp_packet_add_headers(&c, view.headers());
+  cpp_packet_add_payload(&c, std::string(view.payload()));
 }
 
 Packet::Packet(PacketView&& view) {
   c = make_cpp_packet(view.id());
-  cpp_packet_add_headers(c, std::move(std::get_deleter<PacketImpl>(view.c)->cpp_hdrs));
-  cpp_packet_add_payload(c, std::string(view.payload()));
+  cpp_packet_add_headers(&c, std::move(std::get_deleter<PacketImpl>(view.c)->cpp_hdrs));
+  cpp_packet_add_payload(&c, std::string(view.payload()));
 }
 
 Packet::Packet(a0_packet_t pkt) : Packet(PacketView(pkt)) {}
 
-const std::string_view Packet::id() const {
+std::string_view Packet::id() const {
   return c->id;
 }
 
@@ -282,7 +280,7 @@ const std::vector<std::pair<std::string, std::string>>& Packet::headers() const 
   return impl->cpp_hdrs;
 }
 
-const std::string_view Packet::payload() const {
+std::string_view Packet::payload() const {
   return as_string_view(c->payload);
 }
 
@@ -393,7 +391,7 @@ Shm TopicManager::log_dbg_topic() const {
       a0_shm_close);
 }
 
-Shm TopicManager::publisher_topic(const std::string_view name) const {
+Shm TopicManager::publisher_topic(std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
   return make_cpp<Shm>(
@@ -403,7 +401,7 @@ Shm TopicManager::publisher_topic(const std::string_view name) const {
       a0_shm_close);
 }
 
-Shm TopicManager::subscriber_topic(const std::string_view name) const {
+Shm TopicManager::subscriber_topic(std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
   return make_cpp<Shm>(
@@ -413,7 +411,7 @@ Shm TopicManager::subscriber_topic(const std::string_view name) const {
       a0_shm_close);
 }
 
-Shm TopicManager::rpc_server_topic(const std::string_view name) const {
+Shm TopicManager::rpc_server_topic(std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
   return make_cpp<Shm>(
@@ -423,7 +421,7 @@ Shm TopicManager::rpc_server_topic(const std::string_view name) const {
       a0_shm_close);
 }
 
-Shm TopicManager::rpc_client_topic(const std::string_view name) const {
+Shm TopicManager::rpc_client_topic(std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
   return make_cpp<Shm>(
@@ -433,7 +431,7 @@ Shm TopicManager::rpc_client_topic(const std::string_view name) const {
       a0_shm_close);
 }
 
-Shm TopicManager::prpc_server_topic(const std::string_view name) const {
+Shm TopicManager::prpc_server_topic(std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
   return make_cpp<Shm>(
@@ -443,7 +441,7 @@ Shm TopicManager::prpc_server_topic(const std::string_view name) const {
       a0_shm_close);
 }
 
-Shm TopicManager::prpc_client_topic(const std::string_view name) const {
+Shm TopicManager::prpc_client_topic(std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
   return make_cpp<Shm>(
@@ -473,7 +471,7 @@ PublisherRaw::PublisherRaw(Shm shm) {
       });
 }
 
-PublisherRaw::PublisherRaw(const std::string_view topic)
+PublisherRaw::PublisherRaw(std::string_view topic)
     : PublisherRaw(GlobalTopicManager().publisher_topic(topic)) {}
 
 void PublisherRaw::pub(const PacketView& pkt) {
@@ -481,11 +479,11 @@ void PublisherRaw::pub(const PacketView& pkt) {
 }
 
 void PublisherRaw::pub(std::vector<std::pair<std::string, std::string>> headers,
-                       const std::string_view payload) {
+                       std::string_view payload) {
   pub(PacketView(std::move(headers), payload));
 }
 
-void PublisherRaw::pub(const std::string_view payload) {
+void PublisherRaw::pub(std::string_view payload) {
   pub({}, payload);
 }
 
@@ -500,7 +498,7 @@ Publisher::Publisher(Shm shm) {
       });
 }
 
-Publisher::Publisher(const std::string_view topic)
+Publisher::Publisher(std::string_view topic)
     : Publisher(GlobalTopicManager().publisher_topic(topic)) {}
 
 void Publisher::pub(const PacketView& pkt) {
@@ -508,11 +506,11 @@ void Publisher::pub(const PacketView& pkt) {
 }
 
 void Publisher::pub(std::vector<std::pair<std::string, std::string>> headers,
-                    const std::string_view payload) {
+                    std::string_view payload) {
   pub(PacketView(std::move(headers), payload));
 }
 
-void Publisher::pub(const std::string_view payload) {
+void Publisher::pub(std::string_view payload) {
   pub({}, payload);
 }
 
@@ -530,7 +528,7 @@ SubscriberSync::SubscriberSync(Shm shm, a0_subscriber_init_t init, a0_subscriber
       });
 }
 
-SubscriberSync::SubscriberSync(const std::string_view topic,
+SubscriberSync::SubscriberSync(std::string_view topic,
                                a0_subscriber_init_t init,
                                a0_subscriber_iter_t iter)
     : SubscriberSync(GlobalTopicManager().subscriber_topic(topic), init, iter) {}
@@ -552,7 +550,7 @@ Subscriber::Subscriber(Shm shm,
                        a0_subscriber_iter_t iter,
                        std::function<void(const PacketView&)> fn) {
   CDeleter<a0_subscriber_t> deleter;
-  deleter.also.push_back([shm]() {});
+  deleter.also.emplace_back([shm]() {});
 
   auto heap_fn = new std::function<void(const PacketView&)>(std::move(fn));
   a0_packet_callback_t callback = {
@@ -562,13 +560,13 @@ Subscriber::Subscriber(Shm shm,
             (*(std::function<void(const PacketView&)>*)user_data)(pkt);
           },
   };
-  deleter.also.push_back([heap_fn]() {
+  deleter.also.emplace_back([heap_fn]() {
     delete heap_fn;
   });
 
   a0_alloc_t alloc;
   check(a0_realloc_allocator_init(&alloc));
-  deleter.also.push_back([alloc]() mutable {
+  deleter.also.emplace_back([alloc]() mutable {
     a0_realloc_allocator_close(&alloc);
   });
 
@@ -582,7 +580,7 @@ Subscriber::Subscriber(Shm shm,
       std::move(deleter));
 }
 
-Subscriber::Subscriber(const std::string_view topic,
+Subscriber::Subscriber(std::string_view topic,
                        a0_subscriber_init_t init,
                        a0_subscriber_iter_t iter,
                        std::function<void(const PacketView&)> fn)
@@ -614,7 +612,7 @@ void Subscriber::async_close(std::function<void()> fn) {
   check(a0_subscriber_async_close(&*heap_data->c, callback));
 }
 
-Packet Subscriber::read_one(Shm shm, a0_subscriber_init_t init, int flags) {
+Packet Subscriber::read_one(const Shm& shm, a0_subscriber_init_t init, int flags) {
   a0_alloc_t alloc;
   check(a0_realloc_allocator_init(&alloc));
   a0::scope<void> alloc_destroyer([&]() mutable {
@@ -626,7 +624,7 @@ Packet Subscriber::read_one(Shm shm, a0_subscriber_init_t init, int flags) {
   return Packet(pkt);
 }
 
-Packet Subscriber::read_one(const std::string_view topic, a0_subscriber_init_t init, int flags) {
+Packet Subscriber::read_one(std::string_view topic, a0_subscriber_init_t init, int flags) {
   return Subscriber::read_one(GlobalTopicManager().subscriber_topic(topic), init, flags);
 }
 
@@ -645,10 +643,10 @@ void write_config(const TopicManager& tm, const PacketView& pkt) {
 }
 void write_config(const TopicManager& tm,
                   std::vector<std::pair<std::string, std::string>> headers,
-                  const std::string_view payload) {
+                  std::string_view payload) {
   write_config(tm, PacketView(std::move(headers), payload));
 }
-void write_config(const TopicManager& tm, const std::string_view payload) {
+void write_config(const TopicManager& tm, std::string_view payload) {
   write_config(tm, {}, payload);
 }
 
@@ -668,22 +666,22 @@ void RpcRequest::reply(const PacketView& pkt) {
 }
 
 void RpcRequest::reply(std::vector<std::pair<std::string, std::string>> headers,
-                       const std::string_view payload) {
+                       std::string_view payload) {
   reply(PacketView(std::move(headers), payload));
 }
 
-void RpcRequest::reply(const std::string_view payload) {
+void RpcRequest::reply(std::string_view payload) {
   reply({}, payload);
 }
 
 RpcServer::RpcServer(Shm shm,
                      std::function<void(RpcRequest)> onrequest,
-                     std::function<void(const std::string_view)> oncancel) {
+                     std::function<void(std::string_view)> oncancel) {
   CDeleter<a0_rpc_server_t> deleter;
-  deleter.also.push_back([shm]() {});
+  deleter.also.emplace_back([shm]() {});
 
   auto heap_onrequest = new std::function<void(RpcRequest)>(std::move(onrequest));
-  deleter.also.push_back([heap_onrequest]() {
+  deleter.also.emplace_back([heap_onrequest]() {
     delete heap_onrequest;
   });
   a0_rpc_request_callback_t c_onrequest = {
@@ -700,22 +698,22 @@ RpcServer::RpcServer(Shm shm,
       .fn = nullptr,
   };
   if (oncancel) {
-    auto heap_oncancel = new std::function<void(const std::string_view)>(std::move(oncancel));
-    deleter.also.push_back([heap_oncancel]() {
+    auto heap_oncancel = new std::function<void(std::string_view)>(std::move(oncancel));
+    deleter.also.emplace_back([heap_oncancel]() {
       delete heap_oncancel;
     });
     c_oncancel = {
         .user_data = heap_oncancel,
         .fn =
             [](void* user_data, a0_uuid_t id) {
-              (*(std::function<void(const std::string_view)>*)user_data)(id);
+              (*(std::function<void(std::string_view)>*)user_data)(id);
             },
     };
   }
 
   a0_alloc_t alloc;
   check(a0_realloc_allocator_init(&alloc));
-  deleter.also.push_back([alloc]() mutable {
+  deleter.also.emplace_back([alloc]() mutable {
     a0_realloc_allocator_close(&alloc);
   });
 
@@ -729,9 +727,9 @@ RpcServer::RpcServer(Shm shm,
       std::move(deleter));
 }
 
-RpcServer::RpcServer(const std::string_view topic,
+RpcServer::RpcServer(std::string_view topic,
                      std::function<void(RpcRequest)> onrequest,
-                     std::function<void(const std::string_view)> oncancel)
+                     std::function<void(std::string_view)> oncancel)
     : RpcServer(GlobalTopicManager().rpc_server_topic(topic),
                 std::move(onrequest),
                 std::move(oncancel)) {}
@@ -764,11 +762,11 @@ void RpcServer::async_close(std::function<void()> fn) {
 
 RpcClient::RpcClient(Shm shm) {
   CDeleter<a0_rpc_client_t> deleter;
-  deleter.also.push_back([shm]() {});
+  deleter.also.emplace_back([shm]() {});
 
   a0_alloc_t alloc;
   check(a0_realloc_allocator_init(&alloc));
-  deleter.also.push_back([alloc]() mutable {
+  deleter.also.emplace_back([alloc]() mutable {
     a0_realloc_allocator_close(&alloc);
   });
 
@@ -782,7 +780,7 @@ RpcClient::RpcClient(Shm shm) {
       std::move(deleter));
 }
 
-RpcClient::RpcClient(const std::string_view topic)
+RpcClient::RpcClient(std::string_view topic)
     : RpcClient(GlobalTopicManager().rpc_client_topic(topic)) {}
 
 void RpcClient::async_close(std::function<void()> fn) {
@@ -832,33 +830,33 @@ void RpcClient::send(const PacketView& pkt, std::function<void(const PacketView&
 }
 
 void RpcClient::send(std::vector<std::pair<std::string, std::string>> headers,
-                     const std::string_view payload,
+                     std::string_view payload,
                      std::function<void(const PacketView&)> cb) {
-  send(PacketView(headers, payload), cb);
+  send(PacketView(std::move(headers), payload), std::move(cb));
 }
 
-void RpcClient::send(const std::string_view payload, std::function<void(const PacketView&)> cb) {
-  send({}, payload, cb);
+void RpcClient::send(std::string_view payload, std::function<void(const PacketView&)> cb) {
+  send({}, payload, std::move(cb));
 }
 
 std::future<Packet> RpcClient::send(const PacketView& pkt) {
   auto p = std::make_shared<std::promise<Packet>>();
-  send(pkt, [p](a0::PacketView resp) {
+  send(pkt, [p](const a0::PacketView& resp) {
     p->set_value(Packet(resp));
   });
   return p->get_future();
 }
 
 std::future<Packet> RpcClient::send(std::vector<std::pair<std::string, std::string>> headers,
-                                    const std::string_view payload) {
-  return send(PacketView(headers, payload));
+                                    std::string_view payload) {
+  return send(PacketView(std::move(headers), payload));
 }
 
-std::future<Packet> RpcClient::send(const std::string_view payload) {
+std::future<Packet> RpcClient::send(std::string_view payload) {
   return send({}, payload);
 }
 
-void RpcClient::cancel(const std::string_view id) {
+void RpcClient::cancel(std::string_view id) {
   check(a0_rpc_cancel(&*c, id.data()));
 }
 
@@ -878,23 +876,23 @@ void PrpcConnection::send(const PacketView& pkt, bool done) {
 }
 
 void PrpcConnection::send(std::vector<std::pair<std::string, std::string>> headers,
-                          const std::string_view payload,
+                          std::string_view payload,
                           bool done) {
   send(PacketView(std::move(headers), payload), done);
 }
 
-void PrpcConnection::send(const std::string_view payload, bool done) {
+void PrpcConnection::send(std::string_view payload, bool done) {
   send({}, payload, done);
 }
 
 PrpcServer::PrpcServer(Shm shm,
                        std::function<void(PrpcConnection)> onconnect,
-                       std::function<void(const std::string_view)> oncancel) {
+                       std::function<void(std::string_view)> oncancel) {
   CDeleter<a0_prpc_server_t> deleter;
-  deleter.also.push_back([shm]() {});
+  deleter.also.emplace_back([shm]() {});
 
   auto heap_onconnect = new std::function<void(PrpcConnection)>(std::move(onconnect));
-  deleter.also.push_back([heap_onconnect]() {
+  deleter.also.emplace_back([heap_onconnect]() {
     delete heap_onconnect;
   });
   a0_prpc_connection_callback_t c_onconnect = {
@@ -911,22 +909,22 @@ PrpcServer::PrpcServer(Shm shm,
       .fn = nullptr,
   };
   if (oncancel) {
-    auto heap_oncancel = new std::function<void(const std::string_view)>(std::move(oncancel));
-    deleter.also.push_back([heap_oncancel]() {
+    auto heap_oncancel = new std::function<void(std::string_view)>(std::move(oncancel));
+    deleter.also.emplace_back([heap_oncancel]() {
       delete heap_oncancel;
     });
     c_oncancel = {
         .user_data = heap_oncancel,
         .fn =
             [](void* user_data, a0_uuid_t id) {
-              (*(std::function<void(const std::string_view)>*)user_data)(id);
+              (*(std::function<void(std::string_view)>*)user_data)(id);
             },
     };
   }
 
   a0_alloc_t alloc;
   check(a0_realloc_allocator_init(&alloc));
-  deleter.also.push_back([alloc]() mutable {
+  deleter.also.emplace_back([alloc]() mutable {
     a0_realloc_allocator_close(&alloc);
   });
 
@@ -940,9 +938,9 @@ PrpcServer::PrpcServer(Shm shm,
       std::move(deleter));
 }
 
-PrpcServer::PrpcServer(const std::string_view topic,
+PrpcServer::PrpcServer(std::string_view topic,
                        std::function<void(PrpcConnection)> onconnect,
-                       std::function<void(const std::string_view)> oncancel)
+                       std::function<void(std::string_view)> oncancel)
     : PrpcServer(GlobalTopicManager().prpc_server_topic(topic),
                  std::move(onconnect),
                  std::move(oncancel)) {}
@@ -975,11 +973,11 @@ void PrpcServer::async_close(std::function<void()> fn) {
 
 PrpcClient::PrpcClient(Shm shm) {
   CDeleter<a0_prpc_client_t> deleter;
-  deleter.also.push_back([shm]() {});
+  deleter.also.emplace_back([shm]() {});
 
   a0_alloc_t alloc;
   check(a0_realloc_allocator_init(&alloc));
-  deleter.also.push_back([alloc]() mutable {
+  deleter.also.emplace_back([alloc]() mutable {
     a0_realloc_allocator_close(&alloc);
   });
 
@@ -993,7 +991,7 @@ PrpcClient::PrpcClient(Shm shm) {
       std::move(deleter));
 }
 
-PrpcClient::PrpcClient(const std::string_view topic)
+PrpcClient::PrpcClient(std::string_view topic)
     : PrpcClient(GlobalTopicManager().prpc_client_topic(topic)) {}
 
 void PrpcClient::async_close(std::function<void()> fn) {
@@ -1039,16 +1037,16 @@ void PrpcClient::connect(const PacketView& pkt, std::function<void(const PacketV
 }
 
 void PrpcClient::connect(std::vector<std::pair<std::string, std::string>> headers,
-                         const std::string_view payload,
+                         std::string_view payload,
                          std::function<void(const PacketView&, bool)> cb) {
-  connect(PacketView(std::move(headers), payload), cb);
+  connect(PacketView(std::move(headers), payload), std::move(cb));
 }
-void PrpcClient::connect(const std::string_view payload,
+void PrpcClient::connect(std::string_view payload,
                          std::function<void(const PacketView&, bool)> cb) {
-  connect({}, payload, cb);
+  connect({}, payload, std::move(cb));
 }
 
-void PrpcClient::cancel(const std::string_view id) {
+void PrpcClient::cancel(std::string_view id) {
   check(a0_prpc_cancel(&*c, id.data()));
 }
 
@@ -1109,7 +1107,7 @@ Heartbeat::Heartbeat(Shm shm, Options opts) {
       });
 }
 
-Heartbeat::Heartbeat(Shm shm) : Heartbeat(shm, Options::DEFAULT) {}
+Heartbeat::Heartbeat(Shm shm) : Heartbeat(std::move(shm), Options::DEFAULT) {}
 
 Heartbeat::Heartbeat(Options opts) : Heartbeat(GlobalTopicManager().heartbeat_topic(), opts) {}
 
@@ -1128,7 +1126,7 @@ HeartbeatListener::HeartbeatListener(Shm shm,
   };
 
   CDeleter<a0_heartbeat_listener_t> deleter;
-  deleter.also.push_back([shm]() {});
+  deleter.also.emplace_back([shm]() {});
 
   struct data_t {
     std::function<void()> ondetected;
@@ -1154,13 +1152,13 @@ HeartbeatListener::HeartbeatListener(Shm shm,
             }
           },
   };
-  deleter.also.push_back([heap_data]() {
+  deleter.also.emplace_back([heap_data]() {
     delete heap_data;
   });
 
   a0_alloc_t alloc;
   check(a0_realloc_allocator_init(&alloc));
-  deleter.also.push_back([alloc]() mutable {
+  deleter.also.emplace_back([alloc]() mutable {
     a0_realloc_allocator_close(&alloc);
   });
 
@@ -1177,8 +1175,8 @@ HeartbeatListener::HeartbeatListener(Shm shm,
 HeartbeatListener::HeartbeatListener(Shm shm,
                                      std::function<void()> ondetected,
                                      std::function<void()> onmissed)
-    : HeartbeatListener(shm, Options::DEFAULT, ondetected, onmissed) {}
-HeartbeatListener::HeartbeatListener(const std::string_view container,
+    : HeartbeatListener(std::move(shm), Options::DEFAULT, std::move(ondetected), std::move(onmissed)) {}
+HeartbeatListener::HeartbeatListener(std::string_view container,
                                      Options opts,
                                      std::function<void()> ondetected,
                                      std::function<void()> onmissed)
@@ -1191,19 +1189,19 @@ HeartbeatListener::HeartbeatListener(const std::string_view container,
           }
               .heartbeat_topic(),
           opts,
-          ondetected,
-          onmissed) {}
-HeartbeatListener::HeartbeatListener(const std::string_view container,
+          std::move(ondetected),
+          std::move(onmissed)) {}
+HeartbeatListener::HeartbeatListener(std::string_view container,
                                      std::function<void()> ondetected,
                                      std::function<void()> onmissed)
-    : HeartbeatListener(container, Options::DEFAULT, ondetected, onmissed) {}
+    : HeartbeatListener(container, Options::DEFAULT, std::move(ondetected), std::move(onmissed)) {}
 HeartbeatListener::HeartbeatListener(Options opts,
                                      std::function<void()> ondetected,
                                      std::function<void()> onmissed)
-    : HeartbeatListener(GlobalTopicManager().container, opts, ondetected, onmissed) {}
+    : HeartbeatListener(GlobalTopicManager().container, opts, std::move(ondetected), std::move(onmissed)) {}
 HeartbeatListener::HeartbeatListener(std::function<void()> ondetected,
                                      std::function<void()> onmissed)
-    : HeartbeatListener(Options::DEFAULT, ondetected, onmissed) {}
+    : HeartbeatListener(Options::DEFAULT, std::move(ondetected), std::move(onmissed)) {}
 
 void HeartbeatListener::async_close(std::function<void()> fn) {
   if (!c) {

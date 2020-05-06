@@ -27,7 +27,7 @@ typedef struct a0_publisher_raw_s {
 
 errno_t a0_publisher_raw_init(a0_publisher_raw_t*, a0_buf_t arena);
 errno_t a0_publisher_raw_close(a0_publisher_raw_t*);
-errno_t a0_pub_raw(a0_publisher_raw_t*, const a0_packet_t);
+errno_t a0_pub_raw(a0_publisher_raw_t*, a0_packet_t);
 
 typedef struct a0_publisher_impl_s a0_publisher_impl_t;
 
@@ -37,7 +37,7 @@ typedef struct a0_publisher_s {
 
 errno_t a0_publisher_init(a0_publisher_t*, a0_buf_t arena);
 errno_t a0_publisher_close(a0_publisher_t*);
-errno_t a0_pub(a0_publisher_t*, const a0_packet_t);
+errno_t a0_pub(a0_publisher_t*, a0_packet_t);
 
 ////////////////
 // Subscriber //

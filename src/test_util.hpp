@@ -16,8 +16,7 @@
 #include "sync.hpp"
 #include "transport_tools.hpp"
 
-namespace a0 {
-namespace test {
+namespace a0::test {
 
 inline std::string str(a0_buf_t buf) {
   return std::string((char*)buf.ptr, buf.size);
@@ -63,7 +62,7 @@ inline a0_packet_headers_block_t header_block(a0_packet_header_t* hdr) {
   return a0_packet_headers_block_t{
       .headers = hdr,
       .size = 1,
-      .next_block = NULL,
+      .next_block = nullptr,
   };
 }
 
@@ -85,13 +84,13 @@ inline pid_t subproc(Fn&& fn) {
   return pid;
 }
 
-}  // namespace test
-}  // namespace a0
+}  // namespace a0::test
 
 #define REQUIRE_OK(err) REQUIRE((err) == A0_OK);
 #define REQUIRE_EXIT(FN_BODY)                                            \
   {                                                                      \
     int _ret_code_##__LINE__;                                            \
+    /* NOLINTNEXTLINE(bugprone-macro-parentheses) */                     \
     waitpid(a0::test::subproc([&]() FN_BODY), &_ret_code_##__LINE__, 0); \
     REQUIRE(WIFEXITED(_ret_code_##__LINE__));                            \
   }

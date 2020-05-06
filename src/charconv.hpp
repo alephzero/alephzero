@@ -3,7 +3,6 @@
 #ifdef __cpp_lib_to_chars
 #include <charconv>
 namespace a0 {
-namespace {
 
 template <typename T>
 errno_t from_chars(const char* start, const char* end, T& val) {
@@ -24,10 +23,6 @@ errno_t to_chars(char* start, char* end, T val) {
   return A0_OK;
 }
 
-using std::from_chars;
-using std::to_chars;
-
-}  // namespace
 }  // namespace a0
 #else
 #include <a0/common.h>
@@ -37,9 +32,8 @@ using std::to_chars;
 #include <string>
 
 namespace a0 {
-namespace {
 
-// TODO: This is about 4x slower then std::from_chars.
+// TODO(lshamis): This is about 4x slower then std::from_chars.
 template <typename T>
 errno_t from_chars(const char* start, const char* end, T& val) {
   (void)end;
@@ -51,15 +45,14 @@ errno_t from_chars(const char* start, const char* end, T& val) {
   }
 }
 
-// TODO: This is about 5x slower then std::to_chars.
+// TODO(lshamis): This is about 5x slower then std::to_chars.
 template <typename T>
-errno_t to_chars(char* start, char* end, T val) {
+errno_t to_chars(char* start, const char* end, T val) {
   (void)end;
   auto tmp = std::to_string(val);
   strcpy(start, tmp.c_str());
   return A0_OK;
 }
 
-}  // namespace
 }  // namespace a0
 #endif

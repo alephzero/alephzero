@@ -38,7 +38,7 @@ errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts_, a0_shm_t* o
 
   out->buf.ptr = (uint8_t*)mmap(
       /* addr   = */ 0,
-      /* length = */ out->buf.size,
+      /* len    = */ out->buf.size,
       /* prot   = */ PROT_READ | PROT_WRITE,
       /* flags  = */ MAP_SHARED,
       /* fd     = */ fd,

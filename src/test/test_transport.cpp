@@ -3,12 +3,12 @@
 #include <a0/transport.h>
 
 #include <doctest.h>
-#include <signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include <algorithm>
 #include <cerrno>
+#include <csignal>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>

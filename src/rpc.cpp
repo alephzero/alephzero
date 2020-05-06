@@ -17,12 +17,12 @@
 //  Rpc Common  //
 //////////////////
 
-static const char RPC_TYPE[] = "a0_rpc_type";
-static const char RPC_TYPE_REQUEST[] = "request";
-static const char RPC_TYPE_RESPONSE[] = "response";
-static const char RPC_TYPE_CANCEL[] = "cancel";
+static constexpr std::string_view RPC_TYPE = "a0_rpc_type";
+static constexpr std::string_view RPC_TYPE_REQUEST = "request";
+static constexpr std::string_view RPC_TYPE_RESPONSE = "response";
+static constexpr std::string_view RPC_TYPE_CANCEL = "cancel";
 
-static const char REQUEST_ID[] = "a0_req_id";
+static constexpr std::string_view REQUEST_ID = "a0_req_id";
 
 //////////////
 //  Server  //
@@ -52,14 +52,14 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
             auto* server = (a0_rpc_server_t*)user_data;
             auto* impl = server->_impl;
 
-            const char* rpc_type = a0::find_header(pkt, RPC_TYPE);
-            if (!strcmp(rpc_type, RPC_TYPE_REQUEST)) {
+            auto rpc_type = a0::find_header(pkt, RPC_TYPE);
+            if (rpc_type == RPC_TYPE_REQUEST) {
               impl->onrequest.fn(impl->onrequest.user_data,
                                  a0_rpc_request_t{
                                      .server = server,
                                      .pkt = pkt,
                                  });
-            } else if (bool(impl->oncancel.fn) && !strcmp(rpc_type, RPC_TYPE_CANCEL)) {
+            } else if (bool(impl->oncancel.fn) && rpc_type == RPC_TYPE_CANCEL) {
               impl->oncancel.fn(impl->oncancel.user_data, (char*)pkt.payload.ptr);
             }
           },
@@ -124,8 +124,8 @@ errno_t a0_rpc_reply(a0_rpc_request_t req, const a0_packet_t resp) {
 
   constexpr size_t num_extra_headers = 3;
   a0_packet_header_t extra_headers[num_extra_headers] = {
-      {RPC_TYPE, RPC_TYPE_RESPONSE},
-      {REQUEST_ID, req.pkt.id},
+      {RPC_TYPE.data(), RPC_TYPE_RESPONSE.data()},
+      {REQUEST_ID.data(), req.pkt.id},
       {A0_PACKET_DEP_KEY, req.pkt.id},
   };
 
@@ -160,12 +160,11 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_buf_t arena, a0_alloc_t a
             auto* client = (a0_rpc_client_t*)user_data;
             auto* impl = client->_impl;
 
-            const char* rpc_type = a0::find_header(pkt, RPC_TYPE);
-            if (strcmp(rpc_type, RPC_TYPE_RESPONSE)) {
+            if (a0::find_header(pkt, RPC_TYPE) != RPC_TYPE_RESPONSE) {
               return;
             }
 
-            const char* req_id = a0::find_header(pkt, REQUEST_ID);
+            auto req_id = std::string(a0::find_header(pkt, REQUEST_ID));
 
             auto callback =
                 impl->outstanding.with_lock([&](auto* outstanding_) -> a0_packet_callback_t {
@@ -246,7 +245,7 @@ errno_t a0_rpc_send(a0_rpc_client_t* client, const a0_packet_t pkt, a0_packet_ca
 
   constexpr size_t num_extra_headers = 1;
   a0_packet_header_t extra_headers[num_extra_headers] = {
-      {RPC_TYPE, RPC_TYPE_REQUEST},
+      {RPC_TYPE.data(), RPC_TYPE_REQUEST.data()},
   };
 
   a0_packet_t full_pkt = pkt;
@@ -270,7 +269,7 @@ errno_t a0_rpc_cancel(a0_rpc_client_t* client, const a0_uuid_t req_id) {
 
   constexpr size_t num_headers = 2;
   a0_packet_header_t headers[num_headers] = {
-      {RPC_TYPE, RPC_TYPE_CANCEL},
+      {RPC_TYPE.data(), RPC_TYPE_CANCEL.data()},
       {A0_PACKET_DEP_KEY, req_id},
   };
 

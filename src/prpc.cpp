@@ -4,8 +4,7 @@
 #include <a0/prpc.h>
 #include <a0/pubsub.h>
 
-#include <errno.h>
-
+#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -18,13 +17,13 @@
 //  Prpc Common  //
 ///////////////////
 
-static const char PRPC_TYPE[] = "a0_prpc_type";
-static const char PRPC_TYPE_CONNECT[] = "connect";
-static const char PRPC_TYPE_PROGRESS[] = "progress";
-static const char PRPC_TYPE_COMPLETE[] = "complete";
-static const char PRPC_TYPE_CANCEL[] = "cancel";
+static constexpr std::string_view PRPC_TYPE = "a0_prpc_type";
+static constexpr std::string_view PRPC_TYPE_CONNECT = "connect";
+static constexpr std::string_view PRPC_TYPE_PROGRESS = "progress";
+static constexpr std::string_view PRPC_TYPE_COMPLETE = "complete";
+static constexpr std::string_view PRPC_TYPE_CANCEL = "cancel";
 
-static const char PRPC_CONN_ID[] = "a0_conn_id";
+static constexpr std::string_view PRPC_CONN_ID = "a0_conn_id";
 
 //////////////
 //  Server  //
@@ -54,14 +53,14 @@ errno_t a0_prpc_server_init(a0_prpc_server_t* server,
             auto* server = (a0_prpc_server_t*)user_data;
             auto* impl = server->_impl;
 
-            const char* prpc_type = a0::find_header(pkt, PRPC_TYPE);
-            if (!strcmp(prpc_type, PRPC_TYPE_CONNECT)) {
+            auto prpc_type = a0::find_header(pkt, PRPC_TYPE);
+            if (prpc_type == PRPC_TYPE_CONNECT) {
               impl->onconnect.fn(impl->onconnect.user_data,
                                  a0_prpc_connection_t{
                                      .server = server,
                                      .pkt = pkt,
                                  });
-            } else if (bool(impl->oncancel.fn) && !strcmp(prpc_type, PRPC_TYPE_CANCEL)) {
+            } else if (bool(impl->oncancel.fn) && prpc_type == PRPC_TYPE_CANCEL) {
               impl->oncancel.fn(impl->oncancel.user_data, (char*)pkt.payload.ptr);
             }
           },
@@ -124,15 +123,15 @@ errno_t a0_prpc_send(a0_prpc_connection_t conn, const a0_packet_t prog, bool don
     return ESHUTDOWN;
   }
 
-  // TODO: Is there a better way?
+  // TODO(lshamis): Is there a better way?
   if (!strcmp(conn.pkt.id, prog.id)) {
     return EINVAL;
   }
 
   constexpr size_t num_extra_headers = 3;
   a0_packet_header_t extra_headers[num_extra_headers] = {
-      {PRPC_TYPE, done ? PRPC_TYPE_COMPLETE : PRPC_TYPE_PROGRESS},
-      {PRPC_CONN_ID, conn.pkt.id},
+      {PRPC_TYPE.data(), done ? PRPC_TYPE_COMPLETE.data() : PRPC_TYPE_PROGRESS.data()},
+      {PRPC_CONN_ID.data(), conn.pkt.id},
       {A0_PACKET_DEP_KEY, conn.pkt.id},
   };
 
@@ -167,15 +166,15 @@ errno_t a0_prpc_client_init(a0_prpc_client_t* client, a0_buf_t arena, a0_alloc_t
             auto* client = (a0_prpc_client_t*)user_data;
             auto* impl = client->_impl;
 
-            const char* prpc_type = a0::find_header(pkt, PRPC_TYPE);
+            auto prpc_type = a0::find_header(pkt, PRPC_TYPE);
 
-            bool is_progress = !strcmp(prpc_type, PRPC_TYPE_PROGRESS);
-            bool is_complete = !strcmp(prpc_type, PRPC_TYPE_COMPLETE);
+            bool is_progress = (prpc_type == PRPC_TYPE_PROGRESS);
+            bool is_complete = (prpc_type == PRPC_TYPE_COMPLETE);
             if (!is_progress && !is_complete) {
               return;
             }
 
-            const char* conn_id = a0::find_header(pkt, PRPC_CONN_ID);
+            auto conn_id = std::string(a0::find_header(pkt, PRPC_CONN_ID));
 
             auto callback =
                 impl->outstanding.with_lock([&](auto* outstanding_) -> a0_prpc_callback_t {
@@ -260,7 +259,7 @@ errno_t a0_prpc_connect(a0_prpc_client_t* client,
 
   constexpr size_t num_extra_headers = 1;
   a0_packet_header_t extra_headers[num_extra_headers] = {
-      {PRPC_TYPE, PRPC_TYPE_CONNECT},
+      {PRPC_TYPE.data(), PRPC_TYPE_CONNECT.data()},
   };
 
   a0_packet_t full_pkt = pkt;
@@ -284,7 +283,7 @@ errno_t a0_prpc_cancel(a0_prpc_client_t* client, const a0_uuid_t conn_id) {
 
   constexpr size_t num_headers = 2;
   a0_packet_header_t headers[num_headers] = {
-      {PRPC_TYPE, PRPC_TYPE_CANCEL},
+      {PRPC_TYPE.data(), PRPC_TYPE_CANCEL.data()},
       {A0_PACKET_DEP_KEY, conn_id},
   };
 

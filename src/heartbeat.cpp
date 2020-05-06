@@ -123,12 +123,12 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
         if (!hli->detected) {
           hli->stop_event.wait_for(sleep_dur);
           continue;
-        } else {
-          if (hli->onmissed.fn) {
-            hli->onmissed.fn(hli->onmissed.user_data);
-          }
-          break;
         }
+
+        if (hli->onmissed.fn) {
+          hli->onmissed.fn(hli->onmissed.user_data);
+        }
+        break;
       }
 
       // Get the packet.
@@ -145,9 +145,9 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
       if (!pkt_ts) {
         // Something has gone wrong and the timestamp is missing.
         // Maybe something other than heartbeat published on this topic?
-        // TODO: Figure out how to handle this case.
-        //       For now, let this get interpreted as a very old packet.
-        //       Don't trigger detection and do trigger missed.
+        // TODO(lshamis): Figure out how to handle this case.
+        //                For now, let this get interpreted as a very old packet.
+        //                Don't trigger detection and do trigger missed.
       }
 
       uint64_t now_ts;

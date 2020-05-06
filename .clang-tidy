@@ -1,0 +1,60 @@
+Checks: 'bugprone-*,
+         clang-diagnostic-*,
+         clang-analyzer-*,
+         google-*,
+         modernize-*,
+         performance-*,
+         portability-*,
+         readability-*,
+         -bugprone-branch-clone,
+         -clang-analyzer-core.UndefinedBinaryOperatorResult,
+         -clang-analyzer-security.*,
+         -modernize-use-trailing-return-type,
+         -modernize-avoid-c-arrays,
+         -google-readability-braces-around-statements,
+         -google-readability-casting,
+         -google-readability-namespace-comments,
+         -readability-braces-around-statements,
+         -readability-else-after-return,
+         -readability-implicit-bool-conversion,
+         -readability-magic-numbers,
+         -readability-misleading-indentation,
+         -readability-named-parameter'
+
+WarningsAsErrors: '*'
+
+# Checks to consider adding:
+#
+# * cppcoreguidelines-*
+# * hicpp-*
+
+# Explain all negative checks here:
+#
+# * bugprone-branch-clone:
+#     TODO(lshamis): fix this.
+# * clang-analyzer-core.UndefinedBinaryOperatorResult:
+#     See https://stackoverflow.com/questions/61603899/correct-clang-tidy-undefinedbinaryoperatorresult
+# * clang-analyzer-security.*:
+#     TODO(lshamis): fix this.
+# * modernize-use-trailing-return-type:
+#     Not convinced it's more readable. Think about it.
+# * modernize-avoid-c-arrays:
+#     TODO(lshamis): fix this.
+# * google-readability-braces-around-statements:
+#     See https://llvm.discourse.group/t/clang-tidy-readability-braces-around-statements/1024
+# * google-readability-casting:
+#     TODO(lshamis): fix this.
+# * google-readability-namespace-comments:
+#     clang-tidy-6 doesn't recognize nested namespace.
+# * readability-braces-around-statements:
+#     See https://llvm.discourse.group/t/clang-tidy-readability-braces-around-statements/1024
+# * readability-else-after-return:
+#     TODO(lshamis): fix this.
+# * readability-implicit-bool-conversion:
+#     TODO(lshamis): fix this.
+# * readability-magic-numbers:
+#     TODO(lshamis): fix this.
+# * readability-misleading-indentation:
+#     TODO(lshamis): fix this.
+# * readability-named-parameter:
+#     Not convinced it's more readable to add /*unused*/. Think about it.

@@ -186,27 +186,27 @@ typedef struct a0_packet_stats_s {
 } a0_packet_stats_t;
 
 /// Compute packet statistics.
-errno_t a0_packet_stats(const a0_packet_t, a0_packet_stats_t*);
+errno_t a0_packet_stats(a0_packet_t, a0_packet_stats_t*);
 
 /// Executes the given callback on all headers.
 ///
 /// This includes headers across blocks.
-errno_t a0_packet_for_each_header(const a0_packet_headers_block_t, a0_packet_header_callback_t);
+errno_t a0_packet_for_each_header(a0_packet_headers_block_t, a0_packet_header_callback_t);
 
 /// Serializes the packet to the allocated location.
 ///
 /// **Note**: the header order will NOT be retained.
-errno_t a0_packet_serialize(const a0_packet_t, a0_alloc_t, a0_buf_t* out);
+errno_t a0_packet_serialize(a0_packet_t, a0_alloc_t, a0_buf_t* out);
 
 /// Deserializes the buffer into a packet.
 ///
 /// The alloc is only used for the header pointers, not the contents.
 ///
 /// The content will point into the buffer.
-errno_t a0_packet_deserialize(const a0_buf_t, a0_alloc_t, a0_packet_t* out);
+errno_t a0_packet_deserialize(a0_buf_t, a0_alloc_t, a0_packet_t* out);
 
 /// Deep copies the packet contents.
-errno_t a0_packet_deep_copy(const a0_packet_t, a0_alloc_t, a0_packet_t* out);
+errno_t a0_packet_deep_copy(a0_packet_t, a0_alloc_t, a0_packet_t* out);
 
 #ifdef __cplusplus
 }

@@ -32,12 +32,12 @@ struct Shm {
   };
 
   Shm() = default;
-  Shm(const std::string_view path);
-  Shm(const std::string_view path, Options);
+  Shm(std::string_view path);
+  Shm(std::string_view path, Options);
 
   std::string path() const;
 
-  static void unlink(const std::string_view path);
+  static void unlink(std::string_view path);
 };
 
 struct Packet;
@@ -46,16 +46,16 @@ struct PacketView {
   std::shared_ptr<a0_packet_t> c;
 
   PacketView();
-  PacketView(const std::string_view payload);
+  PacketView(std::string_view payload);
   PacketView(std::vector<std::pair<std::string, std::string>> headers,
-             const std::string_view payload);
+             std::string_view payload);
 
   PacketView(const Packet&);
   PacketView(a0_packet_t);
 
-  const std::string_view id() const;
+  std::string_view id() const;
   const std::vector<std::pair<std::string, std::string>>& headers() const;
-  const std::string_view payload() const;
+  std::string_view payload() const;
 };
 
 struct Packet {
@@ -69,9 +69,9 @@ struct Packet {
   Packet(PacketView&&);
   Packet(a0_packet_t);
 
-  const std::string_view id() const;
+  std::string_view id() const;
   const std::vector<std::pair<std::string, std::string>>& headers() const;
-  const std::string_view payload() const;
+  std::string_view payload() const;
 };
 
 struct TopicAliasTarget {
@@ -93,12 +93,12 @@ struct TopicManager {
   Shm log_warn_topic() const;
   Shm log_info_topic() const;
   Shm log_dbg_topic() const;
-  Shm publisher_topic(const std::string_view) const;
-  Shm subscriber_topic(const std::string_view) const;
-  Shm rpc_server_topic(const std::string_view) const;
-  Shm rpc_client_topic(const std::string_view) const;
-  Shm prpc_server_topic(const std::string_view) const;
-  Shm prpc_client_topic(const std::string_view) const;
+  Shm publisher_topic(std::string_view) const;
+  Shm subscriber_topic(std::string_view) const;
+  Shm rpc_server_topic(std::string_view) const;
+  Shm rpc_client_topic(std::string_view) const;
+  Shm prpc_server_topic(std::string_view) const;
+  Shm prpc_client_topic(std::string_view) const;
 };
 
 void InitGlobalTopicManager(TopicManager);
@@ -110,12 +110,12 @@ struct PublisherRaw {
   PublisherRaw() = default;
   PublisherRaw(Shm);
   // User-friendly constructor that uses GlobalTopicManager publisher_topic for shm.
-  PublisherRaw(const std::string_view);
+  PublisherRaw(std::string_view);
 
   void pub(const PacketView&);
   void pub(std::vector<std::pair<std::string, std::string>> headers,
-           const std::string_view payload);
-  void pub(const std::string_view payload);
+           std::string_view payload);
+  void pub(std::string_view payload);
 };
 
 struct Publisher {
@@ -124,12 +124,12 @@ struct Publisher {
   Publisher() = default;
   Publisher(Shm);
   // User-friendly constructor that uses GlobalTopicManager publisher_topic for shm.
-  Publisher(const std::string_view);
+  Publisher(std::string_view);
 
   void pub(const PacketView&);
   void pub(std::vector<std::pair<std::string, std::string>> headers,
-           const std::string_view payload);
-  void pub(const std::string_view payload);
+           std::string_view payload);
+  void pub(std::string_view payload);
 };
 
 struct SubscriberSync {
@@ -138,7 +138,7 @@ struct SubscriberSync {
   SubscriberSync() = default;
   SubscriberSync(Shm, a0_subscriber_init_t, a0_subscriber_iter_t);
   // User-friendly constructor that uses GlobalTopicManager subscriber_topic for shm.
-  SubscriberSync(const std::string_view, a0_subscriber_init_t, a0_subscriber_iter_t);
+  SubscriberSync(std::string_view, a0_subscriber_init_t, a0_subscriber_iter_t);
 
   bool has_next();
   PacketView next();
@@ -153,14 +153,14 @@ struct Subscriber {
              a0_subscriber_iter_t,
              std::function<void(const PacketView&)>);
   // User-friendly constructor that uses GlobalTopicManager subscriber_topic for shm.
-  Subscriber(const std::string_view,
+  Subscriber(std::string_view,
              a0_subscriber_init_t,
              a0_subscriber_iter_t,
              std::function<void(const PacketView&)>);
   void async_close(std::function<void()>);
 
-  static Packet read_one(Shm, a0_subscriber_init_t, int flags = 0);
-  static Packet read_one(const std::string_view, a0_subscriber_init_t, int flags = 0);
+  static Packet read_one(const Shm&, a0_subscriber_init_t, int flags = 0);
+  static Packet read_one(std::string_view, a0_subscriber_init_t, int flags = 0);
 };
 
 Subscriber onconfig(std::function<void(const PacketView&)>);
@@ -168,8 +168,8 @@ Packet read_config(int flags = 0);
 void write_config(const TopicManager&, const PacketView&);
 void write_config(const TopicManager&,
                   std::vector<std::pair<std::string, std::string>> headers,
-                  const std::string_view payload);
-void write_config(const TopicManager&, const std::string_view payload);
+                  std::string_view payload);
+void write_config(const TopicManager&, std::string_view payload);
 
 struct RpcServer;
 
@@ -181,8 +181,8 @@ struct RpcRequest {
 
   void reply(const PacketView&);
   void reply(std::vector<std::pair<std::string, std::string>> headers,
-             const std::string_view payload);
-  void reply(const std::string_view payload);
+             std::string_view payload);
+  void reply(std::string_view payload);
 };
 
 struct RpcServer {
@@ -191,11 +191,11 @@ struct RpcServer {
   RpcServer() = default;
   RpcServer(Shm,
             std::function<void(RpcRequest)> onrequest,
-            std::function<void(const std::string_view)> oncancel);
+            std::function<void(std::string_view)> oncancel);
   // User-friendly constructor that uses GlobalTopicManager rpc_server_topic for shm.
-  RpcServer(const std::string_view,
+  RpcServer(std::string_view,
             std::function<void(RpcRequest)> onrequest,
-            std::function<void(const std::string_view)> oncancel);
+            std::function<void(std::string_view)> oncancel);
   void async_close(std::function<void()>);
 };
 
@@ -205,20 +205,20 @@ struct RpcClient {
   RpcClient() = default;
   RpcClient(Shm);
   // User-friendly constructor that uses GlobalTopicManager rpc_client_topic for shm.
-  RpcClient(const std::string_view);
+  RpcClient(std::string_view);
   void async_close(std::function<void()>);
 
   void send(const PacketView&, std::function<void(const PacketView&)>);
   void send(std::vector<std::pair<std::string, std::string>> headers,
-            const std::string_view payload,
+            std::string_view payload,
             std::function<void(const PacketView&)>);
-  void send(const std::string_view payload, std::function<void(const PacketView&)>);
+  void send(std::string_view payload, std::function<void(const PacketView&)>);
   std::future<Packet> send(const PacketView&);
   std::future<Packet> send(std::vector<std::pair<std::string, std::string>> headers,
-                           const std::string_view payload);
-  std::future<Packet> send(const std::string_view payload);
+                           std::string_view payload);
+  std::future<Packet> send(std::string_view payload);
 
-  void cancel(const std::string_view);
+  void cancel(std::string_view);
 };
 
 struct PrpcServer;
@@ -231,9 +231,9 @@ struct PrpcConnection {
 
   void send(const PacketView&, bool done);
   void send(std::vector<std::pair<std::string, std::string>> headers,
-            const std::string_view payload,
+            std::string_view payload,
             bool done);
-  void send(const std::string_view payload, bool done);
+  void send(std::string_view payload, bool done);
 };
 
 struct PrpcServer {
@@ -242,11 +242,11 @@ struct PrpcServer {
   PrpcServer() = default;
   PrpcServer(Shm,
              std::function<void(PrpcConnection)> onconnect,
-             std::function<void(const std::string_view)> oncancel);
+             std::function<void(std::string_view)> oncancel);
   // User-friendly constructor that uses GlobalTopicManager prpc_server_topic for shm.
-  PrpcServer(const std::string_view,
+  PrpcServer(std::string_view,
              std::function<void(PrpcConnection)> onconnect,
-             std::function<void(const std::string_view)> oncancel);
+             std::function<void(std::string_view)> oncancel);
   void async_close(std::function<void()>);
 };
 
@@ -256,16 +256,16 @@ struct PrpcClient {
   PrpcClient() = default;
   PrpcClient(Shm);
   // User-friendly constructor that uses GlobalTopicManager prpc_client_topic for shm.
-  PrpcClient(const std::string_view);
+  PrpcClient(std::string_view);
   void async_close(std::function<void()>);
 
   void connect(const PacketView&, std::function<void(const PacketView&, bool)>);
   void connect(std::vector<std::pair<std::string, std::string>> headers,
-               const std::string_view payload,
+               std::string_view payload,
                std::function<void(const PacketView&, bool)>);
-  void connect(const std::string_view payload, std::function<void(const PacketView&, bool)>);
+  void connect(std::string_view payload, std::function<void(const PacketView&, bool)>);
 
-  void cancel(const std::string_view);
+  void cancel(std::string_view);
 };
 
 struct Logger {
@@ -339,14 +339,14 @@ class HeartbeatListener {
                     std::function<void()> onmissed);
   /// User-friendly constructor.
   /// * Constructs the Shm from the target container name.
-  HeartbeatListener(const std::string_view container,
+  HeartbeatListener(std::string_view container,
                     Options,
                     std::function<void()> ondetected,
                     std::function<void()> onmissed);
   /// User-friendly constructor.
   /// * Uses default options.
   /// * Constructs the Shm from the target container name.
-  HeartbeatListener(const std::string_view container,
+  HeartbeatListener(std::string_view container,
                     std::function<void()> ondetected,
                     std::function<void()> onmissed);
   /// User-friendly constructor.

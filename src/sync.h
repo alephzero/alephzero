@@ -1,8 +1,11 @@
 #ifndef A0_SRC_SYNC_H
 #define A0_SRC_SYNC_H
 
+#include <a0/common.h>
+
 #include <limits.h>
 #include <linux/futex.h>
+#include <stdint.h>
 #include <sys/syscall.h>
 #include <time.h>
 #include <unistd.h>
