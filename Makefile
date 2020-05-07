@@ -6,7 +6,7 @@ LIB_DIR = lib
 BIN_DIR = bin
 
 CXFLAGS += -Wall -Wextra -fPIC -Iinclude
-CXXFLAGS += -std=c++17 -Wno-missing-field-initializers -Wno-braced-scalar-init
+CXXFLAGS += -std=c++17
 LDFLAGS += -lm -lpthread -lrt
 
 SRC_C := $(wildcard $(SRC_DIR)/*.c)
@@ -150,22 +150,22 @@ covweb: cov
 
 iwyu/$(SRC_DIR)/%.c.ok: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
-	iwyu $(CFLAGS) $(CXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	iwyu $(CFLAGS) $(CXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -Xiwyu --no_fwd_decls -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu/$(SRC_DIR)/%.cpp.ok: $(SRC_DIR)/%.cpp
 	@mkdir -p $(@D)
-	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -Xiwyu --no_fwd_decls -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu/$(SRC_DIR)/%.hpp.ok: $(SRC_DIR)/%.hpp
 	@mkdir -p $(@D)
-	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -Xiwyu --no_fwd_decls -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu/$(SRC_DIR)/test/%.cpp.ok: $(SRC_DIR)/test/%.cpp
 	@mkdir -p $(@D)
-	iwyu $(CXFLAGS) $(CXXFLAGS) $(TEST_CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	iwyu $(CXFLAGS) $(CXXFLAGS) $(TEST_CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -Xiwyu --no_fwd_decls -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu: $(patsubst $(SRC_DIR)/%.c,iwyu/$(SRC_DIR)/%.c.ok,$(wildcard $(SRC_DIR)/*.c))
