@@ -11,6 +11,9 @@
 extern "C" {
 #endif
 
+// https://stackoverflow.com/questions/61645966/is-typedef-allowed-before-definition
+struct a0_mtx_s;
+
 typedef struct a0_mtx_s a0_mtx_t;
 
 // Mutex implementation designed for IPC.
