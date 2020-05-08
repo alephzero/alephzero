@@ -1,3 +1,4 @@
+#include <a0/alloc.h>
 #include <a0/common.h>
 #include <a0/packet.h>
 
@@ -5,6 +6,8 @@
 
 #include <cctype>
 #include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <map>
 #include <string>
 
