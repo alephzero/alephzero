@@ -3,7 +3,6 @@
 
 #include <doctest.h>
 
-#include <cstdlib>
 #include <cstring>
 
 #include "src/test_util.hpp"
