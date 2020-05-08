@@ -537,7 +537,8 @@ errno_t a0_transport_alloc_impl(void* user_data, size_t size, a0_buf_t* buf_out)
 
 errno_t a0_transport_allocator(a0_locked_transport_t* lk, a0_alloc_t* alloc_out) {
   alloc_out->user_data = lk;
-  alloc_out->fn = a0_transport_alloc_impl;
+  alloc_out->alloc = a0_transport_alloc_impl;
+  alloc_out->dealloc = NULL;
   return A0_OK;
 }
 

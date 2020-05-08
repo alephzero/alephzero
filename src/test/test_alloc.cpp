@@ -3,7 +3,6 @@
 
 #include <doctest.h>
 
-#include <cstdlib>
 #include <cstring>
 
 #include "src/test_util.hpp"
@@ -24,8 +23,8 @@ TEST_CASE("alloc] malloc") {
   REQUIRE(buf_0.ptr != buf_1.ptr);
   REQUIRE(memcpy(buf_0.ptr, "foo", 3));
 
-  free(buf_0.ptr);
-  free(buf_1.ptr);
+  REQUIRE_OK(a0_dealloc(alloc, buf_0));
+  REQUIRE_OK(a0_dealloc(alloc, buf_1));
   REQUIRE_OK(a0_malloc_allocator_close(&alloc));
 }
 
@@ -44,5 +43,7 @@ TEST_CASE("alloc] realloc") {
 
   REQUIRE(buf_0.ptr == buf_1.ptr);
 
+  REQUIRE_OK(a0_dealloc(alloc, buf_0));
+  REQUIRE_OK(a0_dealloc(alloc, buf_1));
   REQUIRE_OK(a0_realloc_allocator_close(&alloc));
 }

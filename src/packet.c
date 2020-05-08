@@ -204,3 +204,14 @@ errno_t a0_packet_deep_copy(const a0_packet_t in, a0_alloc_t alloc, a0_packet_t*
 
   return A0_OK;
 }
+
+errno_t a0_packet_dealloc(a0_packet_t pkt, a0_alloc_t alloc) {
+  a0_packet_stats_t stats;
+  A0_RETURN_ERR_ON_ERR(a0_packet_stats(pkt, &stats));
+
+  a0_buf_t buf = {
+    .ptr = (uint8_t*)pkt.headers_block.headers,
+    .size = stats.num_hdrs * sizeof(a0_packet_header_t) + stats.content_size,
+  };
+  return a0_dealloc(alloc, buf);
+}
