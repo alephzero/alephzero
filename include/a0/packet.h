@@ -208,6 +208,9 @@ errno_t a0_packet_deserialize(a0_buf_t, a0_alloc_t, a0_packet_t* out);
 /// Deep copies the packet contents.
 errno_t a0_packet_deep_copy(a0_packet_t, a0_alloc_t, a0_packet_t* out);
 
+/// Deallocates a packet that was previously allocated with the given alloc.
+errno_t a0_packet_dealloc(a0_packet_t, a0_alloc_t);
+
 #ifdef __cplusplus
 }
 #endif
