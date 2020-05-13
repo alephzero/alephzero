@@ -1,5 +1,5 @@
 #include <a0/common.h>
-#include <a0/shm.h>
+#include <a0/file_arena.h>
 
 #include <doctest.h>
 #include <sys/types.h>
@@ -40,7 +40,7 @@ struct MtxTestFixture {
     REQUIRE_OK(a0_shm_open(name.c_str(), &shmopt, &shm));
     shms.push_back(shm);
 
-    auto* mtx = (a0_mtx_t*)shm.buf.ptr;
+    auto* mtx = (a0_mtx_t*)shm.arena.ptr;
     REQUIRE_OK(a0_mtx_init(mtx));
     return mtx;
   }

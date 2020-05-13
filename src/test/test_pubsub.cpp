@@ -1,7 +1,7 @@
 #include <a0/common.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
-#include <a0/shm.h>
+#include <a0/file_arena.h>
 
 #include <doctest.h>
 #include <fcntl.h>
@@ -55,7 +55,7 @@ struct PubsubFixture {
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
+    REQUIRE_OK(a0_publisher_init(&pub, shm.arena));
 
     a0_packet_header_t hdr = {"key", "val"};
 
@@ -66,7 +66,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   }
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
+    REQUIRE_OK(a0_publisher_init(&pub, shm.arena));
 
     a0_packet_header_t hdr = {"key", "val"};
 
@@ -78,7 +78,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   {
     a0_subscriber_sync_t sub;
     REQUIRE_OK(a0_subscriber_sync_init(&sub,
-                                       shm.buf,
+                                       shm.arena,
                                        a0::test::allocator(),
                                        A0_INIT_OLDEST,
                                        A0_ITER_NEXT));
@@ -180,7 +180,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   {
     a0_subscriber_sync_t sub;
     REQUIRE_OK(a0_subscriber_sync_init(&sub,
-                                       shm.buf,
+                                       shm.arena,
                                        a0::test::allocator(),
                                        A0_INIT_MOST_RECENT,
                                        A0_ITER_NEWEST));
@@ -208,7 +208,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] raw") {
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
+    REQUIRE_OK(a0_publisher_init(&pub, shm.arena));
 
     a0_packet_header_t hdr = {"key", "val"};
 
@@ -218,7 +218,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] raw") {
   }
   {
     a0_publisher_raw_t pub;
-    REQUIRE_OK(a0_publisher_raw_init(&pub, shm.buf));
+    REQUIRE_OK(a0_publisher_raw_init(&pub, shm.arena));
 
     a0_packet_header_t hdr = {"key", "val"};
 
@@ -230,7 +230,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] raw") {
   {
     a0_subscriber_sync_t sub;
     REQUIRE_OK(a0_subscriber_sync_init(&sub,
-                                       shm.buf,
+                                       shm.arena,
                                        a0::test::allocator(),
                                        A0_INIT_OLDEST,
                                        A0_ITER_NEXT));
@@ -321,14 +321,14 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately await_new") {
 
   a0_subscriber_t sub;
   REQUIRE_OK(a0_subscriber_init(&sub,
-                                shm.buf,
+                                shm.arena,
                                 a0::test::allocator(),
                                 A0_INIT_AWAIT_NEW,
                                 A0_ITER_NEXT,
                                 cb));
 
   a0_publisher_t pub;
-  REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
+  REQUIRE_OK(a0_publisher_init(&pub, shm.arena));
   REQUIRE_OK(a0_pub(&pub, make_packet("msg")));
   REQUIRE_OK(a0_publisher_close(&pub));
 
@@ -357,12 +357,12 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately most_recent") {
   };
 
   a0_publisher_t pub;
-  REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
+  REQUIRE_OK(a0_publisher_init(&pub, shm.arena));
   REQUIRE_OK(a0_pub(&pub, make_packet("msg before")));
 
   a0_subscriber_t sub;
   REQUIRE_OK(a0_subscriber_init(&sub,
-                                shm.buf,
+                                shm.arena,
                                 a0::test::allocator(),
                                 A0_INIT_MOST_RECENT,
                                 A0_ITER_NEXT,
@@ -382,7 +382,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately most_recent") {
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
+    REQUIRE_OK(a0_publisher_init(&pub, shm.arena));
 
     REQUIRE_OK(a0_pub(&pub, make_packet("msg #0")));
     REQUIRE_OK(a0_pub(&pub, make_packet("msg #1")));
@@ -411,7 +411,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
 
   a0_subscriber_t sub;
   REQUIRE_OK(
-      a0_subscriber_init(&sub, shm.buf, a0::test::allocator(), A0_INIT_OLDEST, A0_ITER_NEXT, cb));
+      a0_subscriber_init(&sub, shm.arena, a0::test::allocator(), A0_INIT_OLDEST, A0_ITER_NEXT, cb));
 
   msg_cnt.wait([](auto* msg_cnt_) {
     return (*msg_cnt_) == 2;
@@ -429,14 +429,14 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   {
     a0_packet_t pkt;
     REQUIRE(
-        a0_subscriber_read_one(shm.buf, a0::test::allocator(), A0_INIT_OLDEST, O_NONBLOCK, &pkt) ==
+        a0_subscriber_read_one(shm.arena, a0::test::allocator(), A0_INIT_OLDEST, O_NONBLOCK, &pkt) ==
         EAGAIN);
   }
 
   // Nonblocking, most recent, not available.
   {
     a0_packet_t pkt;
-    REQUIRE(a0_subscriber_read_one(shm.buf,
+    REQUIRE(a0_subscriber_read_one(shm.arena,
                                    a0::test::allocator(),
                                    A0_INIT_MOST_RECENT,
                                    O_NONBLOCK,
@@ -446,7 +446,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Nonblocking, await new.
   {
     a0_packet_t pkt;
-    REQUIRE(a0_subscriber_read_one(shm.buf,
+    REQUIRE(a0_subscriber_read_one(shm.arena,
                                    a0::test::allocator(),
                                    A0_INIT_AWAIT_NEW,
                                    O_NONBLOCK,
@@ -456,7 +456,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Do writes.
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
+    REQUIRE_OK(a0_publisher_init(&pub, shm.arena));
 
     REQUIRE_OK(a0_pub(&pub, make_packet("msg #0")));
     REQUIRE_OK(a0_pub(&pub, make_packet("msg #1")));
@@ -467,7 +467,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Blocking, oldest, available.
   {
     a0_packet_t pkt;
-    REQUIRE_OK(a0_subscriber_read_one(shm.buf, a0::test::allocator(), A0_INIT_OLDEST, 0, &pkt));
+    REQUIRE_OK(a0_subscriber_read_one(shm.arena, a0::test::allocator(), A0_INIT_OLDEST, 0, &pkt));
     REQUIRE(a0::test::str(pkt.payload) == "msg #0");
   }
 
@@ -475,7 +475,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   {
     a0_packet_t pkt;
     REQUIRE_OK(
-        a0_subscriber_read_one(shm.buf, a0::test::allocator(), A0_INIT_MOST_RECENT, 0, &pkt));
+        a0_subscriber_read_one(shm.arena, a0::test::allocator(), A0_INIT_MOST_RECENT, 0, &pkt));
     REQUIRE(a0::test::str(pkt.payload) == "msg #1");
   }
 
@@ -483,14 +483,14 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   {
     a0_packet_t pkt;
     REQUIRE_OK(
-        a0_subscriber_read_one(shm.buf, a0::test::allocator(), A0_INIT_OLDEST, O_NONBLOCK, &pkt));
+        a0_subscriber_read_one(shm.arena, a0::test::allocator(), A0_INIT_OLDEST, O_NONBLOCK, &pkt));
     REQUIRE(a0::test::str(pkt.payload) == "msg #0");
   }
 
   // Nonblocking, most recent, available.
   {
     a0_packet_t pkt;
-    REQUIRE_OK(a0_subscriber_read_one(shm.buf,
+    REQUIRE_OK(a0_subscriber_read_one(shm.arena,
                                       a0::test::allocator(),
                                       A0_INIT_MOST_RECENT,
                                       O_NONBLOCK,
@@ -511,7 +511,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
   for (int i = 0; i < NUM_THREADS; i++) {
     threads.emplace_back([this, i]() {
       a0_publisher_t pub;
-      REQUIRE_OK(a0_publisher_init(&pub, shm.buf));
+      REQUIRE_OK(a0_publisher_init(&pub, shm.arena));
 
       for (int j = 0; j < NUM_PACKETS; j++) {
         REQUIRE_OK(a0_pub(&pub, make_packet(a0::strutil::fmt("pub %d msg %d", i, j))));
@@ -529,7 +529,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
   std::set<std::string> msgs;
   a0_subscriber_sync_t sub;
   REQUIRE_OK(
-      a0_subscriber_sync_init(&sub, shm.buf, a0::test::allocator(), A0_INIT_OLDEST, A0_ITER_NEXT));
+      a0_subscriber_sync_init(&sub, shm.arena, a0::test::allocator(), A0_INIT_OLDEST, A0_ITER_NEXT));
 
   while (true) {
     a0_packet_t pkt;

@@ -39,7 +39,7 @@ struct a0_prpc_server_impl_s {
 };
 
 errno_t a0_prpc_server_init(a0_prpc_server_t* server,
-                            a0_buf_t arena,
+                            a0_arena_t arena,
                             a0_alloc_t alloc,
                             a0_prpc_connection_callback_t onconnect,
                             a0_packet_id_callback_t oncancel) {
@@ -157,7 +157,7 @@ struct a0_prpc_client_impl_s {
   a0::sync<std::unordered_map<std::string, a0_prpc_callback_t>> outstanding;
 };
 
-errno_t a0_prpc_client_init(a0_prpc_client_t* client, a0_buf_t arena, a0_alloc_t alloc) {
+errno_t a0_prpc_client_init(a0_prpc_client_t* client, a0_arena_t arena, a0_alloc_t alloc) {
   client->_impl = new a0_prpc_client_impl_t;
 
   a0_packet_callback_t onpacket = {

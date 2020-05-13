@@ -2,7 +2,7 @@
 #define A0_TOPIC_MANAGER_H
 
 #include <a0/common.h>
-#include <a0/shm.h>
+#include <a0/file_arena.h>
 
 #include <errno.h>
 

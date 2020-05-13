@@ -15,6 +15,7 @@
 #include <thread>
 
 #include "macros.h"
+#include "scope.hpp"
 #include "sync.hpp"
 
 const a0_heartbeat_options_t A0_HEARTBEAT_OPTIONS_DEFAULT = {
@@ -28,7 +29,7 @@ struct a0_heartbeat_impl_s {
   std::thread thrd;
 };
 
-errno_t a0_heartbeat_init(a0_heartbeat_t* h, a0_buf_t arena, const a0_heartbeat_options_t* opts_) {
+errno_t a0_heartbeat_init(a0_heartbeat_t* h, a0_arena_t arena, const a0_heartbeat_options_t* opts_) {
   const a0_heartbeat_options_t* opts = opts_;
   if (!opts) {
     opts = &A0_HEARTBEAT_OPTIONS_DEFAULT;
@@ -86,7 +87,7 @@ struct a0_heartbeat_listener_impl_s {
 };
 
 errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
-                                   a0_buf_t arena,
+                                   a0_arena_t arena,
                                    a0_alloc_t alloc,
                                    const a0_heartbeat_listener_options_t* opts_,
                                    a0_callback_t ondetected,
@@ -109,7 +110,7 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
   auto sleep_dur = std::chrono::nanoseconds(uint64_t(1e9 / opts->min_freq));
 
   hl->_impl = impl.release();
-  hl->_impl->thrd = std::thread([impl_ = hl->_impl, sleep_dur]() {
+  hl->_impl->thrd = std::thread([impl_ = hl->_impl, sleep_dur, alloc]() {
     auto* hli = impl_;
     while (!hli->stop_event.is_set()) {
       // Check if a packet is available.
@@ -132,13 +133,15 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
       }
 
       // Get the packet.
-      a0_packet_t pkt;
-      a0_subscriber_sync_next(&hli->sub, &pkt);
+      a0::scope<a0_packet_t> pkt({}, [&](a0_packet_t* pkt_) {
+        a0_packet_dealloc(*pkt_, alloc);
+      });
+      a0_subscriber_sync_next(&hli->sub, pkt.get());
 
       uint64_t pkt_ts = 0;
-      for (size_t i = 0; i < pkt.headers_block.size; i++) {
-        if (!strcmp(pkt.headers_block.headers[i].key, A0_TIME_MONO)) {
-          a0_time_mono_parse(pkt.headers_block.headers[i].val, &pkt_ts);
+      for (size_t i = 0; i < pkt->headers_block.size; i++) {
+        if (!strcmp(pkt->headers_block.headers[i].key, A0_TIME_MONO)) {
+          a0_time_mono_parse(pkt->headers_block.headers[i].val, &pkt_ts);
           break;
         }
       }

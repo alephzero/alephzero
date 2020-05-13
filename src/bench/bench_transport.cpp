@@ -17,7 +17,7 @@ struct BenchFixture {
     a0_shm_open(BENCH_SHM, nullptr, &shm);
 
     a0_transport_init_status_t init_status;
-    a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk);
+    a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk);
   }
 
   ~BenchFixture() {

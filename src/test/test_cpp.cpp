@@ -1,7 +1,7 @@
 #include <a0/alephzero.hpp>
 #include <a0/common.h>
 #include <a0/pubsub.h>
-#include <a0/shm.h>
+#include <a0/file_arena.h>
 
 #include <doctest.h>
 #include <fcntl.h>
@@ -46,7 +46,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
 
   shm = a0::Shm(TEST_SHM);
   REQUIRE(shm.path() == TEST_SHM);
-  REQUIRE(shm.c->buf.size == A0_SHM_OPTIONS_DEFAULT.size);
+  REQUIRE(shm.c->arena.size == A0_SHM_OPTIONS_DEFAULT.size);
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {

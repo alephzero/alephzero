@@ -18,6 +18,8 @@ typedef struct a0_buf_s {
   size_t size;
 } a0_buf_t;
 
+typedef a0_buf_t a0_arena_t;
+
 typedef struct a0_callback_s {
   void* user_data;
   void (*fn)(void* user_data);

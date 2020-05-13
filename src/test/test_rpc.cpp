@@ -1,7 +1,7 @@
 #include <a0/common.h>
 #include <a0/packet.h>
 #include <a0/rpc.h>
-#include <a0/shm.h>
+#include <a0/file_arena.h>
 
 #include <doctest.h>
 
@@ -63,10 +63,10 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, shm.buf, a0::test::allocator(), onrequest, oncancel));
+  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, oncancel));
 
   a0_rpc_client_t client;
-  REQUIRE_OK(a0_rpc_client_init(&client, shm.buf, a0::test::allocator()));
+  REQUIRE_OK(a0_rpc_client_init(&client, shm.arena, a0::test::allocator()));
 
   a0_packet_callback_t onreply = {
       .user_data = &data,
@@ -115,10 +115,10 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] empty oncancel onreply") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, shm.buf, a0::test::allocator(), onrequest, A0_NONE));
+  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, A0_NONE));
 
   a0_rpc_client_t client;
-  REQUIRE_OK(a0_rpc_client_init(&client, shm.buf, a0::test::allocator()));
+  REQUIRE_OK(a0_rpc_client_init(&client, shm.arena, a0::test::allocator()));
 
   for (int i = 0; i < 5; i++) {
     a0_packet_t req;
@@ -167,10 +167,10 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] server async close") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, shm.buf, a0::test::allocator(), onrequest, A0_NONE));
+  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, A0_NONE));
 
   a0_rpc_client_t client;
-  REQUIRE_OK(a0_rpc_client_init(&client, shm.buf, a0::test::allocator()));
+  REQUIRE_OK(a0_rpc_client_init(&client, shm.arena, a0::test::allocator()));
 
   a0_packet_callback_t onreply = {
       .user_data = &data,
@@ -210,10 +210,10 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] client async close") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, shm.buf, a0::test::allocator(), onrequest, A0_NONE));
+  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, A0_NONE));
 
   a0_rpc_client_t client;
-  REQUIRE_OK(a0_rpc_client_init(&client, shm.buf, a0::test::allocator()));
+  REQUIRE_OK(a0_rpc_client_init(&client, shm.arena, a0::test::allocator()));
 
   a0::Event close_event;
 

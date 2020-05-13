@@ -7,7 +7,7 @@
 #include <a0/prpc.h>
 #include <a0/pubsub.h>
 #include <a0/rpc.h>
-#include <a0/shm.h>
+#include <a0/file_arena.h>
 #include <a0/topic_manager.h>
 
 #include <cerrno>
@@ -96,6 +96,50 @@ std::string_view as_string_view(a0_buf_t buf) {
 
 }  // namespace
 
+Disk::Options Disk::Options::DEFAULT = {
+    .size = A0_DISK_OPTIONS_DEFAULT.size,
+    .resize = A0_DISK_OPTIONS_DEFAULT.resize,
+};
+
+Disk::Disk(std::string_view path) : Disk(path, Options::DEFAULT) {}
+
+Disk::Disk(std::string_view path, Options opts) {
+  a0_disk_options_t c_opts{
+      .size = opts.size,
+      .resize = opts.resize,
+  };
+  set_c(
+      &c,
+      [&](a0_disk_t* c) {
+        return a0_disk_open(path.data(), &c_opts, c);
+      },
+      a0_disk_close);
+}
+
+Disk::operator Arena() const {
+  auto save = c;
+  return make_cpp<Arena>(
+      [&](a0_arena_t* arena) {
+        *arena = c->arena;
+        return A0_OK;
+      },
+      [save](a0_arena_t*) {});
+}
+
+std::string Disk::path() const {
+  return c->path;
+}
+
+void Disk::unlink(std::string_view path) {
+  auto err = a0_disk_unlink(path.data());
+  // Ignore "No such file or directory" errors.
+  if (err == ENOENT) {
+    return;
+  }
+
+  check(err);
+}
+
 Shm::Options Shm::Options::DEFAULT = {
     .size = A0_SHM_OPTIONS_DEFAULT.size,
     .resize = A0_SHM_OPTIONS_DEFAULT.resize,
@@ -114,6 +158,16 @@ Shm::Shm(std::string_view path, Options opts) {
         return a0_shm_open(path.data(), &c_opts, c);
       },
       a0_shm_close);
+}
+
+Shm::operator Arena() const {
+  auto save = c;
+  return make_cpp<Arena>(
+      [&](a0_arena_t* arena) {
+        *arena = c->arena;
+        return A0_OK;
+      },
+      [save](a0_arena_t*) {});
 }
 
 std::string Shm::path() const {
@@ -460,13 +514,13 @@ void InitGlobalTopicManager(TopicManager tm) {
   GlobalTopicManager() = std::move(tm);
 }
 
-PublisherRaw::PublisherRaw(Shm shm) {
+PublisherRaw::PublisherRaw(Arena arena) {
   set_c(
       &c,
       [&](a0_publisher_raw_t* c) {
-        return a0_publisher_raw_init(c, shm.c->buf);
+        return a0_publisher_raw_init(c, *arena.c);
       },
-      [shm](a0_publisher_raw_t* c) {
+      [arena](a0_publisher_raw_t* c) {
         a0_publisher_raw_close(c);
       });
 }
@@ -487,13 +541,13 @@ void PublisherRaw::pub(std::string_view payload) {
   pub({}, payload);
 }
 
-Publisher::Publisher(Shm shm) {
+Publisher::Publisher(Arena arena) {
   set_c(
       &c,
       [&](a0_publisher_t* c) {
-        return a0_publisher_init(c, shm.c->buf);
+        return a0_publisher_init(c, *arena.c);
       },
-      [shm](a0_publisher_t* c) {
+      [arena](a0_publisher_t* c) {
         a0_publisher_close(c);
       });
 }
@@ -514,15 +568,15 @@ void Publisher::pub(std::string_view payload) {
   pub({}, payload);
 }
 
-SubscriberSync::SubscriberSync(Shm shm, a0_subscriber_init_t init, a0_subscriber_iter_t iter) {
+SubscriberSync::SubscriberSync(Arena arena, a0_subscriber_init_t init, a0_subscriber_iter_t iter) {
   a0_alloc_t alloc;
   check(a0_realloc_allocator_init(&alloc));
   set_c(
       &c,
       [&](a0_subscriber_sync_t* c) {
-        return a0_subscriber_sync_init(c, shm.c->buf, alloc, init, iter);
+        return a0_subscriber_sync_init(c, *arena.c, alloc, init, iter);
       },
-      [shm, alloc](a0_subscriber_sync_t* c) mutable {
+      [arena, alloc](a0_subscriber_sync_t* c) mutable {
         a0_subscriber_sync_close(c);
         a0_realloc_allocator_close(&alloc);
       });
@@ -545,12 +599,12 @@ PacketView SubscriberSync::next() {
   return pkt;
 }
 
-Subscriber::Subscriber(Shm shm,
+Subscriber::Subscriber(Arena arena,
                        a0_subscriber_init_t init,
                        a0_subscriber_iter_t iter,
                        std::function<void(const PacketView&)> fn) {
   CDeleter<a0_subscriber_t> deleter;
-  deleter.also.emplace_back([shm]() {});
+  deleter.also.emplace_back([arena]() {});
 
   auto heap_fn = new std::function<void(const PacketView&)>(std::move(fn));
   a0_packet_callback_t callback = {
@@ -575,7 +629,7 @@ Subscriber::Subscriber(Shm shm,
   set_c(
       &c,
       [&](a0_subscriber_t* c) {
-        return a0_subscriber_init(c, shm.c->buf, alloc, init, iter, callback);
+        return a0_subscriber_init(c, *arena.c, alloc, init, iter, callback);
       },
       std::move(deleter));
 }
@@ -612,7 +666,7 @@ void Subscriber::async_close(std::function<void()> fn) {
   check(a0_subscriber_async_close(&*heap_data->c, callback));
 }
 
-Packet Subscriber::read_one(const Shm& shm, a0_subscriber_init_t init, int flags) {
+Packet Subscriber::read_one(Arena arena, a0_subscriber_init_t init, int flags) {
   a0_alloc_t alloc;
   check(a0_realloc_allocator_init(&alloc));
   a0::scope<void> alloc_destroyer([&]() mutable {
@@ -620,7 +674,7 @@ Packet Subscriber::read_one(const Shm& shm, a0_subscriber_init_t init, int flags
   });
 
   a0_packet_t pkt;
-  check(a0_subscriber_read_one(shm.c->buf, alloc, init, flags, &pkt));
+  check(a0_subscriber_read_one(*arena.c, alloc, init, flags, &pkt));
   return Packet(pkt);
 }
 
@@ -674,11 +728,11 @@ void RpcRequest::reply(std::string_view payload) {
   reply({}, payload);
 }
 
-RpcServer::RpcServer(Shm shm,
+RpcServer::RpcServer(Arena arena,
                      std::function<void(RpcRequest)> onrequest,
                      std::function<void(std::string_view)> oncancel) {
   CDeleter<a0_rpc_server_t> deleter;
-  deleter.also.emplace_back([shm]() {});
+  deleter.also.emplace_back([arena]() {});
 
   auto heap_onrequest = new std::function<void(RpcRequest)>(std::move(onrequest));
   deleter.also.emplace_back([heap_onrequest]() {
@@ -722,7 +776,7 @@ RpcServer::RpcServer(Shm shm,
   set_c(
       &c,
       [&](a0_rpc_server_t* c) {
-        return a0_rpc_server_init(c, shm.c->buf, alloc, c_onrequest, c_oncancel);
+        return a0_rpc_server_init(c, *arena.c, alloc, c_onrequest, c_oncancel);
       },
       std::move(deleter));
 }
@@ -760,9 +814,9 @@ void RpcServer::async_close(std::function<void()> fn) {
   check(a0_rpc_server_async_close(&*heap_data->c, callback));
 }
 
-RpcClient::RpcClient(Shm shm) {
+RpcClient::RpcClient(Arena arena) {
   CDeleter<a0_rpc_client_t> deleter;
-  deleter.also.emplace_back([shm]() {});
+  deleter.also.emplace_back([arena]() {});
 
   a0_alloc_t alloc;
   check(a0_realloc_allocator_init(&alloc));
@@ -775,7 +829,7 @@ RpcClient::RpcClient(Shm shm) {
   set_c(
       &c,
       [&](a0_rpc_client_t* c) {
-        return a0_rpc_client_init(c, shm.c->buf, alloc);
+        return a0_rpc_client_init(c, *arena.c, alloc);
       },
       std::move(deleter));
 }
@@ -885,11 +939,11 @@ void PrpcConnection::send(std::string_view payload, bool done) {
   send({}, payload, done);
 }
 
-PrpcServer::PrpcServer(Shm shm,
+PrpcServer::PrpcServer(Arena arena,
                        std::function<void(PrpcConnection)> onconnect,
                        std::function<void(std::string_view)> oncancel) {
   CDeleter<a0_prpc_server_t> deleter;
-  deleter.also.emplace_back([shm]() {});
+  deleter.also.emplace_back([arena]() {});
 
   auto heap_onconnect = new std::function<void(PrpcConnection)>(std::move(onconnect));
   deleter.also.emplace_back([heap_onconnect]() {
@@ -933,7 +987,7 @@ PrpcServer::PrpcServer(Shm shm,
   set_c(
       &c,
       [&](a0_prpc_server_t* c) {
-        return a0_prpc_server_init(c, shm.c->buf, alloc, c_onconnect, c_oncancel);
+        return a0_prpc_server_init(c, *arena.c, alloc, c_onconnect, c_oncancel);
       },
       std::move(deleter));
 }
@@ -971,9 +1025,9 @@ void PrpcServer::async_close(std::function<void()> fn) {
   check(a0_prpc_server_async_close(&*heap_data->c, callback));
 }
 
-PrpcClient::PrpcClient(Shm shm) {
+PrpcClient::PrpcClient(Arena arena) {
   CDeleter<a0_prpc_client_t> deleter;
-  deleter.also.emplace_back([shm]() {});
+  deleter.also.emplace_back([arena]() {});
 
   a0_alloc_t alloc;
   check(a0_realloc_allocator_init(&alloc));
@@ -986,7 +1040,7 @@ PrpcClient::PrpcClient(Shm shm) {
   set_c(
       &c,
       [&](a0_prpc_client_t* c) {
-        return a0_prpc_client_init(c, shm.c->buf, alloc);
+        return a0_prpc_client_init(c, *arena.c, alloc);
       },
       std::move(deleter));
 }
@@ -1060,11 +1114,11 @@ Logger::Logger(const TopicManager& topic_manager) {
       &c,
       [&](a0_logger_t* c) {
         return a0_logger_init(c,
-                              shm_crit.c->buf,
-                              shm_err.c->buf,
-                              shm_warn.c->buf,
-                              shm_info.c->buf,
-                              shm_dbg.c->buf);
+                              shm_crit.c->arena,
+                              shm_err.c->arena,
+                              shm_warn.c->arena,
+                              shm_info.c->arena,
+                              shm_dbg.c->arena);
       },
       [shm_crit, shm_err, shm_warn, shm_info, shm_dbg](a0_logger_t* c) {
         a0_logger_close(c);
@@ -1093,21 +1147,21 @@ Heartbeat::Options Heartbeat::Options::DEFAULT = {
     .freq = A0_HEARTBEAT_OPTIONS_DEFAULT.freq,
 };
 
-Heartbeat::Heartbeat(Shm shm, Options opts) {
+Heartbeat::Heartbeat(Arena arena, Options opts) {
   a0_heartbeat_options_t c_opts{
       .freq = opts.freq,
   };
   set_c(
       &c,
       [&](a0_heartbeat_t* c) {
-        return a0_heartbeat_init(c, shm.c->buf, &c_opts);
+        return a0_heartbeat_init(c, *arena.c, &c_opts);
       },
-      [shm](a0_heartbeat_t* c) {
+      [arena](a0_heartbeat_t* c) {
         a0_heartbeat_close(c);
       });
 }
 
-Heartbeat::Heartbeat(Shm shm) : Heartbeat(std::move(shm), Options::DEFAULT) {}
+Heartbeat::Heartbeat(Arena arena) : Heartbeat(std::move(arena), Options::DEFAULT) {}
 
 Heartbeat::Heartbeat(Options opts) : Heartbeat(GlobalTopicManager().heartbeat_topic(), opts) {}
 
@@ -1117,7 +1171,7 @@ HeartbeatListener::Options HeartbeatListener::Options::DEFAULT = {
     .min_freq = A0_HEARTBEAT_LISTENER_OPTIONS_DEFAULT.min_freq,
 };
 
-HeartbeatListener::HeartbeatListener(Shm shm,
+HeartbeatListener::HeartbeatListener(Arena arena,
                                      Options opts,
                                      std::function<void()> ondetected,
                                      std::function<void()> onmissed) {
@@ -1126,7 +1180,7 @@ HeartbeatListener::HeartbeatListener(Shm shm,
   };
 
   CDeleter<a0_heartbeat_listener_t> deleter;
-  deleter.also.emplace_back([shm]() {});
+  deleter.also.emplace_back([arena]() {});
 
   struct data_t {
     std::function<void()> ondetected;
@@ -1167,15 +1221,15 @@ HeartbeatListener::HeartbeatListener(Shm shm,
   set_c(
       &c,
       [&](a0_heartbeat_listener_t* c) {
-        return a0_heartbeat_listener_init(c, shm.c->buf, alloc, &c_opts, c_ondetected, c_onmissed);
+        return a0_heartbeat_listener_init(c, *arena.c, alloc, &c_opts, c_ondetected, c_onmissed);
       },
       std::move(deleter));
 }
 
-HeartbeatListener::HeartbeatListener(Shm shm,
+HeartbeatListener::HeartbeatListener(Arena arena,
                                      std::function<void()> ondetected,
                                      std::function<void()> onmissed)
-    : HeartbeatListener(std::move(shm), Options::DEFAULT, std::move(ondetected), std::move(onmissed)) {}
+    : HeartbeatListener(std::move(arena), Options::DEFAULT, std::move(ondetected), std::move(onmissed)) {}
 HeartbeatListener::HeartbeatListener(std::string_view container,
                                      Options opts,
                                      std::function<void()> ondetected,

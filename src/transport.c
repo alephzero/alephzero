@@ -91,7 +91,7 @@ errno_t a0_transport_init_create(a0_transport_t* transport,
 }
 
 errno_t a0_transport_init(a0_transport_t* transport,
-                          a0_buf_t arena,
+                          a0_arena_t arena,
                           size_t metadata_size,
                           a0_transport_init_status_t* status_out,
                           a0_locked_transport_t* lk_out) {
