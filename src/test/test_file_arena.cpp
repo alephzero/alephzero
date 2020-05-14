@@ -119,14 +119,6 @@ TEST_CASE_FIXTURE(DiskTestFixture, "disk] basic") {
   REQUIRE_OK(a0_disk_open(TEST_DISK, nullptr, &disk));
   REQUIRE(disk.arena.size == diskopt.size);
   REQUIRE_OK(a0_disk_close(&disk));
-
-  if (!a0::test::is_valgrind()) {
-    diskopt.size = pow(2, 46);
-    REQUIRE_OK(a0_disk_open(TEST_DISK, &diskopt, &disk));
-    REQUIRE(disk.arena.size == diskopt.size);
-
-    REQUIRE_OK(a0_disk_close(&disk));
-  }
 }
 
 TEST_CASE_FIXTURE(DiskTestFixture, "disk] bad size") {

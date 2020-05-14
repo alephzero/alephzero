@@ -31,7 +31,7 @@ errno_t a0_shm_open(const char* path, const a0_shm_options_t*, a0_shm_t* out);
 errno_t a0_shm_unlink(const char* path);
 errno_t a0_shm_close(a0_shm_t*);
 
-// TODO(lshamis): Maybe unify the shm/disk options.
+// TODO(lshamis): Maybe unify the shm/disk.
 
 typedef struct a0_disk_options_s {
   off_t size;
