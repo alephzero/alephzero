@@ -320,15 +320,18 @@ PacketView::PacketView(a0_packet_t pkt) {
 }
 
 std::string_view PacketView::id() const {
+  CHECK_C;
   return c->id;
 }
 
 const std::vector<std::pair<std::string, std::string>>& PacketView::headers() const {
+  CHECK_C;
   auto* impl = std::get_deleter<PacketImpl>(c);
   return impl->cpp_hdrs;
 }
 
 std::string_view PacketView::payload() const {
+  CHECK_C;
   return as_string_view(c->payload);
 }
 
@@ -357,15 +360,18 @@ Packet::Packet(PacketView&& view) {
 Packet::Packet(a0_packet_t pkt) : Packet(PacketView(pkt)) {}
 
 std::string_view Packet::id() const {
+  CHECK_C;
   return c->id;
 }
 
 const std::vector<std::pair<std::string, std::string>>& Packet::headers() const {
+  CHECK_C;
   auto* impl = std::get_deleter<PacketImpl>(c);
   return impl->cpp_hdrs;
 }
 
 std::string_view Packet::payload() const {
+  CHECK_C;
   return as_string_view(c->payload);
 }
 
@@ -560,6 +566,7 @@ PublisherRaw::PublisherRaw(std::string_view topic)
     : PublisherRaw(GlobalTopicManager().publisher_topic(topic)) {}
 
 void PublisherRaw::pub(const PacketView& pkt) {
+  CHECK_C;
   check(a0_pub_raw(&*c, *pkt.c));
 }
 
@@ -587,6 +594,7 @@ Publisher::Publisher(std::string_view topic)
     : Publisher(GlobalTopicManager().publisher_topic(topic)) {}
 
 void Publisher::pub(const PacketView& pkt) {
+  CHECK_C;
   check(a0_pub(&*c, *pkt.c));
 }
 
@@ -619,12 +627,14 @@ SubscriberSync::SubscriberSync(std::string_view topic,
     : SubscriberSync(GlobalTopicManager().subscriber_topic(topic), init, iter) {}
 
 bool SubscriberSync::has_next() {
+  CHECK_C;
   bool has_next;
   check(a0_subscriber_sync_has_next(&*c, &has_next));
   return has_next;
 }
 
 PacketView SubscriberSync::next() {
+  CHECK_C;
   a0_packet_t pkt;
   check(a0_subscriber_sync_next(&*c, &pkt));
   return pkt;
@@ -743,10 +753,12 @@ RpcServer RpcRequest::server() {
 }
 
 PacketView RpcRequest::pkt() {
+  CHECK_C;
   return c->pkt;
 }
 
 void RpcRequest::reply(const PacketView& pkt) {
+  CHECK_C;
   check(a0_rpc_reply(*c, *pkt.c));
 }
 
@@ -895,6 +907,7 @@ void RpcClient::async_close(std::function<void()> fn) {
 }
 
 void RpcClient::send(const PacketView& pkt, std::function<void(const PacketView&)> fn) {
+  CHECK_C;
   a0_packet_callback_t callback = {
       .user_data = nullptr,
       .fn = nullptr,
@@ -942,6 +955,7 @@ std::future<Packet> RpcClient::send(std::string_view payload) {
 }
 
 void RpcClient::cancel(std::string_view id) {
+  CHECK_C;
   check(a0_rpc_cancel(&*c, id.data()));
 }
 
@@ -953,10 +967,12 @@ PrpcServer PrpcConnection::server() {
 }
 
 PacketView PrpcConnection::pkt() {
+  CHECK_C;
   return c->pkt;
 }
 
 void PrpcConnection::send(const PacketView& pkt, bool done) {
+  CHECK_C;
   check(a0_prpc_send(*c, *pkt.c, done));
 }
 
@@ -1106,6 +1122,7 @@ void PrpcClient::async_close(std::function<void()> fn) {
 }
 
 void PrpcClient::connect(const PacketView& pkt, std::function<void(const PacketView&, bool)> fn) {
+  CHECK_C;
   auto heap_fn = new std::function<void(const PacketView&, bool)>(std::move(fn));
   a0_prpc_callback_t callback = {
       .user_data = heap_fn,
@@ -1159,18 +1176,23 @@ Logger::Logger(const TopicManager& topic_manager) {
 Logger::Logger() : Logger(GlobalTopicManager()) {}
 
 void Logger::crit(const PacketView& pkt) {
+  CHECK_C;
   check(a0_log_crit(&*c, *pkt.c));
 }
 void Logger::err(const PacketView& pkt) {
+  CHECK_C;
   check(a0_log_err(&*c, *pkt.c));
 }
 void Logger::warn(const PacketView& pkt) {
+  CHECK_C;
   check(a0_log_warn(&*c, *pkt.c));
 }
 void Logger::info(const PacketView& pkt) {
+  CHECK_C;
   check(a0_log_info(&*c, *pkt.c));
 }
 void Logger::dbg(const PacketView& pkt) {
+  CHECK_C;
   check(a0_log_dbg(&*c, *pkt.c));
 }
 
