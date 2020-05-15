@@ -57,6 +57,14 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] disk") {
   disk = a0::Disk(TEST_DISK);
   REQUIRE(disk.path() == TEST_DISK);
   REQUIRE(disk.size() == A0_DISK_OPTIONS_DEFAULT.size);
+  REQUIRE(disk.size() == a0::Arena(disk).size());
+
+  a0::Arena arena;
+  {
+    a0::Disk disk2(TEST_DISK);
+    arena = disk2;
+  }
+  REQUIRE(disk.size() == arena.size());
 
   disk = a0::Disk(TEST_DISK, a0::Disk::Options{
     .size = 32 * 1024 * 1024,
@@ -100,6 +108,14 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
   shm = a0::Shm(TEST_SHM);
   REQUIRE(shm.path() == TEST_SHM);
   REQUIRE(shm.size() == A0_SHM_OPTIONS_DEFAULT.size);
+  REQUIRE(shm.size() == a0::Arena(shm).size());
+
+  a0::Arena arena;
+  {
+    a0::Shm shm2(TEST_SHM);
+    arena = shm2;
+  }
+  REQUIRE(disk.size() == arena.size());
 
   shm = a0::Shm(TEST_SHM, a0::Shm::Options{
     .size = 32 * 1024 * 1024,
@@ -233,6 +249,60 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] config") {
 
   a0::Shm::unlink("/a0_config__test");
   a0::Shm::unlink("/a0_config__test_other");
+}
+
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub raw sync") {
+  a0::PublisherRaw p(shm);
+
+  p.pub("msg #0");
+  p.pub(std::string("msg #1"));
+  p.pub(a0::PacketView({{"key", "val"}}, "msg #2"));
+  p.pub(a0::Packet({{"key", "val"}}, "msg #3"));
+
+  {
+    a0::SubscriberSync sub(shm, A0_INIT_OLDEST, A0_ITER_NEXT);
+
+    REQUIRE(sub.has_next());
+    auto pkt_view = sub.next();
+
+    {
+      std::set<std::string> hdr_keys;
+      for (auto&& kv : pkt_view.headers()) {
+        hdr_keys.insert(kv.first);
+      }
+      REQUIRE(hdr_keys.empty());
+    }
+
+    REQUIRE(pkt_view.payload() == "msg #0");
+
+    REQUIRE(sub.has_next());
+    REQUIRE(sub.next().payload() == "msg #1");
+
+    REQUIRE(sub.has_next());
+    REQUIRE(sub.next().payload() == "msg #2");
+
+    REQUIRE(sub.has_next());
+    pkt_view = sub.next();
+    REQUIRE(pkt_view.payload() == "msg #3");
+    {
+      std::set<std::string> hdr_keys;
+      for (auto&& kv : pkt_view.headers()) {
+        hdr_keys.insert(kv.first);
+      }
+      REQUIRE(hdr_keys == std::set<std::string>{"key"});
+    }
+
+    REQUIRE(!sub.has_next());
+  }
+
+  {
+    a0::SubscriberSync sub(shm, A0_INIT_MOST_RECENT, A0_ITER_NEWEST);
+
+    REQUIRE(sub.has_next());
+    REQUIRE(sub.next().payload() == "msg #3");
+
+    REQUIRE(!sub.has_next());
+  }
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub sync") {
