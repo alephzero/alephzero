@@ -24,6 +24,8 @@ namespace a0 {
 
 struct Arena {
   std::shared_ptr<a0_arena_t> c;
+
+  size_t size() const;
 };
 
 struct Disk {
@@ -42,6 +44,7 @@ struct Disk {
 
   operator Arena() const;
 
+  size_t size() const;
   std::string path() const;
 
   static void unlink(std::string_view path);
@@ -63,6 +66,7 @@ struct Shm {
 
   operator Arena() const;
 
+  size_t size() const;
   std::string path() const;
 
   static void unlink(std::string_view path);

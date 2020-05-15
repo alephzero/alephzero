@@ -11,6 +11,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <exception>
 #include <functional>
 #include <future>
 #include <memory>
@@ -23,30 +24,120 @@
 
 #include "src/sync.hpp"
 
+static const char TEST_DISK[] = "/tmp/test.disk";
 static const char TEST_SHM[] = "/test.shm";
 
 struct CppPubsubFixture {
+  a0::Disk disk;
   a0::Shm shm;
 
   CppPubsubFixture() {
-    a0::Shm::unlink(TEST_SHM);
+    cleanup();
 
+    disk = a0::Disk(TEST_DISK);
     shm = a0::Shm(TEST_SHM);
 
     a0::GlobalTopicManager() = {};
   }
 
   ~CppPubsubFixture() {
+    cleanup();
+  }
+
+  void cleanup() {
+    a0::Disk::unlink(TEST_DISK);
     a0::Shm::unlink(TEST_SHM);
   }
 };
+
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] disk") {
+  REQUIRE(disk.path() == TEST_DISK);
+
+  disk = a0::Disk(TEST_DISK);
+  REQUIRE(disk.path() == TEST_DISK);
+  REQUIRE(disk.size() == A0_DISK_OPTIONS_DEFAULT.size);
+
+  disk = a0::Disk(TEST_DISK, a0::Disk::Options{
+    .size = 32 * 1024 * 1024,
+    .resize = false,
+  });
+  REQUIRE(disk.size() == A0_DISK_OPTIONS_DEFAULT.size);
+
+  disk = a0::Disk(TEST_DISK, a0::Disk::Options{
+    .size = 32 * 1024 * 1024,
+    .resize = true,
+  });
+  REQUIRE(disk.size() == 32 * 1024 * 1024);
+
+  REQUIRE_THROWS_WITH([&]() {
+    disk = a0::Disk(TEST_DISK, a0::Disk::Options{
+      .size = std::numeric_limits<off_t>::max(),
+      .resize = true,
+    });
+  }(), "File too large");
+
+  REQUIRE_THROWS_WITH([&]() {
+    disk = a0::Disk(TEST_DISK, a0::Disk::Options{
+      .size = -1,
+      .resize = true,
+    });
+  }(), "Invalid argument");
+
+  REQUIRE_THROWS_WITH([&]() {
+    disk = a0::Disk("////foo/bar");
+  }(), "No such file or directory");
+
+  REQUIRE_THROWS_WITH([&]() {
+    disk = a0::Disk();
+    disk.size();
+  }(), "Function called with NULL object: size_t a0::Disk::size() const");
+}
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
   REQUIRE(shm.path() == TEST_SHM);
 
   shm = a0::Shm(TEST_SHM);
   REQUIRE(shm.path() == TEST_SHM);
-  REQUIRE(shm.c->arena.size == A0_SHM_OPTIONS_DEFAULT.size);
+  REQUIRE(shm.size() == A0_SHM_OPTIONS_DEFAULT.size);
+
+  shm = a0::Shm(TEST_SHM, a0::Shm::Options{
+    .size = 32 * 1024 * 1024,
+    .resize = false,
+  });
+  REQUIRE(shm.size() == A0_SHM_OPTIONS_DEFAULT.size);
+
+  shm = a0::Shm(TEST_SHM, a0::Shm::Options{
+    .size = 32 * 1024 * 1024,
+    .resize = true,
+  });
+  REQUIRE(shm.size() == 32 * 1024 * 1024);
+
+  try {
+
+    shm = a0::Shm(TEST_SHM, a0::Shm::Options{
+      .size = std::numeric_limits<off_t>::max(),
+      .resize = true,
+    });
+  } catch (const std::exception& e) {
+    std::string err = e.what();
+    REQUIRE((err == "Cannot allocate memory" || err == "Invalid argument" || err == "File too large"));
+  }
+
+  REQUIRE_THROWS_WITH([&]() {
+    shm = a0::Shm(TEST_SHM, a0::Shm::Options{
+      .size = -1,
+      .resize = true,
+    });
+  }(), "Invalid argument");
+
+  REQUIRE_THROWS_WITH([&]() {
+    shm = a0::Shm("/foo/bar");
+  }(), "Invalid argument");
+
+  REQUIRE_THROWS_WITH([&]() {
+    shm = a0::Shm();
+    shm.size();
+  }(), "Function called with NULL object: size_t a0::Shm::size() const");
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
