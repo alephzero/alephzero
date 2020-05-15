@@ -140,6 +140,7 @@ valgrind: $(BIN_DIR)/test
 cov: $(BIN_DIR)/test
 	$(BIN_DIR)/test
 	gcov -o $(OBJ_DIR) -bmr $(SRC_DIR)/*
+	gcov -o $(OBJ_DIR)/test -bmr $(SRC_DIR)/test/*
 
 covweb: cov
 	@mkdir -p cov/web
