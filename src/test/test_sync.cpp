@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 #include "src/sync.hpp"
