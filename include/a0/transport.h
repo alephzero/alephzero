@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 typedef struct a0_transport_s {
-  a0_buf_t _arena;
+  a0_arena_t _arena;
 
   // Connection pointer info.
   uint64_t _seq;
@@ -57,7 +57,7 @@ typedef struct a0_locked_transport_s {
 } a0_locked_transport_t;
 
 errno_t a0_transport_init(a0_transport_t*,
-                          a0_buf_t arena,
+                          a0_arena_t,
                           size_t metadata_size,
                           a0_transport_init_status_t* status_out,
                           a0_locked_transport_t* lk_out);

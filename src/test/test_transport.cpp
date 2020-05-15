@@ -1,5 +1,5 @@
 #include <a0/common.h>
-#include <a0/shm.h>
+#include <a0/file_arena.h>
 #include <a0/transport.h>
 
 #include <doctest.h>
@@ -52,12 +52,12 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] construct") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, 0, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, 0, &init_status, &lk));
   REQUIRE_OK(a0_transport_unlock(lk));
   REQUIRE(init_status == A0_TRANSPORT_CREATED);
   REQUIRE_OK(a0_transport_close(&transport));
 
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, 0, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, 0, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
 
   require_debugstr(lk, R"(
@@ -166,7 +166,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
 
   bool is_empty;
   REQUIRE_OK(a0_transport_empty(lk, &is_empty));
@@ -293,7 +293,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
 
   bool evicts;
 
@@ -318,7 +318,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
     a0_transport_t transport;
     a0_transport_init_status_t init_status;
     a0_locked_transport_t lk;
-    REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+    REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
 
     a0_transport_frame_t first_frame;
     REQUIRE_OK(a0_transport_alloc(lk, 1, &first_frame));
@@ -341,7 +341,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
 
   bool is_empty;
   REQUIRE_OK(a0_transport_empty(lk, &is_empty));
@@ -413,7 +413,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] empty jumps") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
 
   REQUIRE(a0_transport_jump_head(lk) == EAGAIN);
   REQUIRE(a0_transport_jump_tail(lk) == EAGAIN);
@@ -436,7 +436,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] wrap around") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
 
   std::string data(1 * 1024, 'a');  // 1kB string
   for (int i = 0; i < 20; i++) {
@@ -505,7 +505,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] expired next") {
   a0_transport_frame_t frame;
   std::string data(1 * 1024, 'a');  // 1kB string
 
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
 
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
   memcpy(frame.data, data.c_str(), data.size());
@@ -518,7 +518,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] expired next") {
 
   {
     a0_transport_t transport_other;
-    REQUIRE_OK(a0_transport_init(&transport_other, shm.buf, A0_NONE, &init_status, &lk));
+    REQUIRE_OK(a0_transport_init(&transport_other, shm.arena, A0_NONE, &init_status, &lk));
 
     for (int i = 0; i < 20; i++) {
       REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
@@ -561,7 +561,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] large alloc") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
 
   std::string long_str(3 * 1024, 'a');  // 3kB string
   for (int i = 0; i < 5; i++) {
@@ -629,7 +629,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] await") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
   REQUIRE_OK(a0_transport_unlock(lk));
 
   fork_sleep_push(&transport, "ABC");
@@ -665,7 +665,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
     a0_transport_t transport;
     a0_transport_init_status_t init_status;
     a0_locked_transport_t lk;
-    REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+    REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
     REQUIRE(init_status == A0_TRANSPORT_CREATED);
     REQUIRE_OK(a0_transport_unlock(lk));
 
@@ -742,7 +742,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
 
   require_debugstr(lk, R"(
@@ -800,7 +800,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust fuzz") {
     a0_transport_t transport;
     a0_transport_init_status_t init_status;
     a0_locked_transport_t lk;
-    REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+    REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
     REQUIRE(init_status == A0_TRANSPORT_CREATED);
     REQUIRE_OK(a0_transport_unlock(lk));
 
@@ -833,7 +833,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust fuzz") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
   REQUIRE_OK(a0_transport_unlock(lk));
 
@@ -865,7 +865,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy") {
     a0_transport_t transport;
     a0_transport_init_status_t init_status;
     a0_locked_transport_t lk;
-    REQUIRE_OK(a0_transport_init(&transport, shm.buf, A0_NONE, &init_status, &lk));
+    REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
     REQUIRE(init_status == A0_TRANSPORT_CREATED);
     REQUIRE_OK(a0_transport_unlock(lk));
 
@@ -903,7 +903,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, copied_shm.buf, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, copied_shm.arena, A0_NONE, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
 
   a0_transport_jump_head(lk);

@@ -14,11 +14,11 @@ struct a0_logger_impl_s {
 };
 
 errno_t a0_logger_init(a0_logger_t* log,
-                       a0_buf_t arena_crit,
-                       a0_buf_t arena_err,
-                       a0_buf_t arena_warn,
-                       a0_buf_t arena_info,
-                       a0_buf_t arena_dbg) {
+                       a0_arena_t arena_crit,
+                       a0_arena_t arena_err,
+                       a0_arena_t arena_warn,
+                       a0_arena_t arena_info,
+                       a0_arena_t arena_dbg) {
   log->_impl = new a0_logger_impl_t;
 
   a0_publisher_init(&log->_impl->publisher_crit, arena_crit);

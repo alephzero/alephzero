@@ -36,7 +36,7 @@ struct a0_publisher_raw_impl_s {
   a0_transport_t transport;
 };
 
-errno_t a0_publisher_raw_init(a0_publisher_raw_t* pub, a0_buf_t arena) {
+errno_t a0_publisher_raw_init(a0_publisher_raw_t* pub, a0_arena_t arena) {
   pub->_impl = new a0_publisher_raw_impl_t;
 
   a0_transport_init_status_t init_status;
@@ -85,7 +85,7 @@ struct a0_publisher_impl_s {
   a0_uuid_t id;
 };
 
-errno_t a0_publisher_init(a0_publisher_t* pub, a0_buf_t arena) {
+errno_t a0_publisher_init(a0_publisher_t* pub, a0_arena_t arena) {
   pub->_impl = new a0_publisher_impl_t;
   a0_uuidv4((uint8_t*)pub->_impl->id);
   return a0_publisher_raw_init(&pub->_impl->raw, arena);
@@ -164,7 +164,7 @@ struct a0_subscriber_sync_zc_impl_s {
 };
 
 errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
-                                   a0_buf_t arena,
+                                   a0_arena_t arena,
                                    a0_subscriber_init_t sub_init,
                                    a0_subscriber_iter_t sub_iter) {
   sub_sync_zc->_impl = new a0_subscriber_sync_zc_impl_t;
@@ -250,7 +250,7 @@ struct a0_subscriber_sync_impl_s {
 };
 
 errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
-                                a0_buf_t arena,
+                                a0_arena_t arena,
                                 a0_alloc_t alloc,
                                 a0_subscriber_init_t sub_init,
                                 a0_subscriber_iter_t sub_iter) {
@@ -309,7 +309,7 @@ struct a0_subscriber_zc_impl_s {
 };
 
 errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
-                              a0_buf_t arena,
+                              a0_arena_t arena,
                               a0_subscriber_init_t sub_init,
                               a0_subscriber_iter_t sub_iter,
                               a0_zero_copy_callback_t onmsg) {
@@ -418,7 +418,7 @@ struct a0_subscriber_impl_s {
 };
 
 errno_t a0_subscriber_init(a0_subscriber_t* sub,
-                           a0_buf_t arena,
+                           a0_arena_t arena,
                            a0_alloc_t alloc,
                            a0_subscriber_init_t sub_init,
                            a0_subscriber_iter_t sub_iter,
@@ -487,7 +487,7 @@ errno_t a0_subscriber_async_close(a0_subscriber_t* sub, a0_callback_t onclose) {
 
 // One-off reader.
 
-errno_t a0_subscriber_read_one(a0_buf_t arena,
+errno_t a0_subscriber_read_one(a0_arena_t arena,
                                a0_alloc_t alloc,
                                a0_subscriber_init_t sub_init,
                                int flags,

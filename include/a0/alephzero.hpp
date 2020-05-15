@@ -1,12 +1,13 @@
 #pragma once
 
+#include <a0/common.h>
+#include <a0/file_arena.h>
 #include <a0/heartbeat.h>
 #include <a0/logger.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
 #include <a0/pubsub.h>
 #include <a0/rpc.h>
-#include <a0/shm.h>
 
 #include <sys/types.h>
 
@@ -21,6 +22,31 @@
 
 namespace a0 {
 
+struct Arena {
+  std::shared_ptr<a0_arena_t> c;
+};
+
+struct Disk {
+  std::shared_ptr<a0_disk_t> c;
+
+  struct Options {
+    off_t size;
+    bool resize;
+
+    static Options DEFAULT;
+  };
+
+  Disk() = default;
+  Disk(std::string_view path);
+  Disk(std::string_view path, Options);
+
+  operator Arena() const;
+
+  std::string path() const;
+
+  static void unlink(std::string_view path);
+};
+
 struct Shm {
   std::shared_ptr<a0_shm_t> c;
 
@@ -34,6 +60,8 @@ struct Shm {
   Shm() = default;
   Shm(std::string_view path);
   Shm(std::string_view path, Options);
+
+  operator Arena() const;
 
   std::string path() const;
 
@@ -108,7 +136,7 @@ struct PublisherRaw {
   std::shared_ptr<a0_publisher_raw_t> c;
 
   PublisherRaw() = default;
-  PublisherRaw(Shm);
+  PublisherRaw(Arena);
   // User-friendly constructor that uses GlobalTopicManager publisher_topic for shm.
   PublisherRaw(std::string_view);
 
@@ -122,7 +150,7 @@ struct Publisher {
   std::shared_ptr<a0_publisher_t> c;
 
   Publisher() = default;
-  Publisher(Shm);
+  Publisher(Arena);
   // User-friendly constructor that uses GlobalTopicManager publisher_topic for shm.
   Publisher(std::string_view);
 
@@ -136,7 +164,7 @@ struct SubscriberSync {
   std::shared_ptr<a0_subscriber_sync_t> c;
 
   SubscriberSync() = default;
-  SubscriberSync(Shm, a0_subscriber_init_t, a0_subscriber_iter_t);
+  SubscriberSync(Arena, a0_subscriber_init_t, a0_subscriber_iter_t);
   // User-friendly constructor that uses GlobalTopicManager subscriber_topic for shm.
   SubscriberSync(std::string_view, a0_subscriber_init_t, a0_subscriber_iter_t);
 
@@ -148,7 +176,7 @@ struct Subscriber {
   std::shared_ptr<a0_subscriber_t> c;
 
   Subscriber() = default;
-  Subscriber(Shm,
+  Subscriber(Arena,
              a0_subscriber_init_t,
              a0_subscriber_iter_t,
              std::function<void(const PacketView&)>);
@@ -159,7 +187,7 @@ struct Subscriber {
              std::function<void(const PacketView&)>);
   void async_close(std::function<void()>);
 
-  static Packet read_one(const Shm&, a0_subscriber_init_t, int flags = 0);
+  static Packet read_one(Arena, a0_subscriber_init_t, int flags = 0);
   static Packet read_one(std::string_view, a0_subscriber_init_t, int flags = 0);
 };
 
@@ -189,7 +217,7 @@ struct RpcServer {
   std::shared_ptr<a0_rpc_server_t> c;
 
   RpcServer() = default;
-  RpcServer(Shm,
+  RpcServer(Arena,
             std::function<void(RpcRequest)> onrequest,
             std::function<void(std::string_view)> oncancel);
   // User-friendly constructor that uses GlobalTopicManager rpc_server_topic for shm.
@@ -203,7 +231,7 @@ struct RpcClient {
   std::shared_ptr<a0_rpc_client_t> c;
 
   RpcClient() = default;
-  RpcClient(Shm);
+  RpcClient(Arena);
   // User-friendly constructor that uses GlobalTopicManager rpc_client_topic for shm.
   RpcClient(std::string_view);
   void async_close(std::function<void()>);
@@ -240,7 +268,7 @@ struct PrpcServer {
   std::shared_ptr<a0_prpc_server_t> c;
 
   PrpcServer() = default;
-  PrpcServer(Shm,
+  PrpcServer(Arena,
              std::function<void(PrpcConnection)> onconnect,
              std::function<void(std::string_view)> oncancel);
   // User-friendly constructor that uses GlobalTopicManager prpc_server_topic for shm.
@@ -254,7 +282,7 @@ struct PrpcClient {
   std::shared_ptr<a0_prpc_client_t> c;
 
   PrpcClient() = default;
-  PrpcClient(Shm);
+  PrpcClient(Arena);
   // User-friendly constructor that uses GlobalTopicManager prpc_client_topic for shm.
   PrpcClient(std::string_view);
   void async_close(std::function<void()>);
@@ -295,10 +323,10 @@ class Heartbeat {
   };
 
   /// Primary constructor.
-  Heartbeat(Shm, Options);
+  Heartbeat(Arena, Options);
   /// User-friendly constructor.
   /// * Uses default options.
-  Heartbeat(Shm);
+  Heartbeat(Arena);
   /// User-friendly constructor.
   /// * Uses GlobalTopicManager heartbeat_topic to get the shm.
   Heartbeat(Options);
@@ -328,13 +356,13 @@ class HeartbeatListener {
   /// ondetected will be executed once, when the first heartbeat packet is read.
   /// onmissed will be executed once, after ondetected, when a period of time passes,
   ///          defined by min_freq, without a heartbeat packet is read.
-  HeartbeatListener(Shm,
+  HeartbeatListener(Arena,
                     Options,
                     std::function<void()> ondetected,
                     std::function<void()> onmissed);
   /// User-friendly constructor.
   /// * Uses default options.
-  HeartbeatListener(Shm,
+  HeartbeatListener(Arena,
                     std::function<void()> ondetected,
                     std::function<void()> onmissed);
   /// User-friendly constructor.

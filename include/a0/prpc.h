@@ -32,7 +32,7 @@ typedef struct a0_prpc_connection_callback_s {
 } a0_prpc_connection_callback_t;
 
 errno_t a0_prpc_server_init(a0_prpc_server_t*,
-                            a0_buf_t arena,
+                            a0_arena_t arena,
                             a0_alloc_t,
                             a0_prpc_connection_callback_t onconnect,
                             a0_packet_id_callback_t oncancel);
@@ -56,7 +56,7 @@ typedef struct a0_prpc_callback_s {
   void (*fn)(void* user_data, a0_packet_t, bool done);
 } a0_prpc_callback_t;
 
-errno_t a0_prpc_client_init(a0_prpc_client_t*, a0_buf_t arena, a0_alloc_t);
+errno_t a0_prpc_client_init(a0_prpc_client_t*, a0_arena_t arena, a0_alloc_t);
 errno_t a0_prpc_client_close(a0_prpc_client_t*);
 errno_t a0_prpc_client_async_close(a0_prpc_client_t*, a0_callback_t);
 errno_t a0_prpc_connect(a0_prpc_client_t*, a0_packet_t, a0_prpc_callback_t);

@@ -11,11 +11,11 @@ class scope {
   std::function<void(T*)> deleter;
 
  public:
-  template<typename U>
+  template<typename U = T>
   scope(U&& val_, std::function<void(T*)> deleter_)
       : val{std::forward<U>(val_)}, deleter{std::move(deleter_)} {}
 
-  template<typename U>
+  template<typename U = T>
   scope(U&& val_, std::function<void(T)> deleter_)
       : val{std::forward<U>(val_)}, deleter{[del = std::move(deleter_)](T* t) {
           del(std::move(*t));
@@ -26,6 +26,10 @@ class scope {
 
   ~scope() {
     deleter(&val);
+  }
+
+  T* get() noexcept {
+    return &val;
   }
 
   T& operator*() noexcept {

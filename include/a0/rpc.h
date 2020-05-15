@@ -30,7 +30,7 @@ typedef struct a0_rpc_request_callback_s {
 } a0_rpc_request_callback_t;
 
 errno_t a0_rpc_server_init(a0_rpc_server_t*,
-                           a0_buf_t arena,
+                           a0_arena_t,
                            a0_alloc_t,
                            a0_rpc_request_callback_t onrequest,
                            a0_packet_id_callback_t oncancel);
@@ -50,7 +50,7 @@ typedef struct a0_rpc_client_s {
   a0_rpc_client_impl_t* _impl;
 } a0_rpc_client_t;
 
-errno_t a0_rpc_client_init(a0_rpc_client_t*, a0_buf_t arena, a0_alloc_t);
+errno_t a0_rpc_client_init(a0_rpc_client_t*, a0_arena_t, a0_alloc_t);
 errno_t a0_rpc_client_close(a0_rpc_client_t*);
 errno_t a0_rpc_client_async_close(a0_rpc_client_t*, a0_callback_t);
 errno_t a0_rpc_send(a0_rpc_client_t*, a0_packet_t, a0_packet_callback_t);
