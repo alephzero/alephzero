@@ -236,7 +236,7 @@ TEST_CASE("sync] Event set") {
 }
 
 TEST_CASE("sync] Event wait") {
-  bool set_by_thread = false;
+  std::atomic<bool> set_by_thread = false;
 
   a0::Event evt;
   std::thread t{[&]() {
@@ -252,7 +252,7 @@ TEST_CASE("sync] Event wait") {
 }
 
 TEST_CASE("sync] Event wait_for no timeout") {
-  bool set_by_thread = false;
+  std::atomic<bool> set_by_thread = false;
 
   a0::Event evt;
   std::thread t{[&]() {
@@ -268,7 +268,7 @@ TEST_CASE("sync] Event wait_for no timeout") {
 }
 
 TEST_CASE("sync] Event wait_for timeout") {
-  bool set_by_thread = false;
+  std::atomic<bool> set_by_thread = false;
 
   a0::Event evt;
   std::thread t{[&]() {
@@ -290,7 +290,7 @@ TEST_CASE("sync] Event wait_for timeout") {
 }
 
 TEST_CASE("sync] Event wait_until no timeout") {
-  bool set_by_thread = false;
+  std::atomic<bool> set_by_thread = false;
 
   auto start = std::chrono::steady_clock::now();
 
@@ -308,7 +308,7 @@ TEST_CASE("sync] Event wait_until no timeout") {
 }
 
 TEST_CASE("sync] Event wait_until timeout") {
-  bool set_by_thread = false;
+  std::atomic<bool> set_by_thread = false;
 
   auto start = std::chrono::steady_clock::now();
 
