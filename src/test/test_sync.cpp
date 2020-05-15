@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 #include "src/sync.hpp"
@@ -236,13 +238,93 @@ TEST_CASE("sync] Event set") {
 }
 
 TEST_CASE("sync] Event wait") {
-  bool set_by_thread = false;
+  std::atomic<bool> set_by_thread = false;
 
   a0::Event evt;
   std::thread t{[&]() {
     set_by_thread = true;
     evt.set();
   }};
+  evt.wait();
+
+  REQUIRE(evt.is_set());
+  REQUIRE(set_by_thread);
+
+  t.join();
+}
+
+TEST_CASE("sync] Event wait_for no timeout") {
+  std::atomic<bool> set_by_thread = false;
+
+  a0::Event evt;
+  std::thread t{[&]() {
+    set_by_thread = true;
+    evt.set();
+  }};
+  REQUIRE(evt.wait_for(std::chrono::milliseconds(10)) == std::cv_status::no_timeout);
+
+  REQUIRE(evt.is_set());
+  REQUIRE(set_by_thread);
+
+  t.join();
+}
+
+TEST_CASE("sync] Event wait_for timeout") {
+  std::atomic<bool> set_by_thread = false;
+
+  a0::Event evt;
+  std::thread t{[&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    set_by_thread = true;
+    evt.set();
+  }};
+  REQUIRE(evt.wait_for(std::chrono::milliseconds(1)) == std::cv_status::timeout);
+
+  REQUIRE(!evt.is_set());
+  REQUIRE(!set_by_thread);
+
+  evt.wait();
+
+  REQUIRE(evt.is_set());
+  REQUIRE(set_by_thread);
+
+  t.join();
+}
+
+TEST_CASE("sync] Event wait_until no timeout") {
+  std::atomic<bool> set_by_thread = false;
+
+  auto start = std::chrono::steady_clock::now();
+
+  a0::Event evt;
+  std::thread t{[&]() {
+    set_by_thread = true;
+    evt.set();
+  }};
+  REQUIRE(evt.wait_until(start + std::chrono::milliseconds(10)) == std::cv_status::no_timeout);
+
+  REQUIRE(evt.is_set());
+  REQUIRE(set_by_thread);
+
+  t.join();
+}
+
+TEST_CASE("sync] Event wait_until timeout") {
+  std::atomic<bool> set_by_thread = false;
+
+  auto start = std::chrono::steady_clock::now();
+
+  a0::Event evt;
+  std::thread t{[&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    set_by_thread = true;
+    evt.set();
+  }};
+  REQUIRE(evt.wait_until(start + std::chrono::milliseconds(1)) == std::cv_status::timeout);
+
+  REQUIRE(!evt.is_set());
+  REQUIRE(!set_by_thread);
+
   evt.wait();
 
   REQUIRE(evt.is_set());
