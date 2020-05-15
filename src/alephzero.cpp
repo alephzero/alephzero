@@ -15,6 +15,7 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string_view>
 #include <string>
 #include <system_error>
@@ -25,6 +26,7 @@
 #include "alloc_util.hpp"
 #include "macros.h"
 #include "scope.hpp"
+#include "strutil.hpp"
 
 namespace a0 {
 namespace {
@@ -83,6 +85,16 @@ CPP make_cpp(InitFn&& init, Closer&& closer) {
 }
 
 template <typename T>
+void check(std::string_view fn_name, const std::shared_ptr<T>& c) {
+  if (!c) {
+    throw std::runtime_error(strutil::cat("Function called with NULL object: ", fn_name));
+  }
+}
+
+#define CHECK_C \
+  check(__PRETTY_FUNCTION__, c)
+
+template <typename T>
 a0_buf_t as_buf(T* mem) {
   return a0_buf_t{
       .ptr = (uint8_t*)(mem->data()),
@@ -95,6 +107,11 @@ std::string_view as_string_view(a0_buf_t buf) {
 }
 
 }  // namespace
+
+size_t Arena::size() const {
+  CHECK_C;
+  return c->size;
+}
 
 Disk::Options Disk::Options::DEFAULT = {
     .size = A0_DISK_OPTIONS_DEFAULT.size,
@@ -117,6 +134,7 @@ Disk::Disk(std::string_view path, Options opts) {
 }
 
 Disk::operator Arena() const {
+  CHECK_C;
   auto save = c;
   return make_cpp<Arena>(
       [&](a0_arena_t* arena) {
@@ -126,7 +144,13 @@ Disk::operator Arena() const {
       [save](a0_arena_t*) {});
 }
 
+size_t Disk::size() const {
+  CHECK_C;
+  return c->arena.size;
+}
+
 std::string Disk::path() const {
+  CHECK_C;
   return c->path;
 }
 
@@ -161,6 +185,7 @@ Shm::Shm(std::string_view path, Options opts) {
 }
 
 Shm::operator Arena() const {
+  CHECK_C;
   auto save = c;
   return make_cpp<Arena>(
       [&](a0_arena_t* arena) {
@@ -170,7 +195,13 @@ Shm::operator Arena() const {
       [save](a0_arena_t*) {});
 }
 
+size_t Shm::size() const {
+  CHECK_C;
+  return c->arena.size;
+}
+
 std::string Shm::path() const {
+  CHECK_C;
   return c->path;
 }
 
