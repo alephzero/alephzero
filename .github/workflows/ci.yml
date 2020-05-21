@@ -11,6 +11,7 @@ jobs:
   ubuntu_1804_gcc:
     name: Ubuntu Bionic default gcc
 
+    runs-on: ubuntu-latest
     container:
       image: 'ubuntu:18.04'
 
@@ -24,6 +25,7 @@ jobs:
   ubuntu_2004_gcc:
     name: Ubuntu Focal default gcc
 
+    runs-on: ubuntu-latest
     container:
       image: 'ubuntu:20.04'
 
@@ -37,6 +39,7 @@ jobs:
   ubuntu_1804_clang:
     name: Ubuntu Bionic default clang
 
+    runs-on: ubuntu-latest
     container:
       image: 'ubuntu:18.04'
 
@@ -50,6 +53,7 @@ jobs:
   ubuntu_2004_clang:
     name: Ubuntu Focal default clang
 
+    runs-on: ubuntu-latest
     container:
       image: 'ubuntu:20.04'
 
@@ -63,6 +67,7 @@ jobs:
   asan:
     name: Address Sanitizer
 
+    runs-on: ubuntu-latest
     container:
       image: 'ubuntu:20.04'
 
@@ -76,6 +81,7 @@ jobs:
   tsan:
     name: Thread Sanitizer
 
+    runs-on: ubuntu-latest
     container:
       image: 'ubuntu:20.04'
 
@@ -89,6 +95,7 @@ jobs:
   ubsan:
     name: Undefined Behavior Sanitizer
 
+    runs-on: ubuntu-latest
     container:
       image: 'ubuntu:20.04'
 
@@ -102,6 +109,7 @@ jobs:
   valgrind:
     name: Valgrind
 
+    runs-on: ubuntu-latest
     container:
       image: 'ubuntu:20.04'
 
@@ -115,6 +123,7 @@ jobs:
   iwyu:
     name: Include What You Use
 
+    runs-on: ubuntu-latest
     container:
       image: 'ubuntu:20.04'
 
