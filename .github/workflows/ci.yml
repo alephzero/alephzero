@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  ubuntu_1804_gcc:
+    name: Ubuntu Bionic default gcc
+
+    container:
+      image: 'ubuntu:18.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y g++ make
+    - name: run
+      run: make test -j
+
+  ubuntu_2004_gcc:
+    name: Ubuntu Focal default gcc
+
+    container:
+      image: 'ubuntu:20.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y g++ make
+    - name: run
+      run: make test -j
+
+  ubuntu_1804_clang:
+    name: Ubuntu Bionic default clang
+
+    container:
+      image: 'ubuntu:18.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y clang make
+    - name: run
+      run: CC=clang CXX=clang++ make test -j
+
+  ubuntu_2004_clang:
+    name: Ubuntu Focal default clang
+
+    container:
+      image: 'ubuntu:20.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y clang make
+    - name: run
+      run: CC=clang CXX=clang++ make test -j
+
+  asan:
+    name: Address Sanitizer
+
+    container:
+      image: 'ubuntu:20.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y g++ make
+    - name: run
+      run: make asan -j
+
+  tsan:
+    name: Thread Sanitizer
+
+    container:
+      image: 'ubuntu:20.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y g++ make
+    - name: run
+      run: make tsan -j
+
+  ubsan:
+    name: Undefined Behavior Sanitizer
+
+    container:
+      image: 'ubuntu:20.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y g++ make
+    - name: run
+      run: make ubsan -j
+
+  valgrind:
+    name: Valgrind
+
+    container:
+      image: 'ubuntu:20.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y g++ make valgrind
+    - name: run
+      run: make valgrind -j
+
+  iwyu:
+    name: Include What You Use
+
+    container:
+      image: 'ubuntu:20.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y clang-9 iwyu make
+    - name: run
+      run: make iwyu -j
