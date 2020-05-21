@@ -15,6 +15,7 @@ Checks: 'bugprone-*,
          -google-readability-braces-around-statements,
          -google-readability-casting,
          -google-readability-namespace-comments,
+         -performance-unnecessary-value-param,
          -readability-braces-around-statements,
          -readability-else-after-return,
          -readability-implicit-bool-conversion,
@@ -49,6 +50,8 @@ WarningsAsErrors: '*'
 #     TODO(lshamis): fix this.
 # * google-readability-namespace-comments:
 #     clang-tidy-6 doesn't recognize nested namespace.
+# * performance-unnecessary-value-param:
+#     TODO(lshamis): fix this.
 # * readability-braces-around-statements:
 #     See https://llvm.discourse.group/t/clang-tidy-readability-braces-around-statements/1024
 # * readability-else-after-return:

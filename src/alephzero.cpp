@@ -647,7 +647,7 @@ Subscriber::Subscriber(Arena arena,
   CDeleter<a0_subscriber_t> deleter;
   deleter.also.emplace_back([arena]() {});
 
-  auto heap_fn = new std::function<void(const PacketView&)>(std::move(fn));
+  auto* heap_fn = new std::function<void(const PacketView&)>(std::move(fn));
   a0_packet_callback_t callback = {
       .user_data = heap_fn,
       .fn =
@@ -693,7 +693,7 @@ void Subscriber::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_subscriber_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{c, std::move(fn)};
+  auto* heap_data = new data_t{c, std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -777,7 +777,7 @@ RpcServer::RpcServer(Arena arena,
   CDeleter<a0_rpc_server_t> deleter;
   deleter.also.emplace_back([arena]() {});
 
-  auto heap_onrequest = new std::function<void(RpcRequest)>(std::move(onrequest));
+  auto* heap_onrequest = new std::function<void(RpcRequest)>(std::move(onrequest));
   deleter.also.emplace_back([heap_onrequest]() {
     delete heap_onrequest;
   });
@@ -795,7 +795,7 @@ RpcServer::RpcServer(Arena arena,
       .fn = nullptr,
   };
   if (oncancel) {
-    auto heap_oncancel = new std::function<void(std::string_view)>(std::move(oncancel));
+    auto* heap_oncancel = new std::function<void(std::string_view)>(std::move(oncancel));
     deleter.also.emplace_back([heap_oncancel]() {
       delete heap_oncancel;
     });
@@ -843,7 +843,7 @@ void RpcServer::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_rpc_server_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{c, std::move(fn)};
+  auto* heap_data = new data_t{c, std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -892,7 +892,7 @@ void RpcClient::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_rpc_client_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{c, std::move(fn)};
+  auto* heap_data = new data_t{c, std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -913,7 +913,7 @@ void RpcClient::send(const PacketView& pkt, std::function<void(const PacketView&
       .fn = nullptr,
   };
   if (fn) {
-    auto heap_fn = new std::function<void(const PacketView&)>(std::move(fn));
+    auto* heap_fn = new std::function<void(const PacketView&)>(std::move(fn));
     callback = {
         .user_data = heap_fn,
         .fn =
@@ -992,7 +992,7 @@ PrpcServer::PrpcServer(Arena arena,
   CDeleter<a0_prpc_server_t> deleter;
   deleter.also.emplace_back([arena]() {});
 
-  auto heap_onconnect = new std::function<void(PrpcConnection)>(std::move(onconnect));
+  auto* heap_onconnect = new std::function<void(PrpcConnection)>(std::move(onconnect));
   deleter.also.emplace_back([heap_onconnect]() {
     delete heap_onconnect;
   });
@@ -1010,7 +1010,7 @@ PrpcServer::PrpcServer(Arena arena,
       .fn = nullptr,
   };
   if (oncancel) {
-    auto heap_oncancel = new std::function<void(std::string_view)>(std::move(oncancel));
+    auto* heap_oncancel = new std::function<void(std::string_view)>(std::move(oncancel));
     deleter.also.emplace_back([heap_oncancel]() {
       delete heap_oncancel;
     });
@@ -1058,7 +1058,7 @@ void PrpcServer::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_prpc_server_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{c, std::move(fn)};
+  auto* heap_data = new data_t{c, std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -1107,7 +1107,7 @@ void PrpcClient::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_prpc_client_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{c, std::move(fn)};
+  auto* heap_data = new data_t{c, std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
@@ -1123,7 +1123,7 @@ void PrpcClient::async_close(std::function<void()> fn) {
 
 void PrpcClient::connect(const PacketView& pkt, std::function<void(const PacketView&, bool)> fn) {
   CHECK_C;
-  auto heap_fn = new std::function<void(const PacketView&, bool)>(std::move(fn));
+  auto* heap_fn = new std::function<void(const PacketView&, bool)>(std::move(fn));
   a0_prpc_callback_t callback = {
       .user_data = heap_fn,
       .fn =
@@ -1322,7 +1322,7 @@ void HeartbeatListener::async_close(std::function<void()> fn) {
     std::shared_ptr<a0_heartbeat_listener_t> c;
     std::function<void()> fn;
   };
-  auto heap_data = new data_t{c, std::move(fn)};
+  auto* heap_data = new data_t{c, std::move(fn)};
   a0_callback_t callback = {
       .user_data = heap_data,
       .fn =
