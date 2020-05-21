@@ -8,8 +8,8 @@ on:
 
 jobs:
 
-  ubuntu_1804_gcc:
-    name: Ubuntu Bionic default gcc
+  bionic_gcc:
+    name: Ubuntu Bionic Default GCC
 
     runs-on: ubuntu-latest
     container:
@@ -22,8 +22,8 @@ jobs:
     - name: run
       run: make test -j
 
-  ubuntu_2004_gcc:
-    name: Ubuntu Focal default gcc
+  focal_gcc:
+    name: Ubuntu Focal Default GCC
 
     runs-on: ubuntu-latest
     container:
@@ -36,8 +36,8 @@ jobs:
     - name: run
       run: make test -j
 
-  ubuntu_1804_clang:
-    name: Ubuntu Bionic default clang
+  bionic_clang:
+    name: Ubuntu Bionic Default Clang
 
     runs-on: ubuntu-latest
     container:
@@ -50,8 +50,8 @@ jobs:
     - name: run
       run: CC=clang CXX=clang++ make test -j
 
-  ubuntu_2004_clang:
-    name: Ubuntu Focal default clang
+  focal_clang:
+    name: Ubuntu Focal Default Clang
 
     runs-on: ubuntu-latest
     container:
@@ -133,3 +133,35 @@ jobs:
       run: apt update && apt install --no-install-recommends -y clang-9 iwyu make
     - name: run
       run: make iwyu -j
+
+  clang_tidy:
+    name: Clang-Tidy
+
+    runs-on: ubuntu-latest
+    container:
+      image: 'ubuntu:20.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y clang-tidy
+    - name: run
+      run: |
+        clang-tidy include/**/*.h src/*.c src/*.h -- -Iinclude
+        clang-tidy src/*.cpp src/*.hpp -- -Iinclude -I. -std=c++17
+
+  cov:
+    name: Code Coverage
+
+    runs-on: ubuntu-latest
+    container:
+      image: 'ubuntu:20.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y g++ make
+    - name: run
+      run: |
+        make cov -j
+        bash <(curl -s https://codecov.io/bash)
