@@ -162,10 +162,9 @@ jobs:
     - name: install deps
       run: apt update && apt install --no-install-recommends -y curl g++ make
     - name: run
-      run: |
-        make cov -j
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       run: |
+        make cov -j
         # Use action when https://github.com/codecov/codecov-action/issues/24 is resolved
         bash <(curl -s https://codecov.io/bash)
