@@ -165,6 +165,6 @@ jobs:
       run: |
         make cov -j
         # Use action when https://github.com/codecov/codecov-action/issues/24 is resolved
-        wget http://codecov.io/bash -O codecov
+        wget --no-check-certificate http://codecov.io/bash -O codecov
         chmod +x codecov
         ./codecov
