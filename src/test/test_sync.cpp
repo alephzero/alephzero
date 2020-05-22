@@ -33,7 +33,6 @@ void ensure_compiles() {
   // abc.with_shared_lock([](ABC*) {});
   abc.with_shared_lock([](const ABC*) {});
 
-  abc.wait();
   abc.wait([]() { return true; });
   abc.wait([](ABC) { return true; });
   abc.wait([](ABC&) { return true; });
@@ -41,7 +40,6 @@ void ensure_compiles() {
   abc.wait([](ABC*) { return true; });
   abc.wait([](const ABC*) { return true; });
 
-  abc.shared_wait();
   abc.shared_wait([]() { return true; });
   abc.shared_wait([](ABC) { return true; });
   // abc.shared_wait([](ABC&) { return true; });
@@ -105,7 +103,6 @@ void ensure_compiles() {
   // abc_const_sync.wait([](ABC*) { return true; });
   // abc_const_sync.wait([](const ABC*) { return true; });
 
-  abc_const_sync.shared_wait();
   abc_const_sync.shared_wait([]() { return true; });
   abc_const_sync.shared_wait([](ABC) { return true; });
   // abc_const_sync.shared_wait([](ABC&) { return true; });
@@ -205,13 +202,9 @@ TEST_CASE("sync] notify all") {
   for (int i = 0; i < 10; i++) {
     ts.emplace_back([&]() {
       x.notify_all([](int& x) { x++; });
-      while (y != 1) {
-        x.shared_wait();
-      }
+      x.shared_wait([&]() { return y == 1; });
       x.notify_all([](int& x) { x++; });
-      while (y != 2) {
-        x.wait();
-      }
+      x.wait([&]() { return y == 2; });
       x.shared_notify_all([&]() { z++; });
     });
   }

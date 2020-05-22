@@ -158,12 +158,6 @@ class sync {
     });
   }
 
-  void wait() {
-    with_lock([&]() {
-      mon.wait();
-    });
-  }
-
   template <typename Fn>
   void wait(Fn&& fn) {
     with_lock([&]() {
@@ -196,12 +190,6 @@ class sync {
   bool wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time, Fn&& fn) {
     return with_lock([&]() {
       return mon.wait_until(timeout_time, bind(std::forward<Fn>(fn)));
-    });
-  }
-
-  void shared_wait() const {
-    with_shared_lock([&]() {
-      mon.wait();
     });
   }
 
