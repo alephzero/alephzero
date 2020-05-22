@@ -160,7 +160,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: install deps
-      run: apt update && apt install --no-install-recommends -y curl g++ make
+      run: apt update && apt install --no-install-recommends -y curl g++ make wget
     - name: run
       run: |
         make cov -j
