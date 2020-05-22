@@ -820,7 +820,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust fuzz") {
   }
 
   // Wait for child to run for a while, then violently kill it.
-  if (a0::test::is_valgrind()) {
+  if (a0::test::is_debug_mode()) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   } else {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));

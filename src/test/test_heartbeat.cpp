@@ -28,7 +28,7 @@ struct HeartbeatFixture {
     a0_shm_open(TEST_SHM, nullptr, &shm);
 
     hb_opts.freq = 100;
-    if (a0::test::is_valgrind()) {
+    if (a0::test::is_debug_mode()) {
       hbl_opts.min_freq = 25;
       sync_duration = std::chrono::nanoseconds(uint64_t(1e9 / 10));
     } else {
