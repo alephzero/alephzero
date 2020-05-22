@@ -164,4 +164,5 @@ jobs:
     - name: run
       run: |
         make cov -j
-    - uses: codecov/codecov-action@v1
+        # Use action when https://github.com/codecov/codecov-action/issues/24 is resolved
+        bash <(curl -s https://codecov.io/bash)
