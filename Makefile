@@ -127,8 +127,11 @@ test: $(BIN_DIR)/test
 bench: $(BIN_DIR)/bench
 	$(BIN_DIR)/bench
 
-asan tsan ubsan: $(BIN_DIR)/test
+asan ubsan: $(BIN_DIR)/test
 	$(BIN_DIR)/test
+
+tsan: $(BIN_DIR)/test
+	RUNNING_ON_VALGRIND=1 $(BIN_DIR)/test
 
 valgrind: $(BIN_DIR)/test
 	@command -v valgrind >/dev/null 2>&1 || {                   \
