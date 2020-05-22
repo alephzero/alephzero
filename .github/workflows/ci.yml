@@ -165,4 +165,6 @@ jobs:
       run: |
         make cov -j
         # Use action when https://github.com/codecov/codecov-action/issues/24 is resolved
-        bash <(curl -s https://codecov.io/bash)
+        wget https://codecov.io/bash -O codecov
+        chmod +x codecov
+        ./codecov
