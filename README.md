@@ -1,5 +1,5 @@
 # Aleph Zero
-![Build Status](https://github.com/alephzero/alephzero/workflows/CI/badge.svg)
+[![CI](https://github.com/alephzero/alephzero/workflows/CI/badge.svg)](https://github.com/alephzero/alephzero/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/alephzero/alephzero/branch/master/graph/badge.svg)](https://codecov.io/gh/alephzero/alephzero)
 
 TODO: What is it? Why is it? Who is it????
