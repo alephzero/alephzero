@@ -160,8 +160,13 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: install deps
-      run: apt update && apt install --no-install-recommends -y curl g++ make
+      run: apt update && apt install --no-install-recommends -y ca-certificates curl g++ make
     - name: run
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       run: |
         make cov -j
-    - uses: codecov/codecov-action@v1
+        # Use action when https://github.com/codecov/codecov-action/issues/24 is resolved
+        curl -o ./codecov https://codecov.io/bash
+        chmod +x ./codecov
+        ./codecov

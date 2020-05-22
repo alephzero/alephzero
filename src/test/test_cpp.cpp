@@ -505,14 +505,14 @@ a0::Heartbeat::Options TestHeartbeatOptions() {
 }
 
 a0::HeartbeatListener::Options TestHeartbeatListenerOptions() {
-  if (a0::test::is_valgrind()) {
+  if (a0::test::is_debug_mode()) {
     return a0::HeartbeatListener::Options{.min_freq = 25};
   }
   return a0::HeartbeatListener::Options{.min_freq = 90};
 }
 
 std::chrono::nanoseconds heartbeat_sync_duration() {
-  if (a0::test::is_valgrind()) {
+  if (a0::test::is_debug_mode()) {
     return std::chrono::nanoseconds(uint64_t(1e9 / 10));
   }
   return std::chrono::nanoseconds(uint64_t(1e9 / 40));

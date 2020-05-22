@@ -75,6 +75,14 @@ inline bool is_valgrind() {
   return env && std::string(env) != "0";
 }
 
+inline bool is_debug_mode() {
+#ifdef DEBUG
+  return true;
+#else
+  return false;
+#endif
+}
+
 template <typename Fn>
 inline pid_t subproc(Fn&& fn) {
   pid_t pid = fork();
