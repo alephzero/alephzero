@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "src/sync.hpp"
+#include "src/test_util.hpp"
 
 // Note: This is not meant to be runnable code. It will block forever.
 // The commented out lines will (and should) cause compilation errors.
@@ -143,6 +144,24 @@ void ensure_compiles() {
   abc_const_sync.shared_notify_all([](const ABC*) {});
 }
 
+namespace {
+
+std::chrono::milliseconds short_dur() {
+  if (a0::test::is_debug_mode()) {
+    return std::chrono::milliseconds(10);
+  }
+  return std::chrono::milliseconds(1);
+}
+
+std::chrono::milliseconds long_dur() {
+  if (a0::test::is_debug_mode()) {
+    return std::chrono::milliseconds(100);
+  }
+  return std::chrono::milliseconds(10);
+}
+
+}  // namespace
+
 TEST_CASE("sync] with_lock") {
   a0::sync<int> x{0};
   int y = 0;
@@ -254,7 +273,7 @@ TEST_CASE("sync] Event wait_for no timeout") {
     set_by_thread = true;
     evt.set();
   }};
-  REQUIRE(evt.wait_for(std::chrono::milliseconds(10)) == std::cv_status::no_timeout);
+  REQUIRE(evt.wait_for(long_dur()) == std::cv_status::no_timeout);
 
   REQUIRE(evt.is_set());
   REQUIRE(set_by_thread);
@@ -267,11 +286,11 @@ TEST_CASE("sync] Event wait_for timeout") {
 
   a0::Event evt;
   std::thread t{[&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(long_dur());
     set_by_thread = true;
     evt.set();
   }};
-  REQUIRE(evt.wait_for(std::chrono::milliseconds(1)) == std::cv_status::timeout);
+  REQUIRE(evt.wait_for(short_dur()) == std::cv_status::timeout);
 
   REQUIRE(!evt.is_set());
   REQUIRE(!set_by_thread);
@@ -294,7 +313,7 @@ TEST_CASE("sync] Event wait_until no timeout") {
     set_by_thread = true;
     evt.set();
   }};
-  REQUIRE(evt.wait_until(start + std::chrono::milliseconds(10)) == std::cv_status::no_timeout);
+  REQUIRE(evt.wait_until(start + long_dur()) == std::cv_status::no_timeout);
 
   REQUIRE(evt.is_set());
   REQUIRE(set_by_thread);
@@ -309,11 +328,11 @@ TEST_CASE("sync] Event wait_until timeout") {
 
   a0::Event evt;
   std::thread t{[&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(long_dur());
     set_by_thread = true;
     evt.set();
   }};
-  REQUIRE(evt.wait_until(start + std::chrono::milliseconds(1)) == std::cv_status::timeout);
+  REQUIRE(evt.wait_until(start + short_dur()) == std::cv_status::timeout);
 
   REQUIRE(!evt.is_set());
   REQUIRE(!set_by_thread);
