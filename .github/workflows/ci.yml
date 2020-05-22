@@ -160,7 +160,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: install deps
-      run: apt update && apt install --no-install-recommends -y curl g++ make
+      run: apt update && apt install --no-install-recommends -y ca-certificates curl g++ make
     - name: run
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
