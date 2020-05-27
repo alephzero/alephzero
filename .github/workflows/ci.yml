@@ -168,7 +168,8 @@ jobs:
         git init
         git config --global user.name "none"
         git config --global user.email "none"
-        git commit -am "DO NOT USE"
+        git add **
+        git commit -am "INITIAL STATE"
         clang-format -i --style=file include/** src/** || true
         git --no-pager diff --exit-code
 
