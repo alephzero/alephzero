@@ -164,6 +164,9 @@ jobs:
     - name: run
       shell: bash
       run: |
+        pwd
+        ls -alFh
+        env
         shopt -s globstar
         git config --global user.name "none"
         git config --global user.email "none"
