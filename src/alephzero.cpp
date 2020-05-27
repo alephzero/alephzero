@@ -1,30 +1,31 @@
 #include <a0/alephzero.hpp>
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/file_arena.h>
 #include <a0/heartbeat.h>
 #include <a0/logger.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
 #include <a0/pubsub.h>
 #include <a0/rpc.h>
-#include <a0/file_arena.h>
 #include <a0/topic_manager.h>
 
 #include <cerrno>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <exception>
 #include <functional>
 #include <memory>
 #include <stdexcept>
-#include <string_view>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "alloc_util.hpp"
-#include "macros.h"
 #include "scope.hpp"
 #include "strutil.hpp"
 
@@ -43,7 +44,8 @@ struct CDeleter {
   std::vector<std::function<void()>> also;
 
   CDeleter() = default;
-  explicit CDeleter(std::function<void(C*)> primary) : primary{std::move(primary)} {}
+  explicit CDeleter(std::function<void(C*)> primary)
+      : primary{std::move(primary)} {}
 
   CDeleter(const CDeleter&) = delete;
   CDeleter(CDeleter&&) noexcept = default;
@@ -106,6 +108,18 @@ std::string_view as_string_view(a0_buf_t buf) {
   return std::string_view((char*)buf.ptr, buf.size);
 }
 
+// TODO(lshamis): Is this the right response?
+#define TRY(NAME, BODY)                                          \
+  try {                                                          \
+    BODY;                                                        \
+  } catch (const std::exception& e) {                            \
+    fprintf(stderr, NAME " threw an exception: %s\n", e.what()); \
+    std::terminate();                                            \
+  } catch (...) {                                                \
+    fprintf(stderr, NAME " threw an exception: ???\n");          \
+    std::terminate();                                            \
+  }
+
 }  // namespace
 
 size_t Arena::size() const {
@@ -118,7 +132,8 @@ Disk::Options Disk::Options::DEFAULT = {
     .resize = A0_DISK_OPTIONS_DEFAULT.resize,
 };
 
-Disk::Disk(std::string_view path) : Disk(path, Options::DEFAULT) {}
+Disk::Disk(std::string_view path)
+    : Disk(path, Options::DEFAULT) {}
 
 Disk::Disk(std::string_view path, Options opts) {
   a0_disk_options_t c_opts{
@@ -169,7 +184,8 @@ Shm::Options Shm::Options::DEFAULT = {
     .resize = A0_SHM_OPTIONS_DEFAULT.resize,
 };
 
-Shm::Shm(std::string_view path) : Shm(path, Options::DEFAULT) {}
+Shm::Shm(std::string_view path)
+    : Shm(path, Options::DEFAULT) {}
 
 Shm::Shm(std::string_view path, Options opts) {
   a0_shm_options_t c_opts{
@@ -277,20 +293,24 @@ void cpp_packet_add_headers(std::shared_ptr<a0_packet_t>* c,
 }
 
 A0_STATIC_INLINE
-void cpp_packet_add_payload(std::shared_ptr<a0_packet_t>* c, std::string_view payload) {
+void cpp_packet_add_payload(std::shared_ptr<a0_packet_t>* c,
+                            std::string_view payload) {
   (*c)->payload = as_buf(&payload);
 }
 
 A0_STATIC_INLINE
-void cpp_packet_add_payload(std::shared_ptr<a0_packet_t>* c, std::string payload) {
+void cpp_packet_add_payload(std::shared_ptr<a0_packet_t>* c,
+                            std::string payload) {
   auto* impl = std::get_deleter<PacketImpl>(*c);
   impl->cpp_payload = std::move(payload);
   cpp_packet_add_payload(c, std::string_view(impl->cpp_payload));
 }
 
-PacketView::PacketView() : PacketView(std::string_view{}) {}
+PacketView::PacketView()
+    : PacketView(std::string_view{}) {}
 
-PacketView::PacketView(std::string_view payload) : PacketView({}, payload) {}
+PacketView::PacketView(std::string_view payload)
+    : PacketView({}, payload) {}
 
 PacketView::PacketView(std::vector<std::pair<std::string, std::string>> headers,
                        std::string_view payload) {
@@ -335,11 +355,14 @@ std::string_view PacketView::payload() const {
   return as_string_view(c->payload);
 }
 
-Packet::Packet() : Packet(std::string{}) {}
+Packet::Packet()
+    : Packet(std::string{}) {}
 
-Packet::Packet(std::string payload) : Packet({}, std::move(payload)) {}
+Packet::Packet(std::string payload)
+    : Packet({}, std::move(payload)) {}
 
-Packet::Packet(std::vector<std::pair<std::string, std::string>> headers, std::string payload) {
+Packet::Packet(std::vector<std::pair<std::string, std::string>> headers,
+               std::string payload) {
   c = make_cpp_packet();
   cpp_packet_add_headers(&c, std::move(headers));
   cpp_packet_add_payload(&c, std::move(payload));
@@ -357,7 +380,8 @@ Packet::Packet(PacketView&& view) {
   cpp_packet_add_payload(&c, std::string(view.payload()));
 }
 
-Packet::Packet(a0_packet_t pkt) : Packet(PacketView(pkt)) {}
+Packet::Packet(a0_packet_t pkt)
+    : Packet(PacketView(pkt)) {}
 
 std::string_view Packet::id() const {
   CHECK_C;
@@ -652,7 +676,8 @@ Subscriber::Subscriber(Arena arena,
       .user_data = heap_fn,
       .fn =
           [](void* user_data, a0_packet_t pkt) {
-            (*(std::function<void(const PacketView&)>*)user_data)(pkt);
+            TRY("a0::Subscriber callback",
+                (*(std::function<void(const PacketView&)>*)user_data)(pkt));
           },
   };
   deleter.also.emplace_back([heap_fn]() {
@@ -683,7 +708,7 @@ Subscriber::Subscriber(std::string_view topic,
 
 void Subscriber::async_close(std::function<void()> fn) {
   if (!c) {
-    fn();
+    TRY("a0::Subscriber::async_close callback", fn());
     return;
   }
   auto* deleter = std::get_deleter<CDeleter<a0_subscriber_t>>(c);
@@ -699,7 +724,7 @@ void Subscriber::async_close(std::function<void()> fn) {
       .fn =
           [](void* user_data) {
             auto* data = (data_t*)user_data;
-            data->fn();
+            TRY("a0::Subscriber::async_close callback", data->fn());
             delete data;
           },
   };
@@ -729,18 +754,22 @@ Subscriber onconfig(std::function<void(const PacketView&)> fn) {
                     A0_ITER_NEWEST,
                     std::move(fn));
 }
+
 Packet read_config(int flags) {
   return Subscriber::read_one(GlobalTopicManager().config_topic(), A0_INIT_MOST_RECENT, flags);
 }
+
 void write_config(const TopicManager& tm, const PacketView& pkt) {
   Publisher p(tm.config_topic());
   p.pub(pkt);
 }
+
 void write_config(const TopicManager& tm,
                   std::vector<std::pair<std::string, std::string>> headers,
                   std::string_view payload) {
   write_config(tm, PacketView(std::move(headers), payload));
 }
+
 void write_config(const TopicManager& tm, std::string_view payload) {
   write_config(tm, {}, payload);
 }
@@ -785,8 +814,9 @@ RpcServer::RpcServer(Arena arena,
       .user_data = heap_onrequest,
       .fn =
           [](void* user_data, a0_rpc_request_t c_req) {
-            (*(std::function<void(RpcRequest)>*)user_data)(
-                RpcRequest{std::make_shared<a0_rpc_request_t>(c_req)});
+            TRY("a0::RpcServer::onrequest callback",
+                (*(std::function<void(RpcRequest)>*)user_data)(
+                    RpcRequest{std::make_shared<a0_rpc_request_t>(c_req)}));
           },
   };
 
@@ -803,7 +833,8 @@ RpcServer::RpcServer(Arena arena,
         .user_data = heap_oncancel,
         .fn =
             [](void* user_data, a0_uuid_t id) {
-              (*(std::function<void(std::string_view)>*)user_data)(id);
+              TRY("a0::RpcServer::oncancel callback",
+                  (*(std::function<void(std::string_view)>*)user_data)(id));
             },
     };
   }
@@ -833,7 +864,7 @@ RpcServer::RpcServer(std::string_view topic,
 
 void RpcServer::async_close(std::function<void()> fn) {
   if (!c) {
-    fn();
+    TRY("a0::RpcServer::async_close callback", fn());
     return;
   }
   auto* deleter = std::get_deleter<CDeleter<a0_rpc_server_t>>(c);
@@ -849,7 +880,7 @@ void RpcServer::async_close(std::function<void()> fn) {
       .fn =
           [](void* user_data) {
             auto* data = (data_t*)user_data;
-            data->fn();
+            TRY("a0::RpcServer::async_close callback", data->fn());
             delete data;
           },
   };
@@ -882,7 +913,7 @@ RpcClient::RpcClient(std::string_view topic)
 
 void RpcClient::async_close(std::function<void()> fn) {
   if (!c) {
-    fn();
+    TRY("a0::RpcClient::async_close callback", fn());
     return;
   }
   auto* deleter = std::get_deleter<CDeleter<a0_rpc_client_t>>(c);
@@ -898,7 +929,7 @@ void RpcClient::async_close(std::function<void()> fn) {
       .fn =
           [](void* user_data) {
             auto* data = (data_t*)user_data;
-            data->fn();
+            TRY("a0::RpcClient::async_close callback", data->fn());
             delete data;
           },
   };
@@ -919,7 +950,7 @@ void RpcClient::send(const PacketView& pkt, std::function<void(const PacketView&
         .fn =
             [](void* user_data, a0_packet_t pkt) {
               auto* fn = (std::function<void(const PacketView&)>*)user_data;
-              (*fn)(pkt);
+              TRY("a0::RpcClient::send callback", (*fn)(pkt));
               delete fn;
             },
     };
@@ -1000,8 +1031,9 @@ PrpcServer::PrpcServer(Arena arena,
       .user_data = heap_onconnect,
       .fn =
           [](void* user_data, a0_prpc_connection_t c_req) {
-            (*(std::function<void(PrpcConnection)>*)user_data)(
-                PrpcConnection{std::make_shared<a0_prpc_connection_t>(c_req)});
+            TRY("a0::PrpcServer::onconnect callback",
+                (*(std::function<void(PrpcConnection)>*)user_data)(
+                    PrpcConnection{std::make_shared<a0_prpc_connection_t>(c_req)}));
           },
   };
 
@@ -1018,7 +1050,8 @@ PrpcServer::PrpcServer(Arena arena,
         .user_data = heap_oncancel,
         .fn =
             [](void* user_data, a0_uuid_t id) {
-              (*(std::function<void(std::string_view)>*)user_data)(id);
+              TRY("a0::PrpcServer::oncancel callback",
+                  (*(std::function<void(std::string_view)>*)user_data)(id));
             },
     };
   }
@@ -1048,7 +1081,7 @@ PrpcServer::PrpcServer(std::string_view topic,
 
 void PrpcServer::async_close(std::function<void()> fn) {
   if (!c) {
-    fn();
+    TRY("a0::PrpcServer::async_close callback", fn());
     return;
   }
   auto* deleter = std::get_deleter<CDeleter<a0_prpc_server_t>>(c);
@@ -1064,7 +1097,7 @@ void PrpcServer::async_close(std::function<void()> fn) {
       .fn =
           [](void* user_data) {
             auto* data = (data_t*)user_data;
-            data->fn();
+            TRY("a0::PrpcServer::async_close callback", data->fn());
             delete data;
           },
   };
@@ -1097,7 +1130,7 @@ PrpcClient::PrpcClient(std::string_view topic)
 
 void PrpcClient::async_close(std::function<void()> fn) {
   if (!c) {
-    fn();
+    TRY("a0::PrpcClient::async_close callback", fn());
     return;
   }
   auto* deleter = std::get_deleter<CDeleter<a0_prpc_client_t>>(c);
@@ -1113,7 +1146,7 @@ void PrpcClient::async_close(std::function<void()> fn) {
       .fn =
           [](void* user_data) {
             auto* data = (data_t*)user_data;
-            data->fn();
+            TRY("a0::PrpcClient::async_close callback", data->fn());
             delete data;
           },
   };
@@ -1129,7 +1162,7 @@ void PrpcClient::connect(const PacketView& pkt, std::function<void(const PacketV
       .fn =
           [](void* user_data, a0_packet_t pkt, bool done) {
             auto* fn = (std::function<void(const PacketView&, bool)>*)user_data;
-            (*fn)(pkt, done);
+            TRY("a0::PrpcClient::connect callback", (*fn)(pkt, done));
             if (done) {
               delete fn;
             }
@@ -1173,7 +1206,8 @@ Logger::Logger(const TopicManager& topic_manager) {
       });
 }
 
-Logger::Logger() : Logger(GlobalTopicManager()) {}
+Logger::Logger()
+    : Logger(GlobalTopicManager()) {}
 
 void Logger::crit(const PacketView& pkt) {
   CHECK_C;
@@ -1214,11 +1248,14 @@ Heartbeat::Heartbeat(Arena arena, Options opts) {
       });
 }
 
-Heartbeat::Heartbeat(Arena arena) : Heartbeat(std::move(arena), Options::DEFAULT) {}
+Heartbeat::Heartbeat(Arena arena)
+    : Heartbeat(std::move(arena), Options::DEFAULT) {}
 
-Heartbeat::Heartbeat(Options opts) : Heartbeat(GlobalTopicManager().heartbeat_topic(), opts) {}
+Heartbeat::Heartbeat(Options opts)
+    : Heartbeat(GlobalTopicManager().heartbeat_topic(), opts) {}
 
-Heartbeat::Heartbeat() : Heartbeat(Options::DEFAULT) {}
+Heartbeat::Heartbeat()
+    : Heartbeat(Options::DEFAULT) {}
 
 HeartbeatListener::Options HeartbeatListener::Options::DEFAULT = {
     .min_freq = A0_HEARTBEAT_LISTENER_OPTIONS_DEFAULT.min_freq,
@@ -1312,7 +1349,7 @@ HeartbeatListener::HeartbeatListener(std::function<void()> ondetected,
 
 void HeartbeatListener::async_close(std::function<void()> fn) {
   if (!c) {
-    fn();
+    TRY("a0::HeartbeatListener::async_close callback", fn());
     return;
   }
   auto* deleter = std::get_deleter<CDeleter<a0_heartbeat_listener_t>>(c);
@@ -1328,7 +1365,7 @@ void HeartbeatListener::async_close(std::function<void()> fn) {
       .fn =
           [](void* user_data) {
             auto* data = (data_t*)user_data;
-            data->fn();
+            TRY("a0::HeartbeatListener::async_close callback", data->fn());
             delete data;
           },
   };

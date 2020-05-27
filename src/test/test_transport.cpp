@@ -8,8 +8,8 @@
 
 #include <algorithm>
 #include <cerrno>
-#include <csignal>
 #include <chrono>
+#include <csignal>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>

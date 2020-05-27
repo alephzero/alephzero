@@ -10,8 +10,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "macros.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif

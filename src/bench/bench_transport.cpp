@@ -7,8 +7,11 @@
 static const char BENCH_SHM[] = "/bench.shm";
 
 template <typename T>
-static inline void use(const T& t) {
-  asm volatile("" : : "r,m"(t) : "memory");
+A0_STATIC_INLINE void use(const T& t) {
+  asm volatile(""
+               :
+               : "r,m"(t)
+               : "memory");
 }
 
 struct BenchFixture {

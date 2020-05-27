@@ -11,15 +11,17 @@
 #include "src/test_util.hpp"
 
 TEST_CASE("topic_manager] basic") {
-  a0_topic_alias_t subscriber_aliases[2] = {{
-      .name = "ps0",
-      .target_container = "ps0_container",
-      .target_topic = "ps0_topic",
-  }, {
-      .name = "ps1",
-      .target_container = "ps1_container",
-      .target_topic = "ps1_topic",
-  }};
+  a0_topic_alias_t subscriber_aliases[2] = {
+      {
+          .name = "ps0",
+          .target_container = "ps0_container",
+          .target_topic = "ps0_topic",
+      },
+      {
+          .name = "ps1",
+          .target_container = "ps1_container",
+          .target_topic = "ps1_topic",
+      }};
 
   a0_topic_alias_t rpc_client_aliases[1] = {{
       .name = "rpc0",

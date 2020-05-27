@@ -22,13 +22,13 @@ typedef struct a0_alloc_s {
 } a0_alloc_t;
 
 /// Perform allocation.
-static inline
+A0_STATIC_INLINE
 errno_t a0_alloc(a0_alloc_t alloc, size_t size, a0_buf_t* out) {
   return alloc.alloc(alloc.user_data, size, out);
 }
 
 /// Perform deallocation.
-static inline
+A0_STATIC_INLINE
 errno_t a0_dealloc(a0_alloc_t alloc, a0_buf_t buf) {
   if (alloc.dealloc) {
     return alloc.dealloc(alloc.user_data, buf);

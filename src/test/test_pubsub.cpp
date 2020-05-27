@@ -1,7 +1,7 @@
 #include <a0/common.h>
+#include <a0/file_arena.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
-#include <a0/file_arena.h>
 
 #include <doctest.h>
 #include <fcntl.h>

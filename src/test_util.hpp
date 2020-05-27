@@ -5,8 +5,10 @@
 #include <a0/packet.h>
 #include <a0/transport.h>
 
+#include <sys/wait.h>
 #include <unistd.h>
 
+#include <csignal>
 #include <cstdint>
 #include <cstdlib>
 #include <map>
@@ -96,10 +98,21 @@ inline pid_t subproc(Fn&& fn) {
 }  // namespace a0::test
 
 #define REQUIRE_OK(err) REQUIRE((err) == A0_OK);
-#define REQUIRE_EXIT(FN_BODY)                                            \
-  {                                                                      \
-    int _ret_code_##__LINE__;                                            \
-    /* NOLINTNEXTLINE(bugprone-macro-parentheses) */                     \
-    waitpid(a0::test::subproc([&]() FN_BODY), &_ret_code_##__LINE__, 0); \
-    REQUIRE(WIFEXITED(_ret_code_##__LINE__));                            \
+#define REQUIRE_EXIT(FN_BODY)                                 \
+  {                                                           \
+    int _ret_code;                                            \
+    /* NOLINTNEXTLINE(bugprone-macro-parentheses) */          \
+    waitpid(a0::test::subproc([&]() FN_BODY), &_ret_code, 0); \
+    REQUIRE(WIFEXITED(_ret_code));                            \
+  }
+
+#define REQUIRE_SIGNALED(FN_BODY)                                          \
+  {                                                                        \
+    /* Unhook doctest from the subprocess. */                              \
+    /* Otherwise, we would see a test-failure printout after the crash. */ \
+    signal(SIGABRT, SIG_DFL);                                              \
+    int _ret_code;                                                         \
+    /* NOLINTNEXTLINE(bugprone-macro-parentheses) */                       \
+    waitpid(a0::test::subproc([&]() FN_BODY), &_ret_code, 0);              \
+    REQUIRE(WIFSIGNALED(_ret_code));                                       \
   }
