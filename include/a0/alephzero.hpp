@@ -16,8 +16,8 @@
 #include <future>
 #include <map>
 #include <memory>
-#include <string_view>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -96,7 +96,8 @@ struct Packet {
 
   Packet();
   Packet(std::string payload);
-  Packet(std::vector<std::pair<std::string, std::string>> headers, std::string payload);
+  Packet(std::vector<std::pair<std::string, std::string>> headers,
+         std::string payload);
 
   Packet(const PacketView&);
   Packet(PacketView&&);
@@ -292,11 +293,13 @@ struct PrpcClient {
   PrpcClient(std::string_view);
   void async_close(std::function<void()>);
 
-  void connect(const PacketView&, std::function<void(const PacketView&, bool)>);
+  void connect(const PacketView&,
+               std::function<void(const PacketView&, bool)>);
   void connect(std::vector<std::pair<std::string, std::string>> headers,
                std::string_view payload,
                std::function<void(const PacketView&, bool)>);
-  void connect(std::string_view payload, std::function<void(const PacketView&, bool)>);
+  void connect(std::string_view payload,
+               std::function<void(const PacketView&, bool)>);
 
   void cancel(std::string_view);
 };

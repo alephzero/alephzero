@@ -6,11 +6,6 @@
 #define A0_CAT(a, b) A0_CAT_(a, b)
 #define A0_CAT_(a, b) a##b
 
-#define A0_LIKELY(x) __builtin_expect((x), 1)
-#define A0_UNLIKELY(x) __builtin_expect((x), 0)
-
-#define A0_STATIC_INLINE static inline __attribute__((always_inline))
-
 #define A0_RETURN_ERR_ON_MINUS_ONE(x) \
   if (A0_UNLIKELY((x) == -1)) {       \
     return errno;                     \

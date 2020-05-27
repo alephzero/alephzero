@@ -82,7 +82,6 @@ TEST_CASE_FIXTURE(ShmTestFixture, "shm] double close") {
   REQUIRE(a0_shm_close(&shm) == EBADF);
 }
 
-
 static const char* TEST_DISK = "/tmp/test.disk";
 
 struct DiskTestFixture {

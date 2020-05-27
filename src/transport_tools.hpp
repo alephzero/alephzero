@@ -13,7 +13,6 @@
 #include <thread>
 #include <utility>
 
-#include "macros.h"
 #include "sync.hpp"
 
 namespace a0 {
@@ -55,7 +54,8 @@ struct scoped_transport_lock {
 struct scoped_transport_unlock {
   a0_transport_t* transport;
 
-  explicit scoped_transport_unlock(a0_locked_transport_t tlk) : transport{tlk.transport} {
+  explicit scoped_transport_unlock(a0_locked_transport_t tlk)
+      : transport{tlk.transport} {
     a0_transport_unlock(tlk);
   }
   ~scoped_transport_unlock() {

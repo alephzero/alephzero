@@ -28,7 +28,7 @@
  * when a heartbeat takes longer than a given minimum frequency.
  *
  * Both callbacks may trigger at most once.
- * 
+ *
  * If a minimum frequency is not provided, it defaults to 5Hz.
  *
  * .. note::

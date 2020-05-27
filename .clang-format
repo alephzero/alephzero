@@ -2,12 +2,7 @@
 BasedOnStyle:  Chromium
 ---
 Language:                            Cpp
-ColumnLimit:                         100
-
-AllowShortFunctionsOnASingleLine:    Empty
-AllowShortLambdasOnASingleLine:      Empty
-AllowAllArgumentsOnNextLine:         false
-BinPackArguments:                    false
+ColumnLimit:                         0
 
 IncludeBlocks:       Regroup
 IncludeCategories:

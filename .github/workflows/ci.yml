@@ -150,6 +150,26 @@ jobs:
         clang-tidy include/**/*.h src/*.c src/*.h -- -Iinclude
         clang-tidy src/*.cpp src/*.hpp -- -Iinclude -I. -std=c++17
 
+  format:
+    name: Format
+
+    runs-on: ubuntu-latest
+    container:
+      image: 'ubuntu:20.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y clang-format git
+    - name: run
+      run: |
+        shopt -s globstar
+        git config --global user.name "none"
+        git config --global user.email "none"
+        git commit -am "DO NOT USE"
+        clang-format -i --style=file include/** src/** || true
+        git --no-pager diff --exit-code
+
   cov:
     name: Code Coverage
 

@@ -90,16 +90,15 @@ TEST_CASE("packet] for_each_header") {
   a0_packet_headers_block_t blk_b = {grp_b, 3, &blk_a};
 
   std::map<std::string, std::string> kv;
-  REQUIRE_OK(a0_packet_for_each_header(blk_b,
-                                       {
-                                           .user_data = &kv,
-                                           .fn =
-                                               [](void* data, a0_packet_header_t hdr) {
-                                                 auto* map =
-                                                     (std::map<std::string, std::string>*)data;
-                                                 (*map)[hdr.key] = hdr.val;
-                                               }
-                                       }));
+  // clang-format off
+  REQUIRE_OK(a0_packet_for_each_header(blk_b, {
+      .user_data = &kv,
+      .fn = [](void* data, a0_packet_header_t hdr) {
+        auto* map = (std::map<std::string, std::string>*)data;
+        (*map)[hdr.key] = hdr.val;
+      }
+  }));
+  // clang-format on
 
   REQUIRE(kv == std::map<std::string, std::string>{
                     {"a", "b"},
@@ -211,12 +210,13 @@ TEST_CASE("packet] dealloc") {
   pkt_before.headers_block = blk_a;
   pkt_before.payload = a0::test::buf("Hello, World!");
 
-  struct  data_t {
+  struct data_t {
     bool was_alloc_called;
     bool was_dealloc_called;
     a0_buf_t expected_buf;
   } data{false, false, A0_NONE};
 
+  // clang-format off
   a0_alloc_t alloc = {
       .user_data = &data,
       .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
@@ -238,6 +238,7 @@ TEST_CASE("packet] dealloc") {
         return A0_OK;
       },
   };
+  // clang-format on
 
   a0_packet_t pkt_after;
   REQUIRE_OK(a0_packet_deep_copy(pkt_before, alloc, &pkt_after));

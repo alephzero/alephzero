@@ -1,9 +1,9 @@
 #include <a0/common.h>
 #include <a0/time.h>  // IWYU pragma: keep
 
-#include <cerrno> 
-#include <cstdio>
+#include <cerrno>
 #include <cstdint>
+#include <cstdio>
 #include <ctime>
 
 #include "charconv.hpp"

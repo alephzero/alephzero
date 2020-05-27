@@ -1,9 +1,10 @@
 #include <a0/alephzero.hpp>
-#include <a0/pubsub.h>
 #include <a0/file_arena.h>
+#include <a0/pubsub.h>
 
 #include <doctest.h>
 #include <fcntl.h>
+#include <sys/types.h>
 
 #include <algorithm>
 #include <atomic>
@@ -16,9 +17,9 @@
 #include <limits>
 #include <memory>
 #include <set>
-#include <string_view>
+#include <stdexcept>
 #include <string>
-#include <sys/types.h>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -28,6 +29,8 @@
 
 static const char TEST_DISK[] = "/tmp/test.disk";
 static const char TEST_SHM[] = "/test.shm";
+
+static constexpr size_t MB = 1024 * 1024;
 
 struct CppPubsubFixture {
   a0::Disk disk;
@@ -67,40 +70,30 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] disk") {
   }
   REQUIRE(disk.size() == arena.size());
 
-  disk = a0::Disk(TEST_DISK, a0::Disk::Options{
-    .size = 32 * 1024 * 1024,
-    .resize = false,
-  });
+  disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = 32 * MB, .resize = false});
   REQUIRE(disk.size() == A0_DISK_OPTIONS_DEFAULT.size);
 
-  disk = a0::Disk(TEST_DISK, a0::Disk::Options{
-    .size = 32 * 1024 * 1024,
-    .resize = true,
-  });
-  REQUIRE(disk.size() == 32 * 1024 * 1024);
+  disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = 32 * MB, .resize = true});
+  REQUIRE(disk.size() == 32 * MB);
 
-  REQUIRE_THROWS_WITH([&]() {
-    disk = a0::Disk(TEST_DISK, a0::Disk::Options{
-      .size = std::numeric_limits<off_t>::max(),
-      .resize = true,
-    });
-  }(), "File too large");
+  REQUIRE_THROWS_WITH(
+      [&]() { disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = std::numeric_limits<off_t>::max(), .resize = true}); }(),
+      "File too large");
 
-  REQUIRE_THROWS_WITH([&]() {
-    disk = a0::Disk(TEST_DISK, a0::Disk::Options{
-      .size = -1,
-      .resize = true,
-    });
-  }(), "Invalid argument");
+  REQUIRE_THROWS_WITH(
+      [&]() { disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = -1, .resize = true}); }(),
+      "Invalid argument");
 
-  REQUIRE_THROWS_WITH([&]() {
-    disk = a0::Disk("////foo/bar");
-  }(), "No such file or directory");
+  REQUIRE_THROWS_WITH(
+      [&]() { disk = a0::Disk("////foo/bar"); }(),
+      "No such file or directory");
 
-  REQUIRE_THROWS_WITH([&]() {
-    disk = a0::Disk();
-    disk.size();
-  }(), "Function called with NULL object: size_t a0::Disk::size() const");
+  REQUIRE_THROWS_WITH(
+      [&]() {
+        disk = a0::Disk();
+        disk.size();
+      }(),
+      "Function called with NULL object: size_t a0::Disk::size() const");
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
@@ -118,44 +111,33 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
   }
   REQUIRE(disk.size() == arena.size());
 
-  shm = a0::Shm(TEST_SHM, a0::Shm::Options{
-    .size = 32 * 1024 * 1024,
-    .resize = false,
-  });
+  shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = 32 * MB, .resize = false});
   REQUIRE(shm.size() == A0_SHM_OPTIONS_DEFAULT.size);
 
-  shm = a0::Shm(TEST_SHM, a0::Shm::Options{
-    .size = 32 * 1024 * 1024,
-    .resize = true,
-  });
-  REQUIRE(shm.size() == 32 * 1024 * 1024);
+  shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = 32 * MB, .resize = true});
+  REQUIRE(shm.size() == 32 * MB);
 
   try {
-
-    shm = a0::Shm(TEST_SHM, a0::Shm::Options{
-      .size = std::numeric_limits<off_t>::max(),
-      .resize = true,
-    });
+    shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = std::numeric_limits<off_t>::max(), .resize = true});
   } catch (const std::exception& e) {
     std::string err = e.what();
     REQUIRE((err == "Cannot allocate memory" || err == "Invalid argument" || err == "File too large"));
   }
 
-  REQUIRE_THROWS_WITH([&]() {
-    shm = a0::Shm(TEST_SHM, a0::Shm::Options{
-      .size = -1,
-      .resize = true,
-    });
-  }(), "Invalid argument");
+  REQUIRE_THROWS_WITH(
+      [&]() { shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = -1, .resize = true}); }(),
+      "Invalid argument");
 
-  REQUIRE_THROWS_WITH([&]() {
-    shm = a0::Shm("/foo/bar");
-  }(), "Invalid argument");
+  REQUIRE_THROWS_WITH(
+      [&]() { shm = a0::Shm("/foo/bar"); }(),
+      "Invalid argument");
 
-  REQUIRE_THROWS_WITH([&]() {
-    shm = a0::Shm();
-    shm.size();
-  }(), "Function called with NULL object: size_t a0::Shm::size() const");
+  REQUIRE_THROWS_WITH(
+      [&]() {
+        shm = a0::Shm();
+        shm.size();
+      }(),
+      "Function called with NULL object: size_t a0::Shm::size() const");
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
@@ -227,19 +209,21 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] config") {
   a0::Shm::unlink("/a0_config__test_other");
 
   a0::InitGlobalTopicManager(a0::TopicManager{
-    .container = "test",
-    .subscriber_aliases = {},
-    .rpc_client_aliases = {},
-    .prpc_client_aliases = {},
+      .container = "test",
+      .subscriber_aliases = {},
+      .rpc_client_aliases = {},
+      .prpc_client_aliases = {},
   });
 
   a0::write_config(a0::GlobalTopicManager(), R"({"foo": "aaa"})");
-  a0::write_config(a0::TopicManager{
-    .container = "test_other",
-    .subscriber_aliases = {},
-    .rpc_client_aliases = {},
-    .prpc_client_aliases = {},
-  }, R"({"foo": "bbb"})");
+  a0::write_config(
+      a0::TopicManager{
+          .container = "test_other",
+          .subscriber_aliases = {},
+          .rpc_client_aliases = {},
+          .prpc_client_aliases = {},
+      },
+      R"({"foo": "bbb"})");
 
   REQUIRE(a0::read_config().payload() == R"({"foo": "aaa"})");
   a0::GlobalTopicManager().container = "test_other";
@@ -400,6 +384,17 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub") {
   }
   REQUIRE_THROWS_WITH(a0::Subscriber::read_one(shm, A0_INIT_AWAIT_NEW, O_NONBLOCK),
                       "Resource temporarily unavailable");
+}
+
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] sub throw") {
+  REQUIRE_SIGNALED({
+    a0::Publisher p(shm);
+    p.pub("");
+    a0::Subscriber sub(shm, A0_INIT_OLDEST, A0_ITER_NEXT, [&](a0::PacketView) {
+      throw std::runtime_error("FOOBAR");
+    });
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  });
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] rpc") {

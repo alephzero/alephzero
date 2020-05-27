@@ -125,7 +125,8 @@ class sync {
 
  public:
   template <typename... Args>
-  explicit sync(Args&&... args) : val(std::forward<Args>(args)...) {}
+  explicit sync(Args&&... args)
+      : val(std::forward<Args>(args)...) {}
 
   template <typename Fn>
   auto with_lock(Fn&& fn) {

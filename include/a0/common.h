@@ -37,6 +37,11 @@ typedef char a0_uuid_t[A0_UUID_SIZE];
   { 0 }
 #endif
 
+#define A0_LIKELY(x) __builtin_expect((x), 1)
+#define A0_UNLIKELY(x) __builtin_expect((x), 0)
+
+#define A0_STATIC_INLINE static inline __attribute__((always_inline))
+
 #ifdef __cplusplus
 }
 #endif
