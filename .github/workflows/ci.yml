@@ -162,6 +162,7 @@ jobs:
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang-format git
     - name: run
+      shell: bash
       run: |
         shopt -s globstar
         git config --global user.name "none"
