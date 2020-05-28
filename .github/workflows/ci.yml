@@ -36,6 +36,22 @@ jobs:
     - name: run
       run: make test -j
 
+  alpine_gcc:
+    name: Alpine GCC
+
+    runs-on: ubuntu-latest
+    container:
+      image: 'alpine:3.11'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      shell: sh
+      run: apk add --no-cache g++ linux-headers make
+    - name: run
+      shell: sh
+      run: make test -j
+
   bionic_clang:
     name: Ubuntu Bionic Default Clang
 
@@ -62,6 +78,22 @@ jobs:
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang make
     - name: run
+      run: CC=clang CXX=clang++ make test -j
+
+  alpine_clang:
+    name: Alpine Clang
+
+    runs-on: ubuntu-latest
+    container:
+      image: 'alpine:3.11'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      shell: sh
+      run: apk add --no-cache clang g++ linux-headers make
+    - name: run
+      shell: sh
       run: CC=clang CXX=clang++ make test -j
 
   asan:

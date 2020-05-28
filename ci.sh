@@ -1,5 +1,5 @@
 #!/bin/bash
-cd "$(dirname "$0")"/../..
+cd "$(dirname "$0")"
 
 rm /tmp/alephzero_ci.Dockerfile
 cat <<EOF >> /tmp/alephzero_ci.Dockerfile
