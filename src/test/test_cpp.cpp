@@ -122,7 +122,10 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
     shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = std::numeric_limits<off_t>::max(), .resize = true});
   } catch (const std::exception& e) {
     std::string err = e.what();
-    REQUIRE((err == "Cannot allocate memory" || err == "Invalid argument" || err == "File too large"));
+    REQUIRE((err == "Cannot allocate memory" ||
+             err == "File too large" ||
+             err == "Invalid argument" ||
+             err == "Out of memory"));
   }
 
   REQUIRE_THROWS_WITH(
