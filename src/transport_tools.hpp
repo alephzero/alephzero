@@ -13,6 +13,7 @@
 #include <thread>
 #include <utility>
 
+#include "ref_cnt.h"
 #include "sync.hpp"
 
 namespace a0 {
@@ -126,6 +127,9 @@ struct transport_thread {
     if (err) {
       return err;
     }
+
+    a0_ref_cnt_inc(arena.ptr);
+
     std::thread t([state_ = state]() {
       state_->thread_main();
     });
@@ -138,6 +142,8 @@ struct transport_thread {
     if (!state) {
       return ESHUTDOWN;
     }
+
+    a0_ref_cnt_dec(state->transport._arena.ptr);
 
     state->onclose.set(onclose);
     a0_transport_close(&state->transport);

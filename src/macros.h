@@ -6,6 +6,42 @@
 #define A0_CAT(a, b) A0_CAT_(a, b)
 #define A0_CAT_(a, b) a##b
 
+#ifdef DEBUG
+
+#define A0_ASSERT(ERR, MSG, ...)                                                                        \
+  ({                                                                                                    \
+    errno_t err = (ERR);                                                                                \
+    if (A0_UNLIKELY(err)) {                                                                             \
+      fprintf(stderr, "%s:%d: errno: %s] " MSG "\n", __FILE__, __LINE__, strerror(ERR), ##__VA_ARGS__); \
+      abort();                                                                                          \
+    }                                                                                                   \
+    err;                                                                                                \
+  })
+
+#define A0_ASSERT_RETURN(ERR, MSG, ...)                                                                 \
+  ({                                                                                                    \
+    errno_t err = (ERR);                                                                                \
+    if (A0_UNLIKELY(err)) {                                                                             \
+      fprintf(stderr, "%s:%d: errno: %s] " MSG "\n", __FILE__, __LINE__, strerror(ERR), ##__VA_ARGS__); \
+      abort();                                                                                          \
+    }                                                                                                   \
+    return err;                                                                                         \
+  })
+
+#else
+
+#define A0_ASSERT(ERR, ...) ({ (ERR); })
+
+#define A0_ASSERT_RETURN(ERR, ...) \
+  ({                               \
+    errno_t err = (ERR);           \
+    if (A0_UNLIKELY(err)) {        \
+      return err;                  \
+    }                              \
+  })
+
+#endif
+
 #define A0_RETURN_ERR_ON_MINUS_ONE(x) \
   if (A0_UNLIKELY((x) == -1)) {       \
     return errno;                     \

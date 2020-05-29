@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "macros.h"
+#include "ref_cnt.h"
 
 A0_STATIC_INLINE
 errno_t a0_mmap(int fd, off_t size, bool resize, a0_arena_t* arena) {
@@ -75,6 +76,8 @@ errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts_, a0_shm_t* o
 
   out->path = strdup(path);
 
+  a0_ref_cnt_inc(out->arena.ptr);
+
   return A0_OK;
 }
 
@@ -84,10 +87,26 @@ errno_t a0_shm_unlink(const char* path) {
 }
 
 errno_t a0_shm_close(a0_shm_t* shm) {
-  if (shm->path) {
-    free((void*)shm->path);
-    shm->path = NULL;
-  }
+  A0_ASSERT_RETURN(
+      (shm->path && shm->arena.ptr) ? A0_OK : EBADF,
+      "Shared memory file closed multiple times: %s",
+      shm->path);
+
+  A0_ASSERT_RETURN(
+      a0_ref_cnt_dec(shm->arena.ptr) ? EBADF : A0_OK,
+      "Shared memory file closed multiple times: %s",
+      shm->path);
+
+  size_t cnt;
+  a0_ref_cnt_get(shm->arena.ptr, &cnt);
+  A0_ASSERT(
+      cnt ? A0_OK : EINVAL,
+      "Shared memory file closing while still in use: %s",
+      shm->path);
+
+  free((void*)shm->path);
+  shm->path = NULL;
+
   return a0_munmap(&shm->arena);
 }
 
@@ -115,6 +134,8 @@ errno_t a0_disk_open(const char* path, const a0_disk_options_t* opts_, a0_disk_t
 
   out->path = strdup(path);
 
+  a0_ref_cnt_inc(out->arena.ptr);
+
   return A0_OK;
 }
 
@@ -124,9 +145,25 @@ errno_t a0_disk_unlink(const char* path) {
 }
 
 errno_t a0_disk_close(a0_disk_t* disk) {
-  if (disk->path) {
-    free((void*)disk->path);
-    disk->path = NULL;
-  }
+  A0_ASSERT_RETURN(
+      (disk->path && disk->arena.ptr) ? A0_OK : EBADF,
+      "Disk file closed multiple times: %s",
+      disk->path);
+
+  A0_ASSERT_RETURN(
+      a0_ref_cnt_dec(disk->arena.ptr) ? EBADF : A0_OK,
+      "Disk file closed multiple times: %s",
+      disk->path);
+
+  size_t cnt;
+  a0_ref_cnt_get(disk->arena.ptr, &cnt);
+  A0_ASSERT(
+      cnt ? A0_OK : EINVAL,
+      "Disk file closing while still in use: %s",
+      disk->path);
+
+  free((void*)disk->path);
+  disk->path = NULL;
+
   return a0_munmap(&disk->arena);
 }

@@ -48,13 +48,17 @@ errno_t a0_publisher_raw_init(a0_publisher_raw_t* pub, a0_arena_t arena) {
                     &tlk);
   a0_transport_unlock(tlk);
 
+  a0_ref_cnt_inc(arena.ptr);
+
   return A0_OK;
 }
 
 errno_t a0_publisher_raw_close(a0_publisher_raw_t* pub) {
-  if (!pub->_impl) {
+  if (!pub || !pub->_impl) {
     return ESHUTDOWN;
   }
+
+  a0_ref_cnt_dec(pub->_impl->transport._arena.ptr);
 
   a0_transport_close(&pub->_impl->transport);
   delete pub->_impl;
@@ -64,7 +68,7 @@ errno_t a0_publisher_raw_close(a0_publisher_raw_t* pub) {
 }
 
 errno_t a0_pub_raw(a0_publisher_raw_t* pub, const a0_packet_t pkt) {
-  if (!pub->_impl) {
+  if (!pub || !pub->_impl) {
     return ESHUTDOWN;
   }
 
@@ -92,7 +96,7 @@ errno_t a0_publisher_init(a0_publisher_t* pub, a0_arena_t arena) {
 }
 
 errno_t a0_publisher_close(a0_publisher_t* pub) {
-  if (!pub->_impl) {
+  if (!pub || !pub->_impl) {
     return ESHUTDOWN;
   }
 
@@ -104,7 +108,7 @@ errno_t a0_publisher_close(a0_publisher_t* pub) {
 }
 
 errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
-  if (!pub->_impl) {
+  if (!pub || !pub->_impl) {
     return ESHUTDOWN;
   }
 
@@ -180,6 +184,8 @@ errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
                     &tlk);
   a0_transport_unlock(tlk);
 
+  a0_ref_cnt_inc(arena.ptr);
+
   return A0_OK;
 }
 
@@ -187,6 +193,8 @@ errno_t a0_subscriber_sync_zc_close(a0_subscriber_sync_zc_t* sub_sync_zc) {
   if (!sub_sync_zc || !sub_sync_zc->_impl) {
     return ESHUTDOWN;
   }
+
+  a0_ref_cnt_dec(sub_sync_zc->_impl->transport._arena.ptr);
 
   a0_transport_close(&sub_sync_zc->_impl->transport);
   delete sub_sync_zc->_impl;
