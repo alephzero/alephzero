@@ -63,7 +63,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] construct") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shm_size": 4096,
+    "arena_size": 4096,
     "committed_state": {
       "seq_low": 0,
       "seq_high": 0,
@@ -122,7 +122,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shm_size": 1024,
+    "arena_size": 1024,
     "committed_state": {
       "seq_low": 0,
       "seq_high": 0,
@@ -175,7 +175,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shm_size": 4096,
+    "arena_size": 4096,
     "committed_state": {
       "seq_low": 0,
       "seq_high": 0,
@@ -207,7 +207,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shm_size": 4096,
+    "arena_size": 4096,
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
@@ -249,7 +249,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shm_size": 4096,
+    "arena_size": 4096,
     "committed_state": {
       "seq_low": 1,
       "seq_high": 2,
@@ -450,7 +450,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] wrap around") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shm_size": 4096,
+    "arena_size": 4096,
     "committed_state": {
       "seq_low": 18,
       "seq_high": 20,
@@ -574,7 +574,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] large alloc") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shm_size": 4096,
+    "arena_size": 4096,
     "committed_state": {
       "seq_low": 5,
       "seq_high": 5,
@@ -694,7 +694,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
       require_debugstr(lk, R"(
 {
   "header": {
-    "shm_size": 4096,
+    "arena_size": 4096,
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
@@ -748,7 +748,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "shm_size": 4096,
+    "arena_size": 4096,
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
