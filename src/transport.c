@@ -14,7 +14,7 @@
 #include "macros.h"
 #include "mtx.h"
 
-typedef uintptr_t transport_off_t;  // ptr offset from start of shm.
+typedef uintptr_t transport_off_t;  // ptr offset from start of the arena.
 
 typedef struct a0_transport_state_s {
   uint64_t seq_low;
@@ -36,7 +36,7 @@ typedef struct a0_transport_hdr_s {
   a0_transport_state_t state_pages[2];
   uint32_t committed_page_idx;
 
-  size_t shm_size;
+  size_t arena_size;
   size_t metadata_size;
 } a0_transport_hdr_t;
 
@@ -78,7 +78,7 @@ errno_t a0_transport_init_create(a0_transport_t* transport,
     return ENOMEM;
   }
 
-  hdr->shm_size = transport->_arena.size;
+  hdr->arena_size = transport->_arena.size;
   hdr->metadata_size = metadata_size;
   A0_RETURN_ERR_ON_ERR(a0_mtx_init(&hdr->mu));
 
@@ -97,7 +97,7 @@ errno_t a0_transport_init(a0_transport_t* transport,
                           a0_locked_transport_t* lk_out) {
   // The arena is expected to be either:
   // 1) all null bytes.
-  //    this is guaranteed by ftruncate, as is used in a0/shm.h
+  //    this is guaranteed by ftruncate, as is used in a0/file_arena.h
   // 2) a pre-initialized buffer.
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)arena.ptr;
 
@@ -425,12 +425,12 @@ errno_t a0_transport_find_slot(a0_locked_transport_t lk, size_t frame_size, tran
     *off = a0_transport_workspace_off(hdr);
   } else {
     *off = a0_max_align(a0_transport_frame_end(hdr, state->off_tail));
-    if (A0_UNLIKELY(*off + frame_size >= hdr->shm_size)) {
+    if (A0_UNLIKELY(*off + frame_size >= hdr->arena_size)) {
       *off = a0_transport_workspace_off(hdr);
     }
   }
 
-  if (A0_UNLIKELY(*off + frame_size >= hdr->shm_size)) {
+  if (A0_UNLIKELY(*off + frame_size >= hdr->arena_size)) {
     return EOVERFLOW;
   }
 
@@ -581,7 +581,7 @@ void a0_transport_debugstr(a0_locked_transport_t lk, a0_buf_t* out) {
   // clang-format off
   fprintf(ss, "\n{\n");
   fprintf(ss, "  \"header\": {\n");
-  fprintf(ss, "    \"shm_size\": %lu,\n", hdr->shm_size);
+  fprintf(ss, "    \"arena_size\": %lu,\n", hdr->arena_size);
   fprintf(ss, "    \"committed_state\": {\n");
   fprintf(ss, "      \"seq_low\": %lu,\n", committed_state->seq_low);
   fprintf(ss, "      \"seq_high\": %lu,\n", committed_state->seq_high);
