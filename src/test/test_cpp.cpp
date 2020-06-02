@@ -391,7 +391,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub") {
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] sub throw") {
-  REQUIRE_SIGNALED({
+  REQUIRE_SIGNAL({
     a0::Publisher p(shm);
     p.pub("");
     a0::Subscriber sub(shm, A0_INIT_OLDEST, A0_ITER_NEXT, [&](a0::PacketView) {
