@@ -34,7 +34,11 @@ errno_t a0_mmap(int fd, off_t size, bool resize, a0_arena_t* arena) {
       /* flags  = */ MAP_SHARED,
       /* fd     = */ fd,
       /* offset = */ 0);
-  A0_RETURN_ERR_ON_MINUS_ONE((intptr_t)arena->ptr);
+  if (A0_UNLIKELY((intptr_t)arena->ptr == -1)) {
+    arena->ptr = NULL;
+    arena->size = 0;
+    return errno;
+  }
 
   return A0_OK;
 }
@@ -87,20 +91,19 @@ errno_t a0_shm_unlink(const char* path) {
 }
 
 errno_t a0_shm_close(a0_shm_t* shm) {
-  A0_ASSERT_RETURN(
-      (shm->path && shm->arena.ptr) ? A0_OK : EBADF,
-      "Shared memory file closed multiple times: %s",
-      shm->path);
+  if (!shm->path || !shm->arena.ptr) {
+    return EBADF;
+  }
 
   A0_ASSERT_RETURN(
       a0_ref_cnt_dec(shm->arena.ptr) ? EBADF : A0_OK,
-      "Shared memory file closed multiple times: %s",
+      "Shared memory file reference count corrupt: %s",
       shm->path);
 
   size_t cnt;
   a0_ref_cnt_get(shm->arena.ptr, &cnt);
   A0_ASSERT(
-      cnt ? A0_OK : EINVAL,
+      cnt ? EINVAL : A0_OK,
       "Shared memory file closing while still in use: %s",
       shm->path);
 
@@ -145,20 +148,19 @@ errno_t a0_disk_unlink(const char* path) {
 }
 
 errno_t a0_disk_close(a0_disk_t* disk) {
-  A0_ASSERT_RETURN(
-      (disk->path && disk->arena.ptr) ? A0_OK : EBADF,
-      "Disk file closed multiple times: %s",
-      disk->path);
+  if (!disk->path || !disk->arena.ptr) {
+    return EBADF;
+  }
 
   A0_ASSERT_RETURN(
       a0_ref_cnt_dec(disk->arena.ptr) ? EBADF : A0_OK,
-      "Disk file closed multiple times: %s",
+      "Disk file reference count corrupt: %s",
       disk->path);
 
   size_t cnt;
   a0_ref_cnt_get(disk->arena.ptr, &cnt);
   A0_ASSERT(
-      cnt ? A0_OK : EINVAL,
+      cnt ? EINVAL : A0_OK,
       "Disk file closing while still in use: %s",
       disk->path);
 
