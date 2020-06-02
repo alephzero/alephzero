@@ -16,6 +16,7 @@
 #include "charconv.hpp"
 #include "macros.h"
 #include "rand.h"
+#include "ref_cnt.h"
 #include "scope.hpp"
 #include "sync.hpp"
 #include "transport_tools.hpp"

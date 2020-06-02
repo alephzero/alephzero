@@ -1,8 +1,9 @@
 #include "ref_cnt.h"
 
-#include <string>
+#include <a0/common.h>
+
+#include <cerrno>
 #include <unordered_map>
-#include <vector>
 
 #include "sync.hpp"
 

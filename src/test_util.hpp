@@ -123,6 +123,6 @@ inline pid_t subproc(Fn&& fn) {
 
 #else
 
-#define REQUIRE_SIGNAL_OR(EXPR, ERR) REQUIRE((EXPR) == ERR)
+#define REQUIRE_SIGNAL_OR(EXPR, ERR) REQUIRE((EXPR) == (ERR))
 
 #endif
