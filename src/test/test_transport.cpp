@@ -22,18 +22,45 @@
 #include "src/test_util.hpp"
 #include "src/transport_debug.h"
 
-static const char TEST_SHM[] = "/test.shm";
+static const char TEST_DISK[] = "/tmp/transport_test.a0";
+static const char TEST_SHM[] = "/transport_test.a0";
 
 struct StreamTestFixture {
+  std::vector<uint8_t> stack_arena_data;
+  a0_arena_t arena;
+
+  a0_disk_options_t diskopt;
+  a0_disk_t disk;
+
+  a0_shm_options_t shmopt;
+  a0_shm_t shm;
+
   StreamTestFixture() {
+    stack_arena_data.resize(4096);
+    arena = a0_arena_t{
+        .ptr = stack_arena_data.data(),
+        .size = stack_arena_data.size(),
+    };
+
+    a0_disk_unlink(TEST_DISK);
+    diskopt = (a0_disk_options_t){
+        .size = 4096,
+        .resize = false,
+    };
+    a0_disk_open(TEST_DISK, &diskopt, &disk);
+
     a0_shm_unlink(TEST_SHM);
-    shmopt = {
+    shmopt = (a0_shm_options_t){
         .size = 4096,
         .resize = false,
     };
     a0_shm_open(TEST_SHM, &shmopt, &shm);
   }
+
   ~StreamTestFixture() {
+    a0_disk_close(&disk);
+    a0_disk_unlink(TEST_DISK);
+
     a0_shm_close(&shm);
     a0_shm_unlink(TEST_SHM);
   }
@@ -44,28 +71,18 @@ struct StreamTestFixture {
     REQUIRE(a0::test::str(debugstr) == expected);
     free(debugstr.ptr);
   }
-
-  a0_arena_t as_arena(std::vector<uint8_t>* data) {
-    return a0_arena_t{
-        .ptr = data->data(),
-        .size = data->size(),
-    };
-  }
-
-  a0_shm_options_t shmopt;
-  a0_shm_t shm;
 };
 
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] construct") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
   REQUIRE_OK(a0_transport_unlock(lk));
   REQUIRE(init_status == A0_TRANSPORT_CREATED);
   REQUIRE_OK(a0_transport_close(&transport));
 
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
 
   require_debugstr(lk, R"(
@@ -100,9 +117,6 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata") {
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
 
-  std::vector<uint8_t> arena_data(1024);
-  auto arena = as_arena(&arena_data);
-
   a0_buf_t metadata_orig = {
       .ptr = (uint8_t*)"Hello, foo!",
       .size = 11,
@@ -128,7 +142,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata") {
   require_debugstr(lk, R"(
 {
   "header": {
-    "arena_size": 1024,
+    "arena_size": 4096,
     "committed_state": {
       "seq_low": 0,
       "seq_high": 0,
@@ -157,12 +171,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata too large") {
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
 
-  std::vector<uint8_t> arena_data(1024);
-  auto arena = as_arena(&arena_data);
-
   REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CREATED);
-  REQUIRE(a0_transport_init_metadata(lk, 1024) == ENOMEM);
+  REQUIRE(a0_transport_init_metadata(lk, 4096) == ENOMEM);
 
   REQUIRE_OK(a0_transport_unlock(lk));
   REQUIRE_OK(a0_transport_close(&transport));
@@ -172,9 +183,6 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata size change") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-
-  std::vector<uint8_t> arena_data(1024);
-  auto arena = as_arena(&arena_data);
 
   REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CREATED);
@@ -205,7 +213,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
 
   bool is_empty;
   REQUIRE_OK(a0_transport_empty(lk, &is_empty));
@@ -332,7 +340,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
 
   bool evicts;
 
@@ -357,7 +365,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
     a0_transport_t transport;
     a0_transport_init_status_t init_status;
     a0_locked_transport_t lk;
-    REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
+    REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
 
     a0_transport_frame_t first_frame;
     REQUIRE_OK(a0_transport_alloc(lk, 1, &first_frame));
@@ -380,7 +388,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
 
   bool is_empty;
   REQUIRE_OK(a0_transport_empty(lk, &is_empty));
@@ -452,7 +460,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] empty jumps") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
 
   REQUIRE(a0_transport_jump_head(lk) == EAGAIN);
   REQUIRE(a0_transport_jump_tail(lk) == EAGAIN);
@@ -475,7 +483,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] wrap around") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
 
   std::string data(1 * 1024, 'a');  // 1kB string
   for (int i = 0; i < 20; i++) {
@@ -544,7 +552,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] expired next") {
   a0_transport_frame_t frame;
   std::string data(1 * 1024, 'a');  // 1kB string
 
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
 
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
   memcpy(frame.data, data.c_str(), data.size());
@@ -557,7 +565,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] expired next") {
 
   {
     a0_transport_t transport_other;
-    REQUIRE_OK(a0_transport_init(&transport_other, shm.arena, &init_status, &lk));
+    REQUIRE_OK(a0_transport_init(&transport_other, arena, &init_status, &lk));
 
     for (int i = 0; i < 20; i++) {
       REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
@@ -600,7 +608,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] large alloc") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
 
   std::string long_str(3 * 1024, 'a');  // 3kB string
   for (int i = 0; i < 5; i++) {
@@ -664,7 +672,41 @@ void fork_sleep_push(a0_transport_t* transport, const std::string& str) {
   }
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] await") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] disk await") {
+  a0_transport_t transport;
+  a0_transport_init_status_t init_status;
+  a0_locked_transport_t lk;
+  REQUIRE_OK(a0_transport_init(&transport, disk.arena, &init_status, &lk));
+  REQUIRE_OK(a0_transport_unlock(lk));
+
+  fork_sleep_push(&transport, "ABC");
+
+  REQUIRE_OK(a0_transport_lock(&transport, &lk));
+
+  REQUIRE_OK(a0_transport_await(lk, a0_transport_nonempty));
+
+  REQUIRE_OK(a0_transport_jump_head(lk));
+
+  a0_transport_frame_t frame;
+  REQUIRE_OK(a0_transport_frame(lk, &frame));
+  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(a0::test::str(frame) == "ABC");
+
+  REQUIRE_OK(a0_transport_await(lk, a0_transport_nonempty));
+
+  fork_sleep_push(&transport, "DEF");
+  REQUIRE_OK(a0_transport_await(lk, a0_transport_has_next));
+
+  REQUIRE_OK(a0_transport_next(lk));
+  REQUIRE_OK(a0_transport_frame(lk, &frame));
+  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(a0::test::str(frame) == "DEF");
+
+  REQUIRE_OK(a0_transport_unlock(lk));
+  REQUIRE_OK(a0_transport_close(&transport));
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] shm await") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
@@ -894,9 +936,13 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust fuzz") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
-static const char COPY_SHM[] = "/copy.shm";
+static const char COPY_DISK[] = "/tmp/copy.a0";
+static const char COPY_SHM[] = "/copy.a0";
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy shm->disk->shm") {
+  a0_disk_unlink(COPY_DISK);
+  a0_shm_unlink(COPY_SHM);
+
   std::string str = "Original String";
 
   int child_pid = fork();
@@ -926,13 +972,13 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy") {
 
   // Copy the shm file to disk.
   {
-    auto cmd = a0::strutil::fmt("cp /dev/shm%s /tmp%s", TEST_SHM, COPY_SHM);
+    auto cmd = a0::strutil::fmt("cp /dev/shm%s %s", TEST_SHM, COPY_DISK);
     REQUIRE_OK(system(cmd.c_str()));
   }
 
   // Copy the disk file to memory.
   {
-    auto cmd = a0::strutil::fmt("cp /tmp%s /dev/shm%s", COPY_SHM, COPY_SHM);
+    auto cmd = a0::strutil::fmt("cp %s /dev/shm%s", COPY_DISK, COPY_SHM);
     REQUIRE_OK(system(cmd.c_str()));
   }
 
@@ -952,12 +998,71 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy") {
 
   REQUIRE_OK(a0_transport_unlock(lk));
 
+  a0_disk_unlink(COPY_DISK);
   a0_shm_close(&copied_shm);
   a0_shm_unlink(COPY_SHM);
+}
 
-  // Remove the disk file.
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy disk->shm->disk") {
+  a0_disk_unlink(COPY_DISK);
+  a0_shm_unlink(COPY_SHM);
+
+  std::string str = "Original String";
+
+  int child_pid = fork();
+  if (!child_pid) {
+    a0_transport_t transport;
+    a0_transport_init_status_t init_status;
+    a0_locked_transport_t lk;
+    REQUIRE_OK(a0_transport_init(&transport, disk.arena, &init_status, &lk));
+    REQUIRE(init_status == A0_TRANSPORT_CREATED);
+    REQUIRE_OK(a0_transport_unlock(lk));
+
+    a0_transport_frame_t frame;
+    a0_transport_alloc(lk, str.size(), &frame);
+    memcpy(frame.data, str.c_str(), str.size());
+    a0_transport_commit(lk);
+
+    // Do not unlock!
+    // a0_transport_unlock(lk);
+
+    // Exit without cleaning resources.
+    std::quick_exit(0);
+  }
+
+  int child_status;
+  waitpid(child_pid, &child_status, 0);
+  (void)child_status;
+
+  // Copy the shm file to disk.
   {
-    auto cmd = a0::strutil::fmt("rm /tmp%s", COPY_SHM);
+    auto cmd = a0::strutil::fmt("cp %s /dev/shm%s", TEST_DISK, COPY_SHM);
     REQUIRE_OK(system(cmd.c_str()));
   }
+
+  // Copy the disk file to memory.
+  {
+    auto cmd = a0::strutil::fmt("cp /dev/shm%s %s", COPY_SHM, COPY_DISK);
+    REQUIRE_OK(system(cmd.c_str()));
+  }
+
+  a0_disk_t copied_disk;
+  a0_disk_open(COPY_DISK, &diskopt, &copied_disk);
+
+  a0_transport_t transport;
+  a0_transport_init_status_t init_status;
+  a0_locked_transport_t lk;
+  REQUIRE_OK(a0_transport_init(&transport, copied_disk.arena, &init_status, &lk));
+  REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
+
+  a0_transport_jump_head(lk);
+  a0_transport_frame_t frame;
+  a0_transport_frame(lk, &frame);
+  REQUIRE(a0::test::str(frame) == str);
+
+  REQUIRE_OK(a0_transport_unlock(lk));
+
+  a0_disk_close(&copied_disk);
+  a0_disk_unlink(COPY_DISK);
+  a0_shm_unlink(COPY_SHM);
 }
