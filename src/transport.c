@@ -69,17 +69,11 @@ transport_off_t a0_transport_workspace_off(a0_transport_hdr_t* hdr) {
 
 A0_STATIC_INLINE
 errno_t a0_transport_init_create(a0_transport_t* transport,
-                                 size_t metadata_size,
                                  a0_transport_init_status_t* status_out,
                                  a0_locked_transport_t* lk_out) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)transport->_arena.ptr;
 
-  if (sizeof(a0_transport_hdr_t) + metadata_size + 64 >= (uint64_t)transport->_arena.size) {
-    return ENOMEM;
-  }
-
   hdr->arena_size = transport->_arena.size;
-  hdr->metadata_size = metadata_size;
   A0_RETURN_ERR_ON_ERR(a0_mtx_init(&hdr->mu));
 
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, lk_out));
@@ -92,7 +86,6 @@ errno_t a0_transport_init_create(a0_transport_t* transport,
 
 errno_t a0_transport_init(a0_transport_t* transport,
                           a0_arena_t arena,
-                          size_t metadata_size,
                           a0_transport_init_status_t* status_out,
                           a0_locked_transport_t* lk_out) {
   // The arena is expected to be either:
@@ -105,7 +98,7 @@ errno_t a0_transport_init(a0_transport_t* transport,
   transport->_arena = arena;
 
   if (!a0_cas(&hdr->init_started, 0, 1)) {
-    return a0_transport_init_create(transport, metadata_size, status_out, lk_out);
+    return a0_transport_init_create(transport, status_out, lk_out);
   }
 
   // Spin until transport is initialized.
@@ -115,6 +108,24 @@ errno_t a0_transport_init(a0_transport_t* transport,
   A0_TSAN_ANNOTATE_HAPPENS_AFTER(&hdr->init_completed);
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, lk_out));
   *status_out = A0_TRANSPORT_CONNECTED;
+  return A0_OK;
+}
+
+errno_t a0_transport_init_metadata(a0_locked_transport_t lk, size_t metadata_size) {
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+
+  bool empty;
+  A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
+  if (!empty) {
+    return EACCES;
+  }
+
+  if (sizeof(a0_transport_hdr_t) + metadata_size + 64 >= (uint64_t)lk.transport->_arena.size) {
+    return ENOMEM;
+  }
+
+  hdr->metadata_size = metadata_size;
+
   return A0_OK;
 }
 

@@ -52,12 +52,12 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] construct") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, 0, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
   REQUIRE_OK(a0_transport_unlock(lk));
   REQUIRE(init_status == A0_TRANSPORT_CREATED);
   REQUIRE_OK(a0_transport_close(&transport));
 
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, 0, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
 
   require_debugstr(lk, R"(
@@ -102,8 +102,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata") {
       .ptr = (uint8_t*)"Hello, foo!",
       .size = 11,
   };
-  REQUIRE_OK(a0_transport_init(&transport, arena, metadata_orig.size, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CREATED);
+  REQUIRE_OK(a0_transport_init_metadata(lk, metadata_orig.size));
 
   a0_buf_t got_metadata;
   REQUIRE_OK(a0_transport_metadata(lk, &got_metadata));
@@ -113,7 +114,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata") {
   REQUIRE_OK(a0_transport_unlock(lk));
   REQUIRE_OK(a0_transport_close(&transport));
 
-  REQUIRE_OK(a0_transport_init(&transport, arena, 99, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
   REQUIRE_OK(a0_transport_metadata(lk, &got_metadata));
   REQUIRE(got_metadata.size == metadata_orig.size);
@@ -158,7 +159,46 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata too large") {
       .size = 1024,
   };
   memset(arena.ptr, 0, arena.size);
-  REQUIRE(a0_transport_init(&transport, arena, 1024, &init_status, &lk) == ENOMEM);
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
+  REQUIRE(init_status == A0_TRANSPORT_CREATED);
+  REQUIRE(a0_transport_init_metadata(lk, 1024) == ENOMEM);
+  free(arena.ptr);
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata size change") {
+  a0_transport_t transport;
+  a0_transport_init_status_t init_status;
+  a0_locked_transport_t lk;
+
+  a0_buf_t arena = {
+      .ptr = (uint8_t*)malloc(1024),
+      .size = 1024,
+  };
+  memset(arena.ptr, 0, arena.size);
+  REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
+  REQUIRE(init_status == A0_TRANSPORT_CREATED);
+
+  a0_buf_t got_metadata;
+  REQUIRE_OK(a0_transport_metadata(lk, &got_metadata));
+  REQUIRE(got_metadata.size == 0);
+
+  REQUIRE_OK(a0_transport_init_metadata(lk, 125));
+  REQUIRE_OK(a0_transport_metadata(lk, &got_metadata));
+  REQUIRE(got_metadata.size == 125);
+
+  REQUIRE_OK(a0_transport_init_metadata(lk, 256));
+  REQUIRE_OK(a0_transport_metadata(lk, &got_metadata));
+  REQUIRE(got_metadata.size == 256);
+
+  a0_transport_frame_t frame_out;
+  REQUIRE_OK(a0_transport_alloc(lk, 0, &frame_out));
+
+  // Not allowed to change metadata size after space is allocated for frames.
+  REQUIRE(a0_transport_init_metadata(lk, 512) == EACCES);
+
+  REQUIRE_OK(a0_transport_unlock(lk));
+  REQUIRE_OK(a0_transport_close(&transport));
+
   free(arena.ptr);
 }
 
@@ -166,7 +206,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
 
   bool is_empty;
   REQUIRE_OK(a0_transport_empty(lk, &is_empty));
@@ -293,7 +333,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
 
   bool evicts;
 
@@ -318,7 +358,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
     a0_transport_t transport;
     a0_transport_init_status_t init_status;
     a0_locked_transport_t lk;
-    REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+    REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
 
     a0_transport_frame_t first_frame;
     REQUIRE_OK(a0_transport_alloc(lk, 1, &first_frame));
@@ -341,7 +381,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
 
   bool is_empty;
   REQUIRE_OK(a0_transport_empty(lk, &is_empty));
@@ -413,7 +453,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] empty jumps") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
 
   REQUIRE(a0_transport_jump_head(lk) == EAGAIN);
   REQUIRE(a0_transport_jump_tail(lk) == EAGAIN);
@@ -436,7 +476,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] wrap around") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
 
   std::string data(1 * 1024, 'a');  // 1kB string
   for (int i = 0; i < 20; i++) {
@@ -505,7 +545,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] expired next") {
   a0_transport_frame_t frame;
   std::string data(1 * 1024, 'a');  // 1kB string
 
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
 
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
   memcpy(frame.data, data.c_str(), data.size());
@@ -518,7 +558,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] expired next") {
 
   {
     a0_transport_t transport_other;
-    REQUIRE_OK(a0_transport_init(&transport_other, shm.arena, A0_NONE, &init_status, &lk));
+    REQUIRE_OK(a0_transport_init(&transport_other, shm.arena, &init_status, &lk));
 
     for (int i = 0; i < 20; i++) {
       REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
@@ -561,7 +601,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] large alloc") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
 
   std::string long_str(3 * 1024, 'a');  // 3kB string
   for (int i = 0; i < 5; i++) {
@@ -629,7 +669,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] await") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
   REQUIRE_OK(a0_transport_unlock(lk));
 
   fork_sleep_push(&transport, "ABC");
@@ -665,7 +705,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
     a0_transport_t transport;
     a0_transport_init_status_t init_status;
     a0_locked_transport_t lk;
-    REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+    REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
     REQUIRE(init_status == A0_TRANSPORT_CREATED);
     REQUIRE_OK(a0_transport_unlock(lk));
 
@@ -742,7 +782,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
 
   require_debugstr(lk, R"(
@@ -800,7 +840,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust fuzz") {
     a0_transport_t transport;
     a0_transport_init_status_t init_status;
     a0_locked_transport_t lk;
-    REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+    REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
     REQUIRE(init_status == A0_TRANSPORT_CREATED);
     REQUIRE_OK(a0_transport_unlock(lk));
 
@@ -833,7 +873,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust fuzz") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
   REQUIRE_OK(a0_transport_unlock(lk));
 
@@ -865,7 +905,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy") {
     a0_transport_t transport;
     a0_transport_init_status_t init_status;
     a0_locked_transport_t lk;
-    REQUIRE_OK(a0_transport_init(&transport, shm.arena, A0_NONE, &init_status, &lk));
+    REQUIRE_OK(a0_transport_init(&transport, shm.arena, &init_status, &lk));
     REQUIRE(init_status == A0_TRANSPORT_CREATED);
     REQUIRE_OK(a0_transport_unlock(lk));
 
@@ -903,7 +943,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy") {
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
-  REQUIRE_OK(a0_transport_init(&transport, copied_shm.arena, A0_NONE, &init_status, &lk));
+  REQUIRE_OK(a0_transport_init(&transport, copied_shm.arena, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CONNECTED);
 
   a0_transport_jump_head(lk);

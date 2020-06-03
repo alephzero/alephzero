@@ -58,9 +58,14 @@ typedef struct a0_locked_transport_s {
 
 errno_t a0_transport_init(a0_transport_t*,
                           a0_arena_t,
-                          size_t metadata_size,
                           a0_transport_init_status_t* status_out,
                           a0_locked_transport_t* lk_out);
+
+// Allocates space in the transport for metadata.
+// This can only be called after a0_transport_init, but before any allocations.
+// Once the transports start allocating frames, the metadata size is fixed.
+errno_t a0_transport_init_metadata(a0_locked_transport_t, size_t metadata_size);
+
 // Awakens all outstanding awaits. Future await attempts fail.
 errno_t a0_transport_close(a0_transport_t*);
 
