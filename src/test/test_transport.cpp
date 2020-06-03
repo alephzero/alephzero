@@ -16,6 +16,7 @@
 #include <ostream>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "src/strutil.hpp"
 #include "src/test_util.hpp"
