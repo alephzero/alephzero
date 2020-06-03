@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <ctime>
+#include <memory>
 #include <string_view>
 
 #include "alloc_util.hpp"
@@ -38,18 +39,21 @@ struct a0_publisher_raw_impl_s {
 };
 
 errno_t a0_publisher_raw_init(a0_publisher_raw_t* pub, a0_arena_t arena) {
-  pub->_impl = new a0_publisher_raw_impl_t;
+  auto impl = std::make_unique<a0_publisher_raw_impl_t>();
 
   a0_transport_init_status_t init_status;
   a0_locked_transport_t tlk;
-  a0_transport_init(&pub->_impl->transport,
-                    arena,
-                    sizeof(a0_pubsub_metadata_t),
-                    &init_status,
-                    &tlk);
+  A0_RETURN_ERR_ON_ERR(a0_transport_init(&impl->transport, arena, &init_status, &tlk));
+  bool empty;
+  A0_RETURN_ERR_ON_ERR(a0_transport_empty(tlk, &empty));
+  if (empty) {
+    A0_RETURN_ERR_ON_ERR(a0_transport_init_metadata(tlk, sizeof(a0_pubsub_metadata_t)));
+  }
   a0_transport_unlock(tlk);
 
   a0_ref_cnt_inc(arena.ptr);
+
+  pub->_impl = impl.release();
 
   return A0_OK;
 }
@@ -180,7 +184,6 @@ errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
   a0_locked_transport_t tlk;
   a0_transport_init(&sub_sync_zc->_impl->transport,
                     arena,
-                    sizeof(a0_pubsub_metadata_t),
                     &init_status,
                     &tlk);
   a0_transport_unlock(tlk);
@@ -382,7 +385,6 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
   };
 
   return sub_zc->_impl->worker.init(arena,
-                                    sizeof(a0_pubsub_metadata_t),
                                     on_transport_init,
                                     on_transport_nonempty,
                                     on_transport_hasnext);
