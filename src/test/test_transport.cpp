@@ -44,6 +44,13 @@ struct StreamTestFixture {
     free(debugstr.ptr);
   }
 
+  a0_arena_t as_arena(std::vector<uint8_t>* data) {
+    return a0_arena_t{
+        .ptr = data->data(),
+        .size = data->size(),
+    };
+  }
+
   a0_shm_options_t shmopt;
   a0_shm_t shm;
 };
@@ -92,11 +99,8 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata") {
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
 
-  a0_buf_t arena = {
-      .ptr = (uint8_t*)malloc(1024),
-      .size = 1024,
-  };
-  memset(arena.ptr, 0, arena.size);
+  std::vector<uint8_t> arena_data(1024);
+  auto arena = as_arena(&arena_data);
 
   a0_buf_t metadata_orig = {
       .ptr = (uint8_t*)"Hello, foo!",
@@ -145,8 +149,6 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata") {
 
   REQUIRE_OK(a0_transport_unlock(lk));
   REQUIRE_OK(a0_transport_close(&transport));
-
-  free(arena.ptr);
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata too large") {
@@ -154,15 +156,15 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata too large") {
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
 
-  a0_buf_t arena = {
-      .ptr = (uint8_t*)malloc(1024),
-      .size = 1024,
-  };
-  memset(arena.ptr, 0, arena.size);
+  std::vector<uint8_t> arena_data(1024);
+  auto arena = as_arena(&arena_data);
+
   REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CREATED);
   REQUIRE(a0_transport_init_metadata(lk, 1024) == ENOMEM);
-  free(arena.ptr);
+
+  REQUIRE_OK(a0_transport_unlock(lk));
+  REQUIRE_OK(a0_transport_close(&transport));
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata size change") {
@@ -170,11 +172,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata size change") {
   a0_transport_init_status_t init_status;
   a0_locked_transport_t lk;
 
-  a0_buf_t arena = {
-      .ptr = (uint8_t*)malloc(1024),
-      .size = 1024,
-  };
-  memset(arena.ptr, 0, arena.size);
+  std::vector<uint8_t> arena_data(1024);
+  auto arena = as_arena(&arena_data);
+
   REQUIRE_OK(a0_transport_init(&transport, arena, &init_status, &lk));
   REQUIRE(init_status == A0_TRANSPORT_CREATED);
 
@@ -198,8 +198,6 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] metadata size change") {
 
   REQUIRE_OK(a0_transport_unlock(lk));
   REQUIRE_OK(a0_transport_close(&transport));
-
-  free(arena.ptr);
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
