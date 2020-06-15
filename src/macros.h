@@ -11,10 +11,10 @@
   ({                                                     \
     (X) ?: ({                                            \
       fprintf(stderr, "AlephZero Assertion Failed!\n");  \
-      fprintf(stderr, "File: %!s(MISSING)\n", __FILE__); \
-      fprintf(stderr, "Line: %!d(MISSING)\n", __LINE__); \
-      fprintf(stderr, "Func: %!s(MISSING)\n", __func__); \
-      fprintf(stderr, "Expr: %!s(MISSING)\n", #X);       \
+      fprintf(stderr, "File: %s\n", __FILE__);           \
+      fprintf(stderr, "Line: %d\n", __LINE__);           \
+      fprintf(stderr, "Func: %s\n", __func__);           \
+      fprintf(stderr, "Expr: %s\n", #X);                 \
       fprintf(stderr, "Msg:  " MSG "\n", ##__VA_ARGS__); \
       abort();                                           \
       (X);                                               \
@@ -29,7 +29,7 @@
       fprintf(stderr, "File: %s\n", __FILE__);                \
       fprintf(stderr, "Line: %d\n", __LINE__);                \
       fprintf(stderr, "Func: %s\n", __func__);                \
-      fprintf(stderr, "Expr: %s\n", #X);                      \
+      fprintf(stderr, "Expr: %s\n", #ERR);                    \
       fprintf(stderr, "Err:  [%d] %s\n", err, strerror(err)); \
       fprintf(stderr, "Msg:  " MSG "\n", ##__VA_ARGS__);      \
       abort();                                                \
