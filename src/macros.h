@@ -7,36 +7,41 @@
 
 #include <stdio.h>
 
-#define A0_ASSERT(ERR, MSG, ...)                                                                        \
-  ({                                                                                                    \
-    errno_t err = (ERR);                                                                                \
-    if (A0_UNLIKELY(err)) {                                                                             \
-      fprintf(stderr, "%s:%d: errno: %s] " MSG "\n", __FILE__, __LINE__, strerror(ERR), ##__VA_ARGS__); \
-      abort();                                                                                          \
-    }                                                                                                   \
-    err;                                                                                                \
+#define A0_ASSERT(X, MSG, ...)                           \
+  ({                                                     \
+    (X) ?: ({                                            \
+      fprintf(stderr, "AlephZero Assertion Failed!\n");  \
+      fprintf(stderr, "File: %!s(MISSING)\n", __FILE__); \
+      fprintf(stderr, "Line: %!d(MISSING)\n", __LINE__); \
+      fprintf(stderr, "Func: %!s(MISSING)\n", __func__); \
+      fprintf(stderr, "Expr: %!s(MISSING)\n", #X);       \
+      fprintf(stderr, "Msg:  " MSG "\n", ##__VA_ARGS__); \
+      abort();                                           \
+      (X);                                               \
+    });                                                  \
   })
 
-#define A0_ASSERT_RETURN(ERR, MSG, ...)                                                                 \
-  ({                                                                                                    \
-    errno_t err = (ERR);                                                                                \
-    if (A0_UNLIKELY(err)) {                                                                             \
-      fprintf(stderr, "%s:%d: errno: %s] " MSG "\n", __FILE__, __LINE__, strerror(ERR), ##__VA_ARGS__); \
-      abort();                                                                                          \
-    }                                                                                                   \
+#define A0_ASSERT_OK(ERR, MSG, ...)                           \
+  ({                                                          \
+    errno_t err = (ERR);                                      \
+    if (A0_UNLIKELY(err)) {                                   \
+      fprintf(stderr, "AlephZero Assertion Failed!\n");       \
+      fprintf(stderr, "File: %s\n", __FILE__);                \
+      fprintf(stderr, "Line: %d\n", __LINE__);                \
+      fprintf(stderr, "Func: %s\n", __func__);                \
+      fprintf(stderr, "Expr: %s\n", #X);                      \
+      fprintf(stderr, "Err:  [%d] %s\n", err, strerror(err)); \
+      fprintf(stderr, "Msg:  " MSG "\n", ##__VA_ARGS__);      \
+      abort();                                                \
+    }                                                         \
+    err;                                                      \
   })
 
 #else
 
-#define A0_ASSERT(ERR, ...) ({ (ERR); })
+#define A0_ASSERT(X, ...) ({ (X); })
 
-#define A0_ASSERT_RETURN(ERR, ...) \
-  ({                               \
-    errno_t err = (ERR);           \
-    if (A0_UNLIKELY(err)) {        \
-      return err;                  \
-    }                              \
-  })
+#define A0_ASSERT_OK(ERR, ...) ({ (ERR); })
 
 #endif
 

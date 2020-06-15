@@ -95,15 +95,15 @@ errno_t a0_shm_close(a0_shm_t* shm) {
     return EBADF;
   }
 
-  A0_ASSERT_RETURN(
-      a0_ref_cnt_dec(shm->arena.ptr) ? EBADF : A0_OK,
+  A0_ASSERT_OK(
+      a0_ref_cnt_dec(shm->arena.ptr),
       "Shared memory file reference count corrupt: %s",
       shm->path);
 
   size_t cnt;
   a0_ref_cnt_get(shm->arena.ptr, &cnt);
   A0_ASSERT(
-      cnt ? EINVAL : A0_OK,
+      cnt == 0,
       "Shared memory file closing while still in use: %s",
       shm->path);
 
@@ -152,15 +152,15 @@ errno_t a0_disk_close(a0_disk_t* disk) {
     return EBADF;
   }
 
-  A0_ASSERT_RETURN(
-      a0_ref_cnt_dec(disk->arena.ptr) ? EBADF : A0_OK,
+  A0_ASSERT_OK(
+      a0_ref_cnt_dec(disk->arena.ptr),
       "Disk file reference count corrupt: %s",
       disk->path);
 
   size_t cnt;
   a0_ref_cnt_get(disk->arena.ptr, &cnt);
   A0_ASSERT(
-      cnt ? EINVAL : A0_OK,
+      cnt == 0,
       "Disk file closing while still in use: %s",
       disk->path);
 
