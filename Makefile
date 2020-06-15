@@ -5,7 +5,7 @@ OBJ_DIR = obj
 LIB_DIR = lib
 BIN_DIR = bin
 
-CXFLAGS += -Wall -Wextra -fPIC -Iinclude
+CXFLAGS += -Wall -Wextra -fPIC -Iinclude -Wno-parentheses
 CXXFLAGS += -std=c++17
 LDFLAGS += -lm -lpthread -lrt
 

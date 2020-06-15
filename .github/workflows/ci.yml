@@ -96,6 +96,22 @@ jobs:
       shell: sh
       run: CC=clang CXX=clang++ make test -j
 
+  alpine_musl:
+    name: Alpine Musl
+
+    runs-on: ubuntu-latest
+    container:
+      image: 'alpine:3.11'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      shell: sh
+      run: apk add --no-cache g++ linux-headers make
+    - name: run
+      shell: sh
+      run: CC=x86_64-alpine-linux-musl-gcc CXX=x86_64-alpine-linux-musl-g++ make test -j
+
   asan:
     name: Address Sanitizer
 
