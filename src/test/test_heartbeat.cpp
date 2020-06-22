@@ -32,7 +32,7 @@ struct HeartbeatFixture {
       hbl_opts.min_freq = 25;
       sync_duration = std::chrono::nanoseconds(uint64_t(1e9 / 10));
     } else {
-      hbl_opts.min_freq = 90;
+      hbl_opts.min_freq = 80;
       sync_duration = std::chrono::nanoseconds(uint64_t(1e9 / 40));
     }
   }
