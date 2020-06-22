@@ -12,6 +12,7 @@
 #include <sys/types.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <future>
 #include <map>
@@ -30,7 +31,8 @@ struct CppWrap {
   std::shared_ptr<CType> c;
   uint32_t magic_number;
 
-  CppWrap() : magic_number{0xA0A0A0A0} {}
+  CppWrap()
+      : magic_number{0xA0A0A0A0} {}
   ~CppWrap() {
     magic_number = 0xDEADBEEF;
   }

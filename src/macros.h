@@ -9,8 +9,8 @@
 
 #define A0_ASSERT(X, MSG, ...)                           \
   ({                                                     \
-    _Pragma("GCC diagnostic push")                       \
-    _Pragma("GCC diagnostic ignored \"-Wparentheses\"")  \
+    _Pragma("GCC diagnostic push");                      \
+    _Pragma("GCC diagnostic ignored \"-Wparentheses\""); \
     (X) ?: ({                                            \
       fprintf(stderr, "AlephZero Assertion Failed!\n");  \
       fprintf(stderr, "File: %s\n", __FILE__);           \
@@ -21,7 +21,7 @@
       abort();                                           \
       (X);                                               \
     });                                                  \
-    _Pragma("GCC diagnostic pop")                        \
+    _Pragma("GCC diagnostic pop");                       \
   })
 
 #define A0_ASSERT_OK(ERR, MSG, ...)                           \
