@@ -86,7 +86,6 @@ CPP make_cpp(InitFn&& init, Closer&& closer) {
   return cpp;
 }
 
-#ifdef DEBUG
 template <typename T>
 void check(std::string_view fn_name, const details::CppWrap<T>* cpp_wrap) {
   if (!cpp_wrap || !cpp_wrap->c) {
@@ -106,9 +105,6 @@ void check(std::string_view fn_name, const details::CppWrap<T>* cpp_wrap) {
 
 #define CHECK_C \
   check(__PRETTY_FUNCTION__, this)
-#else
-#define CHECK_C
-#endif
 
 template <typename T>
 a0_buf_t as_buf(T* mem) {
