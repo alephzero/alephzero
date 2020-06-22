@@ -12,7 +12,10 @@
 #include <unistd.h>
 
 #include "macros.h"
+
+#ifdef DEBUG
 #include "ref_cnt.h"
+#endif
 
 A0_STATIC_INLINE
 errno_t a0_mmap(int fd, off_t size, bool resize, a0_arena_t* arena) {
@@ -80,7 +83,9 @@ errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts_, a0_shm_t* o
 
   out->path = strdup(path);
 
+#ifdef DEBUG
   a0_ref_cnt_inc(out->arena.ptr);
+#endif
 
   return A0_OK;
 }
@@ -95,6 +100,7 @@ errno_t a0_shm_close(a0_shm_t* shm) {
     return EBADF;
   }
 
+#ifdef DEBUG
   A0_ASSERT_OK(
       a0_ref_cnt_dec(shm->arena.ptr),
       "Shared memory file reference count corrupt: %s",
@@ -106,6 +112,7 @@ errno_t a0_shm_close(a0_shm_t* shm) {
       cnt == 0,
       "Shared memory file closing while still in use: %s",
       shm->path);
+#endif
 
   free((void*)shm->path);
   shm->path = NULL;
@@ -137,7 +144,9 @@ errno_t a0_disk_open(const char* path, const a0_disk_options_t* opts_, a0_disk_t
 
   out->path = strdup(path);
 
+#ifdef DEBUG
   a0_ref_cnt_inc(out->arena.ptr);
+#endif
 
   return A0_OK;
 }
@@ -152,6 +161,7 @@ errno_t a0_disk_close(a0_disk_t* disk) {
     return EBADF;
   }
 
+#ifdef DEBUG
   A0_ASSERT_OK(
       a0_ref_cnt_dec(disk->arena.ptr),
       "Disk file reference count corrupt: %s",
@@ -163,6 +173,7 @@ errno_t a0_disk_close(a0_disk_t* disk) {
       cnt == 0,
       "Disk file closing while still in use: %s",
       disk->path);
+#endif
 
   free((void*)disk->path);
   disk->path = NULL;

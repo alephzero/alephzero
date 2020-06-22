@@ -94,7 +94,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] disk") {
         disk = a0::Disk();
         disk.size();
       }(),
-      "Function called with NULL object: size_t a0::Disk::size() const");
+      "AlephZero method called with NULL object: size_t a0::Disk::size() const");
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
@@ -141,7 +141,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
         shm = a0::Shm();
         shm.size();
       }(),
-      "Function called with NULL object: size_t a0::Shm::size() const");
+      "AlephZero method called with NULL object: size_t a0::Shm::size() const");
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {

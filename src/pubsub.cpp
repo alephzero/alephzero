@@ -17,10 +17,13 @@
 #include "charconv.hpp"
 #include "macros.h"
 #include "rand.h"
-#include "ref_cnt.h"
 #include "scope.hpp"
 #include "sync.hpp"
 #include "transport_tools.hpp"
+
+#ifdef DEBUG
+#include "ref_cnt.h"
+#endif
 
 namespace {
 
@@ -51,7 +54,9 @@ errno_t a0_publisher_raw_init(a0_publisher_raw_t* pub, a0_arena_t arena) {
   }
   a0_transport_unlock(tlk);
 
+#ifdef DEBUG
   a0_ref_cnt_inc(arena.ptr);
+#endif
 
   pub->_impl = impl.release();
 
@@ -63,7 +68,9 @@ errno_t a0_publisher_raw_close(a0_publisher_raw_t* pub) {
     return ESHUTDOWN;
   }
 
+#ifdef DEBUG
   a0_ref_cnt_dec(pub->_impl->transport._arena.ptr);
+#endif
 
   a0_transport_close(&pub->_impl->transport);
   delete pub->_impl;
@@ -188,7 +195,9 @@ errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
                     &tlk);
   a0_transport_unlock(tlk);
 
+#ifdef DEBUG
   a0_ref_cnt_inc(arena.ptr);
+#endif
 
   return A0_OK;
 }
@@ -198,7 +207,9 @@ errno_t a0_subscriber_sync_zc_close(a0_subscriber_sync_zc_t* sub_sync_zc) {
     return ESHUTDOWN;
   }
 
+#ifdef DEBUG
   a0_ref_cnt_dec(sub_sync_zc->_impl->transport._arena.ptr);
+#endif
 
   a0_transport_close(&sub_sync_zc->_impl->transport);
   delete sub_sync_zc->_impl;

@@ -23,15 +23,26 @@
 
 namespace a0 {
 
-struct Arena {
-  std::shared_ptr<a0_arena_t> c;
+namespace details {
 
+template <typename CType>
+struct CppWrap {
+  std::shared_ptr<CType> c;
+  uint32_t magic_number;
+
+  CppWrap() : magic_number{0xA0A0A0A0} {}
+  ~CppWrap() {
+    magic_number = 0xDEADBEEF;
+  }
+};
+
+}  // namespace details
+
+struct Arena : details::CppWrap<a0_arena_t> {
   size_t size() const;
 };
 
-struct Disk {
-  std::shared_ptr<a0_disk_t> c;
-
+struct Disk : details::CppWrap<a0_disk_t> {
   struct Options {
     off_t size;
     bool resize;
@@ -51,9 +62,7 @@ struct Disk {
   static void unlink(std::string_view path);
 };
 
-struct Shm {
-  std::shared_ptr<a0_shm_t> c;
-
+struct Shm : details::CppWrap<a0_shm_t> {
   struct Options {
     off_t size;
     bool resize;
@@ -75,9 +84,7 @@ struct Shm {
 
 struct Packet;
 
-struct PacketView {
-  std::shared_ptr<a0_packet_t> c;
-
+struct PacketView : details::CppWrap<a0_packet_t> {
   PacketView();
   PacketView(std::string_view payload);
   PacketView(std::vector<std::pair<std::string, std::string>> headers,
@@ -91,9 +98,7 @@ struct PacketView {
   std::string_view payload() const;
 };
 
-struct Packet {
-  std::shared_ptr<a0_packet_t> c;
-
+struct Packet : details::CppWrap<a0_packet_t> {
   Packet();
   Packet(std::string payload);
   Packet(std::vector<std::pair<std::string, std::string>> headers,
@@ -138,9 +143,7 @@ struct TopicManager {
 void InitGlobalTopicManager(TopicManager);
 TopicManager& GlobalTopicManager();
 
-struct PublisherRaw {
-  std::shared_ptr<a0_publisher_raw_t> c;
-
+struct PublisherRaw : details::CppWrap<a0_publisher_raw_t> {
   PublisherRaw() = default;
   PublisherRaw(Arena);
   // User-friendly constructor that uses GlobalTopicManager publisher_topic for shm.
@@ -152,9 +155,7 @@ struct PublisherRaw {
   void pub(std::string_view payload);
 };
 
-struct Publisher {
-  std::shared_ptr<a0_publisher_t> c;
-
+struct Publisher : details::CppWrap<a0_publisher_t> {
   Publisher() = default;
   Publisher(Arena);
   // User-friendly constructor that uses GlobalTopicManager publisher_topic for shm.
@@ -166,9 +167,7 @@ struct Publisher {
   void pub(std::string_view payload);
 };
 
-struct SubscriberSync {
-  std::shared_ptr<a0_subscriber_sync_t> c;
-
+struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
   SubscriberSync() = default;
   SubscriberSync(Arena, a0_subscriber_init_t, a0_subscriber_iter_t);
   // User-friendly constructor that uses GlobalTopicManager subscriber_topic for shm.
@@ -178,9 +177,7 @@ struct SubscriberSync {
   PacketView next();
 };
 
-struct Subscriber {
-  std::shared_ptr<a0_subscriber_t> c;
-
+struct Subscriber : details::CppWrap<a0_subscriber_t> {
   Subscriber() = default;
   Subscriber(Arena,
              a0_subscriber_init_t,
@@ -207,9 +204,7 @@ void write_config(const TopicManager&, std::string_view payload);
 
 struct RpcServer;
 
-struct RpcRequest {
-  std::shared_ptr<a0_rpc_request_t> c;
-
+struct RpcRequest : details::CppWrap<a0_rpc_request_t> {
   RpcServer server();
   PacketView pkt();
 
@@ -219,9 +214,7 @@ struct RpcRequest {
   void reply(std::string_view payload);
 };
 
-struct RpcServer {
-  std::shared_ptr<a0_rpc_server_t> c;
-
+struct RpcServer : details::CppWrap<a0_rpc_server_t> {
   RpcServer() = default;
   RpcServer(Arena,
             std::function<void(RpcRequest)> onrequest,
@@ -233,9 +226,7 @@ struct RpcServer {
   void async_close(std::function<void()>);
 };
 
-struct RpcClient {
-  std::shared_ptr<a0_rpc_client_t> c;
-
+struct RpcClient : details::CppWrap<a0_rpc_client_t> {
   RpcClient() = default;
   RpcClient(Arena);
   // User-friendly constructor that uses GlobalTopicManager rpc_client_topic for shm.
@@ -257,9 +248,7 @@ struct RpcClient {
 
 struct PrpcServer;
 
-struct PrpcConnection {
-  std::shared_ptr<a0_prpc_connection_t> c;
-
+struct PrpcConnection : details::CppWrap<a0_prpc_connection_t> {
   PrpcServer server();
   PacketView pkt();
 
@@ -270,9 +259,7 @@ struct PrpcConnection {
   void send(std::string_view payload, bool done);
 };
 
-struct PrpcServer {
-  std::shared_ptr<a0_prpc_server_t> c;
-
+struct PrpcServer : details::CppWrap<a0_prpc_server_t> {
   PrpcServer() = default;
   PrpcServer(Arena,
              std::function<void(PrpcConnection)> onconnect,
@@ -284,9 +271,7 @@ struct PrpcServer {
   void async_close(std::function<void()>);
 };
 
-struct PrpcClient {
-  std::shared_ptr<a0_prpc_client_t> c;
-
+struct PrpcClient : details::CppWrap<a0_prpc_client_t> {
   PrpcClient() = default;
   PrpcClient(Arena);
   // User-friendly constructor that uses GlobalTopicManager prpc_client_topic for shm.
@@ -304,9 +289,7 @@ struct PrpcClient {
   void cancel(std::string_view);
 };
 
-struct Logger {
-  std::shared_ptr<a0_logger_t> c;
-
+struct Logger : details::CppWrap<a0_logger_t> {
   Logger(const TopicManager&);
   Logger();
 
@@ -317,10 +300,7 @@ struct Logger {
   void dbg(const PacketView&);
 };
 
-class Heartbeat {
- public:
-  std::shared_ptr<a0_heartbeat_t> c;
-
+struct Heartbeat : details::CppWrap<a0_heartbeat_t> {
   struct Options {
     /// Frequency at which heartbeat packets will be published.
     double freq;
@@ -344,10 +324,7 @@ class Heartbeat {
   Heartbeat();
 };
 
-class HeartbeatListener {
- public:
-  std::shared_ptr<a0_heartbeat_listener_t> c;
-
+struct HeartbeatListener : details::CppWrap<a0_heartbeat_listener_t> {
   struct Options {
     /// Frequency at which heartbeat packets will be checked.
     /// This should be less than the frequency at which the associated Heartbeat publishes.
