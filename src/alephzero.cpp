@@ -11,6 +11,7 @@
 #include <a0/topic_manager.h>
 
 #include <cerrno>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -21,6 +22,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -87,14 +89,24 @@ CPP make_cpp(InitFn&& init, Closer&& closer) {
 }
 
 template <typename T>
-void check(std::string_view fn_name, const std::shared_ptr<T>& c) {
-  if (!c) {
-    throw std::runtime_error(strutil::cat("Function called with NULL object: ", fn_name));
+void check(std::string_view fn_name, const details::CppWrap<T>* cpp_wrap) {
+  if (!cpp_wrap || !cpp_wrap->c) {
+    auto msg = strutil::cat("AlephZero method called with NULL object: ", fn_name);
+    fprintf(stderr, "%s\n", msg.c_str());
+    throw std::runtime_error(msg);
+  }
+
+  if (cpp_wrap->magic_number != 0xA0A0A0A0) {
+    auto msg = strutil::cat("AlephZero method called with corrupt object: ", fn_name);
+    fprintf(stderr, "%s\n", msg.c_str());
+    // This error is often the result of a throw in another thread. Let that propagate first.
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    throw std::runtime_error(msg);
   }
 }
 
 #define CHECK_C \
-  check(__PRETTY_FUNCTION__, c)
+  check(__PRETTY_FUNCTION__, this)
 
 template <typename T>
 a0_buf_t as_buf(T* mem) {
@@ -814,9 +826,10 @@ RpcServer::RpcServer(Arena arena,
       .user_data = heap_onrequest,
       .fn =
           [](void* user_data, a0_rpc_request_t c_req) {
+            RpcRequest req;
+            req.c = std::make_shared<a0_rpc_request_t>(c_req);
             TRY("a0::RpcServer::onrequest callback",
-                (*(std::function<void(RpcRequest)>*)user_data)(
-                    RpcRequest{std::make_shared<a0_rpc_request_t>(c_req)}));
+                (*(std::function<void(RpcRequest)>*)user_data)(req));
           },
   };
 
@@ -1031,9 +1044,10 @@ PrpcServer::PrpcServer(Arena arena,
       .user_data = heap_onconnect,
       .fn =
           [](void* user_data, a0_prpc_connection_t c_req) {
+            PrpcConnection req;
+            req.c = std::make_shared<a0_prpc_connection_t>(c_req);
             TRY("a0::PrpcServer::onconnect callback",
-                (*(std::function<void(PrpcConnection)>*)user_data)(
-                    PrpcConnection{std::make_shared<a0_prpc_connection_t>(c_req)}));
+                (*(std::function<void(PrpcConnection)>*)user_data)(req));
           },
   };
 
