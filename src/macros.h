@@ -56,9 +56,9 @@
     return errno;                     \
   }
 
-#define A0_FAIL_ON_MINUS_ONE(x)  \
-  if (A0_UNLIKELY((x) == -1)) {  \
-    goto fail;                   \
+#define A0_FAIL_ON_MINUS_ONE(x) \
+  if (A0_UNLIKELY((x) == -1)) { \
+    goto fail;                  \
   }
 
 #define A0_CLEANUP_ON_MINUS_ONE(x) \
