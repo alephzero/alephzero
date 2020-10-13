@@ -2,10 +2,10 @@
 #include <a0/file.h>
 
 #include <doctest.h>
-#include <sys/types.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 
 #include <cerrno>
-#include <cmath>
 #include <cstring>
 #include <limits>
 
