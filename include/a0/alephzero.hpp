@@ -10,7 +10,7 @@
 #include <a0/pubsub.h>
 #include <a0/rpc.h>
 
-#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <cstddef>
 #include <cstdint>
