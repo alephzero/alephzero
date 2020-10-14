@@ -1,6 +1,7 @@
 #include <a0/alephzero.hpp>
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/file.h>
 #include <a0/file_arena.h>
 #include <a0/heartbeat.h>
 #include <a0/logger.h>
@@ -137,6 +138,64 @@ std::string_view as_string_view(a0_buf_t buf) {
 size_t Arena::size() const {
   CHECK_C;
   return c->size;
+}
+
+File::CreationOptions File::CreationOptions::DEFAULT = {
+    .size = A0_FILE_CREATION_OPTIONS_DEFAULT.size,
+    .mode = A0_FILE_CREATION_OPTIONS_DEFAULT.mode,
+    .dir_mode = A0_FILE_CREATION_OPTIONS_DEFAULT.dir_mode,
+};
+
+File::File(std::string_view path)
+    : File(path, CreationOptions::DEFAULT) {}
+
+File::File(std::string_view path, CreationOptions opts) {
+  a0_file_creation_options_t c_opts{
+      .size = opts.size,
+      .mode = opts.mode,
+      .dir_mode = opts.dir_mode,
+  };
+  set_c(
+      &c,
+      [&](a0_file_t* c) {
+        return a0_file_open(path.data(), &c_opts, c);
+      },
+      a0_file_close);
+}
+
+File::operator Arena() const {
+  CHECK_C;
+  auto save = c;
+  return make_cpp<Arena>(
+      [&](a0_arena_t* arena) {
+        *arena = c->arena;
+        return A0_OK;
+      },
+      [save](a0_arena_t*) {});
+}
+
+size_t File::size() const {
+  CHECK_C;
+  return c->arena.size;
+}
+
+std::string File::path() const {
+  CHECK_C;
+  return c->path;
+}
+
+void File::remove(std::string_view path) {
+  auto err = a0_file_remove(path.data());
+  // Ignore "No such file or directory" errors.
+  if (err == ENOENT) {
+    return;
+  }
+
+  check(err);
+}
+
+void File::remove_all(std::string_view path) {
+  check(a0_file_remove_all(path.data()));
 }
 
 Disk::Options Disk::Options::DEFAULT = {
