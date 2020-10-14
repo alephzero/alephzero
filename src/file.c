@@ -118,7 +118,10 @@ connect:
   // Make a file with another name. Set the mode and size. Move it to the final destination.
   path_copy = strdup(path);
   dir = dirname(path_copy);
-  A0_FAIL_ON_MINUS_ONE(a0_joinpath(dir, ".alephzero_mkstemp.XXXXXX", &tmppath));
+  err = a0_joinpath(dir, ".alephzero_mkstemp.XXXXXX", &tmppath);
+  if (err) {
+    goto fail_with_err;
+  }
 
   file->fd = mkstemp(tmppath);
   A0_FAIL_ON_MINUS_ONE(file->fd);
@@ -142,6 +145,7 @@ connect:
 
 fail:
   err = errno;
+fail_with_err:
   if (file->fd != -1) {
     close(file->fd);
   }
