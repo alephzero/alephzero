@@ -1,4 +1,5 @@
 #include <a0/alephzero.hpp>
+#include <a0/file.h>
 #include <a0/file_arena.h>
 #include <a0/pubsub.h>
 
