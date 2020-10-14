@@ -100,6 +100,11 @@ errno_t a0_abspath(const char* rel, char** out) {
   return a0_joinpath(root, rel, out);
 }
 
+#define A0_FAIL_ON_MINUS_ONE(x) \
+  if (A0_UNLIKELY((x) == -1)) { \
+    goto fail;                  \
+  }
+
 A0_STATIC_INLINE
 errno_t a0_create_or_connect(a0_file_t* file, const char* path, const a0_file_creation_options_t* opts) {
   errno_t err = A0_OK;
