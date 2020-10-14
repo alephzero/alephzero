@@ -1,6 +1,7 @@
 #pragma once
 
 #include <a0/common.h>
+#include <a0/file.h>
 #include <a0/file_arena.h>
 #include <a0/heartbeat.h>
 #include <a0/logger.h>
@@ -42,6 +43,31 @@ struct CppWrap {
 
 struct Arena : details::CppWrap<a0_arena_t> {
   size_t size() const;
+};
+
+struct File : details::CppWrap<a0_file_t> {
+  struct CreationOptions {
+    off_t size;
+    mode_t mode;
+    mode_t dir_mode;
+
+    static CreationOptions DEFAULT;
+  };
+
+  File() = default;
+  File(std::string_view path);
+  File(std::string_view path, CreationOptions);
+
+  operator Arena() const;
+
+  size_t size() const;
+  std::string path() const;
+
+  int fd() const;
+  struct stat stat() const;
+
+  static void remove(std::string_view path);
+  static void remove_all(std::string_view path);
 };
 
 struct Disk : details::CppWrap<a0_disk_t> {

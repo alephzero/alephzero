@@ -28,18 +28,21 @@
 #include "src/sync.hpp"
 #include "src/test_util.hpp"
 
+static const char TEST_FILE[] = "test.file";
 static const char TEST_DISK[] = "/tmp/test.disk";
 static const char TEST_SHM[] = "/test.shm";
 
 static constexpr size_t MB = 1024 * 1024;
 
 struct CppPubsubFixture {
+  a0::File file;
   a0::Disk disk;
   a0::Shm shm;
 
   CppPubsubFixture() {
     cleanup();
 
+    file = a0::File(TEST_FILE);
     disk = a0::Disk(TEST_DISK);
     shm = a0::Shm(TEST_SHM);
 
@@ -51,10 +54,64 @@ struct CppPubsubFixture {
   }
 
   void cleanup() {
+    a0::File::remove(TEST_FILE);
     a0::Disk::unlink(TEST_DISK);
     a0::Shm::unlink(TEST_SHM);
   }
 };
+
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] file") {
+  REQUIRE(file.path() == "/dev/shm/test.file");
+  REQUIRE(file.size() == A0_FILE_CREATION_OPTIONS_DEFAULT.size);
+  REQUIRE(file.size() == a0::Arena(file).size());
+
+  a0::Arena arena;
+  {
+    a0::File file2(TEST_FILE);
+    arena = file2;
+  }
+  REQUIRE(file.size() == arena.size());
+
+  file = {};
+  a0::File::remove(TEST_FILE);
+
+  a0::File::CreationOptions creation_opts = a0::File::CreationOptions::DEFAULT;
+  creation_opts.size = 32 * MB;
+
+  file = a0::File(TEST_FILE, creation_opts);
+  REQUIRE(file.size() == 32 * MB);
+
+  file = {};
+  a0::File::remove(TEST_FILE);
+
+  creation_opts.size = std::numeric_limits<off_t>::max();
+
+  try {
+    file = a0::File(TEST_FILE, creation_opts);
+  } catch (const std::exception& e) {
+    std::string err = e.what();
+    REQUIRE((err == "Cannot allocate memory" ||
+             err == "File too large" ||
+             err == "Invalid argument" ||
+             err == "Out of memory"));
+  }
+
+  file = {};
+  a0::File::remove(TEST_FILE);
+
+  creation_opts.size = -1;
+
+  REQUIRE_THROWS_WITH(
+      [&]() { file = a0::File(TEST_FILE, creation_opts); }(),
+      "Invalid argument");
+
+  REQUIRE_THROWS_WITH(
+      [&]() {
+        file = a0::File();
+        file.size();
+      }(),
+      "AlephZero method called with NULL object: size_t a0::File::size() const");
+}
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] disk") {
   REQUIRE(disk.path() == TEST_DISK);
@@ -110,7 +167,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
     a0::Shm shm2(TEST_SHM);
     arena = shm2;
   }
-  REQUIRE(disk.size() == arena.size());
+  REQUIRE(shm.size() == arena.size());
 
   shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = 32 * MB, .resize = false});
   REQUIRE(shm.size() == A0_SHM_OPTIONS_DEFAULT.size);
