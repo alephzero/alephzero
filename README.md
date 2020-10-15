@@ -1,6 +1,7 @@
 # Aleph Zero
 [![CI](https://github.com/alephzero/alephzero/workflows/CI/badge.svg)](https://github.com/alephzero/alephzero/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/alephzero/alephzero/branch/master/graph/badge.svg)](https://codecov.io/gh/alephzero/alephzero)
+[![Documentation Status](https://readthedocs.org/projects/alephzero/badge/?version=latest)](https://alephzero.readthedocs.io/en/latest/?badge=latest)
 
 TODO: What is it? Why is it? Who is it????
 

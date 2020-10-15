@@ -9,9 +9,7 @@
 extern "C" {
 #endif
 
-/**
- * Defines a strategy for allocating memory buffers.
- */
+/// Defines a strategy for allocating memory buffers.
 typedef struct a0_alloc_s {
   /// User data to be passed as context to other a0_alloc_t methods.
   void* user_data;
