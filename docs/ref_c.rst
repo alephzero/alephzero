@@ -6,5 +6,6 @@ Reference (C)
    :caption: Contents:
 
    alloc_c
+   file_c
    heartbeat_c
    time_c

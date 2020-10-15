@@ -1,4 +1,4 @@
-FROM readthedocs/build:6.0
+FROM readthedocs/build:7.0
 
 ENV A0_DIR=/home/docs/alephzero
 ENV VENV_DIR=/home/docs/checkouts/readthedocs.org/user_builds/alephzero/envs/latest

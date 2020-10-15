@@ -46,11 +46,20 @@ struct Arena : details::CppWrap<a0_arena_t> {
 };
 
 struct File : details::CppWrap<a0_file_t> {
+  /// Options for creating new files or directories.
+  ///
+  /// These will not change existing files.
   struct CreationOptions {
+    /// File size.
     off_t size;
+    /// File mode.
     mode_t mode;
+    /// Mode for directories that will be created as part of file creation.
     mode_t dir_mode;
 
+    /// Default file creation options.
+    ///
+    /// 16MB and universal read+write.
     static CreationOptions DEFAULT;
   };
 
@@ -58,15 +67,22 @@ struct File : details::CppWrap<a0_file_t> {
   File(std::string_view path);
   File(std::string_view path, CreationOptions);
 
+  /// Implicit conversion to Arena.
   operator Arena() const;
 
+  /// File size.
   size_t size() const;
+  /// File path.
   std::string path() const;
 
+  /// File descriptor.
   int fd() const;
+  /// File state.
   struct stat stat() const;
 
+  /// Removes the specified file.
   static void remove(std::string_view path);
+  /// Removes the specified file or directory, including all subdirectories.
   static void remove_all(std::string_view path);
 };
 
