@@ -13,7 +13,7 @@
  * The given path is relative to **\/dev/shm**. This can be overriden
  * by setting the environmental variable **A0_ROOT**.
  *
- * The path may also be given as an absolute path (starting with **\/**).
+ * The path may also be given as an absolute path (starting with a forward slash '/').
  *
  * Tilde '**~**' is not expanded.
  *
