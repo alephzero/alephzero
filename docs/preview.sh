@@ -29,7 +29,7 @@ docker exec a0_doc_preview bash -c 'echo -e "\nhtml_theme = \"sphinx_rtd_theme\"
 docker exec a0_doc_preview bash -c '\
   $VENV_PIP --exists-action=w -r $A0_DIR/docs/requirements.txt && \
   cd $A0_DIR/docs && $VENV_PYTHON $VENV_BIN/sphinx-build -T -E -b readthedocs -d _build/doctrees-readthedocs -D language=en . _build/html && \
-  $VENV_BIN/gunicorn -w 1 "sphinxserver:app(home=\"$A0_DIR/docs/_build/html/\")" -b 0.0.0.0:8000
+  cd $A0_DIR/docs/_build/html/ && python3 -m http.server
 '
 
 shutdown
