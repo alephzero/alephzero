@@ -52,6 +52,7 @@
  * --------------------
  *
  *  The serialized form has four parts:
+ *
  *  * Packet id.
  *  * Index.
  *  * Header contents.
@@ -108,6 +109,10 @@
 extern "C" {
 #endif
 
+/** \addtogroup PACKET
+ *  @{
+ */
+
 /// A single packet header.
 typedef struct a0_packet_header_s {
   /// UTF-8 key.
@@ -148,14 +153,20 @@ struct a0_packet_headers_block_s {
 };
 
 typedef struct a0_packet_s {
+  /// Unique identifier for the packet.
   a0_uuid_t id;
+  /// Packet headers.
   a0_packet_headers_block_t headers_block;
+  /// Packet payload.
   a0_buf_t payload;
 } a0_packet_t;
 
 // The following are special keys.
 // The returned buffers should not be cleaned up.
 
+/// Packet header key used to annotate a dependence on another packet.
+///
+/// The value should be a packet id.
 extern const char* A0_PACKET_DEP_KEY;
 
 // Callback definition where packet is the only argument.
@@ -210,6 +221,8 @@ errno_t a0_packet_deep_copy(a0_packet_t, a0_alloc_t, a0_packet_t* out);
 
 /// Deallocates a packet that was previously allocated with the given alloc.
 errno_t a0_packet_dealloc(a0_packet_t, a0_alloc_t);
+
+/** @}*/
 
 #ifdef __cplusplus
 }

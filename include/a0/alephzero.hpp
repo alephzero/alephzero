@@ -128,32 +128,55 @@ struct Shm : details::CppWrap<a0_shm_t> {
 
 struct Packet;
 
+/// PacketView does not own the underlying data.
+///
+/// Ownership and lifetime semantics of payload is managed externally.
+///
+/// PacketView is immutable.
 struct PacketView : details::CppWrap<a0_packet_t> {
+  /// Creates a new packet view with no headers and an empty payload.
   PacketView();
+  /// Creates a new packet view with no headers and the given payload.
   PacketView(std::string_view payload);
+  /// Creates a new packet view with the given headers and the given payload.
   PacketView(std::vector<std::pair<std::string, std::string>> headers,
              std::string_view payload);
 
+  /// Create a shallow copy of the given Packet.
   PacketView(const Packet&);
   PacketView(a0_packet_t);
 
+  /// Packet unique identifier.
   std::string_view id() const;
+  /// Packet headers.
   const std::vector<std::pair<std::string, std::string>>& headers() const;
+  /// Packet payload.
   std::string_view payload() const;
 };
 
+/// Packet owns the underlying data.
+///
+/// Packet is immutable.
 struct Packet : details::CppWrap<a0_packet_t> {
+  /// Creates a new packet with no headers and an empty payload.
   Packet();
+  /// Creates a new packet with no headers and the given payload.
   Packet(std::string payload);
+  /// Creates a new packet with the given headers and the given payload.
   Packet(std::vector<std::pair<std::string, std::string>> headers,
          std::string payload);
 
+  /// Create a deep copy of the given PacketView.
   Packet(const PacketView&);
+  /// Create a deep copy of the given PacketView.
   Packet(PacketView&&);
   Packet(a0_packet_t);
 
+  /// Packet unique identifier.
   std::string_view id() const;
+  /// Packet headers.
   const std::vector<std::pair<std::string, std::string>>& headers() const;
+  /// Packet payload.
   std::string_view payload() const;
 };
 
