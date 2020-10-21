@@ -3,7 +3,7 @@
  * \rst
  *
  * File
- * ---------
+ * ----
  *
  * A file, in the AlephZero context, wraps a normal linux file.
  *
@@ -13,13 +13,16 @@
  * The given path is relative to **\/dev/shm**. This can be overriden
  * by setting the environmental variable **A0_ROOT**.
  *
- * .. note::
- *
- *    **A0_ROOT** must be an absolute path. It is NOT relative to **\/dev/shm**.
+ * **A0_ROOT** must be an absolute path. It is NOT relative to **\/dev/shm**.
  *
  * The path may also be given as an absolute path (starting with a forward slash '/').
  *
  * Tilde '**~**' is not expanded.
+ *
+ * Files in **\/dev/shm**, or any other tmpfs directory will have lazily page allocation.
+ * Large files are only an issue once the data is written to the files.
+ *
+ * Files are initially populated with null bytes.
  *
  * \endrst
  */

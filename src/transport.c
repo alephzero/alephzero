@@ -449,7 +449,7 @@ errno_t a0_transport_find_slot(a0_locked_transport_t lk, size_t frame_size, tran
 }
 
 A0_STATIC_INLINE
-void a0_transport_clear_space(a0_locked_transport_t lk, transport_off_t off, size_t frame_size) {
+void a0_transport_evict(a0_locked_transport_t lk, transport_off_t off, size_t frame_size) {
   transport_off_t head_off;
   size_t head_size;
   a0_transport_state_t* state = a0_transport_working_page(lk);
@@ -518,10 +518,10 @@ errno_t a0_transport_alloc(a0_locked_transport_t lk, size_t size, a0_transport_f
   transport_off_t off;
   A0_RETURN_ERR_ON_ERR(a0_transport_find_slot(lk, frame_size, &off));
 
-  a0_transport_clear_space(lk, off, frame_size);
+  a0_transport_evict(lk, off, frame_size);
 
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
-  // Note: a0_transport_clear_space commits changes, which invalidates state.
+  // Note: a0_transport_evict commits changes, which invalidates state.
   //       Must grab state afterwards.
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
