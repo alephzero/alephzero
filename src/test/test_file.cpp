@@ -2,8 +2,10 @@
 #include <a0/file.h>
 
 #include <doctest.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <cerrno>
 #include <cstring>
