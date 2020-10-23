@@ -2,6 +2,7 @@
 #include <a0/file_arena.h>
 #include <a0/packet.h>
 #include <a0/rpc.h>
+#include <a0/uuid.h>
 
 #include <doctest.h>
 
@@ -115,7 +116,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] empty oncancel onreply") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, A0_NONE));
+  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, {}));
 
   a0_rpc_client_t client;
   REQUIRE_OK(a0_rpc_client_init(&client, shm.arena, a0::test::allocator()));
@@ -124,7 +125,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] empty oncancel onreply") {
     a0_packet_t req;
     a0_packet_init(&req);
     req.payload = a0::test::buf("msg");
-    REQUIRE_OK(a0_rpc_send(&client, req, A0_NONE));
+    REQUIRE_OK(a0_rpc_send(&client, req, {}));
     a0_rpc_cancel(&client, req.id);
   }
 
@@ -167,7 +168,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] server async close") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, A0_NONE));
+  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, {}));
 
   a0_rpc_client_t client;
   REQUIRE_OK(a0_rpc_client_init(&client, shm.arena, a0::test::allocator()));
@@ -210,7 +211,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] client async close") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, A0_NONE));
+  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, {}));
 
   a0_rpc_client_t client;
   REQUIRE_OK(a0_rpc_client_init(&client, shm.arena, a0::test::allocator()));

@@ -2,6 +2,7 @@
 
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/errno.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
 

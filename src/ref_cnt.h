@@ -1,7 +1,7 @@
 #ifndef A0_REF_CNT_H
 #define A0_REF_CNT_H
 
-#include <a0/common.h>
+#include <a0/errno.h>
 
 #include <stddef.h>
 

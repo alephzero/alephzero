@@ -1,8 +1,10 @@
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/errno.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
 #include <a0/rpc.h>
+#include <a0/uuid.h>
 
 #include <cerrno>
 #include <cstdint>
@@ -174,7 +176,7 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_arena_t arena, a0_alloc_t
                     outstanding_->erase(req_id);
                     return callback;
                   }
-                  return A0_NONE;
+                  return {};
                 });
 
             if (callback.fn) {

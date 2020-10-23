@@ -1,4 +1,4 @@
-#include <a0/common.h>
+#include <a0/errno.h>
 #include <a0/time.h>  // IWYU pragma: keep
 
 #include <cerrno>

@@ -2,6 +2,7 @@
 #include <a0/file_arena.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
+#include <a0/uuid.h>
 
 #include <doctest.h>
 
@@ -54,7 +55,7 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] basic") {
   };
 
   a0_prpc_server_t server;
-  REQUIRE_OK(a0_prpc_server_init(&server, shm.arena, a0::test::allocator(), onconnect, A0_NONE));
+  REQUIRE_OK(a0_prpc_server_init(&server, shm.arena, a0::test::allocator(), onconnect, {}));
 
   a0_prpc_client_t client;
   REQUIRE_OK(a0_prpc_client_init(&client, shm.arena, a0::test::allocator()));
@@ -193,7 +194,7 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] server async close") {
   };
 
   a0_prpc_server_t server;
-  REQUIRE_OK(a0_prpc_server_init(&server, shm.arena, a0::test::allocator(), onconnect, A0_NONE));
+  REQUIRE_OK(a0_prpc_server_init(&server, shm.arena, a0::test::allocator(), onconnect, {}));
 
   a0_prpc_client_t client;
   REQUIRE_OK(a0_prpc_client_init(&client, shm.arena, a0::test::allocator()));
@@ -243,7 +244,7 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] client async close") {
   };
 
   a0_prpc_server_t server;
-  REQUIRE_OK(a0_prpc_server_init(&server, shm.arena, a0::test::allocator(), onconnect, A0_NONE));
+  REQUIRE_OK(a0_prpc_server_init(&server, shm.arena, a0::test::allocator(), onconnect, {}));
 
   a0_prpc_client_t client;
   REQUIRE_OK(a0_prpc_client_init(&client, shm.arena, a0::test::allocator()));

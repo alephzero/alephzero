@@ -1,8 +1,11 @@
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/errno.h>
 
 #include <errno.h>
 #include <stdlib.h>
+
+#include "macros.h"
 
 A0_STATIC_INLINE
 errno_t malloc_alloc_impl(void* user_data, size_t size, a0_buf_t* out) {

@@ -1,7 +1,7 @@
 #ifndef A0_SRC_MTX_H
 #define A0_SRC_MTX_H
 
-#include <a0/common.h>
+#include <a0/errno.h>
 
 #include <stdint.h>
 

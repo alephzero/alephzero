@@ -1,6 +1,8 @@
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/errno.h>
 #include <a0/packet.h>
+#include <a0/uuid.h>
 
 #include <doctest.h>
 
@@ -214,7 +216,7 @@ TEST_CASE("packet] dealloc") {
     bool was_alloc_called;
     bool was_dealloc_called;
     a0_buf_t expected_buf;
-  } data{false, false, A0_NONE};
+  } data{false, false, {}};
 
   // clang-format off
   a0_alloc_t alloc = {
