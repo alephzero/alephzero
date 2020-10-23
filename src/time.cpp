@@ -11,8 +11,14 @@
 const char A0_TIME_MONO[] = "a0_time_mono";
 
 errno_t a0_time_mono_now(uint64_t* out) {
+  // TODO(lshamis): If CLOCK_BOOTTIME is common enough, remove the ifdef check.
+#ifdef CLOCK_BOOTTIME
+  clockid_t cid = CLOCK_BOOTTIME;
+#else
+  clockid_t cid = CLOCK_MONOTONIC;
+#endif
   timespec mono_ts;
-  clock_gettime(CLOCK_MONOTONIC, &mono_ts);
+  clock_gettime(cid, &mono_ts);
   *out = mono_ts.tv_sec * uint64_t(1e9) + mono_ts.tv_nsec;
   return A0_OK;
 }
