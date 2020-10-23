@@ -12,7 +12,7 @@ const char A0_TIME_MONO[] = "a0_time_mono";
 
 errno_t a0_time_mono_now(uint64_t* out) {
   timespec mono_ts;
-  clock_gettime(CLOCK_MONOTONIC, &mono_ts);
+  clock_gettime(CLOCK_BOOTTIME, &mono_ts);
   *out = mono_ts.tv_sec * uint64_t(1e9) + mono_ts.tv_nsec;
   return A0_OK;
 }
