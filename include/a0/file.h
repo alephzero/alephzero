@@ -31,6 +31,7 @@
 #define A0_FILE_H
 
 #include <a0/common.h>
+#include <a0/errno.h>
 
 #include <stdbool.h>
 #include <sys/stat.h>

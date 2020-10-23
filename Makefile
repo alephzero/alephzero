@@ -7,7 +7,7 @@ BIN_DIR = bin
 
 CXFLAGS += -Wall -Wextra -fPIC -Iinclude
 CXXFLAGS += -std=c++17
-LDFLAGS += -lm -lpthread -lrt
+LDFLAGS += -lpthread -lrt
 
 SRC_C := $(wildcard $(SRC_DIR)/*.c)
 SRC_CXX := $(wildcard $(SRC_DIR)/*.cpp)

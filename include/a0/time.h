@@ -31,6 +31,7 @@
 #define A0_TIME_H
 
 #include <a0/common.h>
+#include <a0/errno.h>
 
 #include <stdint.h>
 #include <time.h>

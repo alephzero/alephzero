@@ -1,19 +1,20 @@
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/errno.h>
 #include <a0/packet.h>
+#include <a0/uuid.h>
 
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "macros.h"
-#include "rand.h"
 
 const char* A0_PACKET_DEP_KEY = "a0_dep";
 
 errno_t a0_packet_init(a0_packet_t* pkt) {
   memset(pkt, 0, sizeof(a0_packet_t));
-  a0_uuidv4((uint8_t*)pkt->id);
+  a0_uuidv4(pkt->id);
   return A0_OK;
 }
 

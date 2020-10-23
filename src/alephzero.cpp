@@ -1,6 +1,7 @@
 #include <a0/alephzero.hpp>
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/errno.h>
 #include <a0/file.h>
 #include <a0/file_arena.h>
 #include <a0/heartbeat.h>
@@ -10,6 +11,7 @@
 #include <a0/pubsub.h>
 #include <a0/rpc.h>
 #include <a0/topic_manager.h>
+#include <a0/uuid.h>
 
 #include <cerrno>
 #include <chrono>
@@ -29,6 +31,7 @@
 #include <vector>
 
 #include "alloc_util.hpp"
+#include "macros.h"
 #include "scope.hpp"
 #include "strutil.hpp"
 

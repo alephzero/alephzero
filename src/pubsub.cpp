@@ -1,9 +1,11 @@
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/errno.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
 #include <a0/time.h>
 #include <a0/transport.h>
+#include <a0/uuid.h>
 
 #include <fcntl.h>
 
@@ -16,7 +18,6 @@
 #include "alloc_util.hpp"
 #include "charconv.hpp"
 #include "macros.h"
-#include "rand.h"
 #include "scope.hpp"
 #include "sync.hpp"
 #include "transport_tools.hpp"
@@ -103,7 +104,7 @@ struct a0_publisher_impl_s {
 
 errno_t a0_publisher_init(a0_publisher_t* pub, a0_arena_t arena) {
   pub->_impl = new a0_publisher_impl_t;
-  a0_uuidv4((uint8_t*)pub->_impl->id);
+  a0_uuidv4(pub->_impl->id);
   return a0_publisher_raw_init(&pub->_impl->raw, arena);
 }
 

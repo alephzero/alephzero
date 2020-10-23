@@ -270,7 +270,7 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] listener async close") {
                                         a0::test::allocator(),
                                         &hbl_opts,
                                         ondetected,
-                                        A0_NONE));
+                                        {}));
 
   REQUIRE(data.evt.wait_for(sync_duration) ==
           std::cv_status::no_timeout);

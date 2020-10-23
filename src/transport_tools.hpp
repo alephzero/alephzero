@@ -1,6 +1,7 @@
 #pragma once
 
 #include <a0/common.h>
+#include <a0/errno.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
 
@@ -13,6 +14,7 @@
 #include <thread>
 #include <utility>
 
+#include "macros.h"
 #include "sync.hpp"
 
 #ifdef DEBUG

@@ -1,6 +1,6 @@
 #include "ref_cnt.h"
 
-#include <a0/common.h>
+#include <a0/errno.h>
 
 #include <cerrno>
 #include <unordered_map>

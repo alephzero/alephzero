@@ -1,10 +1,10 @@
 #pragma once
 
 #include <a0/alloc.h>
-#include <a0/common.h>
 
 #include <functional>
 
+#include "macros.h"
 #include "scope.hpp"
 
 namespace a0 {

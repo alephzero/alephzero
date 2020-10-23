@@ -102,6 +102,7 @@
 
 #include <a0/alloc.h>
 #include <a0/common.h>
+#include <a0/uuid.h>
 
 #include <stddef.h>
 
