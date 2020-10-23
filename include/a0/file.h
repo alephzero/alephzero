@@ -48,19 +48,37 @@ typedef struct stat stat_t;
 /// Options for creating new files or directories.
 ///
 /// These will not change existing files.
-typedef struct a0_file_creation_options_s {
+typedef struct a0_file_create_options_s {
   /// File size.
   off_t size;
   /// File mode.
   mode_t mode;
-  /// Mode for directories that will be created as part of file creation.
+  /// Mode for directories that will be created as part of file create.
   mode_t dir_mode;
-} a0_file_creation_options_t;
+} a0_file_create_options_t;
 
-/// Default file creation options.
+/// Options for opening files.
+typedef struct a0_file_open_options_s {
+  /// Create a private copy-on-write mapping.
+  /// Updates to the mapping are not visible to other processes mapping
+  /// the same file, and are not carried through to the underlying file.
+  /// It is unspecified whether changes made to the file are visible in
+  /// the mapped region.
+  bool readonly;
+} a0_file_open_options_t;
+
+/// File options.
+typedef struct a0_file_options_s {
+  a0_file_create_options_t create_options;
+  a0_file_open_options_t open_options;
+} a0_file_options_t;
+
+/// Default file options.
 ///
-/// 16MB and universal read+write.
-extern const a0_file_creation_options_t A0_FILE_CREATION_OPTIONS_DEFAULT;
+/// On create: 16MB and universal read+write.
+///
+/// On open: read+write.
+extern const a0_file_options_t A0_FILE_OPTIONS_DEFAULT;
 
 /// File object.
 typedef struct a0_file_s {
@@ -74,10 +92,13 @@ typedef struct a0_file_s {
 ///
 /// If the file does not exist, it will be created automatically.
 ///
-/// ::A0_FILE_CREATION_OPTIONS_DEFAULT is used if a0_file_creation_options_t is NULL.
+/// ::A0_FILE_OPTIONS_DEFAULT is used if opt is NULL.
 ///
-/// The file is zero-ed out when first opened.
-errno_t a0_file_open(const char* path, const a0_file_creation_options_t*, a0_file_t* out);
+/// The file is zero-ed out when created.
+errno_t a0_file_open(
+    const char* path,
+    const a0_file_options_t* opt,
+    a0_file_t* out);
 
 /// Closes a file. The file still exists.
 errno_t a0_file_close(a0_file_t*);

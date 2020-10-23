@@ -22,8 +22,8 @@ TEST_CASE("file] basic") {
   REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
   REQUIRE(!strcmp(file.path, TEST_FILE));
   REQUIRE(file.fd > 0);
-  REQUIRE(file.stat.st_size == A0_FILE_CREATION_OPTIONS_DEFAULT.size);
-  REQUIRE(file.stat.st_mode == (REGULAR_FILE_MASK | A0_FILE_CREATION_OPTIONS_DEFAULT.mode));
+  REQUIRE(file.stat.st_size == A0_FILE_OPTIONS_DEFAULT.create_options.size);
+  REQUIRE(file.stat.st_mode == (REGULAR_FILE_MASK | A0_FILE_OPTIONS_DEFAULT.create_options.mode));
   REQUIRE(file.arena.size == file.stat.st_size);
   REQUIRE_OK(a0_file_close(&file));
 }
@@ -40,14 +40,12 @@ TEST_CASE("file] no override") {
   REQUIRE_OK(a0_file_close(&file));
 
   // Doesn't resize or change permissions.
-  a0_file_creation_options_t fileopt = {
-      .size = 32 * 1024 * 1024,
-      .mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
-      .dir_mode = S_IRWXU | S_IRWXG,
-  };
-  REQUIRE_OK(a0_file_open(TEST_FILE, &fileopt, &file));
-  REQUIRE(file.stat.st_size == A0_FILE_CREATION_OPTIONS_DEFAULT.size);
-  REQUIRE(file.stat.st_mode == (REGULAR_FILE_MASK | A0_FILE_CREATION_OPTIONS_DEFAULT.mode));
+  a0_file_options_t opt = A0_FILE_OPTIONS_DEFAULT;
+  opt.create_options.size = 32 * 1024 * 1024;
+  opt.create_options.mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+  REQUIRE_OK(a0_file_open(TEST_FILE, &opt, &file));
+  REQUIRE(file.stat.st_size == A0_FILE_OPTIONS_DEFAULT.create_options.size);
+  REQUIRE(file.stat.st_mode == (REGULAR_FILE_MASK | A0_FILE_OPTIONS_DEFAULT.create_options.mode));
   REQUIRE_OK(a0_file_close(&file));
 }
 
@@ -57,20 +55,17 @@ TEST_CASE("file] bad size") {
 
   // Too big.
   a0_file_t file;
-  a0_file_creation_options_t fileopt = {
-      .size = std::numeric_limits<off_t>::max(),
-      .mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
-      .dir_mode = S_IRWXU | S_IRWXG | S_IRWXO,
-  };
-  errno_t err = a0_file_open(TEST_FILE, &fileopt, &file);
+  a0_file_options_t opt = A0_FILE_OPTIONS_DEFAULT;
+  opt.create_options.size = std::numeric_limits<off_t>::max();
+  errno_t err = a0_file_open(TEST_FILE, &opt, &file);
   REQUIRE((err == ENOMEM || err == EINVAL || err == EFBIG));
 
   // Too small.
-  fileopt.size = -1;
-  REQUIRE(a0_file_open(TEST_FILE, &fileopt, &file) == EINVAL);
+  opt.create_options.size = -1;
+  REQUIRE(a0_file_open(TEST_FILE, &opt, &file) == EINVAL);
 
   // Just right.
-  fileopt.size = 16 * 1024;
+  opt.create_options.size = 16 * 1024;
   REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
   REQUIRE(!strcmp(file.path, TEST_FILE));
   REQUIRE(file.fd > 0);
@@ -293,5 +288,66 @@ TEST_CASE("file] custom A0_ROOT slash") {
     REQUIRE(stat("/tmp/a0dir/d0/test.a0", &st) == -1);
     REQUIRE(stat("/tmp/a0dir/d1/test.a0", &st) == -1);
     REQUIRE(stat("/tmp/a0dir/d1/sub/test.a0", &st) == -1);
+  }
+}
+
+TEST_CASE("file] readonly") {
+  static const char* TEST_FILE = "/tmp/test.a0";
+  a0_file_remove(TEST_FILE);
+
+  {
+    a0_file_t file;
+    REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
+    REQUIRE(file.arena.ptr[0] == 0);
+    file.arena.ptr[0] = 1;
+    REQUIRE(file.arena.ptr[0] == 1);
+    REQUIRE_OK(a0_file_close(&file));
+  }
+
+  {
+    a0_file_t file;
+    REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
+    REQUIRE(file.arena.ptr[0] == 1);
+    file.arena.ptr[0] = 2;
+    REQUIRE(file.arena.ptr[0] == 2);
+    REQUIRE_OK(a0_file_close(&file));
+  }
+
+  {
+    a0_file_options_t opt = A0_FILE_OPTIONS_DEFAULT;
+    opt.open_options.readonly = true;
+
+    a0_file_t file;
+    REQUIRE_OK(a0_file_open(TEST_FILE, &opt, &file));
+    REQUIRE(file.arena.ptr[0] == 2);
+    // Note: this 3 will not be written to the file because of readonly mode.
+    file.arena.ptr[0] = 3;
+    REQUIRE(file.arena.ptr[0] == 3);
+    REQUIRE_OK(a0_file_close(&file));
+  }
+
+  {
+    a0_file_t file;
+    REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
+    REQUIRE(file.arena.ptr[0] == 2);
+    REQUIRE_OK(a0_file_close(&file));
+  }
+
+  // Change the file to read-only mode.
+  REQUIRE_OK(chmod(TEST_FILE, S_IRUSR));
+
+  // Note: the root user can open a read-only file with write permissions.
+  if (getuid()) {
+    a0_file_t file;
+    REQUIRE(a0_file_open(TEST_FILE, nullptr, &file) == EACCES);
+  }
+
+  {
+    a0_file_options_t opt = A0_FILE_OPTIONS_DEFAULT;
+    opt.open_options.readonly = true;
+
+    a0_file_t file;
+    REQUIRE_OK(a0_file_open(TEST_FILE, &opt, &file));
+    REQUIRE_OK(a0_file_close(&file));
   }
 }

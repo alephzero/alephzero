@@ -49,23 +49,34 @@ struct File : details::CppWrap<a0_file_t> {
   /// Options for creating new files or directories.
   ///
   /// These will not change existing files.
-  struct CreationOptions {
-    /// File size.
-    off_t size;
-    /// File mode.
-    mode_t mode;
-    /// Mode for directories that will be created as part of file creation.
-    mode_t dir_mode;
+  struct Options {
+    struct CreateOptions {
+      /// File size.
+      off_t size;
+      /// File mode.
+      mode_t mode;
+      /// Mode for directories that will be created as part of file creation.
+      mode_t dir_mode;
+    } create_options;
+
+    struct OpenOptions {
+      /// Create a private copy-on-write mapping.
+      /// Updates to the mapping are not visible to other processes mapping
+      /// the same file, and are not carried through to the underlying file.
+      /// It is unspecified whether changes made to the file are visible in
+      /// the mapped region.
+      bool readonly;
+    } open_options;
 
     /// Default file creation options.
     ///
     /// 16MB and universal read+write.
-    static CreationOptions DEFAULT;
+    static Options DEFAULT;
   };
 
   File() = default;
   File(std::string_view path);
-  File(std::string_view path, CreationOptions);
+  File(std::string_view path, Options);
 
   /// Implicit conversion to Arena.
   operator Arena() const;
