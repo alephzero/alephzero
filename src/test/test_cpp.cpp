@@ -63,7 +63,7 @@ struct CppPubsubFixture {
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] file") {
   REQUIRE(file.path() == "/dev/shm/test.file");
-  REQUIRE(file.size() == A0_FILE_CREATION_OPTIONS_DEFAULT.size);
+  REQUIRE(file.size() == A0_FILE_OPTIONS_DEFAULT.create_options.size);
   REQUIRE(file.size() == a0::Arena(file).size());
 
   a0::Arena arena;
@@ -76,19 +76,19 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] file") {
   file = {};
   a0::File::remove(TEST_FILE);
 
-  a0::File::CreationOptions creation_opts = a0::File::CreationOptions::DEFAULT;
-  creation_opts.size = 32 * MB;
+  a0::File::Options opts = a0::File::Options::DEFAULT;
+  opts.create_options.size = 32 * MB;
 
-  file = a0::File(TEST_FILE, creation_opts);
+  file = a0::File(TEST_FILE, opts);
   REQUIRE(file.size() == 32 * MB);
 
   file = {};
   a0::File::remove(TEST_FILE);
 
-  creation_opts.size = std::numeric_limits<off_t>::max();
+  opts.create_options.size = std::numeric_limits<off_t>::max();
 
   try {
-    file = a0::File(TEST_FILE, creation_opts);
+    file = a0::File(TEST_FILE, opts);
   } catch (const std::exception& e) {
     std::string err = e.what();
     REQUIRE((err == "Cannot allocate memory" ||
@@ -100,10 +100,10 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] file") {
   file = {};
   a0::File::remove(TEST_FILE);
 
-  creation_opts.size = -1;
+  opts.create_options.size = -1;
 
   REQUIRE_THROWS_WITH(
-      [&]() { file = a0::File(TEST_FILE, creation_opts); }(),
+      [&]() { file = a0::File(TEST_FILE, opts); }(),
       "Invalid argument");
 
   REQUIRE_THROWS_WITH(

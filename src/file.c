@@ -1,5 +1,5 @@
-// Necessary for nftw.
-#define _XOPEN_SOURCE 500
+// Necessary for nftw and mkostemp.
+#define _GNU_SOURCE
 
 #include <a0/common.h>
 #include <a0/file.h>
@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <ftw.h>
 #include <libgen.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,18 +107,29 @@ errno_t a0_abspath(const char* rel, char** out) {
   }
 
 A0_STATIC_INLINE
-errno_t a0_create_or_connect(a0_file_t* file, const char* path, const a0_file_creation_options_t* opts) {
+errno_t a0_create_or_connect(
+    a0_file_t* file,
+    const char* path,
+    const a0_file_options_t* opts) {
   errno_t err = A0_OK;
   char* path_copy = NULL;
   char* dir = NULL;
   char* tmppath = NULL;
 
+  int open_flags = O_RDWR;
+  if (opts->open_options.readonly) {
+    open_flags = O_RDONLY;
+  }
+
 connect:
   // Optimistically try to connect.
-  file->fd = open(path, O_RDWR);
+  file->fd = open(path, open_flags);
   if (A0_LIKELY(file->fd != -1)) {
     A0_FAIL_ON_MINUS_ONE(fstat(file->fd, &file->stat));
     return A0_OK;
+  }
+  if (errno != ENOENT) {
+    goto fail;
   }
 
   // Make a file with another name. Set the mode and size. Move it to the final destination.
@@ -128,10 +140,10 @@ connect:
     goto fail_with_err;
   }
 
-  file->fd = mkstemp(tmppath);
+  file->fd = mkostemp(tmppath, open_flags);
   A0_FAIL_ON_MINUS_ONE(file->fd);
-  A0_FAIL_ON_MINUS_ONE(fchmod(file->fd, opts->mode));
-  A0_FAIL_ON_MINUS_ONE(ftruncate(file->fd, opts->size));
+  A0_FAIL_ON_MINUS_ONE(fchmod(file->fd, opts->create_options.mode));
+  A0_FAIL_ON_MINUS_ONE(ftruncate(file->fd, opts->create_options.size));
   A0_FAIL_ON_MINUS_ONE(fstat(file->fd, &file->stat));
   if (rename(tmppath, path) == -1) {
     // Check for a race condition. Another process has already made the final file.
@@ -167,14 +179,19 @@ cleanup:
 }
 
 A0_STATIC_INLINE
-errno_t a0_mmap(a0_file_t* file) {
+errno_t a0_mmap(a0_file_t* file, const a0_file_open_options_t* open_options) {
   file->arena.size = file->stat.st_size;
+
+  int mmap_flags = MAP_SHARED;
+  if (open_options->readonly) {
+    mmap_flags = MAP_PRIVATE;
+  }
 
   file->arena.ptr = (uint8_t*)mmap(
       /* addr   = */ 0,
       /* len    = */ file->arena.size,
       /* prot   = */ PROT_READ | PROT_WRITE,
-      /* flags  = */ MAP_SHARED,
+      /* flags  = */ mmap_flags,
       /* fd     = */ file->fd,
       /* offset = */ 0);
   if (A0_UNLIKELY((intptr_t)file->arena.ptr == -1)) {
@@ -199,24 +216,32 @@ errno_t a0_munmap(a0_file_t* file) {
   return A0_OK;
 }
 
-const a0_file_creation_options_t A0_FILE_CREATION_OPTIONS_DEFAULT = {
-    // 16MB.
-    .size = 16 * 1024 * 1024,
-    // Global read+write.
-    .mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
-    // Global read+write+execute.
-    .dir_mode = S_IRWXU | S_IRWXG | S_IRWXO,
+const a0_file_options_t A0_FILE_OPTIONS_DEFAULT = {
+    .create_options = {
+        // 16MB.
+        .size = 16 * 1024 * 1024,
+        // Global read+write.
+        .mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
+        // Global read+write+execute.
+        .dir_mode = S_IRWXU | S_IRWXG | S_IRWXO,
+    },
+    .open_options = {
+        .readonly = false,
+    },
 };
 
-errno_t a0_file_open(const char* path, const a0_file_creation_options_t* opts_, a0_file_t* out) {
-  const a0_file_creation_options_t* opts = opts_;
+errno_t a0_file_open(
+    const char* path,
+    const a0_file_options_t* opts_,
+    a0_file_t* out) {
+  const a0_file_options_t* opts = opts_;
   if (!opts) {
-    opts = &A0_FILE_CREATION_OPTIONS_DEFAULT;
+    opts = &A0_FILE_OPTIONS_DEFAULT;
   }
 
   char* filepath;
   A0_RETURN_ERR_ON_ERR(a0_abspath(path, &filepath));
-  errno_t err = a0_mkpath(filepath, opts->dir_mode);
+  errno_t err = a0_mkpath(filepath, opts->create_options.dir_mode);
   if (err) {
     free(filepath);
     return err;
@@ -228,7 +253,7 @@ errno_t a0_file_open(const char* path, const a0_file_creation_options_t* opts_, 
     return err;
   }
 
-  err = a0_mmap(out);
+  err = a0_mmap(out, &opts->open_options);
   if (err) {
     close(out->fd);
     free(filepath);
@@ -262,6 +287,9 @@ errno_t a0_file_close(a0_file_t* file) {
       "File closing while still in use: %s",
       file->path);
 #endif
+
+  close(file->fd);
+  file->fd = 0;
 
   free((void*)file->path);
   file->path = NULL;

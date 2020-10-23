@@ -140,20 +140,30 @@ size_t Arena::size() const {
   return c->size;
 }
 
-File::CreationOptions File::CreationOptions::DEFAULT = {
-    .size = A0_FILE_CREATION_OPTIONS_DEFAULT.size,
-    .mode = A0_FILE_CREATION_OPTIONS_DEFAULT.mode,
-    .dir_mode = A0_FILE_CREATION_OPTIONS_DEFAULT.dir_mode,
+File::Options File::Options::DEFAULT = {
+    .create_options = {
+        .size = A0_FILE_OPTIONS_DEFAULT.create_options.size,
+        .mode = A0_FILE_OPTIONS_DEFAULT.create_options.mode,
+        .dir_mode = A0_FILE_OPTIONS_DEFAULT.create_options.dir_mode,
+    },
+    .open_options = {
+        .readonly = A0_FILE_OPTIONS_DEFAULT.open_options.readonly,
+    },
 };
 
 File::File(std::string_view path)
-    : File(path, CreationOptions::DEFAULT) {}
+    : File(path, Options::DEFAULT) {}
 
-File::File(std::string_view path, CreationOptions opts) {
-  a0_file_creation_options_t c_opts{
-      .size = opts.size,
-      .mode = opts.mode,
-      .dir_mode = opts.dir_mode,
+File::File(std::string_view path, Options opts) {
+  a0_file_options_t c_opts{
+      .create_options = {
+          .size = opts.create_options.size,
+          .mode = opts.create_options.mode,
+          .dir_mode = opts.create_options.dir_mode,
+      },
+      .open_options = {
+          .readonly = opts.open_options.readonly,
+      },
   };
   set_c(
       &c,
