@@ -13,6 +13,7 @@
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <exception>
 #include <functional>
 #include <future>

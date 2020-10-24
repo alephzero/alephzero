@@ -2,7 +2,6 @@
 #define _GNU_SOURCE
 
 #include <a0/arena.h>
-#include <a0/common.h>
 #include <a0/errno.h>
 
 #include <errno.h>

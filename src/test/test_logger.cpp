@@ -1,3 +1,4 @@
+#include <a0/arena.h>
 #include <a0/common.h>
 #include <a0/logger.h>
 #include <a0/packet.h>
