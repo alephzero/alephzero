@@ -1,5 +1,5 @@
 #include <a0/errno.h>
-#include <a0/file_arena.h>
+#include <a0/legacy_arena.h>
 #include <a0/topic_manager.h>
 
 #include <cerrno>

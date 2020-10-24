@@ -6,6 +6,8 @@ Reference (C)
    :caption: Contents:
 
    alloc_c
-   file_c
+   arena_c
    heartbeat_c
+   packet_c
    time_c
+   transport_c

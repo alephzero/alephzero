@@ -1,5 +1,6 @@
 #pragma once
 
+#include <a0/arena.h>
 #include <a0/common.h>
 #include <a0/errno.h>
 #include <a0/packet.h>

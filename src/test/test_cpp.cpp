@@ -1,6 +1,6 @@
 #include <a0/alephzero.hpp>
-#include <a0/file.h>
-#include <a0/file_arena.h>
+#include <a0/arena.h>
+#include <a0/legacy_arena.h>
 #include <a0/pubsub.h>
 
 #include <doctest.h>
@@ -13,6 +13,7 @@
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <exception>
 #include <functional>
 #include <future>
@@ -58,6 +59,7 @@ struct CppPubsubFixture {
     a0::File::remove(TEST_FILE);
     a0::Disk::unlink(TEST_DISK);
     a0::Shm::unlink(TEST_SHM);
+    unsetenv("A0_ROOT");
   }
 };
 

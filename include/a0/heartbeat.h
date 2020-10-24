@@ -44,6 +44,7 @@
 #define A0_HEARTBEAT_H
 
 #include <a0/alloc.h>
+#include <a0/arena.h>
 #include <a0/common.h>
 
 #ifdef __cplusplus

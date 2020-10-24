@@ -1,5 +1,5 @@
-#include <a0/common.h>
-#include <a0/file_arena.h>
+#include <a0/arena.h>
+#include <a0/legacy_arena.h>
 
 #include <doctest.h>
 #include <sys/types.h>
