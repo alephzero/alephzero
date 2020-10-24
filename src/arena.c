@@ -1,9 +1,9 @@
 // Necessary for nftw and mkostemp.
 #define _GNU_SOURCE
 
+#include <a0/arena.h>
 #include <a0/common.h>
 #include <a0/errno.h>
-#include <a0/file.h>
 
 #include <errno.h>
 #include <fcntl.h>

@@ -1,6 +1,7 @@
 #ifndef A0_LOGGER_H
 #define A0_LOGGER_H
 
+#include <a0/arena.h>
 #include <a0/common.h>
 #include <a0/packet.h>
 

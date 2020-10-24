@@ -1,6 +1,6 @@
+#include <a0/arena.h>
 #include <a0/common.h>
 #include <a0/errno.h>
-#include <a0/file.h>
 
 #include <doctest.h>
 #include <stdint.h>
@@ -143,7 +143,7 @@ TEST_CASE("file] relative to /dev/shm") {
   static const char* TEST_FILE_2 = "d1/sub/test.a0";
   a0_file_remove_all("/dev/shm/d0");
   a0_file_remove_all("/dev/shm/d1");
-  REQUIRE(unsetenv("A0_ROOT") == 0);
+  REQUIRE_OK(unsetenv("A0_ROOT"));
 
   {
     stat_t st;
@@ -194,7 +194,7 @@ TEST_CASE("file] custom A0_ROOT") {
   static const char* TEST_FILE_1 = "d1/test.a0";
   static const char* TEST_FILE_2 = "d1/sub/test.a0";
   a0_file_remove_all(TEST_DIR);
-  REQUIRE(setenv("A0_ROOT", TEST_DIR, true) == 0);
+  REQUIRE_OK(setenv("A0_ROOT", TEST_DIR, true));
 
   {
     stat_t st;
@@ -239,6 +239,8 @@ TEST_CASE("file] custom A0_ROOT") {
     REQUIRE(stat("/tmp/a0dir/d1/test.a0", &st) == -1);
     REQUIRE(stat("/tmp/a0dir/d1/sub/test.a0", &st) == -1);
   }
+
+  REQUIRE_OK(unsetenv("A0_ROOT"));
 }
 
 TEST_CASE("file] custom A0_ROOT slash") {
@@ -247,7 +249,7 @@ TEST_CASE("file] custom A0_ROOT slash") {
   static const char* TEST_FILE_1 = "d1/test.a0";
   static const char* TEST_FILE_2 = "d1/sub/test.a0";
   a0_file_remove_all(TEST_DIR);
-  REQUIRE(setenv("A0_ROOT", TEST_DIR, true) == 0);
+  REQUIRE_OK(setenv("A0_ROOT", TEST_DIR, true));
 
   {
     stat_t st;
@@ -292,6 +294,8 @@ TEST_CASE("file] custom A0_ROOT slash") {
     REQUIRE(stat("/tmp/a0dir/d1/test.a0", &st) == -1);
     REQUIRE(stat("/tmp/a0dir/d1/sub/test.a0", &st) == -1);
   }
+
+  REQUIRE_OK(unsetenv("A0_ROOT"));
 }
 
 TEST_CASE("file] readonly") {

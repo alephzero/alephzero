@@ -1,6 +1,6 @@
 #include <a0/common.h>
 #include <a0/errno.h>
-#include <a0/file_arena.h>
+#include <a0/legacy_arena.h>
 
 #include <errno.h>
 #include <fcntl.h>

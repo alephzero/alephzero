@@ -2,6 +2,7 @@
 #define A0_RPC_H
 
 #include <a0/alloc.h>
+#include <a0/arena.h>
 #include <a0/common.h>
 #include <a0/packet.h>
 

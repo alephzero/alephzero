@@ -123,6 +123,7 @@
 #ifndef A0_TRANSPORT_H
 #define A0_TRANSPORT_H
 
+#include <a0/arena.h>
 #include <a0/alloc.h>
 #include <a0/common.h>
 

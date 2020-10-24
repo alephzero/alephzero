@@ -1,6 +1,7 @@
-#ifndef A0_FILE_ARENA_H
-#define A0_FILE_ARENA_H
+#ifndef A0_LEGACY_ARENA_H
+#define A0_LEGACY_ARENA_H
 
+#include <a0/arena.h>
 #include <a0/common.h>
 #include <a0/errno.h>
 
@@ -57,4 +58,4 @@ errno_t a0_disk_close(a0_disk_t*);
 }
 #endif
 
-#endif  // A0_FILE_ARENA_H
+#endif  // A0_LEGACY_ARENA_H
