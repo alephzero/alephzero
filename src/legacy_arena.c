@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <unistd.h>
 
 #include "macros.h"
@@ -58,8 +57,22 @@ errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts_, a0_shm_t* o
 }
 
 errno_t a0_shm_unlink(const char* path) {
-  A0_RETURN_ERR_ON_MINUS_ONE(shm_unlink(path));
-  return A0_OK;
+  a0_buf_t full_path;
+  FILE* ss = open_memstream((char**)&full_path.ptr, &full_path.size);
+  if (path[0] == '/') {
+    fprintf(ss, "/dev/shm%s%c", path, '\0');
+  } else {
+    fprintf(ss, "/dev/shm/%s%c", path, '\0');
+  }
+  fflush(ss);
+  fclose(ss);
+
+  errno_t err = A0_OK;
+  if (unlink((char*)full_path.ptr) == -1) {
+    err = errno;
+  }
+  free(full_path.ptr);
+  return err;
 }
 
 errno_t a0_shm_close(a0_shm_t* shm) {
