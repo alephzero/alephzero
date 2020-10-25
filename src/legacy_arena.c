@@ -47,8 +47,9 @@ errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts_, a0_shm_t* o
   fflush(ss);
   fclose(ss);
 
-  A0_RETURN_ERR_ON_ERR(a0_file_open((char*)full_path.ptr, &file_opts, &out->_file));
+  errno_t err = a0_file_open((char*)full_path.ptr, &file_opts, &out->_file);
   free(full_path.ptr);
+  A0_RETURN_ERR_ON_ERR(err);
 
   out->path = strdup(path);
   out->arena = out->_file.arena;
