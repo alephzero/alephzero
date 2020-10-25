@@ -40,14 +40,16 @@ TEST_CASE_FIXTURE(ShmTestFixture, "shm] basic") {
   REQUIRE(shm.arena.size == A0_SHM_OPTIONS_DEFAULT.size);
   REQUIRE_OK(a0_shm_close(&shm));
 
-  shmopt.resize = true;
-  REQUIRE_OK(a0_shm_open(TEST_SHM, &shmopt, &shm));
-  REQUIRE(shm.arena.size == shmopt.size);
-  REQUIRE_OK(a0_shm_close(&shm));
+  // Resize no longer supported.
+  // shmopt.resize = true;
+  // REQUIRE_OK(a0_shm_open(TEST_SHM, &shmopt, &shm));
+  // REQUIRE(shm.arena.size == shmopt.size);
+  // REQUIRE_OK(a0_shm_close(&shm));
 
-  REQUIRE_OK(a0_shm_open(TEST_SHM, nullptr, &shm));
-  REQUIRE(shm.arena.size == shmopt.size);
-  REQUIRE_OK(a0_shm_close(&shm));
+  // REQUIRE_OK(a0_shm_open(TEST_SHM, nullptr, &shm));
+  // REQUIRE(shm.arena.size == shmopt.size);
+  // REQUIRE_OK(a0_shm_close(&shm));
+  a0_shm_unlink(TEST_SHM);
 
   if (!a0::test::is_valgrind()) {
     shmopt.size = pow(2, 46);
@@ -111,14 +113,15 @@ TEST_CASE_FIXTURE(DiskTestFixture, "disk] basic") {
   REQUIRE(disk.arena.size == A0_DISK_OPTIONS_DEFAULT.size);
   REQUIRE_OK(a0_disk_close(&disk));
 
-  diskopt.resize = true;
-  REQUIRE_OK(a0_disk_open(TEST_DISK, &diskopt, &disk));
-  REQUIRE(disk.arena.size == diskopt.size);
-  REQUIRE_OK(a0_disk_close(&disk));
+  // Resize no longer supported.
+  // diskopt.resize = true;
+  // REQUIRE_OK(a0_disk_open(TEST_DISK, &diskopt, &disk));
+  // REQUIRE(disk.arena.size == diskopt.size);
+  // REQUIRE_OK(a0_disk_close(&disk));
 
-  REQUIRE_OK(a0_disk_open(TEST_DISK, nullptr, &disk));
-  REQUIRE(disk.arena.size == diskopt.size);
-  REQUIRE_OK(a0_disk_close(&disk));
+  // REQUIRE_OK(a0_disk_open(TEST_DISK, nullptr, &disk));
+  // REQUIRE(disk.arena.size == diskopt.size);
+  // REQUIRE_OK(a0_disk_close(&disk));
 }
 
 TEST_CASE_FIXTURE(DiskTestFixture, "disk] bad size") {
@@ -132,11 +135,6 @@ TEST_CASE_FIXTURE(DiskTestFixture, "disk] bad size") {
 
   diskopt.size = -1;
   REQUIRE(a0_disk_open("/tmp/bar.disk", &diskopt, &disk) == EINVAL);
-}
-
-TEST_CASE_FIXTURE(DiskTestFixture, "disk] bad path") {
-  a0_disk_t disk;
-  REQUIRE(a0_disk_open("////foo/bar", nullptr, &disk) == ENOENT);
 }
 
 TEST_CASE_FIXTURE(DiskTestFixture, "disk] double close") {

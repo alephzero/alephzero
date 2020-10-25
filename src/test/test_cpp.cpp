@@ -134,8 +134,10 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] disk") {
   disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = 32 * MB, .resize = false});
   REQUIRE(disk.size() == A0_DISK_OPTIONS_DEFAULT.size);
 
-  disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = 32 * MB, .resize = true});
-  REQUIRE(disk.size() == 32 * MB);
+  // Resize no longer supported.
+  // disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = 32 * MB, .resize = true});
+  // REQUIRE(disk.size() == 32 * MB);
+  a0::Disk::unlink(TEST_DISK);
 
   REQUIRE_THROWS_WITH(
       [&]() { disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = std::numeric_limits<off_t>::max(), .resize = true}); }(),
@@ -144,10 +146,6 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] disk") {
   REQUIRE_THROWS_WITH(
       [&]() { disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = -1, .resize = true}); }(),
       "Invalid argument");
-
-  REQUIRE_THROWS_WITH(
-      [&]() { disk = a0::Disk("////foo/bar"); }(),
-      "No such file or directory");
 
   REQUIRE_THROWS_WITH(
       [&]() {
@@ -175,8 +173,10 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
   shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = 32 * MB, .resize = false});
   REQUIRE(shm.size() == A0_SHM_OPTIONS_DEFAULT.size);
 
-  shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = 32 * MB, .resize = true});
-  REQUIRE(shm.size() == 32 * MB);
+  // Resize no longer supported.
+  // shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = 32 * MB, .resize = true});
+  // REQUIRE(shm.size() == 32 * MB);
+  a0::Shm::unlink(TEST_SHM);
 
   try {
     shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = std::numeric_limits<off_t>::max(), .resize = true});
@@ -188,9 +188,15 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
              err == "Out of memory"));
   }
 
-  REQUIRE_THROWS_WITH(
-      [&]() { shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = -1, .resize = true}); }(),
-      "Invalid argument");
+  try {
+    shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = -1, .resize = true});
+  } catch (const std::exception& e) {
+    std::string err = e.what();
+    REQUIRE((err == "Cannot allocate memory" ||
+             err == "File too large" ||
+             err == "Invalid argument" ||
+             err == "Out of memory"));
+  }
 
   REQUIRE_THROWS_WITH(
       [&]() { shm = a0::Shm("/foo/bar"); }(),
