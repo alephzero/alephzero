@@ -1,64 +1,17 @@
 #include <a0/arena.h>
+#include <a0/common.h>
 #include <a0/errno.h>
 #include <a0/legacy_arena.h>
 
 #include <errno.h>
-#include <fcntl.h>
 #include <stdbool.h>
-#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include "macros.h"
-
-#ifdef DEBUG
-#include "ref_cnt.h"
-#endif
-
-A0_STATIC_INLINE
-errno_t a0_mmap(int fd, off_t size, bool resize, a0_arena_t* arena) {
-  A0_RETURN_ERR_ON_MINUS_ONE(fd);
-
-  stat_t stat;
-  A0_RETURN_ERR_ON_MINUS_ONE(fstat(fd, &stat));
-
-  arena->size = stat.st_size;
-  if ((resize || !stat.st_size) && size != stat.st_size) {
-    A0_RETURN_ERR_ON_MINUS_ONE(ftruncate(fd, size));
-    arena->size = size;
-  }
-
-  arena->ptr = (uint8_t*)mmap(
-      /* addr   = */ 0,
-      /* len    = */ arena->size,
-      /* prot   = */ PROT_READ | PROT_WRITE,
-      /* flags  = */ MAP_SHARED,
-      /* fd     = */ fd,
-      /* offset = */ 0);
-  if (A0_UNLIKELY((intptr_t)arena->ptr == -1)) {
-    arena->ptr = NULL;
-    arena->size = 0;
-    return errno;
-  }
-
-  return A0_OK;
-}
-
-A0_STATIC_INLINE
-errno_t a0_munmap(a0_arena_t* arena) {
-  if (!arena->ptr) {
-    return EBADF;
-  }
-
-  A0_RETURN_ERR_ON_MINUS_ONE(munmap(arena->ptr, arena->size));
-  arena->ptr = NULL;
-  arena->size = 0;
-
-  return A0_OK;
-}
 
 const a0_shm_options_t A0_SHM_OPTIONS_DEFAULT = {
     .size = 16 * 1024 * 1024,
@@ -71,22 +24,35 @@ errno_t a0_shm_open(const char* path, const a0_shm_options_t* opts_, a0_shm_t* o
     opts = &A0_SHM_OPTIONS_DEFAULT;
   }
 
-  int fd = shm_open(path, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
+  a0_file_options_t file_opts = A0_FILE_OPTIONS_DEFAULT;
+  file_opts.create_options.size = opts->size;
+  // NOTE: file does not support resize.
 
-  errno_t err = a0_mmap(fd, opts->size, opts->resize, &out->arena);
-  if (fd > 0) {
-    close(fd);
+  if (!path || !path[0]) {
+    return ENOENT;
+  }
+  for (size_t i = 1; path[i]; i++) {
+    if (path[i] == '/') {
+      return EINVAL;
+    }
   }
 
-  if (err) {
-    return err;
+  a0_buf_t full_path;
+  FILE* ss = open_memstream((char**)&full_path.ptr, &full_path.size);
+  if (path[0] == '/') {
+    fprintf(ss, "/dev/shm%s%c", path, '\0');
+  } else {
+    fprintf(ss, "/dev/shm/%s%c", path, '\0');
   }
+  fflush(ss);
+  fclose(ss);
+
+  errno_t err = a0_file_open((char*)full_path.ptr, &file_opts, &out->_file);
+  free(full_path.ptr);
+  A0_RETURN_ERR_ON_ERR(err);
 
   out->path = strdup(path);
-
-#ifdef DEBUG
-  a0_ref_cnt_inc(out->arena.ptr);
-#endif
+  out->arena = out->_file.arena;
 
   return A0_OK;
 }
@@ -97,28 +63,14 @@ errno_t a0_shm_unlink(const char* path) {
 }
 
 errno_t a0_shm_close(a0_shm_t* shm) {
-  if (!shm->path || !shm->arena.ptr) {
+  if (!shm->path) {
     return EBADF;
   }
-
-#ifdef DEBUG
-  A0_ASSERT_OK(
-      a0_ref_cnt_dec(shm->arena.ptr),
-      "Shared memory file reference count corrupt: %s",
-      shm->path);
-
-  size_t cnt;
-  a0_ref_cnt_get(shm->arena.ptr, &cnt);
-  A0_ASSERT(
-      cnt == 0,
-      "Shared memory file closing while still in use: %s",
-      shm->path);
-#endif
 
   free((void*)shm->path);
   shm->path = NULL;
 
-  return a0_munmap(&shm->arena);
+  return a0_file_close(&shm->_file);
 }
 
 const a0_disk_options_t A0_DISK_OPTIONS_DEFAULT = {
@@ -132,22 +84,18 @@ errno_t a0_disk_open(const char* path, const a0_disk_options_t* opts_, a0_disk_t
     opts = &A0_DISK_OPTIONS_DEFAULT;
   }
 
-  int fd = open(path, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
+  a0_file_options_t file_opts = A0_FILE_OPTIONS_DEFAULT;
+  file_opts.create_options.size = opts->size;
+  // NOTE: file does not support resize.
 
-  errno_t err = a0_mmap(fd, opts->size, opts->resize, &out->arena);
-  if (fd > 0) {
-    close(fd);
+  if (!path || path[0] != '/') {
+    return ENOENT;
   }
 
-  if (err) {
-    return err;
-  }
+  A0_RETURN_ERR_ON_ERR(a0_file_open(path, &file_opts, &out->_file));
 
   out->path = strdup(path);
-
-#ifdef DEBUG
-  a0_ref_cnt_inc(out->arena.ptr);
-#endif
+  out->arena = out->_file.arena;
 
   return A0_OK;
 }
@@ -158,26 +106,12 @@ errno_t a0_disk_unlink(const char* path) {
 }
 
 errno_t a0_disk_close(a0_disk_t* disk) {
-  if (!disk->path || !disk->arena.ptr) {
+  if (!disk->path) {
     return EBADF;
   }
-
-#ifdef DEBUG
-  A0_ASSERT_OK(
-      a0_ref_cnt_dec(disk->arena.ptr),
-      "Disk file reference count corrupt: %s",
-      disk->path);
-
-  size_t cnt;
-  a0_ref_cnt_get(disk->arena.ptr, &cnt);
-  A0_ASSERT(
-      cnt == 0,
-      "Disk file closing while still in use: %s",
-      disk->path);
-#endif
 
   free((void*)disk->path);
   disk->path = NULL;
 
-  return a0_munmap(&disk->arena);
+  return a0_file_close(&disk->_file);
 }
