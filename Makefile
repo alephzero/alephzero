@@ -7,7 +7,7 @@ BIN_DIR = bin
 
 CXFLAGS += -Wall -Wextra -fPIC -Iinclude
 CXXFLAGS += -std=c++17
-LDFLAGS += -lpthread -lrt
+LDFLAGS += -lpthread
 
 SRC_C := $(wildcard $(SRC_DIR)/*.c)
 SRC_CXX := $(wildcard $(SRC_DIR)/*.cpp)
@@ -22,7 +22,6 @@ TEST_SRC_CXX := $(wildcard $(SRC_DIR)/test/*.cpp)
 TEST_OBJ := $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cpp=$(OBJ_DIR)/test/%.o)
 
 TEST_CXXFLAGS += -I. -Itest -Ithird_party/doctest/doctest
-TEST_LDFLAGS += -lm
 
 BENCH_SRC_C := $(wildcard $(SRC_DIR)/bench/*.c)
 BENCH_SRC_CXX := $(wildcard $(SRC_DIR)/bench/*.cpp)
