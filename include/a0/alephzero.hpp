@@ -88,7 +88,7 @@ struct File : details::CppWrap<a0_file_t> {
   /// File descriptor.
   int fd() const;
   /// File state.
-  struct stat stat() const;
+  stat_t stat() const;
 
   /// Removes the specified file.
   static void remove(std::string_view path);
