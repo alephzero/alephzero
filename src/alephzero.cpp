@@ -197,6 +197,16 @@ std::string File::path() const {
   return c->path;
 }
 
+int File::fd() const {
+  CHECK_C;
+  return c->fd;
+}
+
+stat_t File::stat() const {
+  CHECK_C;
+  return c->stat;
+}
+
 void File::remove(std::string_view path) {
   auto err = a0_file_remove(path.data());
   // Ignore "No such file or directory" errors.
