@@ -1,8 +1,8 @@
 #ifndef A0_TOPIC_MANAGER_H
 #define A0_TOPIC_MANAGER_H
 
+#include <a0/arena.h>
 #include <a0/common.h>
-#include <a0/legacy_arena.h>
 
 #include <errno.h>
 
@@ -32,34 +32,34 @@ typedef struct a0_topic_manager_s {
   size_t prpc_client_aliases_size;
 } a0_topic_manager_t;
 
-errno_t a0_topic_manager_open_config_topic(const a0_topic_manager_t*, a0_shm_t* out);
+errno_t a0_topic_manager_open_config_topic(const a0_topic_manager_t*, a0_file_t* out);
 
-errno_t a0_topic_manager_open_heartbeat_topic(const a0_topic_manager_t*, a0_shm_t* out);
+errno_t a0_topic_manager_open_heartbeat_topic(const a0_topic_manager_t*, a0_file_t* out);
 
-errno_t a0_topic_manager_open_log_crit_topic(const a0_topic_manager_t*, a0_shm_t* out);
-errno_t a0_topic_manager_open_log_err_topic(const a0_topic_manager_t*, a0_shm_t* out);
-errno_t a0_topic_manager_open_log_warn_topic(const a0_topic_manager_t*, a0_shm_t* out);
-errno_t a0_topic_manager_open_log_info_topic(const a0_topic_manager_t*, a0_shm_t* out);
-errno_t a0_topic_manager_open_log_dbg_topic(const a0_topic_manager_t*, a0_shm_t* out);
+errno_t a0_topic_manager_open_log_crit_topic(const a0_topic_manager_t*, a0_file_t* out);
+errno_t a0_topic_manager_open_log_err_topic(const a0_topic_manager_t*, a0_file_t* out);
+errno_t a0_topic_manager_open_log_warn_topic(const a0_topic_manager_t*, a0_file_t* out);
+errno_t a0_topic_manager_open_log_info_topic(const a0_topic_manager_t*, a0_file_t* out);
+errno_t a0_topic_manager_open_log_dbg_topic(const a0_topic_manager_t*, a0_file_t* out);
 
 errno_t a0_topic_manager_open_publisher_topic(const a0_topic_manager_t*,
                                               const char*,
-                                              a0_shm_t* out);
+                                              a0_file_t* out);
 errno_t a0_topic_manager_open_subscriber_topic(const a0_topic_manager_t*,
                                                const char*,
-                                               a0_shm_t* out);
+                                               a0_file_t* out);
 errno_t a0_topic_manager_open_rpc_server_topic(const a0_topic_manager_t*,
                                                const char*,
-                                               a0_shm_t* out);
+                                               a0_file_t* out);
 errno_t a0_topic_manager_open_rpc_client_topic(const a0_topic_manager_t*,
                                                const char*,
-                                               a0_shm_t* out);
+                                               a0_file_t* out);
 errno_t a0_topic_manager_open_prpc_server_topic(const a0_topic_manager_t*,
                                                 const char*,
-                                                a0_shm_t* out);
+                                                a0_file_t* out);
 errno_t a0_topic_manager_open_prpc_client_topic(const a0_topic_manager_t*,
                                                 const char*,
-                                                a0_shm_t* out);
+                                                a0_file_t* out);
 
 #ifdef __cplusplus
 }

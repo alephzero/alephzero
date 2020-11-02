@@ -250,9 +250,9 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] topic manager") {
           },
   };
 
-  auto REQUIRE_PATH = [&](a0::Shm shm, std::string_view expected_path) {
-    REQUIRE(shm.path() == expected_path);
-    a0::Shm::unlink(shm.path());
+  auto REQUIRE_PATH = [&](a0::File file, std::string_view expected_path) {
+    REQUIRE(file.path() == expected_path);
+    a0::File::remove(file.path());
   };
 
   REQUIRE_PATH(tm.config_topic(), "/a0_config__aaa");
