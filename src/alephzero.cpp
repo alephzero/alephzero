@@ -530,134 +530,134 @@ a0_topic_manager_t c(const TopicManager* cpp_) {
   return c_;
 }
 
-Shm TopicManager::config_topic() const {
+File TopicManager::config_topic() const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_config_topic(&ctm, shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_config_topic(&ctm, file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
-Shm TopicManager::heartbeat_topic() const {
+File TopicManager::heartbeat_topic() const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_heartbeat_topic(&ctm, shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_heartbeat_topic(&ctm, file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
-Shm TopicManager::log_crit_topic() const {
+File TopicManager::log_crit_topic() const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_log_crit_topic(&ctm, shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_log_crit_topic(&ctm, file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
-Shm TopicManager::log_err_topic() const {
+File TopicManager::log_err_topic() const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_log_err_topic(&ctm, shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_log_err_topic(&ctm, file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
-Shm TopicManager::log_warn_topic() const {
+File TopicManager::log_warn_topic() const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_log_warn_topic(&ctm, shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_log_warn_topic(&ctm, file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
-Shm TopicManager::log_info_topic() const {
+File TopicManager::log_info_topic() const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_log_info_topic(&ctm, shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_log_info_topic(&ctm, file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
-Shm TopicManager::log_dbg_topic() const {
+File TopicManager::log_dbg_topic() const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_log_dbg_topic(&ctm, shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_log_dbg_topic(&ctm, file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
-Shm TopicManager::publisher_topic(std::string_view name) const {
+File TopicManager::publisher_topic(std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_publisher_topic(&ctm, name.data(), shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_publisher_topic(&ctm, name.data(), file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
-Shm TopicManager::subscriber_topic(std::string_view name) const {
+File TopicManager::subscriber_topic(std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_subscriber_topic(&ctm, name.data(), shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_subscriber_topic(&ctm, name.data(), file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
-Shm TopicManager::rpc_server_topic(std::string_view name) const {
+File TopicManager::rpc_server_topic(std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_rpc_server_topic(&ctm, name.data(), shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_rpc_server_topic(&ctm, name.data(), file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
-Shm TopicManager::rpc_client_topic(std::string_view name) const {
+File TopicManager::rpc_client_topic(std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_rpc_client_topic(&ctm, name.data(), shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_rpc_client_topic(&ctm, name.data(), file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
-Shm TopicManager::prpc_server_topic(std::string_view name) const {
+File TopicManager::prpc_server_topic(std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_prpc_server_topic(&ctm, name.data(), shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_prpc_server_topic(&ctm, name.data(), file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
-Shm TopicManager::prpc_client_topic(std::string_view name) const {
+File TopicManager::prpc_client_topic(std::string_view name) const {
   a0_topic_manager_t ctm = c(this);
 
-  return make_cpp<Shm>(
-      [&](a0_shm_t* shm) {
-        return a0_topic_manager_open_prpc_client_topic(&ctm, name.data(), shm);
+  return make_cpp<File>(
+      [&](a0_file_t* file) {
+        return a0_topic_manager_open_prpc_client_topic(&ctm, name.data(), file);
       },
-      a0_shm_close);
+      a0_file_close);
 }
 
 TopicManager& GlobalTopicManager() {

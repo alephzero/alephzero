@@ -1,5 +1,5 @@
+#include <a0/arena.h>
 #include <a0/errno.h>
-#include <a0/legacy_arena.h>
 #include <a0/topic_manager.h>
 
 #include <doctest.h>
@@ -44,24 +44,24 @@ TEST_CASE("topic_manager] basic") {
       .prpc_client_aliases_size = 1,
   };
 
-  auto REQUIRE_PATH = [&](std::function<errno_t(const a0_topic_manager_t*, a0_shm_t* out)> fn,
+  auto REQUIRE_PATH = [&](std::function<errno_t(const a0_topic_manager_t*, a0_file_t* out)> fn,
                           std::string path) {
-    a0_shm_t shm;
-    REQUIRE_OK(fn(&tm, &shm));
-    REQUIRE(std::string(shm.path) == path);
-    a0_shm_close(&shm);
-    a0_shm_unlink(path.c_str());
+    a0_file_t file;
+    REQUIRE_OK(fn(&tm, &file));
+    REQUIRE(std::string(file.path) == path);
+    a0_file_close(&file);
+    a0_file_remove(path.c_str());
   };
 
   auto REQUIRE_ALIAS_PATH =
-      [&](std::function<errno_t(const a0_topic_manager_t*, const char*, a0_shm_t* out)> fn,
+      [&](std::function<errno_t(const a0_topic_manager_t*, const char*, a0_file_t* out)> fn,
           const char* alias,
           std::string path) {
-        a0_shm_t shm;
-        REQUIRE_OK(fn(&tm, alias, &shm));
-        REQUIRE(std::string(shm.path) == path);
-        a0_shm_close(&shm);
-        a0_shm_unlink(path.c_str());
+        a0_file_t file;
+        REQUIRE_OK(fn(&tm, alias, &file));
+        REQUIRE(std::string(file.path) == path);
+        a0_file_close(&file);
+        a0_file_remove(path.c_str());
       };
 
   REQUIRE_PATH(a0_topic_manager_open_config_topic, "/a0_config__this_container");
@@ -83,8 +83,8 @@ TEST_CASE("topic_manager] basic") {
                      "/a0_pubsub__ps1_container__ps1_topic");
 
   {
-    a0_shm_t shm;
-    REQUIRE(a0_topic_manager_open_subscriber_topic(&tm, "ps2", &shm) == EINVAL);
+    a0_file_t file;
+    REQUIRE(a0_topic_manager_open_subscriber_topic(&tm, "ps2", &file) == EINVAL);
   }
 
   REQUIRE_ALIAS_PATH(a0_topic_manager_open_rpc_server_topic,
@@ -95,8 +95,8 @@ TEST_CASE("topic_manager] basic") {
                      "/a0_rpc__rpc0_container__rpc0_topic");
 
   {
-    a0_shm_t shm;
-    REQUIRE(a0_topic_manager_open_rpc_client_topic(&tm, "rpc1", &shm) == EINVAL);
+    a0_file_t file;
+    REQUIRE(a0_topic_manager_open_rpc_client_topic(&tm, "rpc1", &file) == EINVAL);
   }
 
   REQUIRE_ALIAS_PATH(a0_topic_manager_open_prpc_server_topic,
@@ -107,7 +107,7 @@ TEST_CASE("topic_manager] basic") {
                      "/a0_prpc__prpc0_container__prpc0_topic");
 
   {
-    a0_shm_t shm;
-    REQUIRE(a0_topic_manager_open_prpc_client_topic(&tm, "prpc1", &shm) == EINVAL);
+    a0_file_t file;
+    REQUIRE(a0_topic_manager_open_prpc_client_topic(&tm, "prpc1", &file) == EINVAL);
   }
 }

@@ -202,19 +202,19 @@ struct TopicManager {
   std::map<std::string, TopicAliasTarget> rpc_client_aliases;
   std::map<std::string, TopicAliasTarget> prpc_client_aliases;
 
-  Shm config_topic() const;
-  Shm heartbeat_topic() const;
-  Shm log_crit_topic() const;
-  Shm log_err_topic() const;
-  Shm log_warn_topic() const;
-  Shm log_info_topic() const;
-  Shm log_dbg_topic() const;
-  Shm publisher_topic(std::string_view) const;
-  Shm subscriber_topic(std::string_view) const;
-  Shm rpc_server_topic(std::string_view) const;
-  Shm rpc_client_topic(std::string_view) const;
-  Shm prpc_server_topic(std::string_view) const;
-  Shm prpc_client_topic(std::string_view) const;
+  File config_topic() const;
+  File heartbeat_topic() const;
+  File log_crit_topic() const;
+  File log_err_topic() const;
+  File log_warn_topic() const;
+  File log_info_topic() const;
+  File log_dbg_topic() const;
+  File publisher_topic(std::string_view) const;
+  File subscriber_topic(std::string_view) const;
+  File rpc_server_topic(std::string_view) const;
+  File rpc_client_topic(std::string_view) const;
+  File prpc_server_topic(std::string_view) const;
+  File prpc_client_topic(std::string_view) const;
 };
 
 void InitGlobalTopicManager(TopicManager);
