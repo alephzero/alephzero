@@ -64,23 +64,23 @@ TEST_CASE("topic_manager] basic") {
         a0_file_remove(path.c_str());
       };
 
-  REQUIRE_PATH(a0_topic_manager_open_config_topic, "/a0_config__this_container");
-  REQUIRE_PATH(a0_topic_manager_open_heartbeat_topic, "/a0_heartbeat__this_container");
-  REQUIRE_PATH(a0_topic_manager_open_log_crit_topic, "/a0_log_crit__this_container");
-  REQUIRE_PATH(a0_topic_manager_open_log_err_topic, "/a0_log_err__this_container");
-  REQUIRE_PATH(a0_topic_manager_open_log_warn_topic, "/a0_log_warn__this_container");
-  REQUIRE_PATH(a0_topic_manager_open_log_info_topic, "/a0_log_info__this_container");
-  REQUIRE_PATH(a0_topic_manager_open_log_dbg_topic, "/a0_log_dbg__this_container");
+  REQUIRE_PATH(a0_topic_manager_open_config_topic, "/dev/shm/a0_config__this_container");
+  REQUIRE_PATH(a0_topic_manager_open_heartbeat_topic, "/dev/shm/a0_heartbeat__this_container");
+  REQUIRE_PATH(a0_topic_manager_open_log_crit_topic, "/dev/shm/a0_log_crit__this_container");
+  REQUIRE_PATH(a0_topic_manager_open_log_err_topic, "/dev/shm/a0_log_err__this_container");
+  REQUIRE_PATH(a0_topic_manager_open_log_warn_topic, "/dev/shm/a0_log_warn__this_container");
+  REQUIRE_PATH(a0_topic_manager_open_log_info_topic, "/dev/shm/a0_log_info__this_container");
+  REQUIRE_PATH(a0_topic_manager_open_log_dbg_topic, "/dev/shm/a0_log_dbg__this_container");
 
   REQUIRE_ALIAS_PATH(a0_topic_manager_open_publisher_topic,
                      "ps0",
-                     "/a0_pubsub__this_container__ps0");
+                     "/dev/shm/a0_pubsub__this_container__ps0");
   REQUIRE_ALIAS_PATH(a0_topic_manager_open_subscriber_topic,
                      "ps0",
-                     "/a0_pubsub__ps0_container__ps0_topic");
+                     "/dev/shm/a0_pubsub__ps0_container__ps0_topic");
   REQUIRE_ALIAS_PATH(a0_topic_manager_open_subscriber_topic,
                      "ps1",
-                     "/a0_pubsub__ps1_container__ps1_topic");
+                     "/dev/shm/a0_pubsub__ps1_container__ps1_topic");
 
   {
     a0_file_t file;
@@ -89,10 +89,10 @@ TEST_CASE("topic_manager] basic") {
 
   REQUIRE_ALIAS_PATH(a0_topic_manager_open_rpc_server_topic,
                      "rpc0",
-                     "/a0_rpc__this_container__rpc0");
+                     "/dev/shm/a0_rpc__this_container__rpc0");
   REQUIRE_ALIAS_PATH(a0_topic_manager_open_rpc_client_topic,
                      "rpc0",
-                     "/a0_rpc__rpc0_container__rpc0_topic");
+                     "/dev/shm/a0_rpc__rpc0_container__rpc0_topic");
 
   {
     a0_file_t file;
@@ -101,10 +101,10 @@ TEST_CASE("topic_manager] basic") {
 
   REQUIRE_ALIAS_PATH(a0_topic_manager_open_prpc_server_topic,
                      "prpc0",
-                     "/a0_prpc__this_container__prpc0");
+                     "/dev/shm/a0_prpc__this_container__prpc0");
   REQUIRE_ALIAS_PATH(a0_topic_manager_open_prpc_client_topic,
                      "prpc0",
-                     "/a0_prpc__prpc0_container__prpc0_topic");
+                     "/dev/shm/a0_prpc__prpc0_container__prpc0_topic");
 
   {
     a0_file_t file;
