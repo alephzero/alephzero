@@ -255,19 +255,19 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] topic manager") {
     a0::File::remove(file.path());
   };
 
-  REQUIRE_PATH(tm.config_topic(), "/a0_config__aaa");
-  REQUIRE_PATH(tm.heartbeat_topic(), "/a0_heartbeat__aaa");
-  REQUIRE_PATH(tm.log_crit_topic(), "/a0_log_crit__aaa");
-  REQUIRE_PATH(tm.log_err_topic(), "/a0_log_err__aaa");
-  REQUIRE_PATH(tm.log_warn_topic(), "/a0_log_warn__aaa");
-  REQUIRE_PATH(tm.log_info_topic(), "/a0_log_info__aaa");
-  REQUIRE_PATH(tm.log_dbg_topic(), "/a0_log_dbg__aaa");
-  REQUIRE_PATH(tm.publisher_topic("baz"), "/a0_pubsub__aaa__baz");
-  REQUIRE_PATH(tm.subscriber_topic("subby"), "/a0_pubsub__bbb__foo");
-  REQUIRE_PATH(tm.rpc_server_topic("alice"), "/a0_rpc__aaa__alice");
-  REQUIRE_PATH(tm.rpc_client_topic("rpcy"), "/a0_rpc__bbb__bar");
-  REQUIRE_PATH(tm.prpc_server_topic("bob"), "/a0_prpc__aaa__bob");
-  REQUIRE_PATH(tm.prpc_client_topic("prpcy"), "/a0_prpc__ccc__bat");
+  REQUIRE_PATH(tm.config_topic(), "/dev/shm/a0_config__aaa");
+  REQUIRE_PATH(tm.heartbeat_topic(), "/dev/shm/a0_heartbeat__aaa");
+  REQUIRE_PATH(tm.log_crit_topic(), "/dev/shm/a0_log_crit__aaa");
+  REQUIRE_PATH(tm.log_err_topic(), "/dev/shm/a0_log_err__aaa");
+  REQUIRE_PATH(tm.log_warn_topic(), "/dev/shm/a0_log_warn__aaa");
+  REQUIRE_PATH(tm.log_info_topic(), "/dev/shm/a0_log_info__aaa");
+  REQUIRE_PATH(tm.log_dbg_topic(), "/dev/shm/a0_log_dbg__aaa");
+  REQUIRE_PATH(tm.publisher_topic("baz"), "/dev/shm/a0_pubsub__aaa__baz");
+  REQUIRE_PATH(tm.subscriber_topic("subby"), "/dev/shm/a0_pubsub__bbb__foo");
+  REQUIRE_PATH(tm.rpc_server_topic("alice"), "/dev/shm/a0_rpc__aaa__alice");
+  REQUIRE_PATH(tm.rpc_client_topic("rpcy"), "/dev/shm/a0_rpc__bbb__bar");
+  REQUIRE_PATH(tm.prpc_server_topic("bob"), "/dev/shm/a0_prpc__aaa__bob");
+  REQUIRE_PATH(tm.prpc_client_topic("prpcy"), "/dev/shm/a0_prpc__ccc__bat");
 
   REQUIRE_THROWS_WITH(tm.subscriber_topic("not_subby"), "Invalid argument");
   REQUIRE_THROWS_WITH(tm.rpc_client_topic("not_rpcy"), "Invalid argument");
@@ -275,8 +275,8 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] topic manager") {
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] config") {
-  a0::Shm::unlink("/a0_config__test");
-  a0::Shm::unlink("/a0_config__test_other");
+  a0::File::remove("a0_config__test");
+  a0::File::remove("a0_config__test_other");
 
   a0::InitGlobalTopicManager(a0::TopicManager{
       .container = "test",
