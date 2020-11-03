@@ -4,7 +4,6 @@
 #include <a0/common.h>
 #include <a0/errno.h>
 #include <a0/heartbeat.h>
-#include <a0/legacy_arena.h>
 #include <a0/logger.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
@@ -219,110 +218,6 @@ void File::remove(std::string_view path) {
 
 void File::remove_all(std::string_view path) {
   check(a0_file_remove_all(path.data()));
-}
-
-Disk::Options Disk::Options::DEFAULT = {
-    .size = A0_DISK_OPTIONS_DEFAULT.size,
-    .resize = A0_DISK_OPTIONS_DEFAULT.resize,
-};
-
-Disk::Disk(std::string_view path)
-    : Disk(path, Options::DEFAULT) {}
-
-Disk::Disk(std::string_view path, Options opts) {
-  a0_disk_options_t c_opts{
-      .size = opts.size,
-      .resize = opts.resize,
-  };
-  set_c(
-      &c,
-      [&](a0_disk_t* c) {
-        return a0_disk_open(path.data(), &c_opts, c);
-      },
-      a0_disk_close);
-}
-
-Disk::operator Arena() const {
-  CHECK_C;
-  auto save = c;
-  return make_cpp<Arena>(
-      [&](a0_arena_t* arena) {
-        *arena = c->arena;
-        return A0_OK;
-      },
-      [save](a0_arena_t*) {});
-}
-
-size_t Disk::size() const {
-  CHECK_C;
-  return c->arena.size;
-}
-
-std::string Disk::path() const {
-  CHECK_C;
-  return c->path;
-}
-
-void Disk::unlink(std::string_view path) {
-  auto err = a0_disk_unlink(path.data());
-  // Ignore "No such file or directory" errors.
-  if (err == ENOENT) {
-    return;
-  }
-
-  check(err);
-}
-
-Shm::Options Shm::Options::DEFAULT = {
-    .size = A0_SHM_OPTIONS_DEFAULT.size,
-    .resize = A0_SHM_OPTIONS_DEFAULT.resize,
-};
-
-Shm::Shm(std::string_view path)
-    : Shm(path, Options::DEFAULT) {}
-
-Shm::Shm(std::string_view path, Options opts) {
-  a0_shm_options_t c_opts{
-      .size = opts.size,
-      .resize = opts.resize,
-  };
-  set_c(
-      &c,
-      [&](a0_shm_t* c) {
-        return a0_shm_open(path.data(), &c_opts, c);
-      },
-      a0_shm_close);
-}
-
-Shm::operator Arena() const {
-  CHECK_C;
-  auto save = c;
-  return make_cpp<Arena>(
-      [&](a0_arena_t* arena) {
-        *arena = c->arena;
-        return A0_OK;
-      },
-      [save](a0_arena_t*) {});
-}
-
-size_t Shm::size() const {
-  CHECK_C;
-  return c->arena.size;
-}
-
-std::string Shm::path() const {
-  CHECK_C;
-  return c->path;
-}
-
-void Shm::unlink(std::string_view path) {
-  auto err = a0_shm_unlink(path.data());
-  // Ignore "No such file or directory" errors.
-  if (err == ENOENT) {
-    return;
-  }
-
-  check(err);
 }
 
 struct PacketImpl {

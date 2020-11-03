@@ -2,7 +2,6 @@
 
 #include <a0/arena.h>
 #include <a0/heartbeat.h>
-#include <a0/legacy_arena.h>
 #include <a0/logger.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
@@ -94,46 +93,6 @@ struct File : details::CppWrap<a0_file_t> {
   static void remove(std::string_view path);
   /// Removes the specified file or directory, including all subdirectories.
   static void remove_all(std::string_view path);
-};
-
-struct Disk : details::CppWrap<a0_disk_t> {
-  struct Options {
-    off_t size;
-    bool resize;
-
-    static Options DEFAULT;
-  };
-
-  Disk() = default;
-  Disk(std::string_view path);
-  Disk(std::string_view path, Options);
-
-  operator Arena() const;
-
-  size_t size() const;
-  std::string path() const;
-
-  static void unlink(std::string_view path);
-};
-
-struct Shm : details::CppWrap<a0_shm_t> {
-  struct Options {
-    off_t size;
-    bool resize;
-
-    static Options DEFAULT;
-  };
-
-  Shm() = default;
-  Shm(std::string_view path);
-  Shm(std::string_view path, Options);
-
-  operator Arena() const;
-
-  size_t size() const;
-  std::string path() const;
-
-  static void unlink(std::string_view path);
 };
 
 struct Packet;

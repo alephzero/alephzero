@@ -1,5 +1,5 @@
+#include <a0/arena.h>
 #include <a0/common.h>
-#include <a0/legacy_arena.h>
 #include <a0/packet.h>
 #include <a0/rpc.h>
 #include <a0/uuid.h>
@@ -15,20 +15,20 @@
 #include "src/sync.hpp"
 #include "src/test_util.hpp"
 
-static const char TEST_SHM[] = "/test.shm";
+static const char TEST_FILE[] = "test.file";
 
 struct RpcFixture {
-  a0_shm_t shm;
+  a0_file_t file;
 
   RpcFixture() {
-    a0_shm_unlink(TEST_SHM);
+    a0_file_remove(TEST_FILE);
 
-    a0_shm_open(TEST_SHM, nullptr, &shm);
+    a0_file_open(TEST_FILE, nullptr, &file);
   }
 
   ~RpcFixture() {
-    a0_shm_close(&shm);
-    a0_shm_unlink(TEST_SHM);
+    a0_file_close(&file);
+    a0_file_remove(TEST_FILE);
   }
 };
 
@@ -64,10 +64,10 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, oncancel));
+  REQUIRE_OK(a0_rpc_server_init(&server, file.arena, a0::test::allocator(), onrequest, oncancel));
 
   a0_rpc_client_t client;
-  REQUIRE_OK(a0_rpc_client_init(&client, shm.arena, a0::test::allocator()));
+  REQUIRE_OK(a0_rpc_client_init(&client, file.arena, a0::test::allocator()));
 
   a0_packet_callback_t onreply = {
       .user_data = &data,
@@ -116,10 +116,10 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] empty oncancel onreply") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, {}));
+  REQUIRE_OK(a0_rpc_server_init(&server, file.arena, a0::test::allocator(), onrequest, {}));
 
   a0_rpc_client_t client;
-  REQUIRE_OK(a0_rpc_client_init(&client, shm.arena, a0::test::allocator()));
+  REQUIRE_OK(a0_rpc_client_init(&client, file.arena, a0::test::allocator()));
 
   for (int i = 0; i < 5; i++) {
     a0_packet_t req;
@@ -168,10 +168,10 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] server async close") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, {}));
+  REQUIRE_OK(a0_rpc_server_init(&server, file.arena, a0::test::allocator(), onrequest, {}));
 
   a0_rpc_client_t client;
-  REQUIRE_OK(a0_rpc_client_init(&client, shm.arena, a0::test::allocator()));
+  REQUIRE_OK(a0_rpc_client_init(&client, file.arena, a0::test::allocator()));
 
   a0_packet_callback_t onreply = {
       .user_data = &data,
@@ -211,10 +211,10 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] client async close") {
   };
 
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, shm.arena, a0::test::allocator(), onrequest, {}));
+  REQUIRE_OK(a0_rpc_server_init(&server, file.arena, a0::test::allocator(), onrequest, {}));
 
   a0_rpc_client_t client;
-  REQUIRE_OK(a0_rpc_client_init(&client, shm.arena, a0::test::allocator()));
+  REQUIRE_OK(a0_rpc_client_init(&client, file.arena, a0::test::allocator()));
 
   a0::Event close_event;
 
