@@ -1,5 +1,4 @@
 #include <a0/arena.h>
-#include <a0/legacy_arena.h>
 
 #include <doctest.h>
 #include <sys/types.h>
@@ -17,36 +16,34 @@
 #include "src/test_util.hpp"
 
 struct MtxTestFixture {
-  std::vector<a0_shm_t> shms;
+  std::vector<a0_file_t> files;
 
   MtxTestFixture() = default;
 
   ~MtxTestFixture() {
-    for (auto&& shm : shms) {
-      a0_shm_close(&shm);
-      a0_shm_unlink(shm.path);
+    for (auto&& file : files) {
+      a0_file_close(&file);
+      a0_file_remove(file.path);
     }
   }
 
   a0_mtx_t* new_mtx() {
-    std::string name = "mtx_" + std::to_string(shms.size()) + ".shm";
-    a0_shm_unlink(name.c_str());
+    std::string name = "mtx_" + std::to_string(files.size()) + ".file";
+    a0_file_remove(name.c_str());
 
-    a0_shm_t shm;
-    a0_shm_options_t shmopt = {
-        .size = sizeof(a0_mtx_t),
-        .resize = false,
-    };
-    REQUIRE_OK(a0_shm_open(name.c_str(), &shmopt, &shm));
-    shms.push_back(shm);
+    a0_file_t file;
+    a0_file_options_t fileopt = A0_FILE_OPTIONS_DEFAULT;
+    fileopt.create_options.size = sizeof(a0_mtx_t);
+    REQUIRE_OK(a0_file_open(name.c_str(), &fileopt, &file));
+    files.push_back(file);
 
-    auto* mtx = (a0_mtx_t*)shm.arena.ptr;
+    auto* mtx = (a0_mtx_t*)file.arena.ptr;
     REQUIRE_OK(a0_mtx_init(mtx));
     return mtx;
   }
 };
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] lock, trylock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] lock, trylock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
     REQUIRE_OK(a0_mtx_lock(mtx));
@@ -55,7 +52,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] lock, trylock") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] (lock)*") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] (lock)*") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
     REQUIRE_OK(a0_mtx_lock(mtx));
@@ -64,7 +61,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] (lock)*") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] (lock, unlock)*") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] (lock, unlock)*") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
     for (int i = 0; i < 2; i++) {
@@ -74,14 +71,14 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] (lock, unlock)*") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] unlock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] unlock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
     REQUIRE(a0_mtx_unlock(mtx) == EPERM);
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] lock, (unlock)*") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] lock, (unlock)*") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
     REQUIRE_OK(a0_mtx_lock(mtx));
@@ -90,14 +87,14 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] lock, (unlock)*") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] consistent") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] consistent") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
     REQUIRE(a0_mtx_consistent(mtx) == EINVAL);
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] lock, lock2, unlock2, unlock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] lock, lock2, unlock2, unlock") {
   REQUIRE_EXIT({
     auto* mtx1 = new_mtx();
     auto* mtx2 = new_mtx();
@@ -109,7 +106,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] lock, lock2, unlock2, unlock") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] lock, lock2, unlock, unlock2") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] lock, lock2, unlock, unlock2") {
   REQUIRE_EXIT({
     auto* mtx1 = new_mtx();
     auto* mtx2 = new_mtx();
@@ -121,7 +118,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] lock, lock2, unlock, unlock2") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] unlock in wrong thread") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] unlock in wrong thread") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -140,7 +137,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] unlock in wrong thread") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] trylock in different thread") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] trylock in different thread") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -160,7 +157,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] trylock in different thread") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] robust chain") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] robust chain") {
   REQUIRE_EXIT({
     auto* mtx1 = new_mtx();
     auto* mtx2 = new_mtx();
@@ -178,7 +175,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] robust chain") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] multiple waiters") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] multiple waiters") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -201,7 +198,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] multiple waiters") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] owner died with lock, not consistent, lock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] owner died with lock, not consistent, lock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -213,7 +210,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] owner died with lock, not consisten
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] owner died with lock, consistent, lock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] owner died with lock, consistent, lock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -227,7 +224,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] owner died with lock, consistent, l
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] owner died with lock, not consistent, trylock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] owner died with lock, not consistent, trylock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -239,7 +236,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] owner died with lock, not consisten
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] owner died with lock, consistent, trylock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] owner died with lock, consistent, trylock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -253,7 +250,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] owner died with lock, consistent, t
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] fuzz (lock, unlock)") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] fuzz (lock, unlock)") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -282,7 +279,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] fuzz (lock, unlock)") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "shm_sync] fuzz (trylock, unlock)") {
+TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] fuzz (trylock, unlock)") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 

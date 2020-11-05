@@ -1,6 +1,5 @@
 #include <a0/arena.h>
 #include <a0/common.h>
-#include <a0/legacy_arena.h>
 #include <a0/transport.h>
 
 #include <doctest.h>
@@ -14,27 +13,32 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <ostream>
+#include <fstream>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
-#include "src/strutil.hpp"
 #include "src/test_util.hpp"
 #include "src/transport_debug.h"
 
 static const char TEST_DISK[] = "/tmp/transport_test.a0";
-static const char TEST_SHM[] = "/transport_test.a0";
+static const char TEST_SHM[] = "transport_test.a0";
+static const char TEST_SHM_ABS[] = "/dev/shm/transport_test.a0";
+
+static const char COPY_DISK[] = "/tmp/copy.a0";
+static const char COPY_SHM[] = "copy.a0";
+static const char COPY_SHM_ABS[] = "/dev/shm/copy.a0";
 
 struct StreamTestFixture {
   std::vector<uint8_t> stack_arena_data;
   a0_arena_t arena;
 
-  a0_disk_options_t diskopt;
-  a0_disk_t disk;
+  a0_file_options_t diskopt;
+  a0_file_t disk;
 
-  a0_shm_options_t shmopt;
-  a0_shm_t shm;
+  a0_file_options_t shmopt;
+  a0_file_t shm;
 
   StreamTestFixture() {
     stack_arena_data.resize(4096);
@@ -43,27 +47,23 @@ struct StreamTestFixture {
         .size = stack_arena_data.size(),
     };
 
-    a0_disk_unlink(TEST_DISK);
-    diskopt = (a0_disk_options_t){
-        .size = 4096,
-        .resize = false,
-    };
-    a0_disk_open(TEST_DISK, &diskopt, &disk);
+    a0_file_remove(TEST_DISK);
+    diskopt = A0_FILE_OPTIONS_DEFAULT;
+    diskopt.create_options.size = 4096;
+    a0_file_open(TEST_DISK, &diskopt, &disk);
 
-    a0_shm_unlink(TEST_SHM);
-    shmopt = (a0_shm_options_t){
-        .size = 4096,
-        .resize = false,
-    };
-    a0_shm_open(TEST_SHM, &shmopt, &shm);
+    a0_file_remove(TEST_SHM);
+    shmopt = A0_FILE_OPTIONS_DEFAULT;
+    shmopt.create_options.size = 4096;
+    a0_file_open(TEST_SHM, &shmopt, &shm);
   }
 
   ~StreamTestFixture() {
-    a0_disk_close(&disk);
-    a0_disk_unlink(TEST_DISK);
+    a0_file_close(&disk);
+    a0_file_remove(TEST_DISK);
 
-    a0_shm_close(&shm);
-    a0_shm_unlink(TEST_SHM);
+    a0_file_close(&shm);
+    a0_file_remove(TEST_SHM);
   }
 
   void require_debugstr(a0_locked_transport_t lk, const std::string& expected) {
@@ -937,12 +937,16 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust fuzz") {
   REQUIRE_OK(a0_transport_close(&transport));
 }
 
-static const char COPY_DISK[] = "/tmp/copy.a0";
-static const char COPY_SHM[] = "/copy.a0";
+void copy_file(std::string_view from, std::string_view to) {
+  std::ifstream src(from.data(), std::ios::binary);
+  std::ofstream dst(to.data(), std::ios::binary);
+
+  dst << src.rdbuf();
+}
 
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy shm->disk->shm") {
-  a0_disk_unlink(COPY_DISK);
-  a0_shm_unlink(COPY_SHM);
+  a0_file_remove(COPY_DISK);
+  a0_file_remove(COPY_SHM);
 
   std::string str = "Original String";
 
@@ -972,19 +976,13 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy shm->disk->shm") {
   (void)child_status;
 
   // Copy the shm file to disk.
-  {
-    auto cmd = a0::strutil::fmt("cp /dev/shm%s %s", TEST_SHM, COPY_DISK);
-    REQUIRE_OK(system(cmd.c_str()));
-  }
+  copy_file(TEST_SHM_ABS, COPY_DISK);
 
   // Copy the disk file to memory.
-  {
-    auto cmd = a0::strutil::fmt("cp %s /dev/shm%s", COPY_DISK, COPY_SHM);
-    REQUIRE_OK(system(cmd.c_str()));
-  }
+  copy_file(COPY_DISK, COPY_SHM_ABS);
 
-  a0_shm_t copied_shm;
-  a0_shm_open(COPY_SHM, &shmopt, &copied_shm);
+  a0_file_t copied_shm;
+  a0_file_open(COPY_SHM, &shmopt, &copied_shm);
 
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
@@ -999,14 +997,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy shm->disk->shm") {
 
   REQUIRE_OK(a0_transport_unlock(lk));
 
-  a0_disk_unlink(COPY_DISK);
-  a0_shm_close(&copied_shm);
-  a0_shm_unlink(COPY_SHM);
+  a0_file_remove(COPY_DISK);
+  a0_file_close(&copied_shm);
+  a0_file_remove(COPY_SHM);
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy disk->shm->disk") {
-  a0_disk_unlink(COPY_DISK);
-  a0_shm_unlink(COPY_SHM);
+  a0_file_remove(COPY_DISK);
+  a0_file_remove(COPY_SHM);
 
   std::string str = "Original String";
 
@@ -1036,19 +1034,13 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy disk->shm->disk") {
   (void)child_status;
 
   // Copy the shm file to disk.
-  {
-    auto cmd = a0::strutil::fmt("cp %s /dev/shm%s", TEST_DISK, COPY_SHM);
-    REQUIRE_OK(system(cmd.c_str()));
-  }
+  copy_file(TEST_DISK, COPY_SHM_ABS);
 
   // Copy the disk file to memory.
-  {
-    auto cmd = a0::strutil::fmt("cp /dev/shm%s %s", COPY_SHM, COPY_DISK);
-    REQUIRE_OK(system(cmd.c_str()));
-  }
+  copy_file(COPY_SHM_ABS, COPY_DISK);
 
-  a0_disk_t copied_disk;
-  a0_disk_open(COPY_DISK, &diskopt, &copied_disk);
+  a0_file_t copied_disk;
+  a0_file_open(COPY_DISK, &diskopt, &copied_disk);
 
   a0_transport_t transport;
   a0_transport_init_status_t init_status;
@@ -1063,7 +1055,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy disk->shm->disk") {
 
   REQUIRE_OK(a0_transport_unlock(lk));
 
-  a0_disk_close(&copied_disk);
-  a0_disk_unlink(COPY_DISK);
-  a0_shm_unlink(COPY_SHM);
+  a0_file_close(&copied_disk);
+  a0_file_remove(COPY_DISK);
+  a0_file_remove(COPY_SHM);
 }

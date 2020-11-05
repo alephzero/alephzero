@@ -1,6 +1,5 @@
 #include <a0/alephzero.hpp>
 #include <a0/arena.h>
-#include <a0/legacy_arena.h>
 #include <a0/pubsub.h>
 
 #include <doctest.h>
@@ -31,22 +30,16 @@
 #include "src/test_util.hpp"
 
 static const char TEST_FILE[] = "test.file";
-static const char TEST_DISK[] = "/tmp/test.disk";
-static const char TEST_SHM[] = "/test.shm";
 
 static constexpr size_t MB = 1024 * 1024;
 
 struct CppPubsubFixture {
   a0::File file;
-  a0::Disk disk;
-  a0::Shm shm;
 
   CppPubsubFixture() {
     cleanup();
 
     file = a0::File(TEST_FILE);
-    disk = a0::Disk(TEST_DISK);
-    shm = a0::Shm(TEST_SHM);
 
     a0::GlobalTopicManager() = {};
   }
@@ -57,8 +50,6 @@ struct CppPubsubFixture {
 
   void cleanup() {
     a0::File::remove(TEST_FILE);
-    a0::Disk::unlink(TEST_DISK);
-    a0::Shm::unlink(TEST_SHM);
     unsetenv("A0_ROOT");
   }
 };
@@ -114,100 +105,6 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] file") {
         file.size();
       }(),
       "AlephZero method called with NULL object: size_t a0::File::size() const");
-}
-
-TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] disk") {
-  REQUIRE(disk.path() == TEST_DISK);
-
-  disk = a0::Disk(TEST_DISK);
-  REQUIRE(disk.path() == TEST_DISK);
-  REQUIRE(disk.size() == A0_DISK_OPTIONS_DEFAULT.size);
-  REQUIRE(disk.size() == a0::Arena(disk).size());
-
-  a0::Arena arena;
-  {
-    a0::Disk disk2(TEST_DISK);
-    arena = disk2;
-  }
-  REQUIRE(disk.size() == arena.size());
-
-  disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = 32 * MB, .resize = false});
-  REQUIRE(disk.size() == A0_DISK_OPTIONS_DEFAULT.size);
-
-  // Resize no longer supported.
-  // disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = 32 * MB, .resize = true});
-  // REQUIRE(disk.size() == 32 * MB);
-  a0::Disk::unlink(TEST_DISK);
-
-  REQUIRE_THROWS_WITH(
-      [&]() { disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = std::numeric_limits<off_t>::max(), .resize = true}); }(),
-      "File too large");
-
-  REQUIRE_THROWS_WITH(
-      [&]() { disk = a0::Disk(TEST_DISK, a0::Disk::Options{.size = -1, .resize = true}); }(),
-      "Invalid argument");
-
-  REQUIRE_THROWS_WITH(
-      [&]() {
-        disk = a0::Disk();
-        disk.size();
-      }(),
-      "AlephZero method called with NULL object: size_t a0::Disk::size() const");
-}
-
-TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] shm") {
-  REQUIRE(shm.path() == TEST_SHM);
-
-  shm = a0::Shm(TEST_SHM);
-  REQUIRE(shm.path() == TEST_SHM);
-  REQUIRE(shm.size() == A0_SHM_OPTIONS_DEFAULT.size);
-  REQUIRE(shm.size() == a0::Arena(shm).size());
-
-  a0::Arena arena;
-  {
-    a0::Shm shm2(TEST_SHM);
-    arena = shm2;
-  }
-  REQUIRE(shm.size() == arena.size());
-
-  shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = 32 * MB, .resize = false});
-  REQUIRE(shm.size() == A0_SHM_OPTIONS_DEFAULT.size);
-
-  // Resize no longer supported.
-  // shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = 32 * MB, .resize = true});
-  // REQUIRE(shm.size() == 32 * MB);
-  a0::Shm::unlink(TEST_SHM);
-
-  try {
-    shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = std::numeric_limits<off_t>::max(), .resize = true});
-  } catch (const std::exception& e) {
-    std::string err = e.what();
-    REQUIRE((err == "Cannot allocate memory" ||
-             err == "File too large" ||
-             err == "Invalid argument" ||
-             err == "Out of memory"));
-  }
-
-  try {
-    shm = a0::Shm(TEST_SHM, a0::Shm::Options{.size = -1, .resize = true});
-  } catch (const std::exception& e) {
-    std::string err = e.what();
-    REQUIRE((err == "Cannot allocate memory" ||
-             err == "File too large" ||
-             err == "Invalid argument" ||
-             err == "Out of memory"));
-  }
-
-  REQUIRE_THROWS_WITH(
-      [&]() { shm = a0::Shm("/foo/bar"); }(),
-      "Invalid argument");
-
-  REQUIRE_THROWS_WITH(
-      [&]() {
-        shm = a0::Shm();
-        shm.size();
-      }(),
-      "AlephZero method called with NULL object: size_t a0::Shm::size() const");
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
@@ -302,12 +199,12 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] config") {
   a0::write_config(a0::GlobalTopicManager(), R"({"foo": "ccc"})");
   REQUIRE(a0::read_config().payload() == R"({"foo": "ccc"})");
 
-  a0::Shm::unlink("/a0_config__test");
-  a0::Shm::unlink("/a0_config__test_other");
+  a0::File::remove("a0_config__test");
+  a0::File::remove("a0_config__test_other");
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub raw sync") {
-  a0::PublisherRaw p(shm);
+  a0::PublisherRaw p(file);
 
   p.pub("msg #0");
   p.pub(std::string("msg #1"));
@@ -315,7 +212,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub raw sync") {
   p.pub(a0::Packet({{"key", "val"}}, "msg #3"));
 
   {
-    a0::SubscriberSync sub(shm, A0_INIT_OLDEST, A0_ITER_NEXT);
+    a0::SubscriberSync sub(file, A0_INIT_OLDEST, A0_ITER_NEXT);
 
     REQUIRE(sub.has_next());
     auto pkt_view = sub.next();
@@ -351,7 +248,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub raw sync") {
   }
 
   {
-    a0::SubscriberSync sub(shm, A0_INIT_MOST_RECENT, A0_ITER_NEWEST);
+    a0::SubscriberSync sub(file, A0_INIT_MOST_RECENT, A0_ITER_NEWEST);
 
     REQUIRE(sub.has_next());
     REQUIRE(sub.next().payload() == "msg #3");
@@ -361,7 +258,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub raw sync") {
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub sync") {
-  a0::Publisher p(shm);
+  a0::Publisher p(file);
 
   p.pub("msg #0");
   p.pub(std::string("msg #1"));
@@ -369,7 +266,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub sync") {
   p.pub(a0::Packet({{"key", "val"}}, "msg #3"));
 
   {
-    a0::SubscriberSync sub(shm, A0_INIT_OLDEST, A0_ITER_NEXT);
+    a0::SubscriberSync sub(file, A0_INIT_OLDEST, A0_ITER_NEXT);
 
     REQUIRE(sub.has_next());
     auto pkt_view = sub.next();
@@ -414,7 +311,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub sync") {
   }
 
   {
-    a0::SubscriberSync sub(shm, A0_INIT_MOST_RECENT, A0_ITER_NEWEST);
+    a0::SubscriberSync sub(file, A0_INIT_MOST_RECENT, A0_ITER_NEWEST);
 
     REQUIRE(sub.has_next());
     REQUIRE(sub.next().payload() == "msg #3");
@@ -424,12 +321,12 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub sync") {
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub") {
-  a0::Publisher p(shm);
+  a0::Publisher p(file);
   p.pub("msg #0");
   p.pub("msg #1");
 
   a0::sync<std::vector<std::string>> read_payloads;
-  a0::Subscriber sub(shm, A0_INIT_OLDEST, A0_ITER_NEXT, [&](a0::PacketView pkt_view) {
+  a0::Subscriber sub(file, A0_INIT_OLDEST, A0_ITER_NEXT, [&](a0::PacketView pkt_view) {
     read_payloads.notify_one([&](auto* payloads) {
       payloads->push_back(std::string(pkt_view.payload()));
     });
@@ -445,22 +342,22 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub") {
   });
 
   {
-    auto pkt = a0::Subscriber::read_one(shm, A0_INIT_OLDEST, O_NONBLOCK);
+    auto pkt = a0::Subscriber::read_one(file, A0_INIT_OLDEST, O_NONBLOCK);
     REQUIRE(pkt.payload() == "msg #0");
   }
   {
-    auto pkt = a0::Subscriber::read_one(shm, A0_INIT_MOST_RECENT, O_NONBLOCK);
+    auto pkt = a0::Subscriber::read_one(file, A0_INIT_MOST_RECENT, O_NONBLOCK);
     REQUIRE(pkt.payload() == "msg #1");
   }
-  REQUIRE_THROWS_WITH(a0::Subscriber::read_one(shm, A0_INIT_AWAIT_NEW, O_NONBLOCK),
+  REQUIRE_THROWS_WITH(a0::Subscriber::read_one(file, A0_INIT_AWAIT_NEW, O_NONBLOCK),
                       "Resource temporarily unavailable");
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] sub throw") {
   REQUIRE_SIGNAL({
-    a0::Publisher p(shm);
+    a0::Publisher p(file);
     p.pub("");
-    a0::Subscriber sub(shm, A0_INIT_OLDEST, A0_ITER_NEXT, [&](a0::PacketView) {
+    a0::Subscriber sub(file, A0_INIT_OLDEST, A0_ITER_NEXT, [&](a0::PacketView) {
       throw std::runtime_error("FOOBAR");
     });
     std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -479,9 +376,9 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] rpc") {
     REQUIRE(id == cancel_pkt.id());
     cancel_event.set();
   };
-  a0::RpcServer server(shm, onrequest, oncancel);
+  a0::RpcServer server(file, onrequest, oncancel);
 
-  a0::RpcClient client(shm);
+  a0::RpcClient client(file);
   REQUIRE(client.send("foo").get().payload() == "bar");
 
   a0::Event evt;
@@ -500,9 +397,9 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] rpc null callback") {
   auto onrequest = [&](a0::RpcRequest) {
     req_evt.set();
   };
-  a0::RpcServer server(shm, onrequest, nullptr);
+  a0::RpcServer server(file, onrequest, nullptr);
 
-  a0::RpcClient client(shm);
+  a0::RpcClient client(file);
   client.cancel("D4D4BA13-400E-48D3-8FC7-470A0498B60B");
 
   // TODO: be better!
@@ -527,9 +424,9 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] prpc") {
     cancel_event.set();
   };
 
-  a0::PrpcServer server(shm, onconnect, oncancel);
+  a0::PrpcServer server(file, onconnect, oncancel);
 
-  a0::PrpcClient client(shm);
+  a0::PrpcClient client(file);
 
   std::vector<std::string> msgs;
   a0::Event done_event;
@@ -555,9 +452,9 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] prpc null callback") {
     conn.send("msg", true);
   };
 
-  a0::PrpcServer server(shm, onconnect, nullptr);
+  a0::PrpcServer server(file, onconnect, nullptr);
 
-  a0::PrpcClient client(shm);
+  a0::PrpcClient client(file);
 
   client.cancel("D4D4BA13-400E-48D3-8FC7-470A0498B60B");
 
@@ -584,15 +481,15 @@ std::chrono::nanoseconds heartbeat_sync_duration() {
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hb start, hbl start, hbl close, hb close") {
-  auto hb = std::make_unique<a0::Heartbeat>(shm, TestHeartbeatOptions());
+  auto hb = std::make_unique<a0::Heartbeat>(file, TestHeartbeatOptions());
 
-  a0::Subscriber::read_one(shm, A0_INIT_MOST_RECENT, 0);
+  a0::Subscriber::read_one(file, A0_INIT_MOST_RECENT, 0);
 
   int detected_cnt = 0;
   int missed_cnt = 0;
 
   auto hbl = std::make_unique<a0::HeartbeatListener>(
-      shm,
+      file,
       TestHeartbeatListenerOptions(),
       [&]() { detected_cnt++; },
       [&]() { missed_cnt++; });
@@ -606,15 +503,15 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hb start, hbl start, hbl clo
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hb start, hbl start, hb close, hbl close") {
-  auto hb = std::make_unique<a0::Heartbeat>(shm, TestHeartbeatOptions());
+  auto hb = std::make_unique<a0::Heartbeat>(file, TestHeartbeatOptions());
 
-  a0::Subscriber::read_one(shm, A0_INIT_MOST_RECENT, 0);
+  a0::Subscriber::read_one(file, A0_INIT_MOST_RECENT, 0);
 
   std::atomic<int> detected_cnt = 0;
   std::atomic<int> missed_cnt = 0;
 
   auto hbl = std::make_unique<a0::HeartbeatListener>(
-      shm,
+      file,
       TestHeartbeatListenerOptions(),
       [&]() { detected_cnt++; },
       [&]() { missed_cnt++; });
@@ -637,7 +534,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hbl start, hb start, hb clos
   std::atomic<int> missed_cnt = 0;
 
   auto hbl = std::make_unique<a0::HeartbeatListener>(
-      shm,
+      file,
       TestHeartbeatListenerOptions(),
       [&]() { detected_cnt++; },
       [&]() { missed_cnt++; });
@@ -647,7 +544,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hbl start, hb start, hb clos
   REQUIRE(detected_cnt == 0);
   REQUIRE(missed_cnt == 0);
 
-  auto hb = std::make_unique<a0::Heartbeat>(shm, TestHeartbeatOptions());
+  auto hb = std::make_unique<a0::Heartbeat>(file, TestHeartbeatOptions());
 
   std::this_thread::sleep_for(heartbeat_sync_duration());
 
@@ -663,9 +560,9 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hbl start, hb start, hb clos
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat ignore old") {
-  auto hb = std::make_unique<a0::Heartbeat>(shm, TestHeartbeatOptions());
+  auto hb = std::make_unique<a0::Heartbeat>(file, TestHeartbeatOptions());
 
-  a0::Subscriber::read_one(shm, A0_INIT_MOST_RECENT, 0);
+  a0::Subscriber::read_one(file, A0_INIT_MOST_RECENT, 0);
 
   hb = nullptr;
 
@@ -677,7 +574,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat ignore old") {
   std::atomic<int> missed_cnt = 0;
 
   auto hbl = std::make_unique<a0::HeartbeatListener>(
-      shm,
+      file,
       TestHeartbeatListenerOptions(),
       [&]() { detected_cnt++; },
       [&]() { missed_cnt++; });
@@ -687,7 +584,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat ignore old") {
   REQUIRE(detected_cnt == 0);
   REQUIRE(missed_cnt == 0);
 
-  hb = std::make_unique<a0::Heartbeat>(shm, TestHeartbeatOptions());
+  hb = std::make_unique<a0::Heartbeat>(file, TestHeartbeatOptions());
 
   std::this_thread::sleep_for(heartbeat_sync_duration());
 
@@ -696,14 +593,14 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat ignore old") {
 }
 
 TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat listener async close") {
-  auto hb = std::make_unique<a0::Heartbeat>(shm, TestHeartbeatOptions());
+  auto hb = std::make_unique<a0::Heartbeat>(file, TestHeartbeatOptions());
 
   a0::Event init_event;
   a0::Event stop_event;
 
   std::unique_ptr<a0::HeartbeatListener> hbl;
   hbl = std::make_unique<a0::HeartbeatListener>(
-      shm,
+      file,
       TestHeartbeatListenerOptions(),
       [&]() {
         REQUIRE(init_event.wait_for(heartbeat_sync_duration()) ==

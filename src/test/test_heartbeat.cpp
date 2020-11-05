@@ -1,6 +1,6 @@
+#include <a0/arena.h>
 #include <a0/common.h>
 #include <a0/heartbeat.h>
-#include <a0/legacy_arena.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
 
@@ -15,17 +15,17 @@
 #include "src/sync.hpp"
 #include "src/test_util.hpp"
 
-static const char TEST_SHM[] = "/test.shm";
+static const char TEST_FILE[] = "test.file";
 
 struct HeartbeatFixture {
-  a0_shm_t shm;
+  a0_file_t file;
   a0_heartbeat_options_t hb_opts;
   a0_heartbeat_listener_options_t hbl_opts;
   std::chrono::nanoseconds sync_duration;
 
   HeartbeatFixture() {
-    a0_shm_unlink(TEST_SHM);
-    a0_shm_open(TEST_SHM, nullptr, &shm);
+    a0_file_remove(TEST_FILE);
+    a0_file_open(TEST_FILE, nullptr, &file);
 
     hb_opts.freq = 100;
     if (a0::test::is_debug_mode()) {
@@ -38,18 +38,18 @@ struct HeartbeatFixture {
   }
 
   ~HeartbeatFixture() {
-    a0_shm_close(&shm);
-    a0_shm_unlink(TEST_SHM);
+    a0_file_close(&file);
+    a0_file_remove(TEST_FILE);
   }
 };
 
 TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] hb start, hbl start, hbl close, hb close") {
   a0_heartbeat_t hb;
-  REQUIRE_OK(a0_heartbeat_init(&hb, shm.arena, &hb_opts));
+  REQUIRE_OK(a0_heartbeat_init(&hb, file.arena, &hb_opts));
 
   a0_packet_t unused;
   REQUIRE_OK(
-      a0_subscriber_read_one(shm.arena, a0::test::allocator(), A0_INIT_MOST_RECENT, 0, &unused));
+      a0_subscriber_read_one(file.arena, a0::test::allocator(), A0_INIT_MOST_RECENT, 0, &unused));
 
   int detected_cnt = 0;
   int missed_cnt = 0;
@@ -71,7 +71,7 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] hb start, hbl start, hbl close, 
 
   a0_heartbeat_listener_t hbl;
   REQUIRE_OK(a0_heartbeat_listener_init(&hbl,
-                                        shm.arena,
+                                        file.arena,
                                         a0::test::allocator(),
                                         &hbl_opts,
                                         ondetected,
@@ -89,11 +89,11 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] hb start, hbl start, hbl close, 
 
 TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] hb start, hbl start, hb close, hbl close") {
   a0_heartbeat_t hb;
-  REQUIRE_OK(a0_heartbeat_init(&hb, shm.arena, &hb_opts));
+  REQUIRE_OK(a0_heartbeat_init(&hb, file.arena, &hb_opts));
 
   a0_packet_t unused;
   REQUIRE_OK(
-      a0_subscriber_read_one(shm.arena, a0::test::allocator(), A0_INIT_MOST_RECENT, 0, &unused));
+      a0_subscriber_read_one(file.arena, a0::test::allocator(), A0_INIT_MOST_RECENT, 0, &unused));
 
   std::atomic<int> detected_cnt = 0;
   std::atomic<int> missed_cnt = 0;
@@ -115,7 +115,7 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] hb start, hbl start, hb close, h
 
   a0_heartbeat_listener_t hbl;
   REQUIRE_OK(a0_heartbeat_listener_init(&hbl,
-                                        shm.arena,
+                                        file.arena,
                                         a0::test::allocator(),
                                         &hbl_opts,
                                         ondetected,
@@ -154,7 +154,7 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] hbl start, hb start, hb close, h
 
   a0_heartbeat_listener_t hbl;
   REQUIRE_OK(a0_heartbeat_listener_init(&hbl,
-                                        shm.arena,
+                                        file.arena,
                                         a0::test::allocator(),
                                         &hbl_opts,
                                         ondetected,
@@ -163,7 +163,7 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] hbl start, hb start, hb close, h
   std::this_thread::sleep_for(sync_duration);
 
   a0_heartbeat_t hb;
-  REQUIRE_OK(a0_heartbeat_init(&hb, shm.arena, &hb_opts));
+  REQUIRE_OK(a0_heartbeat_init(&hb, file.arena, &hb_opts));
 
   std::this_thread::sleep_for(sync_duration);
 
@@ -182,11 +182,11 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] hbl start, hb start, hb close, h
 
 TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] ignore old") {
   a0_heartbeat_t hb;
-  REQUIRE_OK(a0_heartbeat_init(&hb, shm.arena, &hb_opts));
+  REQUIRE_OK(a0_heartbeat_init(&hb, file.arena, &hb_opts));
 
   a0_packet_t unused;
   REQUIRE_OK(
-      a0_subscriber_read_one(shm.arena, a0::test::allocator(), A0_INIT_MOST_RECENT, 0, &unused));
+      a0_subscriber_read_one(file.arena, a0::test::allocator(), A0_INIT_MOST_RECENT, 0, &unused));
 
   REQUIRE_OK(a0_heartbeat_close(&hb));
 
@@ -214,7 +214,7 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] ignore old") {
 
   a0_heartbeat_listener_t hbl;
   REQUIRE_OK(a0_heartbeat_listener_init(&hbl,
-                                        shm.arena,
+                                        file.arena,
                                         a0::test::allocator(),
                                         &hbl_opts,
                                         ondetected,
@@ -225,7 +225,7 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] ignore old") {
   REQUIRE(detected_cnt == 0);
   REQUIRE(missed_cnt == 0);
 
-  REQUIRE_OK(a0_heartbeat_init(&hb, shm.arena, &hb_opts));
+  REQUIRE_OK(a0_heartbeat_init(&hb, file.arena, &hb_opts));
 
   std::this_thread::sleep_for(sync_duration);
 
@@ -238,7 +238,7 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] ignore old") {
 
 TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] listener async close") {
   a0_heartbeat_t hb;
-  REQUIRE_OK(a0_heartbeat_init(&hb, shm.arena, &hb_opts));
+  REQUIRE_OK(a0_heartbeat_init(&hb, file.arena, &hb_opts));
 
   a0_heartbeat_listener_t hbl;
 
@@ -266,7 +266,7 @@ TEST_CASE_FIXTURE(HeartbeatFixture, "heartbeat] listener async close") {
   };
 
   REQUIRE_OK(a0_heartbeat_listener_init(&hbl,
-                                        shm.arena,
+                                        file.arena,
                                         a0::test::allocator(),
                                         &hbl_opts,
                                         ondetected,
