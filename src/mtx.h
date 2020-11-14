@@ -2,8 +2,11 @@
 #define A0_SRC_MTX_H
 
 #include <a0/errno.h>
+#include <a0/time.h>
 
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "ftx.h"
 
@@ -31,26 +34,20 @@ struct a0_mtx_s {
   a0_mtx_t* next;
   a0_mtx_t* prev;
   a0_ftx_t ftx;
-
-  // TODO(lshamis): Reconsider these fields.
-  int32_t waiters;
-  int32_t count;
 };
 
-errno_t a0_mtx_init(a0_mtx_t*);
-errno_t a0_mtx_lock(a0_mtx_t*);
-errno_t a0_mtx_trylock(a0_mtx_t*);
+errno_t a0_mtx_lock(a0_mtx_t*) A0_WARN_UNUSED_RESULT;
+errno_t a0_mtx_timedlock(a0_mtx_t*, const timespec_t*) A0_WARN_UNUSED_RESULT;
+errno_t a0_mtx_trylock(a0_mtx_t*) A0_WARN_UNUSED_RESULT;
 errno_t a0_mtx_consistent(a0_mtx_t*);
 errno_t a0_mtx_unlock(a0_mtx_t*);
 
-// TODO(lshamis): add a0_cnd_t.
-//
-// typedef a0_ftx_t a0_cnd_t;
-//
-// errno_t a0_cnd_init(a0_cnd_t*);
-// errno_t a0_cnd_wait(a0_cnd_t*, a0_mtx_t*);
-// errno_t a0_cnd_signal(a0_cnd_t*, a0_mtx_t*);
-// errno_t a0_cnd_broadcast(a0_cnd_t*, a0_mtx_t*);
+typedef a0_ftx_t a0_cnd_t;
+
+errno_t a0_cnd_wait(a0_cnd_t*, a0_mtx_t*) A0_WARN_UNUSED_RESULT;
+errno_t a0_cnd_timedwait(a0_cnd_t*, a0_mtx_t*, const timespec_t*) A0_WARN_UNUSED_RESULT;
+errno_t a0_cnd_signal(a0_cnd_t*, a0_mtx_t*);
+errno_t a0_cnd_broadcast(a0_cnd_t*, a0_mtx_t*);
 
 #ifdef __cplusplus
 }

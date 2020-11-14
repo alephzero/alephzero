@@ -5,12 +5,14 @@
 #include <sys/wait.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <string>
 #include <thread>
 #include <vector>
 
+#include "src/atomic.h"
 #include "src/mtx.h"
 #include "src/sync.hpp"
 #include "src/test_util.hpp"
@@ -38,12 +40,27 @@ struct MtxTestFixture {
     files.push_back(file);
 
     auto* mtx = (a0_mtx_t*)file.arena.ptr;
-    REQUIRE_OK(a0_mtx_init(mtx));
     return mtx;
+  }
+
+  a0_cnd_t* new_cnd() {
+    std::string name = "cnd_" + std::to_string(files.size()) + ".file";
+    a0_file_remove(name.c_str());
+
+    a0_file_t file;
+    a0_file_options_t fileopt = A0_FILE_OPTIONS_DEFAULT;
+    fileopt.create_options.size = sizeof(a0_cnd_t);
+    REQUIRE_OK(a0_file_open(name.c_str(), &fileopt, &file));
+    files.push_back(file);
+
+    auto* cnd = (a0_cnd_t*)file.arena.ptr;
+    return cnd;
   }
 };
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] lock, trylock") {
+// TODO: Test a0_mtx_lock_timeout
+
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, trylock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
     REQUIRE_OK(a0_mtx_lock(mtx));
@@ -52,7 +69,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] lock, trylock") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] (lock)*") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] (lock)*") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
     REQUIRE_OK(a0_mtx_lock(mtx));
@@ -61,7 +78,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] (lock)*") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] (lock, unlock)*") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] (lock, unlock)*") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
     for (int i = 0; i < 2; i++) {
@@ -71,14 +88,14 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] (lock, unlock)*") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] unlock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] unlock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
     REQUIRE(a0_mtx_unlock(mtx) == EPERM);
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] lock, (unlock)*") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, (unlock)*") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
     REQUIRE_OK(a0_mtx_lock(mtx));
@@ -87,14 +104,14 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] lock, (unlock)*") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] consistent") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] consistent") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
     REQUIRE(a0_mtx_consistent(mtx) == EINVAL);
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] lock, lock2, unlock2, unlock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, lock2, unlock2, unlock") {
   REQUIRE_EXIT({
     auto* mtx1 = new_mtx();
     auto* mtx2 = new_mtx();
@@ -106,7 +123,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] lock, lock2, unlock2, unlock") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] lock, lock2, unlock, unlock2") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, lock2, unlock, unlock2") {
   REQUIRE_EXIT({
     auto* mtx1 = new_mtx();
     auto* mtx2 = new_mtx();
@@ -118,7 +135,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] lock, lock2, unlock, unlock2") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] unlock in wrong thread") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] unlock in wrong thread") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -137,7 +154,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] unlock in wrong thread") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] trylock in different thread") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] trylock in different thread") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -157,7 +174,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] trylock in different thread") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] robust chain") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] robust chain") {
   REQUIRE_EXIT({
     auto* mtx1 = new_mtx();
     auto* mtx2 = new_mtx();
@@ -175,7 +192,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] robust chain") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] multiple waiters") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] multiple waiters") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -198,7 +215,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] multiple waiters") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] owner died with lock, not consistent, lock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, not consistent, lock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -210,7 +227,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] owner died with lock, not consiste
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] owner died with lock, consistent, lock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, lock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -224,19 +241,19 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] owner died with lock, consistent, 
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] owner died with lock, not consistent, trylock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, not consistent, trylock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
     REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
-
+    
     REQUIRE(a0_mtx_lock(mtx) == EOWNERDEAD);
     REQUIRE_OK(a0_mtx_unlock(mtx));
     REQUIRE(a0_mtx_trylock(mtx) == ENOTRECOVERABLE);
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] owner died with lock, consistent, trylock") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, trylock") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -250,7 +267,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] owner died with lock, consistent, 
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] fuzz (lock, unlock)") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] fuzz (lock, unlock)") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -279,7 +296,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] fuzz (lock, unlock)") {
   });
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] fuzz (trylock, unlock)") {
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] fuzz (trylock, unlock)") {
   REQUIRE_EXIT({
     auto* mtx = new_mtx();
 
@@ -304,5 +321,174 @@ TEST_CASE_FIXTURE(MtxTestFixture, "file_sync] fuzz (trylock, unlock)") {
     for (auto&& child : children) {
       waitpid(child, nullptr, 0);
     }
+  });
+}
+
+// errno_t a0_cnd_wait(a0_cnd_t*, a0_mtx_t*) A0_WARN_UNUSED_RESULT;
+// errno_t a0_cnd_timedwait(a0_cnd_t*, a0_mtx_t*, const struct timespec*) A0_WARN_UNUSED_RESULT;
+// errno_t a0_cnd_signal(a0_cnd_t*, a0_mtx_t*);
+// errno_t a0_cnd_broadcast(a0_cnd_t*, a0_mtx_t*);
+
+TEST_CASE_FIXTURE(MtxTestFixture, "cnd] signal chain") {
+  REQUIRE_EXIT({
+    fprintf(stderr, "cnd] signal chain\n");
+    std::vector<std::thread> threads;
+    auto* cnd = new_cnd();
+    auto* mtx = new_mtx();
+    size_t state = 0;
+
+    for (size_t i = 0; i < 1000; i++) {
+      threads.emplace_back([&, i]() {
+        REQUIRE_OK(a0_mtx_lock(mtx));
+        while (state != i) {
+          REQUIRE_OK(a0_cnd_signal(cnd, mtx));
+          REQUIRE_OK(a0_cnd_wait(cnd, mtx));
+        }
+        state = i + 1;
+        REQUIRE_OK(a0_cnd_signal(cnd, mtx));
+        REQUIRE_OK(a0_mtx_unlock(mtx));
+      });
+    }
+
+    for (auto&& t : threads) {
+      t.join();
+    }
+
+    REQUIRE(state == 1000);
+  });
+}
+
+TEST_CASE_FIXTURE(MtxTestFixture, "cnd] broadcast chain") {
+  REQUIRE_EXIT({
+    fprintf(stderr, "cnd] broadcast chain\n");
+    std::vector<std::thread> threads;
+    auto* cnd = new_cnd();
+    auto* mtx = new_mtx();
+    size_t state = 0;
+
+    for (size_t i = 0; i < 1000; i++) {
+      threads.emplace_back([&, i]() {
+        REQUIRE_OK(a0_mtx_lock(mtx));
+        while (state != i) {
+          REQUIRE_OK(a0_cnd_wait(cnd, mtx));
+        }
+        state = i + 1;
+        REQUIRE_OK(a0_cnd_broadcast(cnd, mtx));
+        REQUIRE_OK(a0_mtx_unlock(mtx));
+      });
+    }
+
+    for (auto&& t : threads) {
+      t.join();
+    }
+
+    REQUIRE(state == 1000);
+  });
+}
+
+TEST_CASE_FIXTURE(MtxTestFixture, "cnd] signal ping broadcast pong") {
+  REQUIRE_EXIT({
+    fprintf(stderr, "cnd] signal ping broadcast pong\n");
+    std::vector<std::thread> threads;
+    auto* cnd_pre = new_cnd();
+    auto* cnd_post = new_cnd();
+    auto* mtx = new_mtx();
+    size_t pre = 0;
+    bool ready = false;
+    size_t post = 0;
+
+    for (size_t i = 0; i < 10; i++) {
+      threads.emplace_back([&, i]() {
+        REQUIRE_OK(a0_mtx_lock(mtx));
+        pre++;
+        REQUIRE_OK(a0_cnd_signal(cnd_pre, mtx));
+        while (!ready) {
+          REQUIRE_OK(a0_cnd_wait(cnd_post, mtx));
+        }
+        post++;
+        REQUIRE_OK(a0_mtx_unlock(mtx));
+      });
+    }
+
+    REQUIRE_OK(a0_mtx_lock(mtx));
+    while (pre != 10) {
+      REQUIRE_OK(a0_cnd_wait(cnd_pre, mtx));
+    }
+    REQUIRE(pre == 10);
+    REQUIRE(post == 0);
+
+    ready = true;
+    REQUIRE_OK(a0_cnd_broadcast(cnd_post, mtx));
+    REQUIRE_OK(a0_mtx_unlock(mtx));
+
+    for (auto&& t : threads) {
+      t.join();
+    }
+
+    REQUIRE(pre == 10);
+    REQUIRE(post == 10);
+  });
+}
+
+TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout zero") {
+  REQUIRE_EXIT({
+    fprintf(stderr, "cnd] timeout zero\n");
+    auto* cnd = new_cnd();
+    auto* mtx = new_mtx();
+
+    timespec_t wake_time;
+    wake_time.tv_sec = 0;
+    wake_time.tv_nsec = 0;
+
+    auto start = std::chrono::steady_clock::now();
+    REQUIRE_OK(a0_mtx_lock(mtx));
+    REQUIRE(a0_cnd_timedwait(cnd, mtx, &wake_time) == ETIMEDOUT);
+    REQUIRE_OK(a0_mtx_unlock(mtx));
+    auto end = std::chrono::steady_clock::now();
+
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    REQUIRE(duration_ms.count() < 1);
+  });
+}
+
+TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout now") {
+  REQUIRE_EXIT({
+    fprintf(stderr, "cnd] timeout now\n");
+    auto* cnd = new_cnd();
+    auto* mtx = new_mtx();
+
+    timespec_t wake_time;
+    REQUIRE_OK(clock_gettime(CLOCK_MONOTONIC, &wake_time));
+
+    auto start = std::chrono::steady_clock::now();
+    REQUIRE_OK(a0_mtx_lock(mtx));
+    REQUIRE(a0_cnd_timedwait(cnd, mtx, &wake_time) == ETIMEDOUT);
+    REQUIRE_OK(a0_mtx_unlock(mtx));
+    auto end = std::chrono::steady_clock::now();
+
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    REQUIRE(duration_ms.count() < 1);
+  });
+}
+
+TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout future") {
+  REQUIRE_EXIT({
+    fprintf(stderr, "cnd] timeout future\n");
+    auto* cnd = new_cnd();
+    auto* mtx = new_mtx();
+
+    timespec_t wake_time;
+    REQUIRE_OK(clock_gettime(CLOCK_MONOTONIC, &wake_time));
+    wake_time.tv_sec += 1;
+
+    auto start = std::chrono::steady_clock::now();
+    REQUIRE_OK(a0_mtx_lock(mtx));
+    REQUIRE(a0_cnd_timedwait(cnd, mtx, &wake_time) == ETIMEDOUT);
+    REQUIRE_OK(a0_mtx_unlock(mtx));
+    auto end = std::chrono::steady_clock::now();
+
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    REQUIRE(duration_ms.count() < 1100);
+    REQUIRE(duration_ms.count() > 900);
   });
 }

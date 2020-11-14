@@ -77,7 +77,7 @@ errno_t a0_transport_init_create(a0_transport_t* transport,
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)transport->_arena.ptr;
 
   hdr->arena_size = transport->_arena.size;
-  A0_RETURN_ERR_ON_ERR(a0_mtx_init(&hdr->mu));
+  // A0_RETURN_ERR_ON_ERR(a0_mtx_init(&hdr->mu));
 
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, lk_out));
   A0_TSAN_ANNOTATE_HAPPENS_BEFORE(&hdr->init_completed);

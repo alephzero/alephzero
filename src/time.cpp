@@ -11,7 +11,7 @@
 const char A0_TIME_MONO[] = "a0_time_mono";
 
 errno_t a0_time_mono_now(uint64_t* out) {
-  timespec mono_ts;
+  timespec_t mono_ts;
   clock_gettime(CLOCK_BOOTTIME, &mono_ts);
   *out = mono_ts.tv_sec * uint64_t(1e9) + mono_ts.tv_nsec;
   return A0_OK;
@@ -30,12 +30,12 @@ errno_t a0_time_mono_parse(const char mono_str[20], uint64_t* out) {
 
 const char A0_TIME_WALL[] = "a0_time_wall";
 
-errno_t a0_time_wall_now(timespec* out) {
+errno_t a0_time_wall_now(timespec_t* out) {
   clock_gettime(CLOCK_REALTIME, out);
   return A0_OK;
 }
 
-errno_t a0_time_wall_str(timespec wall_ts, char wall_str[36]) {
+errno_t a0_time_wall_str(timespec_t wall_ts, char wall_str[36]) {
   // Wall time in RFC 3999 Nano: "2006-01-02T15:04:05.999999999-07:00"
   std::tm wall_tm;
   gmtime_r(&wall_ts.tv_sec, &wall_tm);
@@ -47,7 +47,7 @@ errno_t a0_time_wall_str(timespec wall_ts, char wall_str[36]) {
   return A0_OK;
 }
 
-errno_t a0_time_wall_parse(const char wall_str[36], timespec* out) {
+errno_t a0_time_wall_parse(const char wall_str[36], timespec_t* out) {
   std::tm wall_tm;
   if (!strptime(wall_str, "%Y-%m-%dT%H:%M:%S", &wall_tm)) {
     return EINVAL;

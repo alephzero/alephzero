@@ -52,6 +52,7 @@
 #define A0_UNLIKELY(x) __builtin_expect((x), 0)
 
 #define A0_STATIC_INLINE static inline __attribute__((always_inline))
+#define A0_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
 
 #define A0_CAT(a, b) A0_CAT_(a, b)
 #define A0_CAT_(a, b) a##b

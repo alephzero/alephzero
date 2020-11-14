@@ -89,6 +89,9 @@ inline bool is_debug_mode() {
 template <typename Fn>
 inline pid_t subproc(Fn&& fn) {
   pid_t pid = fork();
+  if (pid == -1) {
+    return pid;
+  }
   if (!pid) {
     /* Unhook doctest from the subprocess. */
     /* Otherwise, we would see a test-failure printout after the crash. */
@@ -106,7 +109,9 @@ inline pid_t subproc(Fn&& fn) {
   {                                                           \
     int _ret_code;                                            \
     /* NOLINTNEXTLINE(bugprone-macro-parentheses) */          \
-    waitpid(a0::test::subproc([&]() FN_BODY), &_ret_code, 0); \
+    pid_t _pid = a0::test::subproc([&]() FN_BODY);   \
+    REQUIRE(_pid != -1);  \
+    waitpid(_pid, &_ret_code, 0); \
     REQUIRE(WIFEXITED(_ret_code));                            \
   }
 
@@ -114,7 +119,9 @@ inline pid_t subproc(Fn&& fn) {
   {                                                           \
     int _ret_code;                                            \
     /* NOLINTNEXTLINE(bugprone-macro-parentheses) */          \
-    waitpid(a0::test::subproc([&]() FN_BODY), &_ret_code, 0); \
+    pid_t _pid = a0::test::subproc([&]() FN_BODY);   \
+    REQUIRE(_pid != -1);  \
+    waitpid(_pid, &_ret_code, 0); \
     REQUIRE(WIFSIGNALED(_ret_code));                          \
   }
 
