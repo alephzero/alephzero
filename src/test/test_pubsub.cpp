@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <condition_variable>
+#include <cstdint>
 #include <cstring>
 #include <map>
 #include <ostream>
