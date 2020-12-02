@@ -8,8 +8,8 @@
 
 #include <algorithm>
 #include <cerrno>
-#include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <cstring>
 #include <map>
 #include <ostream>
@@ -83,6 +83,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
                                        A0_INIT_OLDEST,
                                        A0_ITER_NEXT));
 
+    uint64_t pkt1_time_mono;
+
     {
       bool has_next;
       REQUIRE_OK(a0_subscriber_sync_has_next(&sub, &has_next));
@@ -114,10 +116,9 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
       REQUIRE(hdrs["a0_transport_seq"] == "0");
       REQUIRE(hdrs["a0_publisher_seq"] == "0");
       REQUIRE(hdrs["a0_publisher_id"].size() == 36);
-      REQUIRE(stoull(hdrs["a0_time_mono"]) <
-              std::chrono::duration_cast<std::chrono::nanoseconds>(
-                  std::chrono::steady_clock::now().time_since_epoch())
-                  .count());
+      pkt1_time_mono = stoull(hdrs["a0_time_mono"]);
+      REQUIRE(pkt1_time_mono > 0);
+      REQUIRE(pkt1_time_mono < UINT64_MAX);
     }
 
     {
@@ -142,6 +143,10 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
       REQUIRE(hdrs["a0_transport_seq"] == "1");
       REQUIRE(hdrs["a0_publisher_seq"] == "1");
       REQUIRE(hdrs["a0_publisher_id"].size() == 36);
+
+      uint64_t pkt2_time_mono = stoull(hdrs["a0_time_mono"]);
+      REQUIRE(pkt2_time_mono > pkt1_time_mono);
+      REQUIRE(pkt2_time_mono < UINT64_MAX);
     }
 
     {
@@ -266,10 +271,6 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] raw") {
       REQUIRE(hdrs["a0_transport_seq"] == "0");
       REQUIRE(hdrs["a0_publisher_seq"] == "0");
       REQUIRE(hdrs["a0_publisher_id"].size() == 36);
-      REQUIRE(stoull(hdrs["a0_time_mono"]) <
-              std::chrono::duration_cast<std::chrono::nanoseconds>(
-                  std::chrono::steady_clock::now().time_since_epoch())
-                  .count());
     }
 
     {
