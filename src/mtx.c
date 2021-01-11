@@ -60,6 +60,25 @@ A0_STATIC_INLINE void _U_ __tsan_mutex_post_divert(_U_ void* addr, _U_ unsigned 
 
 #endif
 
+_Thread_local uint32_t a0_tid_ = 0;
+
+A0_STATIC_INLINE
+uint32_t tid_load() {
+  return syscall(SYS_gettid);
+}
+
+A0_STATIC_INLINE
+void tid_reset() {
+  a0_tid_ = 0;
+}
+
+A0_STATIC_INLINE
+void tid_reset_atfork() {
+  pthread_atfork(NULL, NULL, &tid_reset);
+}
+
+static pthread_once_t tid_reset_atfork_once;
+
 typedef struct robust_list robust_list_t;
 _Thread_local struct robust_list_head a0_robust_head;
 
@@ -72,12 +91,19 @@ void robust_init() {
 }
 
 A0_STATIC_INLINE
-bool robust_is_head(a0_mtx_t* mtx) {
-  return mtx == (a0_mtx_t*)&a0_robust_head;
+void init_thread() {
+  if (A0_LIKELY(a0_tid_)) {
+    return;
+  }
+
+  a0_tid_ = tid_load();
+  pthread_once(&tid_reset_atfork_once, tid_reset_atfork);
+  robust_init();
 }
 
 A0_STATIC_INLINE
 void robust_op_start(a0_mtx_t* mtx) {
+  init_thread();
   a0_robust_head.list_op_pending = (struct robust_list*)mtx;
   a0_barrier();
 }
@@ -87,6 +113,11 @@ void robust_op_end(a0_mtx_t* mtx) {
   (void)mtx;
   a0_barrier();
   a0_robust_head.list_op_pending = NULL;
+}
+
+A0_STATIC_INLINE
+bool robust_is_head(a0_mtx_t* mtx) {
+  return mtx == (a0_mtx_t*)&a0_robust_head;
 }
 
 A0_STATIC_INLINE
@@ -114,37 +145,9 @@ void robust_op_del(a0_mtx_t* mtx) {
   }
 }
 
-_Thread_local uint32_t a0_tid_ = 0;
-
-A0_STATIC_INLINE
-uint32_t tid_load() {
-  return syscall(SYS_gettid);
-}
-
-A0_STATIC_INLINE
-void tid_reset() {
-  a0_tid_ = 0;
-}
-
-A0_STATIC_INLINE
-void tid_reset_atfork() {
-  pthread_atfork(NULL, NULL, &tid_reset);
-}
-
-static pthread_once_t tid_reset_atfork_once;
-
-A0_STATIC_INLINE
-void init_thread() {
-  a0_tid_ = tid_load();
-  pthread_once(&tid_reset_atfork_once, tid_reset_atfork);
-  robust_init();
-}
-
 A0_STATIC_INLINE
 uint32_t a0_tid() {
-  if (A0_UNLIKELY(!a0_tid_)) {
-    init_thread();
-  }
+  init_thread();
   return a0_tid_;
 }
 
@@ -198,14 +201,16 @@ errno_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const timespec_t* timeout) {
 }
 
 errno_t a0_mtx_timedlock(a0_mtx_t* mtx, const timespec_t* timeout) {
-  __tsan_mutex_pre_lock(mtx, 0);
+  // Note: __tsan_mutex_pre_lock should come here, but tsan doesn't provide
+  //       a way to "fail" a lock. Only a trylock.
   robust_op_start(mtx);
   const errno_t err = a0_mtx_timedlock_impl(mtx, timeout);
   if (!err || err == EOWNERDEAD) {
+    __tsan_mutex_pre_lock(mtx, 0);
     robust_op_add(mtx);
+    __tsan_mutex_post_lock(mtx, 0, 0);
   }
   robust_op_end(mtx);
-  __tsan_mutex_post_lock(mtx, 0, 0);
   return err;
 }
 
@@ -319,17 +324,19 @@ errno_t a0_mtx_unlock(a0_mtx_t* mtx) {
 errno_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, const timespec_t* timeout) {
   const uint32_t init_cnd = __atomic_load_n(cnd, __ATOMIC_SEQ_CST);
 
-  a0_mtx_unlock(mtx);
+  errno_t err = a0_mtx_unlock(mtx);
+  if (err) {
+    return err;
+  }
 
   __tsan_mutex_pre_lock(mtx, 0);
   robust_op_start(mtx);
 
-  errno_t err = EINTR;
-  while (err == EINTR) {
+  do {
     // Wait in the kernel iff the value of it doesn't change (ie somebody else
     // does a wake) from before we unlocked the mutex.
     err = a0_ftx_wait_requeue_pi(cnd, init_cnd, timeout, &mtx->ftx);
-  }
+  } while (err == EINTR);
 
   // Timed out waiting.  Signal that back up to the user.
   if (err == ETIMEDOUT) {
@@ -352,9 +359,7 @@ errno_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, const timespec_t* timeout
     // etc, so there's no need to do anything special there either.
 
     // We have to relock it ourself because the kernel didn't do it.
-    // fprintf(stderr, "wait on a0_mtx_timedlock_impl\n");
     err = a0_mtx_timedlock_impl(mtx, NULL);
-    // fprintf(stderr, "a0_mtx_timedlock_impl done\n");
     robust_op_add(mtx);
     robust_op_end(mtx);
     __tsan_mutex_post_lock(mtx, 0, 0);

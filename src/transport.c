@@ -30,11 +30,8 @@ typedef struct a0_transport_hdr_s {
   bool init_started;
   bool init_completed;
 
-  a0_mtx_t mu;
-
-  a0_ftx_t ftxcv;
-  uint32_t next_ftxcv_tkn;
-  bool has_notify_listener;
+  a0_mtx_t mtx;
+  a0_cnd_t cnd;
 
   a0_transport_state_t state_pages[2];
   uint32_t committed_page_idx;
@@ -77,7 +74,7 @@ errno_t a0_transport_init_create(a0_transport_t* transport,
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)transport->_arena.ptr;
 
   hdr->arena_size = transport->_arena.size;
-  // A0_RETURN_ERR_ON_ERR(a0_mtx_init(&hdr->mu));
+  // A0_RETURN_ERR_ON_ERR(a0_mtx_init(&hdr->mtx));
 
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, lk_out));
   A0_TSAN_ANNOTATE_HAPPENS_BEFORE(&hdr->init_completed);
@@ -132,33 +129,17 @@ errno_t a0_transport_init_metadata(a0_locked_transport_t lk, size_t metadata_siz
   return A0_OK;
 }
 
-A0_STATIC_INLINE
-void a0_wait_for_notify(a0_locked_transport_t lk) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
-
-  uint32_t key = lk.transport->_lk_tkn;
-  hdr->ftxcv = key;
-  hdr->has_notify_listener = true;
-
-  a0_transport_unlock(lk);
-  a0_ftx_wait(&hdr->ftxcv, key, NULL);
-  a0_transport_lock(lk.transport, &lk);
-}
-
-A0_STATIC_INLINE
-void a0_schedule_notify(a0_locked_transport_t lk) {
-  lk.transport->_should_notify = true;
-}
-
 errno_t a0_transport_close(a0_transport_t* transport) {
   a0_locked_transport_t lk;
   a0_transport_lock(transport, &lk);
 
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+
   transport->_closing = true;
-  a0_schedule_notify(lk);
+  a0_cnd_broadcast(&hdr->cnd, &hdr->mtx);
 
   while (transport->_await_cnt) {
-    a0_wait_for_notify(lk);
+    a0_cnd_wait(&hdr->cnd, &hdr->mtx);
   }
 
   a0_transport_unlock(lk);
@@ -171,18 +152,14 @@ errno_t a0_transport_lock(a0_transport_t* transport, a0_locked_transport_t* lk_o
 
   lk_out->transport = transport;
 
-  errno_t lock_status = a0_mtx_lock(&hdr->mu);
+  errno_t lock_status = a0_mtx_lock(&hdr->mtx);
   if (A0_UNLIKELY(lock_status == EOWNERDEAD)) {
     // The data is always consistent by design.
-    lock_status = a0_mtx_consistent(&hdr->mu);
-    a0_schedule_notify(*lk_out);
+    lock_status = a0_mtx_consistent(&hdr->mtx);
   }
-
-  lk_out->transport->_lk_tkn = a0_atomic_inc_fetch(&hdr->next_ftxcv_tkn);
 
   // Clear any incomplete changes.
   *a0_transport_working_page(*lk_out) = *a0_transport_committed_page(*lk_out);
-  lk_out->transport->_should_notify = false;
 
   return lock_status;
 }
@@ -190,16 +167,7 @@ errno_t a0_transport_lock(a0_transport_t* transport, a0_locked_transport_t* lk_o
 errno_t a0_transport_unlock(a0_locked_transport_t lk) {
   *a0_transport_working_page(lk) = *a0_transport_committed_page(lk);
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
-  if (hdr->has_notify_listener && lk.transport->_should_notify) {
-    // wait_for_notify unlocks (using this function) before starting the futex_wait.
-    // In all other cases, futex_broadcast should clear has_notify_listener.
-    // The following line effectively checks whether the unlock is part of wait_for_notify.
-    // TODO(lshamis): This code is piped weird and should be cleaned up.
-    hdr->has_notify_listener = (hdr->ftxcv == lk.transport->_lk_tkn);
-    hdr->ftxcv = lk.transport->_lk_tkn;
-    a0_ftx_broadcast(&hdr->ftxcv);
-  }
-  a0_mtx_unlock(&hdr->mu);
+  a0_mtx_unlock(&hdr->mtx);
   return A0_OK;
 }
 
@@ -326,6 +294,7 @@ errno_t a0_transport_await(a0_locked_transport_t lk,
   if (A0_UNLIKELY(lk.transport->_closing)) {
     return ESHUTDOWN;
   }
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
 
   bool sat = false;
   errno_t err = pred(lk, &sat);
@@ -340,14 +309,14 @@ errno_t a0_transport_await(a0_locked_transport_t lk,
     if (err | sat) {
       break;
     }
-    a0_wait_for_notify(lk);
+    a0_cnd_wait(&hdr->cnd, &hdr->mtx);
   }
   if (!err && lk.transport->_closing) {
     err = ESHUTDOWN;
   }
 
   lk.transport->_await_cnt--;
-  a0_schedule_notify(lk);
+  a0_cnd_broadcast(&hdr->cnd, &hdr->mtx);
 
   return err;
 }
@@ -566,7 +535,7 @@ errno_t a0_transport_commit(a0_locked_transport_t lk) {
   hdr->committed_page_idx = !hdr->committed_page_idx;
   *a0_transport_working_page(lk) = *a0_transport_committed_page(lk);
 
-  a0_schedule_notify(lk);
+  a0_cnd_broadcast(&hdr->cnd, &hdr->mtx);
 
   return A0_OK;
 }

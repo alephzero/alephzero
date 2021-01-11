@@ -12,6 +12,8 @@
  * |
  * | As a string, it is represented as a 20 char number:
  * | **18446744072709551615**
+ * |
+ * | Note that this uses CLOCK_BOOTTIME under the hood, not CLOCK_MONOTONIC.
  *
  * Wall Time
  * ---------

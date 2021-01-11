@@ -147,17 +147,10 @@ typedef struct a0_transport_s {
   uint64_t _off;
 
   // Number of active awaits using this transport connection.
-  // TODO(lshamis): Could this be a bool?
   uint32_t _await_cnt;
 
   // Whether the transport is in the process of disconnecting.
   bool _closing;
-
-  // Whether the transport has an unflushed notification.
-  bool _should_notify;
-
-  // Unique token used to distinguish locks.
-  uint32_t _lk_tkn;
 } a0_transport_t;
 
 typedef struct a0_transport_frame_hdr_s {

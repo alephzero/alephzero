@@ -27,9 +27,13 @@ typedef struct a0_mtx_s a0_mtx_t;
 // * Error checking.
 // * Priority inheriting.
 //
-// "Inherits" from robust_list, which requires:
+// Unlike pthread_mutex_t, timespec are expected to use CLOCK_BOOTTIME.
+//
+// struct a0_mtx_s "Inherits" from robust_list, which requires:
 // * The first field MUST be a next pointer.
 // * There must be a futex, which makes the mutex immovable.
+//
+// Note: a mutex MUST be unlocked before being freed or unmapped.
 struct a0_mtx_s {
   a0_mtx_t* next;
   a0_mtx_t* prev;
@@ -44,8 +48,8 @@ errno_t a0_mtx_unlock(a0_mtx_t*);
 
 typedef a0_ftx_t a0_cnd_t;
 
-errno_t a0_cnd_wait(a0_cnd_t*, a0_mtx_t*) A0_WARN_UNUSED_RESULT;
-errno_t a0_cnd_timedwait(a0_cnd_t*, a0_mtx_t*, const timespec_t*) A0_WARN_UNUSED_RESULT;
+errno_t a0_cnd_wait(a0_cnd_t*, a0_mtx_t*);
+errno_t a0_cnd_timedwait(a0_cnd_t*, a0_mtx_t*, const timespec_t*);
 errno_t a0_cnd_signal(a0_cnd_t*, a0_mtx_t*);
 errno_t a0_cnd_broadcast(a0_cnd_t*, a0_mtx_t*);
 

@@ -87,14 +87,14 @@ inline bool is_debug_mode() {
 }
 
 template <typename Fn>
-inline pid_t subproc(Fn&& fn) {
+pid_t subproc(Fn&& fn) {
   pid_t pid = fork();
   if (pid == -1) {
     return pid;
   }
   if (!pid) {
-    /* Unhook doctest from the subprocess. */
-    /* Otherwise, we would see a test-failure printout after the crash. */
+    // Unhook doctest from the subprocess.
+    // Otherwise, we would see a test-failure printout after the crash.
     signal(SIGABRT, SIG_DFL);
     fn();
     exit(0);
@@ -105,24 +105,31 @@ inline pid_t subproc(Fn&& fn) {
 }  // namespace a0::test
 
 #define REQUIRE_OK(err) REQUIRE((err) == A0_OK);
+
+inline void REQUIRE_SUBPROC_EXITED(pid_t pid) {
+  REQUIRE(pid != -1);
+  int ret_code;
+  waitpid(pid, &ret_code, 0);
+  REQUIRE(WIFEXITED(ret_code));
+}
+
+inline void REQUIRE_SUBPROC_SIGNALED(pid_t pid) {
+  REQUIRE(pid != -1);
+  int ret_code;
+  waitpid(pid, &ret_code, 0);
+  REQUIRE(WIFSIGNALED(ret_code));
+}
+
 #define REQUIRE_EXIT(FN_BODY)                                 \
   {                                                           \
-    int _ret_code;                                            \
     /* NOLINTNEXTLINE(bugprone-macro-parentheses) */          \
-    pid_t _pid = a0::test::subproc([&]() FN_BODY);   \
-    REQUIRE(_pid != -1);  \
-    waitpid(_pid, &_ret_code, 0); \
-    REQUIRE(WIFEXITED(_ret_code));                            \
+    REQUIRE_SUBPROC_EXITED(a0::test::subproc([&]() FN_BODY));   \
   }
 
 #define REQUIRE_SIGNAL(FN_BODY)                               \
   {                                                           \
-    int _ret_code;                                            \
     /* NOLINTNEXTLINE(bugprone-macro-parentheses) */          \
-    pid_t _pid = a0::test::subproc([&]() FN_BODY);   \
-    REQUIRE(_pid != -1);  \
-    waitpid(_pid, &_ret_code, 0); \
-    REQUIRE(WIFSIGNALED(_ret_code));                          \
+    REQUIRE_SUBPROC_SIGNALED(a0::test::subproc([&]() FN_BODY));   \
   }
 
 #ifdef DEBUG
@@ -133,4 +140,29 @@ inline pid_t subproc(Fn&& fn) {
 
 #define REQUIRE_SIGNAL_OR(EXPR, ERR) REQUIRE((EXPR) == (ERR))
 
+#endif
+
+#ifdef A0_TSAN_ENABLED
+  // #ifdef __cplusplus
+  // extern "C" {
+  // #endif
+    // void __tsan_mutex_destroy(void*, unsigned);
+    // namespace __tsan {
+    //   struct ThreadState;
+    //   ThreadState* cur_thread();
+    //   void MutexRepair(ThreadState*, uintptr_t, uintptr_t);
+    // }  // namespace __tsan
+
+    // void A0_MUTEX_REPAIR(void*) {
+    // //   // __tsan::MutexRepair(__tsan::cur_thread(), 0, (uintptr_t)mtx);
+    // }
+    
+  // #ifdef __cplusplus
+  // }  // extern "C"
+  // #endif
+
+  #define A0_TSAN_MUTEX_DONE(mtx_ptr)
+#else
+  #define A0_TSAN_MUTEX_DONE(mtx_ptr)
+  // void A0_MUTEX_REPAIR(void*) {}
 #endif

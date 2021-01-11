@@ -48,6 +48,13 @@
 
 #endif
 
+// Bah. Why is there no consistent way to initialize a struct to 0s?
+#ifdef __cplusplus
+#define A0_EMPTY {}
+#else
+#define A0_EMPTY {0}
+#endif
+
 #define A0_LIKELY(x) __builtin_expect((x), 1)
 #define A0_UNLIKELY(x) __builtin_expect((x), 0)
 
