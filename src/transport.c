@@ -97,7 +97,7 @@ errno_t a0_transport_init(a0_transport_t* transport,
   memset(transport, 0, sizeof(a0_transport_t));
   transport->_arena = arena;
 
-  if (!a0_cas(&hdr->init_started, 0, 1)) {
+  if (a0_cas(&hdr->init_started, 0, 1)) {
     return a0_transport_init_create(transport, status_out, lk_out);
   }
 

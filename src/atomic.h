@@ -19,15 +19,20 @@ void a0_spin() {
                : "memory");
 }
 
-#define a0_atomic_fetch_add(P, V) __sync_fetch_and_add((P), (V))
-#define a0_atomic_add_fetch(P, V) __sync_add_and_fetch((P), (V))
+#define a0_atomic_fetch_add(P, V) __atomic_fetch_add((P), (V), __ATOMIC_RELAXED)
+#define a0_atomic_add_fetch(P, V) __atomic_add_fetch((P), (V), __ATOMIC_RELAXED)
 
-#define a0_atomic_fetch_inc(P) a0_atomic_fetch_add((P), 1)
-#define a0_atomic_inc_fetch(P) a0_atomic_add_fetch((P), 1)
+#define a0_atomic_fetch_and(P, V) __atomic_fetch_and((P), (V), __ATOMIC_RELAXED)
+#define a0_atomic_and_fetch(P, V) __atomic_and_fetch((P), (V), __ATOMIC_RELAXED)
+
+#define a0_atomic_fetch_or(P, V) __atomic_fetch_or((P), (V), __ATOMIC_RELAXED)
+#define a0_atomic_or_fetch(P, V) __atomic_or_fetch((P), (V), __ATOMIC_RELAXED)
 
 #define a0_atomic_load(P) __atomic_load_n((P), __ATOMIC_RELAXED)
 #define a0_atomic_store(P, V) __atomic_store_n((P), (V), __ATOMIC_RELAXED)
 
-#define a0_cas(P, OV, NV) __sync_val_compare_and_swap((P), (OV), (NV))
+// TODO(lshamis): Switch from __sync to __atomic.
+#define a0_cas_val(P, OV, NV) __sync_val_compare_and_swap((P), (OV), (NV))
+#define a0_cas(P, OV, NV) __sync_bool_compare_and_swap((P), (OV), (NV))
 
 #endif  // A0_SRC_ATOMIC_H

@@ -16,6 +16,8 @@
 #include "atomic.h"
 #include "macros.h"
 
+// TSAN is worth the pain of properly annotating our mutex.
+
 const unsigned __tsan_mutex_linker_init = 1 << 0;
 const unsigned __tsan_mutex_write_reentrant = 1 << 1;
 const unsigned __tsan_mutex_read_reentrant = 1 << 2;
@@ -60,6 +62,8 @@ A0_STATIC_INLINE void _U_ __tsan_mutex_post_divert(_U_ void* addr, _U_ unsigned 
 
 #endif
 
+// Cache the thread id.
+// This also acts as a proxy for whether thread constants have been initialized.
 _Thread_local uint32_t a0_tid_ = 0;
 
 A0_STATIC_INLINE
@@ -174,27 +178,22 @@ errno_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const timespec_t* timeout) {
 
   errno_t err = EINTR;
   while (err == EINTR) {
-    const uint32_t val = __atomic_load_n(&mtx->ftx, __ATOMIC_ACQUIRE);
-    if (ftx_notrecoverable(val)) {
+    // Can't lock if borked.
+    if (ftx_notrecoverable(a0_atomic_load(&mtx->ftx))) {
       return ENOTRECOVERABLE;
     }
 
-    // If the atomic 0->TID transition fails.
-    if (__sync_bool_compare_and_swap(&mtx->ftx, 0, tid)) {
-      // Fastpath succeeded, so no need to call into the kernel.
-      // Because this is the fastpath, it's a good idea to avoid even having to
-      // load the value again down below.
+    // Try to lock without kernel involvement.
+    if (a0_cas(&mtx->ftx, 0, tid)) {
       return A0_OK;
     }
 
-    // Wait in the kernel, which handles atomically ORing in FUTEX_WAITERS
-    // before actually sleeping.
+    // Ask the kernel to lock.
     err = a0_ftx_lock_pi(&mtx->ftx, timeout);
   }
 
   if (!err) {
-    const uint32_t val = __atomic_load_n(&mtx->ftx, __ATOMIC_ACQUIRE);
-    return ftx_owner_died(val) ? EOWNERDEAD : A0_OK;
+    return ftx_owner_died(a0_atomic_load(&mtx->ftx)) ? EOWNERDEAD : A0_OK;
   }
 
   return err;
@@ -222,38 +221,35 @@ A0_STATIC_INLINE
 errno_t a0_mtx_trylock_impl(a0_mtx_t* mtx) {
   const uint32_t tid = a0_tid();
 
-  // Try an atomic 0->TID transition.
-  uint32_t old = __sync_val_compare_and_swap(&mtx->ftx, 0, tid);
+  // Try to lock without kernel involvement.
+  uint32_t old = a0_cas_val(&mtx->ftx, 0, tid);
 
+  // Did it work?
   if (!old) {
     robust_op_add(mtx);
     return A0_OK;
   }
 
+  // Is the lock still usable?
   if (ftx_notrecoverable(old)) {
     return ENOTRECOVERABLE;
   }
 
+  // Is the owner still alive?
   if (!ftx_owner_died(old)) {
-    // Somebody else had it locked; we failed.
     return EBUSY;
   }
 
-  // FUTEX_OWNER_DIED was set, so we have to call into the kernel to deal
-  // with resetting it.
+  // Oh, the owner died. Ask the kernel to fix the state.
   errno_t err = a0_ftx_trylock_pi(&mtx->ftx);
   if (!err) {
     robust_op_add(mtx);
-    const uint32_t val = __atomic_load_n(&mtx->ftx, __ATOMIC_ACQUIRE);
-    return ftx_owner_died(val) ? EOWNERDEAD : A0_OK;
+    return ftx_owner_died(a0_atomic_load(&mtx->ftx)) ? EOWNERDEAD : A0_OK;
   }
 
-  // EWOULDBLOCK means that somebody else beat us to it.
-  if (err == EWOULDBLOCK) {
-    return EBUSY;
-  }
-
-  return ENOTRECOVERABLE;
+  // EAGAIN means that somebody else beat us to it.
+  // Anything else means we're borked.
+  return err == EAGAIN ? EBUSY : ENOTRECOVERABLE;
 }
 
 errno_t a0_mtx_trylock(a0_mtx_t* mtx) {
@@ -270,17 +266,20 @@ errno_t a0_mtx_trylock(a0_mtx_t* mtx) {
 }
 
 errno_t a0_mtx_consistent(a0_mtx_t* mtx) {
-  const uint32_t val = __atomic_load_n(&mtx->ftx, __ATOMIC_ACQUIRE);
+  const uint32_t val = a0_atomic_load(&mtx->ftx);
 
+  // Why fix what isn't broken?
   if (!ftx_owner_died(val)) {
     return EINVAL;
   }
 
+  // Is it yours to fix?
   if (ftx_tid(val) != a0_tid()) {
     return EPERM;
   }
 
-  __atomic_and_fetch(&mtx->ftx, ~FUTEX_OWNER_DIED, __ATOMIC_RELAXED);
+  // Fix it!
+  a0_atomic_and_fetch(&mtx->ftx, ~FUTEX_OWNER_DIED);
 
   return A0_OK;
 }
@@ -288,14 +287,19 @@ errno_t a0_mtx_consistent(a0_mtx_t* mtx) {
 errno_t a0_mtx_unlock(a0_mtx_t* mtx) {
   const uint32_t tid = a0_tid();
 
-  const uint32_t val = __atomic_load_n(&mtx->ftx, __ATOMIC_SEQ_CST);
+  const uint32_t val = a0_atomic_load(&mtx->ftx);
 
+  // Only the owner can unlock.
   if (ftx_tid(val) != tid) {
     return EPERM;
   }
 
   __tsan_mutex_pre_unlock(mtx, 0);
 
+  // If the mutex was acquired with EOWNERDEAD, the caller is responsible
+  // for fixing the state and marking the mutex consistent. If they did
+  // not mark it consistent and are unlocking... then we are unrecoverably
+  // borked!
   uint32_t new_val = 0;
   if (ftx_owner_died(val)) {
     new_val = FTX_NOTRECOVERABLE;
@@ -304,13 +308,13 @@ errno_t a0_mtx_unlock(a0_mtx_t* mtx) {
   robust_op_start(mtx);
   robust_op_del(mtx);
 
-  // If the atomic TID->0 transition fails (ie FUTEX_WAITERS is set),
-  // There aren't any waiters, so no need to call into the kernel.
-  if (!__sync_bool_compare_and_swap(&mtx->ftx, tid, new_val)) {
-    // The kernel handles everything else.
+  // If the futex is exactly equal to tid, then there are no waiters and the
+  // kernel doesn't need to get involved.
+  if (!a0_cas(&mtx->ftx, tid, new_val)) {
+    // Ask the kernel to wake up a waiter.
     a0_ftx_unlock_pi(&mtx->ftx);
     if (new_val) {
-      __atomic_or_fetch(&mtx->ftx, new_val, __ATOMIC_RELAXED);
+      a0_atomic_or_fetch(&mtx->ftx, new_val);
     }
   }
 
@@ -322,8 +326,14 @@ errno_t a0_mtx_unlock(a0_mtx_t* mtx) {
 
 // TODO: Handle ENOTRECOVERABLE
 errno_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, const timespec_t* timeout) {
-  const uint32_t init_cnd = __atomic_load_n(cnd, __ATOMIC_SEQ_CST);
+  // Let's not unlock the mutex if we're going to get EINVAL due to a bad timeout.
+  if (timeout && (timeout->tv_sec < 0 || timeout->tv_nsec < 0 || (!timeout->tv_sec && !timeout->tv_nsec) || timeout->tv_nsec >= 1e9)) {
+    return EINVAL;
+  }
 
+  const uint32_t init_cnd = a0_atomic_load(cnd);
+
+  // Unblock other threads to do the things that will eventually signal this wait.
   errno_t err = a0_mtx_unlock(mtx);
   if (err) {
     return err;
@@ -333,49 +343,26 @@ errno_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, const timespec_t* timeout
   robust_op_start(mtx);
 
   do {
-    // Wait in the kernel iff the value of it doesn't change (ie somebody else
-    // does a wake) from before we unlocked the mutex.
+    // Priority-inheritance-aware wait until awoken or timeout.
     err = a0_ftx_wait_requeue_pi(cnd, init_cnd, timeout, &mtx->ftx);
   } while (err == EINTR);
 
-  // Timed out waiting.  Signal that back up to the user.
+  // We need to manually lock on timeout.
+  // Note: We keep the timeout error.
   if (err == ETIMEDOUT) {
-    // We have to relock it ourself because the kernel didn't do it.
-    errno_t err2 = a0_mtx_timedlock_impl(mtx, NULL);
-    robust_op_add(mtx);
-    robust_op_end(mtx);
-    __tsan_mutex_post_lock(mtx, 0, 0);
-
-    return err2 ? err2 : err;
+    a0_mtx_timedlock_impl(mtx, NULL);
   }
-
-  // If it failed because somebody else did a wake and changed the value
-  // before we actually made it to sleep.
+  // Someone else grabbed and mutated the resource between the unlock and wait.
+  // No need to wait.
   if (err == EAGAIN) {
-    // There's no need to unconditionally set FUTEX_WAITERS here if we're
-    // using REQUEUE_PI because the kernel automatically does that in the
-    // REQUEUE_PI iff it requeued anybody.
-    // If we're not using REQUEUE_PI, then everything is just normal locks
-    // etc, so there's no need to do anything special there either.
-
-    // We have to relock it ourself because the kernel didn't do it.
     err = a0_mtx_timedlock_impl(mtx, NULL);
-    robust_op_add(mtx);
-    robust_op_end(mtx);
-    __tsan_mutex_post_lock(mtx, 0, 0);
-    return err;
   }
-
-  // We succeeded in waiting, and the kernel took care of locking the
-  // mutex for us and setting FUTEX_WAITERS iff it needed to (for REQUEUE_PI).
 
   robust_op_add(mtx);
 
+  // If no higher priority error, check the previous owner didn't die.
   if (!err) {
-    const uint32_t val = __atomic_load_n(&mtx->ftx, __ATOMIC_ACQUIRE);
-    robust_op_end(mtx);
-    __tsan_mutex_post_lock(mtx, 0, 0);
-    return ftx_owner_died(val) ? EOWNERDEAD : A0_OK;
+    err = ftx_owner_died(a0_atomic_load(&mtx->ftx)) ? EOWNERDEAD : A0_OK;
   }
 
   robust_op_end(mtx);
@@ -387,35 +374,18 @@ errno_t a0_cnd_wait(a0_cnd_t* cnd, a0_mtx_t* mtx) {
   return a0_cnd_timedwait(cnd, mtx, NULL);
 }
 
-// The common implementation for broadcast and signal.
-// number_requeue is the number of waiters to requeue (probably INT_MAX or 0). 1
-// will always be woken.
 A0_STATIC_INLINE
 errno_t a0_cnd_wake(a0_cnd_t* cnd, a0_mtx_t* mtx, uint32_t cnt) {
-  // Make it so that anybody just going to sleep won't.
-  // This is where we might accidentally wake more than just 1 waiter with 1
-  // signal():
-  //   1 already sleeping will be woken but n might never actually make it to
-  //     sleep in the kernel because of this.
-  uint32_t val = __atomic_add_fetch(cnd, 1, __ATOMIC_SEQ_CST);
+  uint32_t val = a0_atomic_add_fetch(cnd, 1);
 
   while (true) {
-    // This really wants to be FUTEX_REQUEUE_PI, but the kernel doesn't have
-    // that... However, the code to support that is in the kernel, so it might
-    // be a good idea to patch it to support that and use it iff it's there.
-    errno_t err = a0_ftx_cmp_requeue_pi(cnd, val, 1, &mtx->ftx, cnt);
+    errno_t err = a0_ftx_cmp_requeue_pi(cnd, val, &mtx->ftx, cnt);
     if (err != EAGAIN) {
       return err;
     }
 
-    // If the value got changed out from under us (aka somebody else did a
-    // condition_wake).
-    
-    // If we're doing a broadcast, the other guy might have done a signal
-    // instead, so we have to try again.
-    // If we're doing a signal, we have to go again to make sure that 2
-    // signals wake 2 processes.
-    val = __atomic_load_n(cnd, __ATOMIC_RELAXED);
+    // Another thread is also trying to wake this condition variable.
+    val = a0_atomic_load(cnd);
   }
 }
 

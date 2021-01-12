@@ -82,8 +82,8 @@ errno_t a0_ftx_unlock_pi(a0_ftx_t* ftx) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_ftx_cmp_requeue_pi(a0_ftx_t* ftx, int confirm_val, int wake_cnt, a0_ftx_t* requeue_ftx, int max_requeue) {
-  return a0_futex(ftx, FUTEX_CMP_REQUEUE_PI, wake_cnt, max_requeue, requeue_ftx, confirm_val);
+errno_t a0_ftx_cmp_requeue_pi(a0_ftx_t* ftx, int confirm_val, a0_ftx_t* requeue_ftx, int max_requeue) {
+  return a0_futex(ftx, FUTEX_CMP_REQUEUE_PI, 1, max_requeue, requeue_ftx, confirm_val);
 }
 
 A0_STATIC_INLINE

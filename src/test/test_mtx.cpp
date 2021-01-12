@@ -31,7 +31,7 @@ struct MtxTestFixture {
   }
 
   uint8_t* ipc_buffer(uint32_t size) {
-    std::string name = "test_mtx_" + std::to_string(files.size());
+    std::string name = "alephzero_test/mtx/buf_" + std::to_string(files.size());
     a0_file_remove(name.c_str());
 
     a0_file_t file;
@@ -516,7 +516,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout") {
   REQUIRE_OK(a0_mtx_lock(&mtx));
 
   timespec_t wake_time = A0_EMPTY;
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == ETIMEDOUT);
+  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == EINVAL);
 
   wake_time = delay(0);
   REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == ETIMEDOUT);
