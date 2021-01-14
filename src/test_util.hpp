@@ -131,38 +131,3 @@ inline void REQUIRE_SUBPROC_SIGNALED(pid_t pid) {
     /* NOLINTNEXTLINE(bugprone-macro-parentheses) */          \
     REQUIRE_SUBPROC_SIGNALED(a0::test::subproc([&]() FN_BODY));   \
   }
-
-#ifdef DEBUG
-
-#define REQUIRE_SIGNAL_OR(EXPR, ERR) REQUIRE_SIGNAL({ EXPR; })
-
-#else
-
-#define REQUIRE_SIGNAL_OR(EXPR, ERR) REQUIRE((EXPR) == (ERR))
-
-#endif
-
-#ifdef A0_TSAN_ENABLED
-  // #ifdef __cplusplus
-  // extern "C" {
-  // #endif
-    // void __tsan_mutex_destroy(void*, unsigned);
-    // namespace __tsan {
-    //   struct ThreadState;
-    //   ThreadState* cur_thread();
-    //   void MutexRepair(ThreadState*, uintptr_t, uintptr_t);
-    // }  // namespace __tsan
-
-    // void A0_MUTEX_REPAIR(void*) {
-    // //   // __tsan::MutexRepair(__tsan::cur_thread(), 0, (uintptr_t)mtx);
-    // }
-    
-  // #ifdef __cplusplus
-  // }  // extern "C"
-  // #endif
-
-  #define A0_TSAN_MUTEX_DONE(mtx_ptr)
-#else
-  #define A0_TSAN_MUTEX_DONE(mtx_ptr)
-  // void A0_MUTEX_REPAIR(void*) {}
-#endif
