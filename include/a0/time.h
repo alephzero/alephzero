@@ -46,8 +46,6 @@ extern "C" {
  *  @{
  */
 
-typedef struct timespec timespec_t;
-
 /// Header key for mono timestamps.
 extern const char A0_TIME_MONO[];
 
@@ -69,13 +67,13 @@ errno_t a0_time_mono_parse(const char mono_str[20], uint64_t*);
 extern const char A0_TIME_WALL[];
 
 /// Get the current wall timestamps.
-errno_t a0_time_wall_now(timespec_t*);
+errno_t a0_time_wall_now(struct timespec*);
 
 /// Stringify a given wall timestamps.
-errno_t a0_time_wall_str(timespec_t, char wall_str[36]);
+errno_t a0_time_wall_str(struct timespec, char wall_str[36]);
 
 /// Parse a stringified wall timestamps.
-errno_t a0_time_wall_parse(const char wall_str[36], timespec_t*);
+errno_t a0_time_wall_parse(const char wall_str[36], struct timespec*);
 /** @}*/
 
 #ifdef __cplusplus

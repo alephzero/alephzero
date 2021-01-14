@@ -13,7 +13,6 @@
 #include <string.h>
 
 #include "atomic.h"
-#include "ftx.h"
 #include "macros.h"
 #include "mtx.h"
 

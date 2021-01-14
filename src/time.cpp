@@ -8,6 +8,8 @@
 
 #include "charconv.hpp"
 
+using timespec_t = struct timespec;
+
 const char A0_TIME_MONO[] = "a0_time_mono";
 
 errno_t a0_time_mono_now(uint64_t* out) {

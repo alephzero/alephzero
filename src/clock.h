@@ -34,14 +34,15 @@ timespec_t a0_clock_add(timespec_t ts0, timespec_t ts1) {
 A0_STATIC_INLINE
 timespec_t a0_clock_dur(int64_t dur) {
   timespec_t zero = A0_EMPTY;
-  timespec_t delta = {.tv_sec=0, .tv_nsec=dur};
+  timespec_t delta = {.tv_sec = 0, .tv_nsec = dur};
   return a0_clock_add(zero, delta);
 }
 
 A0_STATIC_INLINE
 timespec_t a0_clock_convert(
     timespec_t orig_ts,
-    clockid_t orig_clk, clockid_t target_clk) {
+    clockid_t orig_clk,
+    clockid_t target_clk) {
   timespec_t orig_now = a0_clock_now(orig_clk);
 
   timespec_t dur = {

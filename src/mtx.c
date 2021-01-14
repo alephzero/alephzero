@@ -2,15 +2,15 @@
 
 #include <a0/errno.h>
 
-#include <assert.h>
 #include <errno.h>
+#include <limits.h>
 #include <linux/futex.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <syscall.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "atomic.h"
@@ -173,7 +173,7 @@ bool ftx_notrecoverable(a0_ftx_t ftx) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const timespec_t* timeout) {
+errno_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const struct timespec* timeout) {
   const uint32_t tid = a0_tid();
 
   errno_t err = EINTR;
@@ -199,7 +199,7 @@ errno_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const timespec_t* timeout) {
   return err;
 }
 
-errno_t a0_mtx_timedlock(a0_mtx_t* mtx, const timespec_t* timeout) {
+errno_t a0_mtx_timedlock(a0_mtx_t* mtx, const struct timespec* timeout) {
   // Note: __tsan_mutex_pre_lock should come here, but tsan doesn't provide
   //       a way to "fail" a lock. Only a trylock.
   robust_op_start(mtx);
@@ -325,7 +325,7 @@ errno_t a0_mtx_unlock(a0_mtx_t* mtx) {
 }
 
 // TODO: Handle ENOTRECOVERABLE
-errno_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, const timespec_t* timeout) {
+errno_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, const struct timespec* timeout) {
   // Let's not unlock the mutex if we're going to get EINVAL due to a bad timeout.
   if (timeout && (timeout->tv_sec < 0 || timeout->tv_nsec < 0 || (!timeout->tv_sec && !timeout->tv_nsec) || timeout->tv_nsec >= 1e9)) {
     return EINVAL;

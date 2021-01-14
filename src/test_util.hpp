@@ -104,6 +104,10 @@ pid_t subproc(Fn&& fn) {
 
 }  // namespace a0::test
 
+#ifndef REQUIRE
+#define REQUIRE(...)
+#endif
+
 #define REQUIRE_OK(err) REQUIRE((err) == A0_OK);
 
 inline void REQUIRE_SUBPROC_EXITED(pid_t pid) {
@@ -123,11 +127,11 @@ inline void REQUIRE_SUBPROC_SIGNALED(pid_t pid) {
 #define REQUIRE_EXIT(FN_BODY)                                 \
   {                                                           \
     /* NOLINTNEXTLINE(bugprone-macro-parentheses) */          \
-    REQUIRE_SUBPROC_EXITED(a0::test::subproc([&]() FN_BODY));   \
+    REQUIRE_SUBPROC_EXITED(a0::test::subproc([&]() FN_BODY)); \
   }
 
-#define REQUIRE_SIGNAL(FN_BODY)                               \
-  {                                                           \
-    /* NOLINTNEXTLINE(bugprone-macro-parentheses) */          \
-    REQUIRE_SUBPROC_SIGNALED(a0::test::subproc([&]() FN_BODY));   \
+#define REQUIRE_SIGNAL(FN_BODY)                                 \
+  {                                                             \
+    /* NOLINTNEXTLINE(bugprone-macro-parentheses) */            \
+    REQUIRE_SUBPROC_SIGNALED(a0::test::subproc([&]() FN_BODY)); \
   }

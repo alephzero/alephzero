@@ -1,19 +1,22 @@
 #include <a0/arena.h>
 
 #include <doctest.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+#include <signal.h>
+#include <stdint.h>
+#include <time.h>
 
 #include <algorithm>
-#include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <memory>
+#include <new>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
-#include "src/atomic.h"
 #include "src/clock.h"
+#include "src/macros.h"
 #include "src/mtx.h"
 #include "src/sync.hpp"
 #include "src/test_util.hpp"
@@ -46,7 +49,7 @@ struct MtxTestFixture {
   template <typename T, typename... Args>
   T* make_ipc(Args&&... args) {
     auto* buf = ipc_buffer(sizeof(T));
-    return new(buf) T(std::forward<Args>(args)...);
+    return new (buf) T(std::forward<Args>(args)...);
   }
 
   timespec_t delay(int64_t fut_ns) {
@@ -60,7 +63,8 @@ class latch_t {
   a0_cnd_t cnd = A0_EMPTY;
 
  public:
-  explicit latch_t(int32_t init_val) : val{init_val} {}
+  explicit latch_t(int32_t init_val)
+      : val{init_val} {}
 
   void arrive_and_wait(int32_t update = 1) {
     REQUIRE_OK(a0_mtx_lock(&mtx));
@@ -258,7 +262,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, not consistent, tr
   auto* mtx = make_ipc<a0_mtx_t>();
 
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
-  
+
   REQUIRE(a0_mtx_lock(mtx) == EOWNERDEAD);
   REQUIRE_OK(a0_mtx_unlock(mtx));
   REQUIRE(a0_mtx_trylock(mtx) == ENOTRECOVERABLE);
@@ -376,7 +380,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] many waiters") {
     latches.push_back(std::make_unique<latch_t>(2));
     latch_t* latch = latches.back().get();
 
-    threads.emplace_back([&, latch, i]() {
+    threads.emplace_back([&, latch]() {
       REQUIRE_OK(a0_mtx_lock(&mtx));
       latch->arrive_and_wait();
 
@@ -457,7 +461,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] signal ping broadcast pong") {
   size_t post = 0;
 
   for (size_t i = 0; i < 10; i++) {
-    threads.emplace_back([&, i]() {
+    threads.emplace_back([&]() {
       REQUIRE_OK(a0_mtx_lock(&mtx));
       pre++;
       REQUIRE_OK(a0_cnd_signal(&cnd_pre, &mtx));
