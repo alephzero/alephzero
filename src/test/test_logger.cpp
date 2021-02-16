@@ -1,5 +1,5 @@
 #include <a0/arena.h>
-#include <a0/common.h>
+#include <a0/buf.h>
 #include <a0/logger.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
@@ -20,11 +20,11 @@ TEST_CASE("logger] basic") {
   std::vector<uint8_t> heap_info(1 * 1024 * 1024);
   std::vector<uint8_t> heap_dbg(1 * 1024 * 1024);
 
-  a0_arena_t arena_crit{heap_crit.data(), heap_crit.size()};
-  a0_arena_t arena_err{heap_err.data(), heap_err.size()};
-  a0_arena_t arena_warn{heap_warn.data(), heap_warn.size()};
-  a0_arena_t arena_info{heap_info.data(), heap_info.size()};
-  a0_arena_t arena_dbg{heap_dbg.data(), heap_dbg.size()};
+  a0_arena_t arena_crit{.buf = {heap_crit.data(), heap_crit.size()}, .mode = A0_ARENA_MODE_SHARED};
+  a0_arena_t arena_err{.buf = {heap_err.data(), heap_err.size()}, .mode = A0_ARENA_MODE_SHARED};
+  a0_arena_t arena_warn{.buf = {heap_warn.data(), heap_warn.size()}, .mode = A0_ARENA_MODE_SHARED};
+  a0_arena_t arena_info{.buf = {heap_info.data(), heap_info.size()}, .mode = A0_ARENA_MODE_SHARED};
+  a0_arena_t arena_dbg{.buf = {heap_dbg.data(), heap_dbg.size()}, .mode = A0_ARENA_MODE_SHARED};
 
   a0_logger_t log;
   REQUIRE_OK(a0_logger_init(&log, arena_crit, arena_err, arena_warn, arena_info, arena_dbg));

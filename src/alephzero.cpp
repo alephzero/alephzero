@@ -1,8 +1,10 @@
 #include <a0/alephzero.hpp>
 #include <a0/alloc.h>
 #include <a0/arena.h>
-#include <a0/common.h>
-#include <a0/errno.h>
+#include <a0/buf.h>
+#include <a0/callback.h>
+#include <a0/err.h>
+#include <a0/file.h>
 #include <a0/heartbeat.h>
 #include <a0/logger.h>
 #include <a0/packet.h>
@@ -30,7 +32,7 @@
 #include <vector>
 
 #include "alloc_util.hpp"
-#include "macros.h"
+#include "inline.h"
 #include "scope.hpp"
 #include "strutil.hpp"
 
@@ -137,9 +139,19 @@ std::string_view as_string_view(a0_buf_t buf) {
 
 }  // namespace
 
+uint8_t* Arena::ptr() const {
+  CHECK_C;
+  return c->buf.ptr;
+}
+
 size_t Arena::size() const {
   CHECK_C;
-  return c->size;
+  return c->buf.size;
+}
+
+a0_arena_mode_t Arena::mode() const {
+  CHECK_C;
+  return c->mode;
 }
 
 File::Options File::Options::DEFAULT = {
@@ -149,7 +161,7 @@ File::Options File::Options::DEFAULT = {
         .dir_mode = A0_FILE_OPTIONS_DEFAULT.create_options.dir_mode,
     },
     .open_options = {
-        .readonly = A0_FILE_OPTIONS_DEFAULT.open_options.readonly,
+        .arena_mode = A0_FILE_OPTIONS_DEFAULT.open_options.arena_mode,
     },
 };
 
@@ -164,7 +176,7 @@ File::File(std::string_view path, Options opts) {
           .dir_mode = opts.create_options.dir_mode,
       },
       .open_options = {
-          .readonly = opts.open_options.readonly,
+          .arena_mode = opts.open_options.arena_mode,
       },
   };
   set_c(
@@ -188,7 +200,7 @@ File::operator Arena() const {
 
 size_t File::size() const {
   CHECK_C;
-  return c->arena.size;
+  return c->arena.buf.size;
 }
 
 std::string File::path() const {
@@ -249,7 +261,7 @@ std::shared_ptr<a0_packet_t> make_cpp_packet(std::string_view id) {
   if (id.empty()) {
     // Create a new ID.
     check(a0_packet_init(&*c));
-  } else if (A0_LIKELY(id.size() == A0_UUID_SIZE - 1)) {
+  } else if (id.size() == A0_UUID_SIZE - 1) {
     memcpy(c->id, id.data(), A0_UUID_SIZE - 1);
     c->id[A0_UUID_SIZE - 1] = '\0';
   } else {

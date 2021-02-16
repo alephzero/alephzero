@@ -1,5 +1,5 @@
-#include <a0/arena.h>
-#include <a0/errno.h>
+#include <a0/err.h>
+#include <a0/file.h>
 #include <a0/topic_manager.h>
 
 #include <cerrno>
@@ -7,7 +7,8 @@
 #include <string>
 #include <string_view>
 
-#include "macros.h"
+#include "err_util.h"
+#include "inline.h"
 #include "strutil.hpp"
 
 A0_STATIC_INLINE

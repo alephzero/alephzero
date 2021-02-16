@@ -1,7 +1,7 @@
 #include <a0/alloc.h>
 #include <a0/arena.h>
-#include <a0/common.h>
-#include <a0/errno.h>
+#include <a0/buf.h>
+#include <a0/err.h>
 #include <a0/transport.h>
 
 #include <errno.h>
@@ -12,8 +12,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "atomic.h"
-#include "macros.h"
+#include "err_util.h"
+#include "inline.h"
 #include "mtx.h"
 
 typedef uintptr_t transport_off_t;  // ptr offset from start of the arena.
@@ -25,29 +25,38 @@ typedef struct a0_transport_state_s {
   transport_off_t off_tail;
 } a0_transport_state_t;
 
+typedef struct a0_transport_version_s {
+  uint8_t major;
+  uint8_t minor;
+  uint8_t patch;
+} a0_transport_version_t;
+
 typedef struct a0_transport_hdr_s {
-  bool init_started;
-  bool init_completed;
+  char magic[9]; /* ALEPHZERO */
+  a0_transport_version_t version;
+  bool initialized;
 
   a0_mtx_t mtx;
   a0_cnd_t cnd;
 
   a0_transport_state_t state_pages[2];
-  uint32_t committed_page_idx;
+  uint8_t committed_page_idx;
 
   size_t arena_size;
-  size_t metadata_size;
 } a0_transport_hdr_t;
+
+// TODO(lshamis): Consider packing or reordering fields to reduce this.
+_Static_assert(sizeof(a0_transport_hdr_t) == 128, "Unexpected transport binary representation.");
 
 A0_STATIC_INLINE
 a0_transport_state_t* a0_transport_committed_page(a0_locked_transport_t lk) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   return &hdr->state_pages[hdr->committed_page_idx];
 }
 
 A0_STATIC_INLINE
 a0_transport_state_t* a0_transport_working_page(a0_locked_transport_t lk) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   return &hdr->state_pages[!hdr->committed_page_idx];
 }
 
@@ -57,88 +66,36 @@ transport_off_t a0_max_align(transport_off_t off) {
 }
 
 A0_STATIC_INLINE
-transport_off_t a0_transport_metadata_off() {
+transport_off_t a0_transport_workspace_off() {
   return a0_max_align(sizeof(a0_transport_hdr_t));
 }
 
-A0_STATIC_INLINE
-transport_off_t a0_transport_workspace_off(a0_transport_hdr_t* hdr) {
-  return a0_max_align(a0_transport_metadata_off() + hdr->metadata_size);
-}
-
-A0_STATIC_INLINE
-errno_t a0_transport_init_create(a0_transport_t* transport,
-                                 a0_transport_init_status_t* status_out,
-                                 a0_locked_transport_t* lk_out) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)transport->_arena.ptr;
-
-  hdr->arena_size = transport->_arena.size;
-  // A0_RETURN_ERR_ON_ERR(a0_mtx_init(&hdr->mtx));
-
-  A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, lk_out));
-  A0_TSAN_ANNOTATE_HAPPENS_BEFORE(&hdr->init_completed);
-  a0_atomic_store(&hdr->init_completed, true);
-  *status_out = A0_TRANSPORT_CREATED;
-
-  return A0_OK;
-}
-
-errno_t a0_transport_init(a0_transport_t* transport,
-                          a0_arena_t arena,
-                          a0_transport_init_status_t* status_out,
-                          a0_locked_transport_t* lk_out) {
+errno_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
   // The arena is expected to be either:
   // 1) all null bytes.
   //    this is guaranteed by ftruncate, as is used in a0/file_arena.h
   // 2) a pre-initialized buffer.
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)arena.ptr;
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)arena.buf.ptr;
 
   memset(transport, 0, sizeof(a0_transport_t));
   transport->_arena = arena;
 
-  if (a0_cas(&hdr->init_started, 0, 1)) {
-    return a0_transport_init_create(transport, status_out, lk_out);
-  }
-
-  // Spin until transport is initialized.
-  while (A0_UNLIKELY(!a0_atomic_load(&hdr->init_completed))) {
-    a0_spin();
-  }
-  A0_TSAN_ANNOTATE_HAPPENS_AFTER(&hdr->init_completed);
-  A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, lk_out));
-  *status_out = A0_TRANSPORT_CONNECTED;
-  return A0_OK;
-}
-
-errno_t a0_transport_init_metadata(a0_locked_transport_t lk, size_t metadata_size) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
-
-  bool empty;
-  A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
-  if (!empty) {
-    return EACCES;
-  }
-
-  if (sizeof(a0_transport_hdr_t) + metadata_size + 64 >= (uint64_t)lk.transport->_arena.size) {
-    return ENOMEM;
-  }
-
-  hdr->metadata_size = metadata_size;
-
-  return A0_OK;
-}
-
-errno_t a0_transport_close(a0_transport_t* transport) {
   a0_locked_transport_t lk;
-  a0_transport_lock(transport, &lk);
+  A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, &lk));
 
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  if (transport->_arena.mode == A0_ARENA_MODE_EXCLUSIVE) {
+    memset(&hdr->mtx, 0, sizeof(hdr->mtx));
+  }
 
-  transport->_closing = true;
-  a0_cnd_broadcast(&hdr->cnd, &hdr->mtx);
-
-  while (transport->_await_cnt) {
-    a0_cnd_wait(&hdr->cnd, &hdr->mtx);
+  if (!hdr->initialized) {
+    memcpy(hdr->magic, "ALEPHZERO", 9);
+    hdr->version.major = 0;
+    hdr->version.minor = 3;
+    hdr->version.patch = 0;
+    hdr->arena_size = transport->_arena.buf.size;
+    hdr->initialized = true;
+  } else {
+    // TODO(lshamis): Verify magic + version.
   }
 
   a0_transport_unlock(lk);
@@ -146,13 +103,30 @@ errno_t a0_transport_close(a0_transport_t* transport) {
   return A0_OK;
 }
 
-errno_t a0_transport_lock(a0_transport_t* transport, a0_locked_transport_t* lk_out) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)transport->_arena.ptr;
+errno_t a0_transport_shutdown(a0_locked_transport_t lk) {
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
+  lk.transport->_shutdown = true;
+  a0_cnd_broadcast(&hdr->cnd, &hdr->mtx);
+
+  while (lk.transport->_await_cnt) {
+    a0_cnd_wait(&hdr->cnd, &hdr->mtx);
+  }
+
+  return A0_OK;
+}
+
+errno_t a0_transport_lock(a0_transport_t* transport, a0_locked_transport_t* lk_out) {
   lk_out->transport = transport;
 
+  if (transport->_arena.mode != A0_ARENA_MODE_SHARED) {
+    return A0_OK;
+  }
+
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)transport->_arena.buf.ptr;
+
   errno_t lock_status = a0_mtx_lock(&hdr->mtx);
-  if (A0_UNLIKELY(lock_status == EOWNERDEAD)) {
+  if (lock_status == EOWNERDEAD) {
     // The data is always consistent by design.
     lock_status = a0_mtx_consistent(&hdr->mtx);
   }
@@ -164,16 +138,13 @@ errno_t a0_transport_lock(a0_transport_t* transport, a0_locked_transport_t* lk_o
 }
 
 errno_t a0_transport_unlock(a0_locked_transport_t lk) {
-  *a0_transport_working_page(lk) = *a0_transport_committed_page(lk);
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
-  a0_mtx_unlock(&hdr->mtx);
-  return A0_OK;
-}
+  if (lk.transport->_arena.mode != A0_ARENA_MODE_SHARED) {
+    return A0_OK;
+  }
 
-errno_t a0_transport_metadata(a0_locked_transport_t lk, a0_buf_t* metadata_out) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
-  metadata_out->ptr = (uint8_t*)hdr + a0_transport_metadata_off();
-  metadata_out->size = hdr->metadata_size;
+  *a0_transport_working_page(lk) = *a0_transport_committed_page(lk);
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
+  a0_mtx_unlock(&hdr->mtx);
   return A0_OK;
 }
 
@@ -201,7 +172,7 @@ errno_t a0_transport_jump_head(a0_locked_transport_t lk) {
 
   bool empty;
   A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
-  if (A0_UNLIKELY(empty)) {
+  if (empty) {
     return EAGAIN;
   }
 
@@ -215,7 +186,7 @@ errno_t a0_transport_jump_tail(a0_locked_transport_t lk) {
 
   bool empty;
   A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
-  if (A0_UNLIKELY(empty)) {
+  if (empty) {
     return EAGAIN;
   }
 
@@ -238,17 +209,17 @@ errno_t a0_transport_next(a0_locked_transport_t lk) {
 
   bool has_next;
   A0_RETURN_ERR_ON_ERR(a0_transport_has_next(lk, &has_next));
-  if (A0_UNLIKELY(!has_next)) {
+  if (!has_next) {
     return EAGAIN;
   }
 
-  if (A0_UNLIKELY(lk.transport->_seq < state->seq_low)) {
+  if (lk.transport->_seq < state->seq_low) {
     lk.transport->_seq = state->seq_low;
     lk.transport->_off = state->off_head;
     return A0_OK;
   }
 
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   a0_transport_frame_hdr_t* curr_frame_hdr =
       (a0_transport_frame_hdr_t*)((uint8_t*)hdr + lk.transport->_off);
   lk.transport->_off = curr_frame_hdr->next_off;
@@ -272,11 +243,11 @@ errno_t a0_transport_has_prev(a0_locked_transport_t lk, bool* out) {
 errno_t a0_transport_prev(a0_locked_transport_t lk) {
   bool has_prev;
   A0_RETURN_ERR_ON_ERR(a0_transport_has_prev(lk, &has_prev));
-  if (A0_UNLIKELY(!has_prev)) {
+  if (!has_prev) {
     return EAGAIN;
   }
 
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   a0_transport_frame_hdr_t* curr_frame_hdr =
       (a0_transport_frame_hdr_t*)((uint8_t*)hdr + lk.transport->_off);
   lk.transport->_off = curr_frame_hdr->prev_off;
@@ -290,10 +261,13 @@ errno_t a0_transport_prev(a0_locked_transport_t lk) {
 
 errno_t a0_transport_await(a0_locked_transport_t lk,
                            errno_t (*pred)(a0_locked_transport_t, bool*)) {
-  if (A0_UNLIKELY(lk.transport->_closing)) {
+  if (lk.transport->_shutdown) {
     return ESHUTDOWN;
   }
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  if (lk.transport->_arena.mode != A0_ARENA_MODE_SHARED) {
+    return EPERM;
+  }
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   bool sat = false;
   errno_t err = pred(lk, &sat);
@@ -303,14 +277,14 @@ errno_t a0_transport_await(a0_locked_transport_t lk,
 
   lk.transport->_await_cnt++;
 
-  while (A0_LIKELY(!lk.transport->_closing)) {
+  while (!lk.transport->_shutdown) {
     err = pred(lk, &sat);
     if (err | sat) {
       break;
     }
     a0_cnd_wait(&hdr->cnd, &hdr->mtx);
   }
-  if (!err && lk.transport->_closing) {
+  if (!err && lk.transport->_shutdown) {
     err = ESHUTDOWN;
   }
 
@@ -321,10 +295,10 @@ errno_t a0_transport_await(a0_locked_transport_t lk,
 }
 
 errno_t a0_transport_frame(a0_locked_transport_t lk, a0_transport_frame_t* frame_out) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
-  if (A0_UNLIKELY(lk.transport->_seq < state->seq_low)) {
+  if (lk.transport->_seq < state->seq_low) {
     return ESPIPE;
   }
 
@@ -357,11 +331,11 @@ bool a0_transport_head_interval(a0_locked_transport_t lk,
                                 a0_transport_state_t* state,
                                 transport_off_t* head_off,
                                 size_t* head_size) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   bool empty;
   a0_transport_empty(lk, &empty);
-  if (A0_UNLIKELY(empty)) {
+  if (empty) {
     return false;
   }
 
@@ -373,11 +347,11 @@ bool a0_transport_head_interval(a0_locked_transport_t lk,
 
 A0_STATIC_INLINE
 void a0_transport_remove_head(a0_locked_transport_t lk, a0_transport_state_t* state) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   a0_transport_frame_hdr_t* head_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + state->off_head);
 
-  if (A0_UNLIKELY(state->off_head == state->off_tail)) {
+  if (state->off_head == state->off_tail) {
     state->off_head = 0;
     state->off_tail = 0;
     state->seq_low++;
@@ -397,22 +371,22 @@ void a0_transport_remove_head(a0_locked_transport_t lk, a0_transport_state_t* st
 
 A0_STATIC_INLINE
 errno_t a0_transport_find_slot(a0_locked_transport_t lk, size_t frame_size, transport_off_t* off) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool empty;
   A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
 
-  if (A0_UNLIKELY(empty)) {
-    *off = a0_transport_workspace_off(hdr);
+  if (empty) {
+    *off = a0_transport_workspace_off();
   } else {
     *off = a0_max_align(a0_transport_frame_end(hdr, state->off_tail));
-    if (A0_UNLIKELY(*off + frame_size >= hdr->arena_size)) {
-      *off = a0_transport_workspace_off(hdr);
+    if (*off + frame_size >= hdr->arena_size) {
+      *off = a0_transport_workspace_off();
     }
   }
 
-  if (A0_UNLIKELY(*off + frame_size >= hdr->arena_size)) {
+  if (*off + frame_size >= hdr->arena_size) {
     return EOVERFLOW;
   }
 
@@ -438,7 +412,7 @@ void a0_transport_slot_init(a0_transport_state_t* state,
   memset(frame_hdr, 0, sizeof(a0_transport_frame_hdr_t));
 
   frame_hdr->seq = ++state->seq_high;
-  if (A0_UNLIKELY(!state->seq_low)) {
+  if (!state->seq_low) {
     state->seq_low = frame_hdr->seq;
   }
 
@@ -450,7 +424,7 @@ void a0_transport_slot_init(a0_transport_state_t* state,
 
 A0_STATIC_INLINE
 void a0_transport_maybe_set_head(a0_transport_state_t* state, a0_transport_frame_hdr_t* frame_hdr) {
-  if (A0_UNLIKELY(!state->off_head)) {
+  if (!state->off_head) {
     state->off_head = frame_hdr->off;
   }
 }
@@ -459,7 +433,7 @@ A0_STATIC_INLINE
 void a0_transport_update_tail(a0_transport_hdr_t* hdr,
                               a0_transport_state_t* state,
                               a0_transport_frame_hdr_t* frame_hdr) {
-  if (A0_LIKELY(state->off_tail)) {
+  if (state->off_tail) {
     a0_transport_frame_hdr_t* tail_frame_hdr =
         (a0_transport_frame_hdr_t*)((uint8_t*)hdr + state->off_tail);
     tail_frame_hdr->next_off = frame_hdr->off;
@@ -491,7 +465,7 @@ errno_t a0_transport_alloc(a0_locked_transport_t lk, size_t size, a0_transport_f
 
   a0_transport_evict(lk, off, frame_size);
 
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   // Note: a0_transport_evict commits changes, which invalidates state.
   //       Must grab state afterwards.
   a0_transport_state_t* state = a0_transport_working_page(lk);
@@ -509,7 +483,7 @@ errno_t a0_transport_alloc(a0_locked_transport_t lk, size_t size, a0_transport_f
 }
 
 A0_STATIC_INLINE
-errno_t a0_transport_alloc_impl(void* user_data, size_t size, a0_buf_t* buf_out) {
+errno_t a0_transport_allocator_impl(void* user_data, size_t size, a0_buf_t* buf_out) {
   a0_transport_frame_t frame;
   A0_RETURN_ERR_ON_ERR(a0_transport_alloc(*(a0_locked_transport_t*)user_data, size, &frame));
   buf_out->ptr = frame.data;
@@ -519,13 +493,13 @@ errno_t a0_transport_alloc_impl(void* user_data, size_t size, a0_buf_t* buf_out)
 
 errno_t a0_transport_allocator(a0_locked_transport_t* lk, a0_alloc_t* alloc_out) {
   alloc_out->user_data = lk;
-  alloc_out->alloc = a0_transport_alloc_impl;
+  alloc_out->alloc = a0_transport_allocator_impl;
   alloc_out->dealloc = NULL;
   return A0_OK;
 }
 
 errno_t a0_transport_commit(a0_locked_transport_t lk) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   // Assume page A was the previously committed page and page B is the working
   // page that is ready to be committed. Both represent a valid state for the
   // transport. It's possible that the copying of B into A will fail (prog crash),
@@ -554,7 +528,7 @@ void write_limited(FILE* f, a0_buf_t str) {
 }
 
 void a0_transport_debugstr(a0_locked_transport_t lk, a0_buf_t* out) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.ptr;
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   a0_transport_state_t* committed_state = a0_transport_committed_page(lk);
   a0_transport_state_t* working_state = a0_transport_working_page(lk);
@@ -577,9 +551,6 @@ void a0_transport_debugstr(a0_locked_transport_t lk, a0_buf_t* out) {
   fprintf(ss, "      \"off_tail\": %lu\n", working_state->off_tail);
   fprintf(ss, "    }\n");
   fprintf(ss, "  },\n");
-  a0_buf_t metadata;
-  a0_transport_metadata(lk, &metadata);
-  fprintf(ss, "  \"metadata\": \"");  write_limited(ss, metadata); fprintf(ss, "\",\n");
   fprintf(ss, "  \"data\": [\n");
   // clang-format on
 

@@ -1,5 +1,7 @@
 #include <a0/arena.h>
-#include <a0/errno.h>
+#include <a0/buf.h>
+#include <a0/err.h>
+#include <a0/file.h>
 
 #include <doctest.h>
 #include <stdint.h>
@@ -26,7 +28,7 @@ TEST_CASE("file] basic") {
   REQUIRE(file.fd > 0);
   REQUIRE(file.stat.st_size == A0_FILE_OPTIONS_DEFAULT.create_options.size);
   REQUIRE(file.stat.st_mode == (REGULAR_FILE_MASK | A0_FILE_OPTIONS_DEFAULT.create_options.mode));
-  REQUIRE(file.arena.size == file.stat.st_size);
+  REQUIRE(file.arena.buf.size == file.stat.st_size);
   REQUIRE_OK(a0_file_close(&file));
 }
 
@@ -304,38 +306,38 @@ TEST_CASE("file] readonly") {
   {
     a0_file_t file;
     REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
-    REQUIRE(file.arena.ptr[0] == 0);
-    file.arena.ptr[0] = 1;
-    REQUIRE(file.arena.ptr[0] == 1);
+    REQUIRE(file.arena.buf.ptr[0] == 0);
+    file.arena.buf.ptr[0] = 1;
+    REQUIRE(file.arena.buf.ptr[0] == 1);
     REQUIRE_OK(a0_file_close(&file));
   }
 
   {
     a0_file_t file;
     REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
-    REQUIRE(file.arena.ptr[0] == 1);
-    file.arena.ptr[0] = 2;
-    REQUIRE(file.arena.ptr[0] == 2);
+    REQUIRE(file.arena.buf.ptr[0] == 1);
+    file.arena.buf.ptr[0] = 2;
+    REQUIRE(file.arena.buf.ptr[0] == 2);
     REQUIRE_OK(a0_file_close(&file));
   }
 
   {
     a0_file_options_t opt = A0_FILE_OPTIONS_DEFAULT;
-    opt.open_options.readonly = true;
+    opt.open_options.arena_mode = A0_ARENA_MODE_READONLY;
 
     a0_file_t file;
     REQUIRE_OK(a0_file_open(TEST_FILE, &opt, &file));
-    REQUIRE(file.arena.ptr[0] == 2);
+    REQUIRE(file.arena.buf.ptr[0] == 2);
     // Note: this 3 will not be written to the file because of readonly mode.
-    file.arena.ptr[0] = 3;
-    REQUIRE(file.arena.ptr[0] == 3);
+    file.arena.buf.ptr[0] = 3;
+    REQUIRE(file.arena.buf.ptr[0] == 3);
     REQUIRE_OK(a0_file_close(&file));
   }
 
   {
     a0_file_t file;
     REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
-    REQUIRE(file.arena.ptr[0] == 2);
+    REQUIRE(file.arena.buf.ptr[0] == 2);
     REQUIRE_OK(a0_file_close(&file));
   }
 
@@ -350,7 +352,7 @@ TEST_CASE("file] readonly") {
 
   {
     a0_file_options_t opt = A0_FILE_OPTIONS_DEFAULT;
-    opt.open_options.readonly = true;
+    opt.open_options.arena_mode = A0_ARENA_MODE_READONLY;
 
     a0_file_t file;
     REQUIRE_OK(a0_file_open(TEST_FILE, &opt, &file));

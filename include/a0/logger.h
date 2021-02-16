@@ -2,7 +2,8 @@
 #define A0_LOGGER_H
 
 #include <a0/arena.h>
-#include <a0/common.h>
+#include <a0/buf.h>
+#include <a0/callback.h>
 #include <a0/packet.h>
 
 #ifdef __cplusplus

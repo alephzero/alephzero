@@ -1,8 +1,8 @@
 #pragma once
 
 #include <a0/alloc.h>
-#include <a0/common.h>
-#include <a0/errno.h>
+#include <a0/buf.h>
+#include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
 

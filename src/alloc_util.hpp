@@ -4,7 +4,7 @@
 
 #include <functional>
 
-#include "macros.h"
+#include "inline.h"
 #include "scope.hpp"
 
 namespace a0 {

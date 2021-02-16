@@ -1,8 +1,8 @@
 #ifndef A0_ALLOC_H
 #define A0_ALLOC_H
 
-#include <a0/common.h>
-#include <a0/errno.h>
+#include <a0/buf.h>
+#include <a0/err.h>
 
 #include <stddef.h>
 

@@ -1,5 +1,5 @@
-#include <a0/arena.h>
-#include <a0/common.h>
+#include <a0/buf.h>
+#include <a0/file.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
 
@@ -93,7 +93,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
 
-      REQUIRE(pkt.headers_block.size == 6);
+      REQUIRE(pkt.headers_block.size == 5);
       REQUIRE(pkt.headers_block.next_block == nullptr);
 
       std::map<std::string, std::string> hdrs;
@@ -104,7 +104,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
       REQUIRE(hdrs.count("key"));
       REQUIRE(hdrs.count("a0_time_mono"));
       REQUIRE(hdrs.count("a0_time_wall"));
-      REQUIRE(hdrs.count("a0_transport_seq"));
+      // REQUIRE(hdrs.count("a0_transport_seq"));
       REQUIRE(hdrs.count("a0_publisher_seq"));
       REQUIRE(hdrs.count("a0_publisher_id"));
 
@@ -113,7 +113,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
       REQUIRE(hdrs["key"] == "val");
       REQUIRE(hdrs["a0_time_mono"].size() < 20);
       REQUIRE(hdrs["a0_time_wall"].size() == 35);
-      REQUIRE(hdrs["a0_transport_seq"] == "0");
+      // REQUIRE(hdrs["a0_transport_seq"] == "0");
       REQUIRE(hdrs["a0_publisher_seq"] == "0");
       REQUIRE(hdrs["a0_publisher_id"].size() == 36);
       pkt1_time_mono = stoull(hdrs["a0_time_mono"]);
@@ -140,7 +140,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
       REQUIRE(hdrs["key"] == "val");
       REQUIRE(hdrs["a0_time_mono"].size() < 20);
       REQUIRE(hdrs["a0_time_wall"].size() == 35);
-      REQUIRE(hdrs["a0_transport_seq"] == "1");
+      // REQUIRE(hdrs["a0_transport_seq"] == "1");
       REQUIRE(hdrs["a0_publisher_seq"] == "1");
       REQUIRE(hdrs["a0_publisher_id"].size() == 36);
 
@@ -168,7 +168,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
       REQUIRE(hdrs["key"] == "val");
       REQUIRE(hdrs["a0_time_mono"].size() < 20);
       REQUIRE(hdrs["a0_time_wall"].size() == 35);
-      REQUIRE(hdrs["a0_transport_seq"] == "2");
+      // REQUIRE(hdrs["a0_transport_seq"] == "2");
       REQUIRE(hdrs["a0_publisher_seq"] == "0");
       REQUIRE(hdrs["a0_publisher_id"].size() == 36);
     }
@@ -248,7 +248,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] raw") {
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
 
-      REQUIRE(pkt.headers_block.size == 6);
+      REQUIRE(pkt.headers_block.size == 5);
       REQUIRE(pkt.headers_block.next_block == nullptr);
 
       std::map<std::string, std::string> hdrs;
@@ -259,7 +259,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] raw") {
       REQUIRE(hdrs.count("key"));
       REQUIRE(hdrs.count("a0_time_mono"));
       REQUIRE(hdrs.count("a0_time_wall"));
-      REQUIRE(hdrs.count("a0_transport_seq"));
+      // REQUIRE(hdrs.count("a0_transport_seq"));
       REQUIRE(hdrs.count("a0_publisher_seq"));
       REQUIRE(hdrs.count("a0_publisher_id"));
 
@@ -268,7 +268,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] raw") {
       REQUIRE(hdrs["key"] == "val");
       REQUIRE(hdrs["a0_time_mono"].size() < 20);
       REQUIRE(hdrs["a0_time_wall"].size() == 35);
-      REQUIRE(hdrs["a0_transport_seq"] == "0");
+      // REQUIRE(hdrs["a0_transport_seq"] == "0");
       REQUIRE(hdrs["a0_publisher_seq"] == "0");
       REQUIRE(hdrs["a0_publisher_id"].size() == 36);
     }

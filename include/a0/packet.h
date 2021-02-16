@@ -101,7 +101,8 @@
 #define A0_PACKET_H
 
 #include <a0/alloc.h>
-#include <a0/common.h>
+#include <a0/buf.h>
+#include <a0/callback.h>
 #include <a0/uuid.h>
 
 #include <stddef.h>
@@ -116,9 +117,9 @@ extern "C" {
 
 /// A single packet header.
 typedef struct a0_packet_header_s {
-  /// UTF-8 key.
+  /// UTF-8 key. Required to terminate with a null byte.
   const char* key;
-  /// UTF-8 value.
+  /// UTF-8 value. Required to terminate with a null byte.
   const char* val;
 } a0_packet_header_t;
 
@@ -153,6 +154,8 @@ struct a0_packet_headers_block_s {
   a0_packet_headers_block_t* next_block;
 };
 
+/// A Packet is a unit of information used by protocols to transmit user data.
+/// There is a primary user payload, as well as key-value annotations, and a unique identifier.
 typedef struct a0_packet_s {
   /// Unique identifier for the packet.
   a0_uuid_t id;
@@ -161,6 +164,9 @@ typedef struct a0_packet_s {
   /// Packet payload.
   a0_buf_t payload;
 } a0_packet_t;
+
+/// A Flat Packet is a serialized Packet.
+typedef a0_buf_t a0_flat_packet_t;
 
 // The following are special keys.
 // The returned buffers should not be cleaned up.
@@ -192,8 +198,11 @@ errno_t a0_packet_init(a0_packet_t*);
 
 /// Various computed stats of a given packet.
 typedef struct a0_packet_stats_s {
+  /// Number of headers.
   size_t num_hdrs;
+  /// Size of all user-provided content: headers (keys & values) + payload.
   size_t content_size;
+  /// Size of packet in serialized form. Includes all content + index.
   size_t serial_size;
 } a0_packet_stats_t;
 
@@ -208,14 +217,34 @@ errno_t a0_packet_for_each_header(a0_packet_headers_block_t, a0_packet_header_ca
 /// Serializes the packet to the allocated location.
 ///
 /// **Note**: the header order will NOT be retained.
-errno_t a0_packet_serialize(a0_packet_t, a0_alloc_t, a0_buf_t* out);
+errno_t a0_packet_serialize(a0_packet_t, a0_alloc_t, a0_flat_packet_t* out);
 
-/// Deserializes the buffer into a packet.
+/// Compute packet statistics, for serialized packets.
+errno_t a0_flat_packet_stats(a0_flat_packet_t, a0_packet_stats_t*);
+
+/// Retrieve the uuid within the flat packet.
+///
+/// **Note**: the result points into the flat packet. It is not copied out.
+errno_t a0_flat_packet_id(a0_flat_packet_t, a0_uuid_t**);
+
+/// Retrieve the payload within the flat packet.
+///
+/// **Note**: the result points into the flat packet. It is not copied out.
+errno_t a0_flat_packet_payload(a0_flat_packet_t, a0_buf_t*);
+
+/// Retrieve the i-th header within the flat packet.
+///
+/// **Note**: the result points into the flat packet. It is not copied out.
+errno_t a0_flat_packet_header(a0_flat_packet_t, int idx, a0_packet_header_t*);
+
+/// Deserializes the flat packet into a normal packet.
 ///
 /// The alloc is only used for the header pointers, not the contents.
 ///
 /// The content will point into the buffer.
-errno_t a0_packet_deserialize(a0_buf_t, a0_alloc_t, a0_packet_t* out);
+errno_t a0_packet_deserialize(a0_flat_packet_t, a0_alloc_t, a0_packet_t* out);
+
+errno_t a0_packet_deep_deserialize(a0_flat_packet_t, a0_alloc_t, a0_packet_t* out);
 
 /// Deep copies the packet contents.
 errno_t a0_packet_deep_copy(a0_packet_t, a0_alloc_t, a0_packet_t* out);

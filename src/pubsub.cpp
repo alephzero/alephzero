@@ -1,7 +1,7 @@
 #include <a0/alloc.h>
 #include <a0/arena.h>
-#include <a0/common.h>
-#include <a0/errno.h>
+#include <a0/callback.h>
+#include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
 #include <a0/time.h>
@@ -17,23 +17,16 @@
 #include <string_view>
 
 #include "alloc_util.hpp"
-#include "charconv.hpp"
-#include "macros.h"
+#include "err_util.h"
 #include "scope.hpp"
+#include "strconv.h"
 #include "sync.hpp"
 #include "transport_tools.hpp"
 
 #ifdef DEBUG
+#include "assert.h"
 #include "ref_cnt.h"
 #endif
-
-namespace {
-
-struct a0_pubsub_metadata_t {
-  uint64_t transport_seq;
-};
-
-};  // namespace
 
 /////////////////
 //  Publisher  //
@@ -45,19 +38,10 @@ struct a0_publisher_raw_impl_s {
 
 errno_t a0_publisher_raw_init(a0_publisher_raw_t* pub, a0_arena_t arena) {
   auto impl = std::make_unique<a0_publisher_raw_impl_t>();
-
-  a0_transport_init_status_t init_status;
-  a0_locked_transport_t tlk;
-  A0_RETURN_ERR_ON_ERR(a0_transport_init(&impl->transport, arena, &init_status, &tlk));
-  bool empty;
-  A0_RETURN_ERR_ON_ERR(a0_transport_empty(tlk, &empty));
-  if (empty) {
-    A0_RETURN_ERR_ON_ERR(a0_transport_init_metadata(tlk, sizeof(a0_pubsub_metadata_t)));
-  }
-  a0_transport_unlock(tlk);
+  A0_RETURN_ERR_ON_ERR(a0_transport_init(&impl->transport, arena));
 
 #ifdef DEBUG
-  a0_ref_cnt_inc(arena.ptr);
+  a0_ref_cnt_inc(arena.buf.ptr, nullptr);
 #endif
 
   pub->_impl = impl.release();
@@ -71,10 +55,13 @@ errno_t a0_publisher_raw_close(a0_publisher_raw_t* pub) {
   }
 
 #ifdef DEBUG
-  a0_ref_cnt_dec(pub->_impl->transport._arena.ptr);
+  a0_ref_cnt_dec(pub->_impl->transport._arena.buf.ptr, nullptr);
 #endif
 
-  a0_transport_close(&pub->_impl->transport);
+  a0_locked_transport_t tlk;
+  a0_transport_lock(&pub->_impl->transport, &tlk);
+  a0_transport_shutdown(tlk);
+  a0_transport_unlock(tlk);
   delete pub->_impl;
   pub->_impl = nullptr;
 
@@ -126,32 +113,36 @@ errno_t a0_pub(a0_publisher_t* pub, const a0_packet_t pkt) {
     return ESHUTDOWN;
   }
 
-  uint64_t time_mono;
+  a0_time_mono_t time_mono;
   a0_time_mono_now(&time_mono);
   char mono_str[20];
   a0_time_mono_str(time_mono, mono_str);
 
-  timespec time_wall;
+  a0_time_wall_t time_wall;
   a0_time_wall_now(&time_wall);
   char wall_str[36];
   a0_time_wall_str(time_wall, wall_str);
 
-  char pseq_str[20];
-  a0::to_chars(pseq_str, pseq_str + 20, pub->_impl->publisher_seq++);
+  char pseq_buf[20];
+  char* pseq_str;
+  pseq_buf[19] = '\0';
+  a0_u64_to_str(pub->_impl->publisher_seq++, pseq_buf, pseq_buf + 19, &pseq_str);
 
-  char tseq_str[20];
-  {
-    a0::scoped_transport_lock stlk(&pub->_impl->raw._impl->transport);
-    a0_buf_t metadata;
-    a0_transport_metadata(stlk.tlk, &metadata);
-    a0::to_chars(tseq_str, tseq_str + 20, ((a0_pubsub_metadata_t*)metadata.ptr)->transport_seq++);
-  }
+  // char tseq_buf[20];
+  // char* tseq_str;
+  // {
+  //   a0::scoped_transport_lock stlk(&pub->_impl->raw._impl->transport);
+  //   a0_buf_t metadata;
+  //   a0_transport_metadata(stlk.tlk, &metadata);
+  //   tseq_buf[19] = '\0';
+  //   a0_u64_to_str(((a0_pubsub_metadata_t*)metadata.ptr)->transport_seq++, tseq_buf, tseq_buf + 19, &tseq_str);
+  // }
 
-  constexpr size_t num_extra_headers = 5;
+  constexpr size_t num_extra_headers = 4;
   a0_packet_header_t extra_headers[num_extra_headers] = {
       {A0_TIME_MONO, mono_str},
       {A0_TIME_WALL, wall_str},
-      {TRANSPORT_SEQ.data(), tseq_str},
+      // {TRANSPORT_SEQ.data(), tseq_str},
       {PUBLISHER_SEQ.data(), pseq_str},
       {PUBLISHER_ID.data(), pub->_impl->id},
   };
@@ -189,16 +180,10 @@ errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
   sub_sync_zc->_impl->sub_init = sub_init;
   sub_sync_zc->_impl->sub_iter = sub_iter;
 
-  a0_transport_init_status_t init_status;
-  a0_locked_transport_t tlk;
-  a0_transport_init(&sub_sync_zc->_impl->transport,
-                    arena,
-                    &init_status,
-                    &tlk);
-  a0_transport_unlock(tlk);
+  A0_RETURN_ERR_ON_ERR(a0_transport_init(&sub_sync_zc->_impl->transport, arena));
 
 #ifdef DEBUG
-  a0_ref_cnt_inc(arena.ptr);
+  a0_ref_cnt_inc(arena.buf.ptr, nullptr);
 #endif
 
   return A0_OK;
@@ -210,10 +195,13 @@ errno_t a0_subscriber_sync_zc_close(a0_subscriber_sync_zc_t* sub_sync_zc) {
   }
 
 #ifdef DEBUG
-  a0_ref_cnt_dec(sub_sync_zc->_impl->transport._arena.ptr);
+  a0_ref_cnt_dec(sub_sync_zc->_impl->transport._arena.buf.ptr, nullptr);
 #endif
 
-  a0_transport_close(&sub_sync_zc->_impl->transport);
+  a0_locked_transport_t tlk;
+  a0_transport_lock(&sub_sync_zc->_impl->transport, &tlk);
+  a0_transport_shutdown(tlk);
+  a0_transport_unlock(tlk);
   delete sub_sync_zc->_impl;
   sub_sync_zc->_impl = nullptr;
 
@@ -340,8 +328,7 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
                               a0_zero_copy_callback_t onmsg) {
   sub_zc->_impl = new a0_subscriber_zc_impl_t;
 
-  auto on_transport_init = [sub_zc, sub_init](a0_locked_transport_t tlk,
-                                              a0_transport_init_status_t) -> errno_t {
+  auto on_transport_init = [sub_zc, sub_init](a0_locked_transport_t tlk) -> errno_t {
     // TODO(lshamis): Validate transport.
 
     a0_transport_empty(tlk, &sub_zc->_impl->started_empty);

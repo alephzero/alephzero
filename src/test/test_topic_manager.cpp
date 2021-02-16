@@ -1,5 +1,5 @@
-#include <a0/arena.h>
-#include <a0/errno.h>
+#include <a0/err.h>
+#include <a0/file.h>
 #include <a0/topic_manager.h>
 
 #include <doctest.h>

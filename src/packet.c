@@ -1,6 +1,6 @@
 #include <a0/alloc.h>
-#include <a0/common.h>
-#include <a0/errno.h>
+#include <a0/buf.h>
+#include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/uuid.h>
 
@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "macros.h"
+#include "err_util.h"
 
 const char* A0_PACKET_DEP_KEY = "a0_dep";
 
@@ -18,16 +18,16 @@ errno_t a0_packet_init(a0_packet_t* pkt) {
   return A0_OK;
 }
 
-errno_t a0_packet_stats(const a0_packet_t pkt, a0_packet_stats_t* stats) {
+errno_t a0_packet_stats(a0_packet_t pkt, a0_packet_stats_t* stats) {
   stats->num_hdrs = 0;
-  for (const a0_packet_headers_block_t* block = &pkt.headers_block;
+  for (a0_packet_headers_block_t* block = &pkt.headers_block;
        block;
        block = block->next_block) {
     stats->num_hdrs += block->size;
   }
 
   stats->content_size = 0;
-  for (const a0_packet_headers_block_t* block = &pkt.headers_block;
+  for (a0_packet_headers_block_t* block = &pkt.headers_block;
        block;
        block = block->next_block) {
     for (size_t i = 0; i < block->size; i++) {
@@ -47,9 +47,9 @@ errno_t a0_packet_stats(const a0_packet_t pkt, a0_packet_stats_t* stats) {
   return A0_OK;
 }
 
-errno_t a0_packet_for_each_header(const a0_packet_headers_block_t headers_block,
+errno_t a0_packet_for_each_header(a0_packet_headers_block_t headers_block,
                                   a0_packet_header_callback_t onheader) {
-  for (const a0_packet_headers_block_t* block = &headers_block; block; block = block->next_block) {
+  for (a0_packet_headers_block_t* block = &headers_block; block; block = block->next_block) {
     for (size_t i = 0; i < block->size; i++) {
       onheader.fn(onheader.user_data, block->headers[i]);
     }
@@ -57,7 +57,7 @@ errno_t a0_packet_for_each_header(const a0_packet_headers_block_t headers_block,
   return A0_OK;
 }
 
-errno_t a0_packet_serialize(const a0_packet_t pkt, a0_alloc_t alloc, a0_buf_t* out) {
+errno_t a0_packet_serialize(a0_packet_t pkt, a0_alloc_t alloc, a0_buf_t* out) {
   a0_buf_t unused_out;
   if (!out) {
     out = &unused_out;
@@ -86,7 +86,7 @@ errno_t a0_packet_serialize(const a0_packet_t pkt, a0_alloc_t alloc, a0_buf_t* o
   idx_off += sizeof(size_t);
 
   // For each header.
-  for (const a0_packet_headers_block_t* block = &pkt.headers_block;
+  for (a0_packet_headers_block_t* block = &pkt.headers_block;
        block;
        block = block->next_block) {
     for (size_t i = 0; i < block->size; i++) {
@@ -119,48 +119,151 @@ errno_t a0_packet_serialize(const a0_packet_t pkt, a0_alloc_t alloc, a0_buf_t* o
   return A0_OK;
 }
 
-errno_t a0_packet_deserialize(const a0_buf_t buf, a0_alloc_t alloc, a0_packet_t* out) {
-  memcpy(out->id, buf.ptr, sizeof(a0_uuid_t));
+errno_t a0_flat_packet_stats(a0_flat_packet_t fpkt, a0_packet_stats_t* stats) {
+  stats->serial_size = fpkt.size;
+  stats->num_hdrs = *(size_t*)(fpkt.ptr + sizeof(a0_uuid_t));
 
-  size_t num_header = *(size_t*)(buf.ptr + sizeof(a0_uuid_t));
-  out->headers_block.size = num_header;
+  size_t content_off =
+      // ID.
+      sizeof(a0_uuid_t)
+      // Num headers.
+      + sizeof(size_t)
+      // Header offsets.
+      + (2 * stats->num_hdrs) * sizeof(size_t);
+
+  stats->content_size = fpkt.size - content_off;
+
+  return A0_OK;
+}
+
+errno_t a0_flat_packet_id(a0_flat_packet_t fpkt, a0_uuid_t** out) {
+  *out = (a0_uuid_t*)fpkt.ptr;
+  return A0_OK;
+}
+
+errno_t a0_flat_packet_payload(a0_flat_packet_t fpkt, a0_buf_t* out) {
+  size_t num_hdrs = *(size_t*)(fpkt.ptr + sizeof(a0_uuid_t));
+
+  size_t payload_off = *(size_t*)(fpkt.ptr
+                                  // ID.
+                                  + sizeof(a0_uuid_t)
+                                  // Num headers.
+                                  + sizeof(size_t)
+                                  // Header offsets.
+                                  + (2 * num_hdrs) * sizeof(size_t));
+
+  *out = (a0_buf_t){
+      .ptr = fpkt.ptr + payload_off,
+      .size = fpkt.size - payload_off,
+  };
+
+  return A0_OK;
+}
+
+errno_t a0_flat_packet_header(a0_flat_packet_t fpkt, int idx, a0_packet_header_t* out) {
+  size_t* hdr_idx_ptr = (size_t*)(fpkt.ptr + sizeof(a0_uuid_t) + sizeof(size_t));
+  size_t key_off = *(size_t*)(hdr_idx_ptr + (2 * idx));
+  size_t val_off = *(size_t*)(hdr_idx_ptr + (2 * idx + 1));
+
+  *out = (a0_packet_header_t){
+      .key = (char*)(fpkt.ptr + key_off),
+      .val = (char*)(fpkt.ptr + val_off),
+  };
+
+  return A0_OK;
+}
+
+errno_t a0_packet_deserialize(a0_flat_packet_t fpkt, a0_alloc_t alloc, a0_packet_t* out) {
+  memcpy(out->id, fpkt.ptr, sizeof(a0_uuid_t));
+
+  size_t num_hdrs = *(size_t*)(fpkt.ptr + sizeof(a0_uuid_t));
+  out->headers_block.size = num_hdrs;
   a0_buf_t hdr_idx_space;
-  a0_alloc(alloc, num_header * sizeof(a0_packet_header_t), &hdr_idx_space);
+  a0_alloc(alloc, num_hdrs * sizeof(a0_packet_header_t), &hdr_idx_space);
   out->headers_block.headers = (a0_packet_header_t*)hdr_idx_space.ptr;
 
-  size_t* hdr_idx_ptr = (size_t*)(buf.ptr + sizeof(a0_uuid_t) + sizeof(size_t));
-  for (size_t i = 0; i < num_header; i++) {
+  size_t* hdr_idx_ptr = (size_t*)(fpkt.ptr + sizeof(a0_uuid_t) + sizeof(size_t));
+  for (size_t i = 0; i < num_hdrs; i++) {
     size_t key_off;
     memcpy(&key_off, hdr_idx_ptr + (2 * i), sizeof(size_t));
     size_t val_off;
     memcpy(&val_off, hdr_idx_ptr + (2 * i + 1), sizeof(size_t));
     out->headers_block.headers[i] = (a0_packet_header_t){
-        .key = (char*)(buf.ptr + key_off),
-        .val = (char*)(buf.ptr + val_off),
+        .key = (char*)(fpkt.ptr + key_off),
+        .val = (char*)(fpkt.ptr + val_off),
     };
   }
   out->headers_block.next_block = NULL;
 
   size_t payload_off;
   memcpy(&payload_off,
-         buf.ptr
+         fpkt.ptr
              // ID.
              + sizeof(a0_uuid_t)
              // Num headers.
              + sizeof(size_t)
              // Header offsets.
-             + (2 * num_header) * sizeof(size_t),
+             + (2 * num_hdrs) * sizeof(size_t),
          sizeof(size_t));
 
   out->payload = (a0_buf_t){
-      .ptr = buf.ptr + payload_off,
-      .size = buf.size - payload_off,
+      .ptr = fpkt.ptr + payload_off,
+      .size = fpkt.size - payload_off,
   };
 
   return A0_OK;
 }
 
-errno_t a0_packet_deep_copy(const a0_packet_t in, a0_alloc_t alloc, a0_packet_t* out) {
+errno_t a0_packet_deep_deserialize(a0_flat_packet_t fpkt, a0_alloc_t alloc, a0_packet_t* out) {
+  memcpy(out->id, fpkt.ptr, sizeof(a0_uuid_t));
+
+  a0_packet_stats_t stats;
+  a0_flat_packet_stats(fpkt, &stats);
+
+  a0_buf_t buf;
+  a0_alloc(alloc, stats.num_hdrs * sizeof(a0_packet_header_t) + stats.content_size, &buf);
+
+  uint8_t* write_ptr = buf.ptr;
+  out->headers_block.headers = (a0_packet_header_t*)write_ptr;
+  out->headers_block.size = stats.num_hdrs;
+  write_ptr += stats.num_hdrs * sizeof(a0_packet_header_t);
+
+  size_t* hdr_idx_ptr = (size_t*)(fpkt.ptr + sizeof(a0_uuid_t) + sizeof(size_t));
+  for (size_t i = 0; i < stats.num_hdrs; i++) {
+    size_t key_off;
+    memcpy(&key_off, hdr_idx_ptr + (2 * i), sizeof(size_t));
+    out->headers_block.headers[i].key = (char*)write_ptr;
+    strcpy((char*)out->headers_block.headers[i].key, (char*)(fpkt.ptr + key_off));
+    write_ptr += strlen((char*)(fpkt.ptr + key_off)) + 1;
+
+    size_t val_off;
+    memcpy(&val_off, hdr_idx_ptr + (2 * i + 1), sizeof(size_t));
+    out->headers_block.headers[i].val = (char*)write_ptr;
+    strcpy((char*)out->headers_block.headers[i].val, (char*)(fpkt.ptr + val_off));
+    write_ptr += strlen((char*)(fpkt.ptr + val_off)) + 1;
+  }
+  out->headers_block.next_block = NULL;
+
+  size_t payload_off;
+  memcpy(&payload_off,
+         fpkt.ptr
+             // ID.
+             + sizeof(a0_uuid_t)
+             // Num headers.
+             + sizeof(size_t)
+             // Header offsets.
+             + (2 * stats.num_hdrs) * sizeof(size_t),
+         sizeof(size_t));
+
+  out->payload.size = fpkt.size - payload_off;
+  out->payload.ptr = write_ptr;
+  memcpy(out->payload.ptr, fpkt.ptr + payload_off, out->payload.size);
+  write_ptr += out->payload.size;
+
+  return A0_OK;
+}
+
+errno_t a0_packet_deep_copy(a0_packet_t in, a0_alloc_t alloc, a0_packet_t* out) {
   memcpy(out->id, in.id, sizeof(a0_uuid_t));
 
   a0_packet_stats_t stats;
@@ -178,7 +281,7 @@ errno_t a0_packet_deep_copy(const a0_packet_t in, a0_alloc_t alloc, a0_packet_t*
   size_t off = stats.num_hdrs * sizeof(a0_packet_header_t);
 
   size_t hdr_idx = 0;
-  for (const a0_packet_headers_block_t* block = &in.headers_block;
+  for (a0_packet_headers_block_t* block = &in.headers_block;
        block;
        block = block->next_block) {
     for (size_t i = 0; i < block->size; i++) {

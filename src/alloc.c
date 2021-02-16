@@ -1,11 +1,11 @@
 #include <a0/alloc.h>
-#include <a0/common.h>
-#include <a0/errno.h>
+#include <a0/buf.h>
+#include <a0/err.h>
 
 #include <errno.h>
 #include <stdlib.h>
 
-#include "macros.h"
+#include "inline.h"
 
 A0_STATIC_INLINE
 errno_t malloc_alloc_impl(void* user_data, size_t size, a0_buf_t* out) {
@@ -30,7 +30,7 @@ errno_t malloc_dealloc_impl(void* user_data, a0_buf_t buf) {
 errno_t a0_malloc_allocator_init(a0_alloc_t* alloc) {
   *alloc = (a0_alloc_t){
       .user_data = NULL,
-      .alloc = &malloc_alloc_impl,
+      .alloc = malloc_alloc_impl,
       .dealloc = &malloc_dealloc_impl,
   };
   return A0_OK;
@@ -72,7 +72,7 @@ errno_t a0_realloc_allocator_init(a0_alloc_t* alloc) {
   }
   *alloc = (a0_alloc_t){
       .user_data = data,
-      .alloc = &realloc_alloc_impl,
+      .alloc = realloc_alloc_impl,
       .dealloc = NULL,
   };
   return A0_OK;

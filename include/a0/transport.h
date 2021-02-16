@@ -27,19 +27,10 @@
  * The layout of the transport is guaranteed to be consistent on the same machine,
  * regardless of libc implementations.
  *
- * The transport may also optionally reserves a section of it's space for user metadata.
- * Metadata space must be reserved before the first frame is written. Unlike the rest
- * of the transport, consistency of the metadata is not guaranteed. In general, it should
- * not be used for mutable state.
- *
  * Constructing
  * ------------
  *
  * A transport exists in an arena, a flat contiguous memory buffer.
- *
- * The constructor returns a status of CREATED or CONNECTED along with exclusive
- * ownership of the mutex. This is meant, in part, to allow the caller a chance
- * to make one-time preparations for the transport, such as set up the metadata.
  *
  * Accessing
  * ---------
@@ -125,7 +116,8 @@
 
 #include <a0/alloc.h>
 #include <a0/arena.h>
-#include <a0/common.h>
+#include <a0/buf.h>
+#include <a0/callback.h>
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -149,8 +141,8 @@ typedef struct a0_transport_s {
   // Number of active awaits using this transport connection.
   uint32_t _await_cnt;
 
-  // Whether the transport is in the process of disconnecting.
-  bool _closing;
+  // Whether the transport has shutdown the notification mechanism.
+  bool _shutdown;
 } a0_transport_t;
 
 typedef struct a0_transport_frame_hdr_s {
@@ -187,21 +179,7 @@ typedef struct a0_locked_transport_s {
 } a0_locked_transport_t;
 
 /// Creates or connects to the transport in the given arena.
-///
-/// The transport is locked at end of init and MUST be released
-/// by the caller once initialization is satisfied.
-errno_t a0_transport_init(a0_transport_t*,
-                          a0_arena_t,
-                          a0_transport_init_status_t* status_out,
-                          a0_locked_transport_t* lk_out);
-
-/// Allocates space in the arena for metadata.
-/// This can only be called after a0_transport_init, before any allocations.
-/// Once the transports start allocating frames, the metadata size is fixed.
-errno_t a0_transport_init_metadata(a0_locked_transport_t, size_t metadata_size);
-
-/// Closes the transport.
-errno_t a0_transport_close(a0_transport_t*);
+errno_t a0_transport_init(a0_transport_t*, a0_arena_t);
 
 /// Locks the transport.
 errno_t a0_transport_lock(a0_transport_t*, a0_locked_transport_t* lk_out);
@@ -210,10 +188,10 @@ errno_t a0_transport_lock(a0_transport_t*, a0_locked_transport_t* lk_out);
 /// The locked_transport object is invalid afterwards.
 errno_t a0_transport_unlock(a0_locked_transport_t);
 
-/// Accesses the metadata space within the arena.
+/// Shuts down the notification mechanism.
 ///
-/// Caller does NOT own `metadata_out->ptr` and should not clean it up!
-errno_t a0_transport_metadata(a0_locked_transport_t, a0_buf_t* metadata_out);
+/// Returns once all awaiting calls wake with ESHUTDOWN. New awaits will fail with ESHUTDOWN.
+errno_t a0_transport_shutdown(a0_locked_transport_t);
 
 /// Checks whether the transport is empty.
 errno_t a0_transport_empty(a0_locked_transport_t, bool*);

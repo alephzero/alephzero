@@ -1,4 +1,7 @@
 #include <a0/arena.h>
+#include <a0/buf.h>
+#include <a0/file.h>
+#include <a0/time.h>
 
 #include <doctest.h>
 #include <signal.h>
@@ -15,8 +18,7 @@
 #include <utility>
 #include <vector>
 
-#include "src/clock.h"
-#include "src/macros.h"
+#include "src/empty.h"
 #include "src/mtx.h"
 #include "src/sync.hpp"
 #include "src/test_util.hpp"
@@ -43,7 +45,7 @@ struct MtxTestFixture {
     REQUIRE_OK(a0_file_open(name.c_str(), &fileopt, &file));
     files.push_back(file);
 
-    return file.arena.ptr;
+    return file.arena.buf.ptr;
   }
 
   template <typename T, typename... Args>
@@ -52,8 +54,12 @@ struct MtxTestFixture {
     return new (buf) T(std::forward<Args>(args)...);
   }
 
-  timespec_t delay(int64_t fut_ns) {
-    return a0_clock_add(a0_clock_now(CLOCK_BOOTTIME), a0_clock_dur(fut_ns));
+  a0_time_mono_t delay(int64_t add_ns) {
+    a0_time_mono_t now;
+    REQUIRE_OK(a0_time_mono_now(&now));
+    a0_time_mono_t target;
+    REQUIRE_OK(a0_time_mono_add(now, add_ns, &target));
+    return target;
   }
 };
 
@@ -519,7 +525,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout") {
   auto start = std::chrono::steady_clock::now();
   REQUIRE_OK(a0_mtx_lock(&mtx));
 
-  timespec_t wake_time = A0_EMPTY;
+  a0_time_mono_t wake_time = A0_EMPTY;
   REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == EINVAL);
 
   wake_time = delay(0);

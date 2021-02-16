@@ -1,8 +1,8 @@
 #pragma once
 
 #include <a0/arena.h>
-#include <a0/common.h>
-#include <a0/errno.h>
+#include <a0/buf.h>
+#include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
 
@@ -15,7 +15,8 @@
 #include <thread>
 #include <utility>
 
-#include "macros.h"
+#include "err_util.h"
+#include "inline.h"
 #include "sync.hpp"
 
 #ifdef DEBUG
@@ -117,24 +118,24 @@ struct transport_thread {
 
   errno_t init(
       a0_arena_t arena,
-      const std::function<errno_t(a0_locked_transport_t, a0_transport_init_status_t)>& on_transport_init,
+      const std::function<errno_t(a0_locked_transport_t)>& on_transport_init,
       std::function<void(a0_locked_transport_t)> on_transport_nonempty,
       std::function<void(a0_locked_transport_t)> on_transport_hasnext) {
     state = std::make_shared<state_t>();
     state->on_transport_nonempty = std::move(on_transport_nonempty);
     state->on_transport_hasnext = std::move(on_transport_hasnext);
 
-    a0_transport_init_status_t init_status;
+    A0_RETURN_ERR_ON_ERR(a0_transport_init(&state->transport, arena));
     a0_locked_transport_t tlk;
-    a0_transport_init(&state->transport, arena, &init_status, &tlk);
-    errno_t err = on_transport_init(tlk, init_status);
+    a0_transport_lock(&state->transport, &tlk);
+    errno_t err = on_transport_init(tlk);
     a0_transport_unlock(tlk);
     if (err) {
       return err;
     }
 
 #ifdef DEBUG
-    a0_ref_cnt_inc(arena.ptr);
+    a0_ref_cnt_inc(arena.buf.ptr, nullptr);
 #endif
 
     std::thread t([state_ = state]() {
@@ -151,11 +152,14 @@ struct transport_thread {
     }
 
 #ifdef DEBUG
-    a0_ref_cnt_dec(state->transport._arena.ptr);
+    a0_ref_cnt_dec(state->transport._arena.buf.ptr, nullptr);
 #endif
 
     state->onclose.set(onclose);
-    a0_transport_close(&state->transport);
+    a0_locked_transport_t tlk;
+    a0_transport_lock(&state->transport, &tlk);
+    a0_transport_shutdown(tlk);
+    a0_transport_unlock(tlk);
 
     return A0_OK;
   }

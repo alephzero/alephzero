@@ -2,13 +2,14 @@
 #define _GNU_SOURCE
 
 #include <a0/arena.h>
-#include <a0/errno.h>
+#include <a0/buf.h>
+#include <a0/err.h>
+#include <a0/file.h>
 
 #include <errno.h>
 #include <fcntl.h>
 #include <ftw.h>
 #include <libgen.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,9 +18,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "macros.h"
+#include "err_util.h"
+#include "inline.h"
 
 #ifdef DEBUG
+#include "assert.h"
 #include "ref_cnt.h"
 #endif
 
@@ -102,7 +105,7 @@ errno_t a0_abspath(const char* rel, char** out) {
 }
 
 #define A0_FAIL_ON_MINUS_ONE(x) \
-  if (A0_UNLIKELY((x) == -1)) { \
+  if ((x) == -1) {              \
     goto fail;                  \
   }
 
@@ -117,14 +120,14 @@ errno_t a0_create_or_connect(
   char* tmppath = NULL;
 
   int open_flags = O_RDWR;
-  if (opts->open_options.readonly) {
+  if (opts->open_options.arena_mode == A0_ARENA_MODE_READONLY) {
     open_flags = O_RDONLY;
   }
 
 connect:
   // Optimistically try to connect.
   file->fd = open(path, open_flags);
-  if (A0_LIKELY(file->fd != -1)) {
+  if (file->fd != -1) {
     A0_FAIL_ON_MINUS_ONE(fstat(file->fd, &file->stat));
     return A0_OK;
   }
@@ -180,23 +183,24 @@ cleanup:
 
 A0_STATIC_INLINE
 errno_t a0_mmap(a0_file_t* file, const a0_file_open_options_t* open_options) {
-  file->arena.size = file->stat.st_size;
+  file->arena.mode = open_options->arena_mode;
+  file->arena.buf.size = file->stat.st_size;
 
   int mmap_flags = MAP_SHARED;
-  if (open_options->readonly) {
+  if (open_options->arena_mode == A0_ARENA_MODE_READONLY) {
     mmap_flags = MAP_PRIVATE;
   }
 
-  file->arena.ptr = (uint8_t*)mmap(
+  file->arena.buf.ptr = (uint8_t*)mmap(
       /* addr   = */ 0,
-      /* len    = */ file->arena.size,
+      /* len    = */ file->arena.buf.size,
       /* prot   = */ PROT_READ | PROT_WRITE,
       /* flags  = */ mmap_flags,
       /* fd     = */ file->fd,
       /* offset = */ 0);
-  if (A0_UNLIKELY((intptr_t)file->arena.ptr == -1)) {
-    file->arena.ptr = NULL;
-    file->arena.size = 0;
+  if ((intptr_t)file->arena.buf.ptr == -1) {
+    file->arena.buf.ptr = NULL;
+    file->arena.buf.size = 0;
     return errno;
   }
 
@@ -205,13 +209,13 @@ errno_t a0_mmap(a0_file_t* file, const a0_file_open_options_t* open_options) {
 
 A0_STATIC_INLINE
 errno_t a0_munmap(a0_file_t* file) {
-  if (!file->arena.ptr) {
+  if (!file->arena.buf.ptr) {
     return EBADF;
   }
 
-  A0_RETURN_ERR_ON_MINUS_ONE(munmap(file->arena.ptr, file->arena.size));
-  file->arena.ptr = NULL;
-  file->arena.size = 0;
+  A0_RETURN_ERR_ON_MINUS_ONE(munmap(file->arena.buf.ptr, file->arena.buf.size));
+  file->arena.buf.ptr = NULL;
+  file->arena.buf.size = 0;
 
   return A0_OK;
 }
@@ -226,7 +230,7 @@ const a0_file_options_t A0_FILE_OPTIONS_DEFAULT = {
         .dir_mode = S_IRWXU | S_IRWXG | S_IRWXO,
     },
     .open_options = {
-        .readonly = false,
+        .arena_mode = A0_ARENA_MODE_SHARED,
     },
 };
 
@@ -263,25 +267,25 @@ errno_t a0_file_open(
   out->path = filepath;
 
 #ifdef DEBUG
-  a0_ref_cnt_inc(out->arena.ptr);
+  a0_ref_cnt_inc(out->arena.buf.ptr, NULL);
 #endif
 
   return A0_OK;
 }
 
 errno_t a0_file_close(a0_file_t* file) {
-  if (!file->path || !file->arena.ptr) {
+  if (!file->path || !file->arena.buf.ptr) {
     return EBADF;
   }
 
 #ifdef DEBUG
   A0_ASSERT_OK(
-      a0_ref_cnt_dec(file->arena.ptr),
+      a0_ref_cnt_dec(file->arena.buf.ptr, NULL),
       "File reference count corrupt: %s",
       file->path);
 
   size_t cnt;
-  a0_ref_cnt_get(file->arena.ptr, &cnt);
+  a0_ref_cnt_get(file->arena.buf.ptr, &cnt);
   A0_ASSERT(
       cnt == 0,
       "File closing while still in use: %s",

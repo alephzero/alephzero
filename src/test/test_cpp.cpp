@@ -1,5 +1,5 @@
 #include <a0/alephzero.hpp>
-#include <a0/arena.h>
+#include <a0/file.h>
 #include <a0/pubsub.h>
 
 #include <doctest.h>
@@ -278,7 +278,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub sync") {
       }
       REQUIRE(hdr_keys == std::set<std::string>{"a0_time_mono",
                                                 "a0_time_wall",
-                                                "a0_transport_seq",
+                                                // "a0_transport_seq",
                                                 "a0_publisher_seq",
                                                 "a0_publisher_id"});
     }
@@ -302,7 +302,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub sync") {
       REQUIRE(hdr_keys == std::set<std::string>{"key",
                                                 "a0_time_mono",
                                                 "a0_time_wall",
-                                                "a0_transport_seq",
+                                                // "a0_transport_seq",
                                                 "a0_publisher_seq",
                                                 "a0_publisher_id"});
     }

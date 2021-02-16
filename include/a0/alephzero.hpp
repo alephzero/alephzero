@@ -1,6 +1,7 @@
 #pragma once
 
 #include <a0/arena.h>
+#include <a0/file.h>
 #include <a0/heartbeat.h>
 #include <a0/logger.h>
 #include <a0/packet.h>
@@ -40,7 +41,9 @@ struct CppWrap {
 }  // namespace details
 
 struct Arena : details::CppWrap<a0_arena_t> {
+  uint8_t* ptr() const;
   size_t size() const;
+  a0_arena_mode_t mode() const;
 };
 
 struct File : details::CppWrap<a0_file_t> {
@@ -58,12 +61,8 @@ struct File : details::CppWrap<a0_file_t> {
     } create_options;
 
     struct OpenOptions {
-      /// Create a private copy-on-write mapping.
-      /// Updates to the mapping are not visible to other processes mapping
-      /// the same file, and are not carried through to the underlying file.
-      /// It is unspecified whether changes made to the file are visible in
-      /// the mapped region.
-      bool readonly;
+      /// ...
+      a0_arena_mode_t arena_mode;
     } open_options;
 
     /// Default file creation options.

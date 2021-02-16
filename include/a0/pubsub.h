@@ -2,7 +2,8 @@
 #define A0_PUBSUB_H
 
 #include <a0/alloc.h>
-#include <a0/common.h>
+#include <a0/buf.h>
+#include <a0/callback.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
 

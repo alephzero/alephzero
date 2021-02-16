@@ -1,10 +1,11 @@
 #ifndef A0_SRC_MTX_H
 #define A0_SRC_MTX_H
 
-#include <a0/errno.h>
+#include <a0/err.h>
+#include <a0/time.h>
 
 #include "ftx.h"
-#include "macros.h"
+#include "unused.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,7 +15,6 @@ extern "C" {
 struct a0_mtx_s;
 
 typedef struct a0_mtx_s a0_mtx_t;
-struct timespec;
 
 // Mutex implementation designed for IPC.
 //
@@ -38,7 +38,7 @@ struct a0_mtx_s {
 };
 
 errno_t a0_mtx_lock(a0_mtx_t*) A0_WARN_UNUSED_RESULT;
-errno_t a0_mtx_timedlock(a0_mtx_t*, const struct timespec*) A0_WARN_UNUSED_RESULT;
+errno_t a0_mtx_timedlock(a0_mtx_t*, const a0_time_mono_t*) A0_WARN_UNUSED_RESULT;
 errno_t a0_mtx_trylock(a0_mtx_t*) A0_WARN_UNUSED_RESULT;
 errno_t a0_mtx_consistent(a0_mtx_t*);
 errno_t a0_mtx_unlock(a0_mtx_t*);
@@ -46,7 +46,7 @@ errno_t a0_mtx_unlock(a0_mtx_t*);
 typedef a0_ftx_t a0_cnd_t;
 
 errno_t a0_cnd_wait(a0_cnd_t*, a0_mtx_t*);
-errno_t a0_cnd_timedwait(a0_cnd_t*, a0_mtx_t*, const struct timespec*);
+errno_t a0_cnd_timedwait(a0_cnd_t*, a0_mtx_t*, const a0_time_mono_t*);
 errno_t a0_cnd_signal(a0_cnd_t*, a0_mtx_t*);
 errno_t a0_cnd_broadcast(a0_cnd_t*, a0_mtx_t*);
 

@@ -1,6 +1,7 @@
 #include "mtx.h"
 
-#include <a0/errno.h>
+#include <a0/err.h>
+#include <a0/time.h>
 
 #include <errno.h>
 #include <limits.h>
@@ -14,9 +15,20 @@
 #include <unistd.h>
 
 #include "atomic.h"
-#include "macros.h"
+#include "clock.h"
+#include "inline.h"
 
 // TSAN is worth the pain of properly annotating our mutex.
+
+// clang-format off
+#if defined(__SANITIZE_THREAD__)
+  #define A0_TSAN_ENABLED
+#elif defined(__has_feature)
+  #if __has_feature(thread_sanitizer)
+    #define A0_TSAN_ENABLED
+  #endif
+#endif
+// clang-format on
 
 const unsigned __tsan_mutex_linker_init = 1 << 0;
 const unsigned __tsan_mutex_write_reentrant = 1 << 1;
@@ -43,22 +55,22 @@ void __tsan_mutex_post_divert(void* addr, unsigned flags);
 
 #else
 
-#define _U_ __attribute__((unused))
+#define _u_ __attribute__((unused))
 
-A0_STATIC_INLINE void _U_ __tsan_mutex_create(_U_ void* addr, _U_ unsigned flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_destroy(_U_ void* addr, _U_ unsigned flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_pre_lock(_U_ void* addr, _U_ unsigned flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_post_lock(_U_ void* addr,
-                                                 _U_ unsigned flags,
-                                                 _U_ int recursion) {}
-A0_STATIC_INLINE int _U_ __tsan_mutex_pre_unlock(_U_ void* addr, _U_ unsigned flags) {
+A0_STATIC_INLINE void _u_ __tsan_mutex_create(_u_ void* addr, _u_ unsigned flags) {}
+A0_STATIC_INLINE void _u_ __tsan_mutex_destroy(_u_ void* addr, _u_ unsigned flags) {}
+A0_STATIC_INLINE void _u_ __tsan_mutex_pre_lock(_u_ void* addr, _u_ unsigned flags) {}
+A0_STATIC_INLINE void _u_ __tsan_mutex_post_lock(_u_ void* addr,
+                                                 _u_ unsigned flags,
+                                                 _u_ int recursion) {}
+A0_STATIC_INLINE int _u_ __tsan_mutex_pre_unlock(_u_ void* addr, _u_ unsigned flags) {
   return 0;
 }
-A0_STATIC_INLINE void _U_ __tsan_mutex_post_unlock(_U_ void* addr, _U_ unsigned flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_pre_signal(_U_ void* addr, _U_ unsigned flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_post_signal(_U_ void* addr, _U_ unsigned flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_pre_divert(_U_ void* addr, _U_ unsigned flags) {}
-A0_STATIC_INLINE void _U_ __tsan_mutex_post_divert(_U_ void* addr, _U_ unsigned flags) {}
+A0_STATIC_INLINE void _u_ __tsan_mutex_post_unlock(_u_ void* addr, _u_ unsigned flags) {}
+A0_STATIC_INLINE void _u_ __tsan_mutex_pre_signal(_u_ void* addr, _u_ unsigned flags) {}
+A0_STATIC_INLINE void _u_ __tsan_mutex_post_signal(_u_ void* addr, _u_ unsigned flags) {}
+A0_STATIC_INLINE void _u_ __tsan_mutex_pre_divert(_u_ void* addr, _u_ unsigned flags) {}
+A0_STATIC_INLINE void _u_ __tsan_mutex_post_divert(_u_ void* addr, _u_ unsigned flags) {}
 
 #endif
 
@@ -96,7 +108,7 @@ void robust_init() {
 
 A0_STATIC_INLINE
 void init_thread() {
-  if (A0_LIKELY(a0_tid_)) {
+  if (a0_tid_) {
     return;
   }
 
@@ -173,7 +185,7 @@ bool ftx_notrecoverable(a0_ftx_t ftx) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const struct timespec* timeout) {
+errno_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   const uint32_t tid = a0_tid();
 
   errno_t err = EINTR;
@@ -199,7 +211,7 @@ errno_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const struct timespec* timeout) {
   return err;
 }
 
-errno_t a0_mtx_timedlock(a0_mtx_t* mtx, const struct timespec* timeout) {
+errno_t a0_mtx_timedlock(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   // Note: __tsan_mutex_pre_lock should come here, but tsan doesn't provide
   //       a way to "fail" a lock. Only a trylock.
   robust_op_start(mtx);
@@ -325,9 +337,9 @@ errno_t a0_mtx_unlock(a0_mtx_t* mtx) {
 }
 
 // TODO: Handle ENOTRECOVERABLE
-errno_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, const struct timespec* timeout) {
+errno_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   // Let's not unlock the mutex if we're going to get EINVAL due to a bad timeout.
-  if (timeout && (timeout->tv_sec < 0 || timeout->tv_nsec < 0 || (!timeout->tv_sec && !timeout->tv_nsec) || timeout->tv_nsec >= 1e9)) {
+  if (timeout && (timeout->ts.tv_sec < 0 || timeout->ts.tv_nsec < 0 || (!timeout->ts.tv_sec && !timeout->ts.tv_nsec) || timeout->ts.tv_nsec >= NS_PER_SEC)) {
     return EINVAL;
   }
 

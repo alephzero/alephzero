@@ -3,7 +3,8 @@
 
 #include <a0/alloc.h>
 #include <a0/arena.h>
-#include <a0/common.h>
+#include <a0/buf.h>
+#include <a0/callback.h>
 #include <a0/packet.h>
 
 #include <stdbool.h>

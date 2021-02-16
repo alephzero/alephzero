@@ -1,7 +1,8 @@
 #include <a0/alloc.h>
 #include <a0/arena.h>
-#include <a0/common.h>
-#include <a0/errno.h>
+#include <a0/buf.h>
+#include <a0/callback.h>
+#include <a0/err.h>
 #include <a0/heartbeat.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
@@ -12,11 +13,13 @@
 #include <condition_variable>
 #include <cstdint>
 #include <cstring>
+#include <ctime>
 #include <memory>
-#include <ratio>
 #include <thread>
 
-#include "macros.h"
+#include "clock.h"
+#include "empty.h"
+#include "err_util.h"
 #include "scope.hpp"
 #include "sync.hpp"
 
@@ -49,7 +52,7 @@ errno_t a0_heartbeat_init(a0_heartbeat_t* h, a0_arena_t arena, const a0_heartbea
       a0_packet_init(&pkt);
       pkt.payload.ptr = (uint8_t*)"";
       a0_pub(&impl_->publisher, pkt);
-      impl_->stop_event.wait_for(std::chrono::nanoseconds(uint64_t(1e9 / impl_->opts.freq)));
+      impl_->stop_event.wait_for(std::chrono::nanoseconds(uint64_t(NS_PER_SEC / impl_->opts.freq)));
     }
   });
 
@@ -109,7 +112,7 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
   A0_RETURN_ERR_ON_ERR(
       a0_subscriber_sync_init(&impl->sub, arena, alloc, A0_INIT_AWAIT_NEW, A0_ITER_NEWEST));
 
-  auto sleep_dur = std::chrono::nanoseconds(uint64_t(1e9 / opts->min_freq));
+  auto sleep_dur = std::chrono::nanoseconds(uint64_t(NS_PER_SEC / opts->min_freq));
 
   hl->_impl = impl.release();
   hl->_impl->thrd = std::thread([impl_ = hl->_impl, sleep_dur, alloc]() {
@@ -140,14 +143,14 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
       });
       a0_subscriber_sync_next(&hli->sub, pkt.get());
 
-      uint64_t pkt_ts = 0;
+      a0_time_mono_t pkt_ts = A0_EMPTY;
       for (size_t i = 0; i < pkt->headers_block.size; i++) {
         if (!strcmp(pkt->headers_block.headers[i].key, A0_TIME_MONO)) {
           a0_time_mono_parse(pkt->headers_block.headers[i].val, &pkt_ts);
           break;
         }
       }
-      if (!pkt_ts) {
+      if (!pkt_ts.ts.tv_sec && !pkt_ts.ts.tv_nsec) {
         // Something has gone wrong and the timestamp is missing.
         // Maybe something other than heartbeat published on this topic?
         // TODO(lshamis): Figure out how to handle this case.
@@ -155,11 +158,16 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
         //                Don't trigger detection and do trigger missed.
       }
 
-      uint64_t now_ts;
+      a0_time_mono_t now_ts;
       a0_time_mono_now(&now_ts);
+      int64_t now_ns = now_ts.ts.tv_sec * NS_PER_SEC + now_ts.ts.tv_nsec;
+
+      a0_time_mono_t wake_ts;
+      a0_time_mono_add(pkt_ts, sleep_dur.count(), &wake_ts);
+      int64_t wake_ns = wake_ts.ts.tv_sec * NS_PER_SEC + wake_ts.ts.tv_nsec;
 
       if (!hli->detected) {
-        if (now_ts < pkt_ts + (uint64_t)sleep_dur.count()) {
+        if (now_ns < wake_ns) {
           hli->detected = true;
           if (hli->ondetected.fn) {
             hli->ondetected.fn(hli->ondetected.user_data);
@@ -171,8 +179,8 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
         }
       }
 
-      if (now_ts < pkt_ts + sleep_dur.count()) {
-        hli->stop_event.wait_for(sleep_dur - std::chrono::nanoseconds(now_ts - pkt_ts));
+      if (now_ns < wake_ns) {
+        hli->stop_event.wait_for(std::chrono::nanoseconds(wake_ns - now_ns));
       }
     }
   });
