@@ -197,6 +197,25 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] timedlock") {
   REQUIRE(duration_ms.count() > 900);
 }
 
+TEST_CASE_FIXTURE(MtxTestFixture, "mtx] consistent call must be from owner") {
+  auto* mtx = make_ipc<a0_mtx_t>();
+  REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
+
+  a0::Event event_0;
+  a0::Event event_1;
+  std::thread t([&]() {
+    REQUIRE(a0_mtx_lock(mtx) == EOWNERDEAD);
+    event_0.set();
+    event_1.wait();
+    REQUIRE_OK(a0_mtx_consistent(mtx));
+    REQUIRE_OK(a0_mtx_unlock(mtx));
+  });
+  event_0.wait();
+  REQUIRE(a0_mtx_consistent(mtx) == EPERM);
+  event_1.set();
+  t.join();
+}
+
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] robust chain") {
   auto* mtx1 = make_ipc<a0_mtx_t>();
   auto* mtx2 = make_ipc<a0_mtx_t>();

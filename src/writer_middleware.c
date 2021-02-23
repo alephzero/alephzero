@@ -1,4 +1,5 @@
 #include <a0/err.h>
+#include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/time.h>
 #include <a0/uuid.h>
@@ -8,7 +9,6 @@
 #include <stdlib.h>
 
 #include "atomic.h"
-#include "inline.h"
 #include "strconv.h"
 #include "unused.h"
 

@@ -1,9 +1,9 @@
 #ifndef A0_SRC_EVENT_H
 #define A0_SRC_EVENT_H
 
-#include <pthread.h>
+#include <a0/inline.h>
 
-#include "inline.h"
+#include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {

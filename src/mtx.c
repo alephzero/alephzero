@@ -1,6 +1,7 @@
 #include "mtx.h"
 
 #include <a0/err.h>
+#include <a0/inline.h>
 #include <a0/time.h>
 
 #include <errno.h>
@@ -16,7 +17,6 @@
 
 #include "atomic.h"
 #include "clock.h"
-#include "inline.h"
 
 // TSAN is worth the pain of properly annotating our mutex.
 

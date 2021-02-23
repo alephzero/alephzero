@@ -415,7 +415,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] wrap around") {
     {
       "off": 2272,
       "seq": 18,
-      "prev_off": 0,
+      "prev_off": 1200,
       "next_off": 128,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."

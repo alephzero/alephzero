@@ -1,10 +1,11 @@
 #ifndef A0_SRC_CLOCK_H
 #define A0_SRC_CLOCK_H
 
+#include <a0/inline.h>
+
 #include <time.h>
 
 #include "err_util.h"
-#include "inline.h"
 
 static const int64_t NS_PER_SEC = 1e9;
 

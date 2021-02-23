@@ -1,5 +1,6 @@
 #include <a0/err.h>
 #include <a0/file.h>
+#include <a0/inline.h>
 #include <a0/topic_manager.h>
 
 #include <cerrno>
@@ -8,7 +9,6 @@
 #include <string_view>
 
 #include "err_util.h"
-#include "inline.h"
 #include "strutil.hpp"
 
 A0_STATIC_INLINE

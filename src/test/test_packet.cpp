@@ -131,12 +131,12 @@ TEST_CASE("packet] serialize deserialize") {
   pkt_before.payload = a0::test::buf("Hello, World!");
 
   a0_buf_t serial;
-  REQUIRE_OK(a0_packet_serialize(pkt_before, a0::test::allocator(), &serial));
+  REQUIRE_OK(a0_packet_serialize(pkt_before, a0::test::alloc(), &serial));
 
   REQUIRE(serial.size == 166);
 
   a0_packet_t pkt_after;
-  REQUIRE_OK(a0_packet_deserialize(serial, a0::test::allocator(), &pkt_after));
+  REQUIRE_OK(a0_packet_deserialize(serial, a0::test::alloc(), &pkt_after));
 
   REQUIRE(std::string(pkt_before.id) == std::string(pkt_after.id));
   REQUIRE(a0::test::str(pkt_before.payload) == a0::test::str(pkt_after.payload));
@@ -178,7 +178,7 @@ TEST_CASE("packet] deep_copy") {
   pkt_before.payload = a0::test::buf("Hello, World!");
 
   a0_packet_t pkt_after;
-  REQUIRE_OK(a0_packet_deep_copy(pkt_before, a0::test::allocator(), &pkt_after));
+  REQUIRE_OK(a0_packet_deep_copy(pkt_before, a0::test::alloc(), &pkt_after));
 
   REQUIRE(std::string(pkt_before.id) == std::string(pkt_after.id));
   REQUIRE(a0::test::str(pkt_before.payload) == a0::test::str(pkt_after.payload));

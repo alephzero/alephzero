@@ -18,6 +18,13 @@
 
 #include "sync.hpp"
 #include "transport_tools.hpp"
+#include "unused.h"
+
+#ifndef REQUIRE
+#define REQUIRE(...)
+#endif
+
+#define REQUIRE_OK(err) REQUIRE((err) == A0_OK);
 
 namespace a0::test {
 
@@ -32,17 +39,16 @@ inline std::string str(a0_transport_frame_t frame) {
 inline a0_buf_t buf(std::string str) {
   static sync<std::set<std::string>> memory;
   return memory.with_lock([&](auto* mem) {
-    if (!mem->count(str)) {
-      mem->insert(str);
-    }
+    auto [iter, did_insert] = mem->insert(std::move(str));
+    A0_MAYBE_UNUSED(did_insert);
     return a0_buf_t{
-        .ptr = (uint8_t*)mem->find(str)->c_str(),
-        .size = str.size(),
+        .ptr = (uint8_t*)iter->c_str(),
+        .size = iter->size(),
     };
   });
 }
 
-inline a0_alloc_t allocator() {
+inline a0_alloc_t alloc() {
   static sync<std::map<size_t, std::string>> data;
 
   return (a0_alloc_t){
@@ -62,13 +68,83 @@ inline a0_alloc_t allocator() {
   };
 };
 
-inline a0_packet_headers_block_t header_block(a0_packet_header_t* hdr) {
-  return a0_packet_headers_block_t{
-      .headers = hdr,
-      .size = 1,
+inline a0_packet_t pkt(std::string payload) {
+  a0_packet_t pkt_;
+  a0_packet_init(&pkt_);
+  pkt_.payload = a0::test::buf(std::move(payload));
+  return pkt_;
+}
+
+inline a0_packet_t pkt(
+    std::vector<std::pair<std::string, std::string>> hdrs,
+    std::string payload) {
+  static sync<std::vector<std::unique_ptr<std::vector<a0_packet_header_t>>>> memory;
+  auto pkt_ = pkt(std::move(payload));
+
+  auto pkt_hdrs = std::make_unique<std::vector<a0_packet_header_t>>();
+  for (auto&& [k, v] : hdrs) {
+    pkt_hdrs->push_back(a0_packet_header_t{
+        .key = (char*)a0::test::buf(std::move(k)).ptr,
+        .val = (char*)a0::test::buf(std::move(v)).ptr,
+    });
+  }
+  pkt_.headers_block = {
+      .headers = &pkt_hdrs->front(),
+      .size = pkt_hdrs->size(),
       .next_block = nullptr,
   };
+  memory.with_lock([&](auto* mem) {
+    mem->push_back(std::move(pkt_hdrs));
+  });
+  return pkt_;
 }
+
+inline a0_packet_t pkt(a0_flat_packet_t fpkt) {
+  a0_packet_t out;
+  REQUIRE_OK(a0_packet_deserialize(fpkt, alloc(), &out));
+  return out;
+}
+
+struct pkt_cmp_t {
+  bool payload_match;
+  bool content_match;
+  bool full_match;
+};
+inline pkt_cmp_t pkt_cmp(a0_packet_t lhs, a0_packet_t rhs) {
+  pkt_cmp_t ret;
+  ret.payload_match = (str(lhs.payload) == str(rhs.payload));
+  ret.content_match = ret.payload_match && [&]() {
+    std::vector<std::pair<std::string, std::string>> lhs_hdrs;
+    a0_packet_header_callback_t lhs_cb = {
+        .user_data = &lhs_hdrs,
+        .fn = [](void* user_data, a0_packet_header_t hdr) {
+          auto* hdrs = (std::vector<std::pair<std::string, std::string>>*)user_data;
+          hdrs->push_back({std::string(hdr.key), std::string(hdr.val)});
+        },
+    };
+    REQUIRE_OK(a0_packet_for_each_header(lhs.headers_block, lhs_cb));
+
+    std::vector<std::pair<std::string, std::string>> rhs_hdrs;
+    a0_packet_header_callback_t rhs_cb = {
+        .user_data = &rhs_hdrs,
+        .fn = [](void* user_data, a0_packet_header_t hdr) {
+          auto* hdrs = (std::vector<std::pair<std::string, std::string>>*)user_data;
+          hdrs->push_back({std::string(hdr.key), std::string(hdr.val)});
+        },
+    };
+    REQUIRE_OK(a0_packet_for_each_header(rhs.headers_block, rhs_cb));
+
+    return lhs_hdrs == rhs_hdrs;
+  }();
+  ret.full_match = ret.content_match && (memcmp(lhs.id, rhs.id, sizeof(a0_uuid_t)) == 0);
+  return ret;
+}
+
+template <typename C>
+struct _c2cpp_ {
+  C c;
+  
+};
 
 inline bool is_valgrind() {
 #ifdef RUNNING_ON_VALGRIND
@@ -104,11 +180,40 @@ pid_t subproc(Fn&& fn) {
 
 }  // namespace a0::test
 
-#ifndef REQUIRE
-#define REQUIRE(...)
-#endif
+#define Test_AutoC2CPP_start(STEM, CPPNAME)                        \
+class CPPNAME {                                                    \
+  CPPNAME() = default;                                             \
+ public:                                                           \
+  a0_##STEM##_t c;                                                 \
+  template <typename... Args>                                      \
+  explicit CPPNAME(Args&&... args) {                               \
+    REQUIRE_OK(a0_##STEM##_init(&c, std::forward<Args>(args)...)); \
+  }                                                                \
+  CPPNAME(const CPPNAME&) = delete;                                \
+  CPPNAME(CPPNAME&&) = default;                                    \
+  ~CPPNAME() { a0_##STEM##_close(&c); }                            \
+  static CPPNAME from_c(a0_##STEM##_t c) {                         \
+    CPPNAME cpp;                                                   \
+    cpp.c = c;                                                     \
+    return cpp;                                                    \
+  }
 
-#define REQUIRE_OK(err) REQUIRE((err) == A0_OK);
+#define Test_AutoC2CPP_end(STEM) \
+};
+
+#define Test_AutoC2CPP_method(STEM, FN)                          \
+template <typename... Args>                                      \
+void FN(Args&&... args) {                                        \
+  REQUIRE_OK(a0_##STEM##_##FN(&c, std::forward<Args>(args)...)); \
+}
+
+#define Test_AutoC2CPP_method_ret(STEM, FN, RETURN_T)                  \
+template <typename... Args>                                            \
+RETURN_T FN(Args&&... args) {                                          \
+  RETURN_T ret;                                                        \
+  REQUIRE_OK(a0_##STEM##_##FN(&c, std::forward<Args>(args)..., &ret)); \
+  return ret;                                                          \
+}
 
 inline void REQUIRE_SUBPROC_EXITED(pid_t pid) {
   REQUIRE(pid != -1);

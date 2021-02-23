@@ -1,6 +1,7 @@
 #include <a0/alloc.h>
 #include <a0/arena.h>
 #include <a0/err.h>
+#include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
 #include <a0/writer.h>
@@ -8,7 +9,6 @@
 #include <stdlib.h>
 
 #include "err_util.h"
-#include "inline.h"
 
 #ifdef DEBUG
 #include "assert.h"
@@ -16,30 +16,25 @@
 #include "unused.h"
 #endif
 
-struct a0_writer_impl_s {
-  a0_writer_middleware_t action;
-  a0_writer_impl_t* next_writer;
-};
-
 A0_STATIC_INLINE
-errno_t a0_writer_impl_process(a0_writer_impl_t*, a0_packet_t*);
+errno_t a0_writer_process(a0_writer_t*, a0_packet_t*);
 
 A0_STATIC_INLINE
 errno_t a0_write_process_chain(void* data, a0_packet_t* pkt) {
-  a0_writer_impl_t* next_writer = (a0_writer_impl_t*)data;
+  a0_writer_t* next_writer = (a0_writer_t*)data;
   if (next_writer) {
-    return a0_writer_impl_process(next_writer, pkt);
+    return a0_writer_process(next_writer, pkt);
   }
   return A0_OK;
 }
 
 A0_STATIC_INLINE
-errno_t a0_writer_impl_process(a0_writer_impl_t* impl, a0_packet_t* pkt) {
+errno_t a0_writer_process(a0_writer_t* w, a0_packet_t* pkt) {
   a0_writer_middleware_chain_t chain;
-  chain.data = impl->next_writer;
+  chain.data = w->_next_writer;
   chain.chain_fn = a0_write_process_chain;
 
-  return impl->action.process(impl->action.user_data, pkt, chain);
+  return w->_action.process(w->_action.user_data, pkt, chain);
 }
 
 A0_STATIC_INLINE
@@ -90,17 +85,13 @@ errno_t a0_write_action_process(void* user_data, a0_packet_t* pkt, a0_writer_mid
 }
 
 errno_t a0_writer_init(a0_writer_t* w, a0_arena_t arena) {
-  a0_writer_middleware_t middleware;
-  A0_RETURN_ERR_ON_ERR(a0_write_action_init(arena, &middleware.user_data));
-  middleware.close = a0_write_action_close;
-  middleware.process = a0_write_action_process;
-
-  w->_impl = (a0_writer_impl_t*)malloc(sizeof(a0_writer_impl_t));
-  w->_impl->action = middleware;
-  w->_impl->next_writer = NULL;
+  A0_RETURN_ERR_ON_ERR(a0_write_action_init(arena, &w->_action.user_data));
+  w->_action.close = a0_write_action_close;
+  w->_action.process = a0_write_action_process;
+  w->_next_writer = NULL;
 
 #ifdef DEBUG
-  A0_ASSERT_OK(a0_ref_cnt_inc(w->_impl, NULL), "");
+  A0_ASSERT_OK(a0_ref_cnt_inc(w, NULL), "");
 #endif
 
   return A0_OK;
@@ -109,13 +100,12 @@ errno_t a0_writer_init(a0_writer_t* w, a0_arena_t arena) {
 errno_t a0_writer_close(a0_writer_t* w) {
 #ifdef DEBUG
   A0_ASSERT(w, "Cannot close null writer.");
-  A0_ASSERT(w->_impl, "Cannot close uninitialized/closed writer.");
 
-  if (w->_impl->next_writer) {
+  if (w->_next_writer) {
     size_t next_writer_ref_cnt;
     A0_MAYBE_UNUSED(next_writer_ref_cnt);
     A0_ASSERT_OK(
-        a0_ref_cnt_dec(w->_impl->next_writer, &next_writer_ref_cnt),
+        a0_ref_cnt_dec(w->_next_writer, &next_writer_ref_cnt),
         "Closing writer while still in use.");
     A0_ASSERT(
         next_writer_ref_cnt > 0,
@@ -125,35 +115,31 @@ errno_t a0_writer_close(a0_writer_t* w) {
   size_t ref_cnt;
   A0_MAYBE_UNUSED(ref_cnt);
   A0_ASSERT_OK(
-      a0_ref_cnt_dec(w->_impl, &ref_cnt),
+      a0_ref_cnt_dec(w, &ref_cnt),
       "Failed to decrement writer count.");
   A0_ASSERT(
       ref_cnt == 0,
       "Closing writer while still in use.");
 #endif
 
-  if (w->_impl->action.close) {
-    A0_RETURN_ERR_ON_ERR(w->_impl->action.close(w->_impl->action.user_data));
+  if (w->_action.close) {
+    A0_RETURN_ERR_ON_ERR(w->_action.close(w->_action.user_data));
   }
-
-  free(w->_impl);
-  w->_impl = NULL;
 
   return A0_OK;
 }
 
 errno_t a0_writer_write(a0_writer_t* w, a0_packet_t pkt) {
-  return a0_writer_impl_process(w->_impl, &pkt);
+  return a0_writer_process(w, &pkt);
 }
 
 errno_t a0_writer_wrap(a0_writer_t* in, a0_writer_middleware_t middleware, a0_writer_t* out) {
-  out->_impl = (a0_writer_impl_t*)malloc(sizeof(a0_writer_impl_t));
-  out->_impl->action = middleware;
-  out->_impl->next_writer = in->_impl;
+  out->_action = middleware;
+  out->_next_writer = in;
 
 #ifdef DEBUG
-  A0_ASSERT_OK(a0_ref_cnt_inc(out->_impl->next_writer, NULL), "");
-  A0_ASSERT_OK(a0_ref_cnt_inc(out->_impl, NULL), "");
+  A0_ASSERT_OK(a0_ref_cnt_inc(out->_next_writer, NULL), "");
+  A0_ASSERT_OK(a0_ref_cnt_inc(out, NULL), "");
 #endif
 
   return A0_OK;

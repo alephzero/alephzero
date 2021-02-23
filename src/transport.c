@@ -2,6 +2,7 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/err.h>
+#include <a0/inline.h>
 #include <a0/transport.h>
 
 #include <errno.h>
@@ -13,7 +14,6 @@
 #include <string.h>
 
 #include "err_util.h"
-#include "inline.h"
 #include "mtx.h"
 
 typedef uintptr_t transport_off_t;  // ptr offset from start of the arena.
@@ -80,12 +80,12 @@ errno_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
   memset(transport, 0, sizeof(a0_transport_t));
   transport->_arena = arena;
 
-  a0_locked_transport_t lk;
-  A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, &lk));
-
   if (transport->_arena.mode == A0_ARENA_MODE_EXCLUSIVE) {
     memset(&hdr->mtx, 0, sizeof(hdr->mtx));
   }
+
+  a0_locked_transport_t lk;
+  A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, &lk));
 
   if (!hdr->initialized) {
     memcpy(hdr->magic, "ALEPHZERO", 9);
@@ -349,23 +349,14 @@ A0_STATIC_INLINE
 void a0_transport_remove_head(a0_locked_transport_t lk, a0_transport_state_t* state) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
-  a0_transport_frame_hdr_t* head_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + state->off_head);
-
   if (state->off_head == state->off_tail) {
     state->off_head = 0;
     state->off_tail = 0;
-    state->seq_low++;
   } else {
-    head_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + head_hdr->next_off);
-    state->off_head = head_hdr->off;
-    state->seq_low = head_hdr->seq;
-    head_hdr->prev_off = 0;
-    // The following SHOULD work.
-    // It is faster and passes all the tests, but I still have a weird feeling about it.
-    // TODO(lshamis): Consider this alternative:
-    // state->off_head = head_hdr->next_off;
-    // state->seq_low++;
+    a0_transport_frame_hdr_t* head_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + state->off_head);
+    state->off_head = head_hdr->next_off;
   }
+  state->seq_low++;
   a0_transport_commit(lk);
 }
 
@@ -458,6 +449,9 @@ errno_t a0_transport_alloc_evicts(a0_locked_transport_t lk, size_t size, bool* o
 }
 
 errno_t a0_transport_alloc(a0_locked_transport_t lk, size_t size, a0_transport_frame_t* frame_out) {
+  if (lk.transport->_arena.mode == A0_ARENA_MODE_READONLY) {
+    return EPERM;
+  }
   size_t frame_size = sizeof(a0_transport_frame_hdr_t) + size;
 
   transport_off_t off;

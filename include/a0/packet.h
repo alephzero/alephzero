@@ -6,7 +6,7 @@
  * ----------------
  *
  * | A simple container with the following elements: **ID**, **Headers**, **Payload**.
- * | Capable of being serialized and deserialed.
+ * | Capable of being serialized and deserialized.
  *
  * ID
  * --
@@ -238,13 +238,7 @@ errno_t a0_flat_packet_payload(a0_flat_packet_t, a0_buf_t*);
 errno_t a0_flat_packet_header(a0_flat_packet_t, int idx, a0_packet_header_t*);
 
 /// Deserializes the flat packet into a normal packet.
-///
-/// The alloc is only used for the header pointers, not the contents.
-///
-/// The content will point into the buffer.
 errno_t a0_packet_deserialize(a0_flat_packet_t, a0_alloc_t, a0_packet_t* out);
-
-errno_t a0_packet_deep_deserialize(a0_flat_packet_t, a0_alloc_t, a0_packet_t* out);
 
 /// Deep copies the packet contents.
 errno_t a0_packet_deep_copy(a0_packet_t, a0_alloc_t, a0_packet_t* out);

@@ -27,14 +27,14 @@ extern "C" {
 #endif
 
 typedef enum a0_arena_mode_e {
-  /// The arena may be simultaniously shared by other processes.
+  /// The arena may be simultaneously shared by other processes.
   /// Notification and locks are be enabled.
   A0_ARENA_MODE_SHARED,
-  /// A promise that the arena will NOT be simultaniously accessed by
+  /// A promise that the arena will NOT be simultaneously accessed by
   /// any other processes.
   /// Notification and locks are be disabled.
   A0_ARENA_MODE_EXCLUSIVE,
-  /// A promise that the arena will NOT be simultaniously written by
+  /// A promise that the arena will NOT be simultaneously written by
   /// any other processes. This process my not write to the arena.
   /// Notification and locks are be disabled.
   A0_ARENA_MODE_READONLY,
@@ -46,11 +46,11 @@ typedef struct a0_arena_s {
   a0_buf_t buf;
 
   /// Mode describing how the arena will be used in this process and
-  /// how it is simultaniously used by other processes.
+  /// how it is simultaneously used by other processes.
   ///
   /// Should default to A0_ARENA_MODE_SHARED. Other modes can easily
   /// corrupt the arena content if other processes write or access the
-  /// arena simultaniously. Be careful.
+  /// arena simultaneously. Be careful.
   a0_arena_mode_t mode;
 } a0_arena_t;
 

@@ -3,6 +3,7 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/err.h>
+#include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
 
@@ -16,7 +17,6 @@
 #include <utility>
 
 #include "err_util.h"
-#include "inline.h"
 #include "sync.hpp"
 
 #ifdef DEBUG

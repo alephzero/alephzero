@@ -4,6 +4,7 @@
 #include <a0/buf.h>
 #include <a0/callback.h>
 #include <a0/err.h>
+#include <a0/inline.h>
 #include <a0/time.h>
 
 #include <limits.h>
@@ -14,7 +15,6 @@
 
 #include "clock.h"
 #include "err_util.h"
-#include "inline.h"
 
 // FUTEX_WAIT and FUTEX_WAIT_REQUEUE_PI default to CLOCK_MONOTONIC,
 // but FUTEX_LOCK_PI always uses CLOCK_REALTIME.

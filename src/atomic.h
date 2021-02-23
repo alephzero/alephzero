@@ -1,7 +1,7 @@
 #ifndef A0_SRC_ATOMIC_H
 #define A0_SRC_ATOMIC_H
 
-#include "inline.h"
+#include <a0/inline.h>
 
 A0_STATIC_INLINE
 void a0_barrier() {

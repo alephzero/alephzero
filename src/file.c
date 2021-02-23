@@ -5,6 +5,7 @@
 #include <a0/buf.h>
 #include <a0/err.h>
 #include <a0/file.h>
+#include <a0/inline.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -19,7 +20,6 @@
 #include <unistd.h>
 
 #include "err_util.h"
-#include "inline.h"
 
 #ifdef DEBUG
 #include "assert.h"

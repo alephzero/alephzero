@@ -1,12 +1,12 @@
 #ifndef A0_SRC_RAND_H
 #define A0_SRC_RAND_H
 
+#include <a0/inline.h>
+
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-#include "inline.h"
 
 #ifdef __cplusplus
 extern "C" {

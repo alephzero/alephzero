@@ -176,47 +176,6 @@ errno_t a0_flat_packet_header(a0_flat_packet_t fpkt, int idx, a0_packet_header_t
 errno_t a0_packet_deserialize(a0_flat_packet_t fpkt, a0_alloc_t alloc, a0_packet_t* out) {
   memcpy(out->id, fpkt.ptr, sizeof(a0_uuid_t));
 
-  size_t num_hdrs = *(size_t*)(fpkt.ptr + sizeof(a0_uuid_t));
-  out->headers_block.size = num_hdrs;
-  a0_buf_t hdr_idx_space;
-  a0_alloc(alloc, num_hdrs * sizeof(a0_packet_header_t), &hdr_idx_space);
-  out->headers_block.headers = (a0_packet_header_t*)hdr_idx_space.ptr;
-
-  size_t* hdr_idx_ptr = (size_t*)(fpkt.ptr + sizeof(a0_uuid_t) + sizeof(size_t));
-  for (size_t i = 0; i < num_hdrs; i++) {
-    size_t key_off;
-    memcpy(&key_off, hdr_idx_ptr + (2 * i), sizeof(size_t));
-    size_t val_off;
-    memcpy(&val_off, hdr_idx_ptr + (2 * i + 1), sizeof(size_t));
-    out->headers_block.headers[i] = (a0_packet_header_t){
-        .key = (char*)(fpkt.ptr + key_off),
-        .val = (char*)(fpkt.ptr + val_off),
-    };
-  }
-  out->headers_block.next_block = NULL;
-
-  size_t payload_off;
-  memcpy(&payload_off,
-         fpkt.ptr
-             // ID.
-             + sizeof(a0_uuid_t)
-             // Num headers.
-             + sizeof(size_t)
-             // Header offsets.
-             + (2 * num_hdrs) * sizeof(size_t),
-         sizeof(size_t));
-
-  out->payload = (a0_buf_t){
-      .ptr = fpkt.ptr + payload_off,
-      .size = fpkt.size - payload_off,
-  };
-
-  return A0_OK;
-}
-
-errno_t a0_packet_deep_deserialize(a0_flat_packet_t fpkt, a0_alloc_t alloc, a0_packet_t* out) {
-  memcpy(out->id, fpkt.ptr, sizeof(a0_uuid_t));
-
   a0_packet_stats_t stats;
   a0_flat_packet_stats(fpkt, &stats);
 

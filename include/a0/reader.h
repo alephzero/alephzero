@@ -57,10 +57,11 @@ typedef struct a0_zero_copy_callback_s {
  *  @{
  */
 
-typedef struct a0_reader_sync_zc_impl_s a0_reader_sync_zc_impl_t;
-
 typedef struct a0_reader_sync_zc_s {
-  a0_reader_sync_zc_impl_t* _impl;
+  a0_transport_t _transport;
+  a0_reader_init_t _init;
+  a0_reader_iter_t _iter;
+  bool _first_read_done;
 } a0_reader_sync_zc_t;
 
 /// ...
@@ -84,10 +85,9 @@ errno_t a0_reader_sync_zc_next(a0_reader_sync_zc_t*, a0_zero_copy_callback_t);
  *  @{
  */
 
-typedef struct a0_reader_sync_impl_s a0_reader_sync_impl_t;
-
 typedef struct a0_reader_sync_s {
-  a0_reader_sync_impl_t* _impl;
+  a0_reader_sync_zc_t _reader_sync_zc;
+  a0_alloc_t _alloc;
 } a0_reader_sync_t;
 
 /// ...
