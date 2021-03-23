@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -44,7 +45,7 @@ struct WriterFixture {
     for (size_t i = 0; i < want_pkts.size(); i++) {
       auto&& [want_hdrs, want_payload] = want_pkts[i];
       REQUIRE_OK(a0_transport_frame(lk, &frame));
-      a0_packet_t got_pkt = a0::test::pkt(a0::buf(frame));
+      a0_packet_t got_pkt = a0::test::pkt(a0::test::buf(frame));
       REQUIRE(got_pkt.headers_block.size == want_hdrs.size());
 
       std::unordered_map<std::string, std::string> got_hdrs_map;

@@ -358,7 +358,7 @@ errno_t a0_reader_zc_async_close(a0_reader_zc_t* reader_zc, a0_locked_transport_
 #endif
 
   reader_zc->_impl->onclose = onclose;
-  return a0_transport_shutdown(tlk);
+  return a0_transport_start_shutdown(tlk);
 }
 
 errno_t a0_reader_zc_close(a0_reader_zc_t* reader_zc) {
@@ -379,6 +379,8 @@ errno_t a0_reader_zc_close(a0_reader_zc_t* reader_zc) {
   };
 
   a0_reader_zc_async_close(reader_zc, tlk, onclose);
+
+  a0_transport_unlock(tlk);
 
   a0_event_wait(&close_event);
   a0_event_close(&close_event);

@@ -252,13 +252,16 @@ errno_t a0_flat_packet_id(a0_flat_packet_t fpkt, a0_uuid_t** out) {
 errno_t a0_flat_packet_payload(a0_flat_packet_t fpkt, a0_buf_t* out) {
   size_t num_hdrs = *(size_t*)(fpkt.ptr + sizeof(a0_uuid_t));
 
-  size_t payload_off = *(size_t*)(fpkt.ptr
-                                  // ID.
-                                  + sizeof(a0_uuid_t)
-                                  // Num headers.
-                                  + sizeof(size_t)
-                                  // Header offsets.
-                                  + (2 * num_hdrs) * sizeof(size_t));
+  size_t payload_off;
+  memcpy(&payload_off,
+         fpkt.ptr
+             // ID.
+             + sizeof(a0_uuid_t)
+             // Num headers.
+             + sizeof(size_t)
+             // Header offsets.
+             + (2 * num_hdrs) * sizeof(size_t),
+         sizeof(size_t));
 
   *out = (a0_buf_t){
       .ptr = fpkt.ptr + payload_off,
@@ -275,8 +278,11 @@ errno_t a0_flat_packet_header(a0_flat_packet_t fpkt, size_t idx, a0_packet_heade
   }
 
   size_t* hdr_idx_ptr = (size_t*)(fpkt.ptr + sizeof(a0_uuid_t) + sizeof(size_t));
-  size_t key_off = *(size_t*)(hdr_idx_ptr + (2 * idx));
-  size_t val_off = *(size_t*)(hdr_idx_ptr + (2 * idx + 1));
+
+  size_t key_off;
+  memcpy(&key_off, hdr_idx_ptr + (2 * idx), sizeof(size_t));
+  size_t val_off;
+  memcpy(&val_off, hdr_idx_ptr + (2 * idx + 1), sizeof(size_t));
 
   *out = (a0_packet_header_t){
       .key = (char*)(fpkt.ptr + key_off),

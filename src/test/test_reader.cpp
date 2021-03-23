@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "src/sync.hpp"
 #include "src/test_util.hpp"
 #include "src/transport_tools.hpp"
 
@@ -525,6 +526,131 @@ TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] next without has_next") {
 }
 
 
+struct ReaderZCFixture : ReaderBaseFixture {
+  a0_reader_zc_t rz;
+
+  struct data_t {
+    std::vector<std::string> collected_payloads;
+  };
+  a0::sync<data_t> sync_data;
+
+  a0_zero_copy_callback_t make_callback() {
+    return a0_zero_copy_callback_t{
+      .user_data = &sync_data,
+      .fn = [](void* user_data, a0_locked_transport_t, a0_flat_packet_t fpkt) {
+        auto* sync_data = (a0::sync<data_t>*)user_data;
+        a0_buf_t payload;
+        a0_flat_packet_payload(fpkt, &payload);
+
+        sync_data->notify_all([&](auto& data) {
+          data.collected_payloads.push_back(a0::test::str(payload));
+        });
+      },
+    };
+  }
+
+  void WAIT_AND_REQUIRE_PAYLOADS(std::vector<std::string> want_payloads) {
+    sync_data.shared_wait([&](const auto& data) {
+      return data.collected_payloads.size() >= want_payloads.size();
+    });
+    REQUIRE(sync_data.copy().collected_payloads == want_payloads);
+  }
+};
+
+TEST_CASE_FIXTURE(ReaderZCFixture, "xxxxx") {
+// TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] close never trigger") {
+  REQUIRE_OK(a0_reader_zc_init(&rz, arena, A0_INIT_OLDEST, A0_ITER_NEXT, make_callback()));
+  REQUIRE_OK(a0_reader_zc_close(&rz));
+}
+
+TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] oldest-next") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  REQUIRE_OK(a0_reader_zc_init(&rz, arena, A0_INIT_OLDEST, A0_ITER_NEXT, make_callback()));
+
+  push_pkt("pkt_2");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_0", "pkt_1", "pkt_2"});
+
+  REQUIRE_OK(a0_reader_zc_close(&rz));
+}
+
+TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] oldest-next, empty start") {
+  REQUIRE_OK(a0_reader_zc_init(&rz, arena, A0_INIT_OLDEST, A0_ITER_NEXT, make_callback()));
+
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_0", "pkt_1"});
+
+  push_pkt("pkt_2");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_0", "pkt_1", "pkt_2"});
+
+  REQUIRE_OK(a0_reader_zc_close(&rz));
+}
+
+TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] most recent-next") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  REQUIRE_OK(a0_reader_zc_init(&rz, arena, A0_INIT_MOST_RECENT, A0_ITER_NEXT, make_callback()));
+
+  push_pkt("pkt_2");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_1", "pkt_2"});
+
+  REQUIRE_OK(a0_reader_zc_close(&rz));
+}
+
+TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] most recent-next, empty start") {
+  REQUIRE_OK(a0_reader_zc_init(&rz, arena, A0_INIT_MOST_RECENT, A0_ITER_NEXT, make_callback()));
+
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_0", "pkt_1"});
+
+  push_pkt("pkt_2");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_0", "pkt_1", "pkt_2"});
+
+  REQUIRE_OK(a0_reader_zc_close(&rz));
+}
+
+TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] await new-next") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  REQUIRE_OK(a0_reader_zc_init(&rz, arena, A0_INIT_AWAIT_NEW, A0_ITER_NEXT, make_callback()));
+
+  push_pkt("pkt_2");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_2"});
+
+  push_pkt("pkt_3");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_2", "pkt_3"});
+
+  REQUIRE_OK(a0_reader_zc_close(&rz));
+}
+
+TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] await new-next, empty start") {
+  REQUIRE_OK(a0_reader_zc_init(&rz, arena, A0_INIT_AWAIT_NEW, A0_ITER_NEXT, make_callback()));
+
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_0", "pkt_1"});
+
+  push_pkt("pkt_2");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_0", "pkt_1", "pkt_2"});
+
+  REQUIRE_OK(a0_reader_zc_close(&rz));
+}
+
 struct ReaderReadOneFixture : ReaderBaseFixture {};
 
 TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking oldest") {
@@ -542,7 +668,7 @@ TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking oldest, e
   REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_OLDEST, O_NONBLOCK, &pkt) == EAGAIN);
 }
 
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking recent") {
+TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking most recent") {
   push_pkt("pkt_0");
   push_pkt("pkt_1");
 
@@ -552,12 +678,12 @@ TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking recent") 
   REQUIRE(a0::test::str(pkt.payload) == "pkt_1");
 }
 
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking recent, empty") {
+TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking most recent, empty") {
   a0_packet_t pkt;
   REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_MOST_RECENT, O_NONBLOCK, &pkt) == EAGAIN);
 }
 
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking new") {
+TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking await new") {
   push_pkt("pkt_0");
   push_pkt("pkt_1");
 
@@ -565,7 +691,7 @@ TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking new") {
   REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, O_NONBLOCK, &pkt) == EAGAIN);
 }
 
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking new, empty") {
+TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking await new, empty") {
   a0_packet_t pkt;
   REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, O_NONBLOCK, &pkt) == EAGAIN);
 }

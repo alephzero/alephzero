@@ -15,6 +15,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "sync.hpp"
 #include "transport_tools.hpp"
@@ -28,12 +29,19 @@
 
 namespace a0::test {
 
+inline a0_buf_t buf(a0_transport_frame_t frame) {
+  return a0_buf_t{
+      .ptr = frame.data,
+      .size = frame.hdr.data_size,
+  };
+}
+
 inline std::string str(a0_buf_t buf) {
   return std::string((char*)buf.ptr, buf.size);
 }
 
 inline std::string str(a0_transport_frame_t frame) {
-  return str(a0::buf(frame));
+  return str(buf(frame));
 }
 
 inline a0_buf_t buf(std::string str) {

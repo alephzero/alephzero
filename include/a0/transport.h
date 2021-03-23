@@ -190,7 +190,17 @@ errno_t a0_transport_unlock(a0_locked_transport_t);
 
 /// Shuts down the notification mechanism.
 ///
-/// Returns once all awaiting calls wake with ESHUTDOWN. New awaits will fail with ESHUTDOWN.
+/// Returns immediately.
+/// Existing awaits will gradually wake with return ESHUTDOWN.
+/// New awaits will fail with ESHUTDOWN.
+errno_t a0_transport_start_shutdown(a0_locked_transport_t);
+
+/// Waits for the full completion of a0_transport_start_shutdown.
+///
+/// Returns once all awaiting calls wake with ESHUTDOWN.
+errno_t a0_transport_await_shutdown(a0_locked_transport_t);
+
+/// Shuts down the notification mechanism and waits for all awaits to return.
 errno_t a0_transport_shutdown(a0_locked_transport_t);
 
 /// Checks whether the transport is empty.

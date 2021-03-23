@@ -102,18 +102,26 @@ errno_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
 
   return A0_OK;
 }
-
-errno_t a0_transport_shutdown(a0_locked_transport_t lk) {
+errno_t a0_transport_start_shutdown(a0_locked_transport_t lk) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   lk.transport->_shutdown = true;
   a0_cnd_broadcast(&hdr->cnd, &hdr->mtx);
+  return A0_OK;
+}
+
+errno_t a0_transport_await_shutdown(a0_locked_transport_t lk) {
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   while (lk.transport->_await_cnt) {
     a0_cnd_wait(&hdr->cnd, &hdr->mtx);
   }
-
   return A0_OK;
+}
+
+errno_t a0_transport_shutdown(a0_locked_transport_t lk) {
+  A0_RETURN_ERR_ON_ERR(a0_transport_start_shutdown(lk));
+  return a0_transport_await_shutdown(lk);
 }
 
 errno_t a0_transport_lock(a0_transport_t* transport, a0_locked_transport_t* lk_out) {
