@@ -244,7 +244,7 @@ errno_t a0_flat_packet_payload(a0_flat_packet_t, a0_buf_t*);
 /// Retrieve the i-th header within the flat packet.
 ///
 /// **Note**: the result points into the flat packet. It is not copied out.
-errno_t a0_flat_packet_header(a0_flat_packet_t, int idx, a0_packet_header_t*);
+errno_t a0_flat_packet_header(a0_flat_packet_t, size_t idx, a0_packet_header_t*);
 
 /** @}*/
 

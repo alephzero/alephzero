@@ -103,7 +103,6 @@ errno_t a0_writer_close(a0_writer_t* w) {
 
   if (w->_next_writer) {
     size_t next_writer_ref_cnt;
-    A0_MAYBE_UNUSED(next_writer_ref_cnt);
     A0_ASSERT_OK(
         a0_ref_cnt_dec(w->_next_writer, &next_writer_ref_cnt),
         "Closing writer while still in use.");
@@ -113,7 +112,6 @@ errno_t a0_writer_close(a0_writer_t* w) {
   }
 
   size_t ref_cnt;
-  A0_MAYBE_UNUSED(ref_cnt);
   A0_ASSERT_OK(
       a0_ref_cnt_dec(w, &ref_cnt),
       "Failed to decrement writer count.");

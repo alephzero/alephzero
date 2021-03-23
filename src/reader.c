@@ -92,16 +92,17 @@ errno_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
                                a0_zero_copy_callback_t cb) {
 #ifdef DEBUG
   A0_ASSERT(reader_sync_zc, "Cannot read from null reader (sync+zc).");
-
-  bool has_next;
-  a0_reader_sync_zc_has_next(reader_sync_zc, &has_next);
-  if (!has_next) {
-    return EAGAIN;
-  }
 #endif
 
   a0_locked_transport_t tlk;
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(&reader_sync_zc->_transport, &tlk));
+
+  bool empty;
+  a0_transport_empty(tlk, &empty);
+  if (empty) {
+    a0_transport_unlock(tlk);
+    return EAGAIN;
+  }
 
   bool should_step = reader_sync_zc->_first_read_done || reader_sync_zc->_init == A0_INIT_AWAIT_NEW;
   if (!should_step) {

@@ -268,7 +268,12 @@ errno_t a0_flat_packet_payload(a0_flat_packet_t fpkt, a0_buf_t* out) {
   return A0_OK;
 }
 
-errno_t a0_flat_packet_header(a0_flat_packet_t fpkt, int idx, a0_packet_header_t* out) {
+errno_t a0_flat_packet_header(a0_flat_packet_t fpkt, size_t idx, a0_packet_header_t* out) {
+  size_t num_hdrs = *(size_t*)(fpkt.ptr + sizeof(a0_uuid_t));
+  if (idx >= num_hdrs) {
+    return EINVAL;
+  }
+
   size_t* hdr_idx_ptr = (size_t*)(fpkt.ptr + sizeof(a0_uuid_t) + sizeof(size_t));
   size_t key_off = *(size_t*)(hdr_idx_ptr + (2 * idx));
   size_t val_off = *(size_t*)(hdr_idx_ptr + (2 * idx + 1));
