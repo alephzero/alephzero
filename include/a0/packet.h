@@ -219,6 +219,15 @@ errno_t a0_packet_for_each_header(a0_packet_headers_block_t, a0_packet_header_ca
 /// **Note**: the header order will NOT be retained.
 errno_t a0_packet_serialize(a0_packet_t, a0_alloc_t, a0_flat_packet_t* out);
 
+/// Deserializes the flat packet into a normal packet.
+errno_t a0_packet_deserialize(a0_flat_packet_t, a0_alloc_t, a0_packet_t* out);
+
+/// Deep copies the packet contents.
+errno_t a0_packet_deep_copy(a0_packet_t, a0_alloc_t, a0_packet_t* out);
+
+/// Deallocates a packet that was previously allocated with the given alloc.
+errno_t a0_packet_dealloc(a0_packet_t, a0_alloc_t);
+
 /// Compute packet statistics, for serialized packets.
 errno_t a0_flat_packet_stats(a0_flat_packet_t, a0_packet_stats_t*);
 
@@ -236,15 +245,6 @@ errno_t a0_flat_packet_payload(a0_flat_packet_t, a0_buf_t*);
 ///
 /// **Note**: the result points into the flat packet. It is not copied out.
 errno_t a0_flat_packet_header(a0_flat_packet_t, int idx, a0_packet_header_t*);
-
-/// Deserializes the flat packet into a normal packet.
-errno_t a0_packet_deserialize(a0_flat_packet_t, a0_alloc_t, a0_packet_t* out);
-
-/// Deep copies the packet contents.
-errno_t a0_packet_deep_copy(a0_packet_t, a0_alloc_t, a0_packet_t* out);
-
-/// Deallocates a packet that was previously allocated with the given alloc.
-errno_t a0_packet_dealloc(a0_packet_t, a0_alloc_t);
 
 /** @}*/
 

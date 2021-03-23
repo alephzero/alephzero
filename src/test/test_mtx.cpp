@@ -288,7 +288,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, not consistent, tr
 
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
-  REQUIRE(a0_mtx_lock(mtx) == EOWNERDEAD);
+  REQUIRE(a0_mtx_trylock(mtx) == EOWNERDEAD);
   REQUIRE_OK(a0_mtx_unlock(mtx));
   REQUIRE(a0_mtx_trylock(mtx) == ENOTRECOVERABLE);
 }
@@ -298,7 +298,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, tryloc
 
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
-  REQUIRE(a0_mtx_lock(mtx) == EOWNERDEAD);
+  REQUIRE(a0_mtx_trylock(mtx) == EOWNERDEAD);
   REQUIRE_OK(a0_mtx_consistent(mtx));
   REQUIRE_OK(a0_mtx_unlock(mtx));
   REQUIRE_OK(a0_mtx_trylock(mtx));
