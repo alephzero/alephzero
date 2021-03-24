@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -817,4 +818,83 @@ TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking await new
 TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking await new, empty") {
   a0_packet_t pkt;
   REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, O_NONBLOCK, &pkt) == EAGAIN);
+}
+
+TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking oldest") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  a0_packet_t pkt;
+  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_OLDEST, 0, &pkt));
+
+  REQUIRE(a0::test::str(pkt.payload) == "pkt_0");
+}
+
+TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking oldest, empty") {
+  std::thread t([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    push_pkt("pkt_0");
+  });
+
+  a0_packet_t pkt;
+  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_OLDEST, 0, &pkt));
+
+  REQUIRE(a0::test::str(pkt.payload) == "pkt_0");
+
+  t.join();
+}
+
+TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking most recent") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  a0_packet_t pkt;
+  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_MOST_RECENT, 0, &pkt));
+
+  REQUIRE(a0::test::str(pkt.payload) == "pkt_1");
+}
+
+TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking most recent, empty") {
+  std::thread t([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    push_pkt("pkt_0");
+  });
+
+  a0_packet_t pkt;
+  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_MOST_RECENT, 0, &pkt));
+
+  REQUIRE(a0::test::str(pkt.payload) == "pkt_0");
+
+  t.join();
+}
+
+TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking await new") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  std::thread t([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    push_pkt("pkt_2");
+  });
+
+  a0_packet_t pkt;
+  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, 0, &pkt));
+
+  REQUIRE(a0::test::str(pkt.payload) == "pkt_2");
+
+  t.join();
+}
+
+TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking await new, empty") {
+  std::thread t([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    push_pkt("pkt_0");
+  });
+
+  a0_packet_t pkt;
+  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, 0, &pkt));
+
+  REQUIRE(a0::test::str(pkt.payload) == "pkt_0");
+
+  t.join();
 }
