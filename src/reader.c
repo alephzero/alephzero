@@ -419,10 +419,15 @@ errno_t a0_reader_init(a0_reader_t* reader,
   reader->_impl = (a0_reader_impl_t*)malloc(sizeof(a0_reader_impl_t));
   reader->_impl->alloc = alloc;
   reader->_impl->onpacket = onpacket;
-  a0_zero_copy_callback_t onpacket_wrapper;
-  onpacket_wrapper.user_data = &reader->_impl;
-  onpacket_wrapper.fn = a0_reader_onpacket_wrapper;
+  memset(&reader->_impl->onclose, 0, sizeof(a0_callback_t));
+
+  a0_zero_copy_callback_t onpacket_wrapper = (a0_zero_copy_callback_t){
+      .user_data = reader->_impl,
+      .fn = a0_reader_onpacket_wrapper,
+  };
+
   errno_t err = a0_reader_zc_init(&reader->_impl->reader_zc, arena, init, iter, onpacket_wrapper);
+
   if (err) {
     free(reader->_impl);
     reader->_impl = NULL;
