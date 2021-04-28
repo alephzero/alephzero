@@ -29,7 +29,6 @@
 // #include "ref_cnt.h"
 // #endif
 
-
 // A0_STATIC_INLINE
 // errno_t open_topic(const char* topic,
 //                    const a0_file_options_t* topic_opts,

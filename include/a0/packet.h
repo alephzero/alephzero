@@ -183,6 +183,13 @@ typedef struct a0_packet_callback_s {
   void (*fn)(void* user_data, a0_packet_t);
 } a0_packet_callback_t;
 
+A0_STATIC_INLINE
+void a0_packet_callback_call(a0_packet_callback_t callback, a0_packet_t pkt) {
+  if (callback.fn) {
+    callback.fn(callback.user_data, pkt);
+  }
+}
+
 typedef struct a0_packet_header_callback_s {
   void* user_data;
   void (*fn)(void* user_data, a0_packet_header_t);

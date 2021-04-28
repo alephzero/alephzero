@@ -4,6 +4,7 @@
 #include <a0/packet.h>
 #include <a0/uuid.h>
 
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

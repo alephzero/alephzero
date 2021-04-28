@@ -1,6 +1,6 @@
 #include <a0/packet.h>
-#include <a0/transport.h>
 #include <a0/reader.h>
+#include <a0/transport.h>
 
 #include <doctest.h>
 #include <fcntl.h>
@@ -9,6 +9,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <string>
 #include <thread>
 #include <utility>
@@ -17,7 +18,6 @@
 #include "src/sync.hpp"
 #include "src/test_util.hpp"
 #include "src/transport_tools.hpp"
-
 
 struct ReaderBaseFixture {
   std::vector<uint8_t> arena_data;
@@ -45,7 +45,6 @@ struct ReaderBaseFixture {
     REQUIRE_OK(a0_transport_unlock(lk));
   }
 };
-
 
 struct ReaderSyncZCFixture : ReaderBaseFixture {
   a0_reader_sync_zc_t rsz;
@@ -298,7 +297,6 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] next without has_next") 
   REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
 }
 
-
 struct ReaderSyncFixture : ReaderBaseFixture {
   a0_reader_sync_t rs;
 
@@ -526,7 +524,6 @@ TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] next without has_next") {
   REQUIRE_OK(a0_reader_sync_close(&rs));
 }
 
-
 struct ReaderZCFixture : ReaderBaseFixture {
   a0_reader_zc_t rz;
 
@@ -537,16 +534,16 @@ struct ReaderZCFixture : ReaderBaseFixture {
 
   a0_zero_copy_callback_t make_callback() {
     return a0_zero_copy_callback_t{
-      .user_data = &sync_data,
-      .fn = [](void* user_data, a0_locked_transport_t, a0_flat_packet_t fpkt) {
-        auto* sync_data = (a0::sync<data_t>*)user_data;
-        a0_buf_t payload;
-        a0_flat_packet_payload(fpkt, &payload);
+        .user_data = &sync_data,
+        .fn = [](void* user_data, a0_locked_transport_t, a0_flat_packet_t fpkt) {
+          auto* sync_data = (a0::sync<data_t>*)user_data;
+          a0_buf_t payload;
+          a0_flat_packet_payload(fpkt, &payload);
 
-        sync_data->notify_all([&](auto& data) {
-          data.collected_payloads.push_back(a0::test::str(payload));
-        });
-      },
+          sync_data->notify_all([&](auto& data) {
+            data.collected_payloads.push_back(a0::test::str(payload));
+          });
+        },
     };
   }
 
@@ -651,7 +648,6 @@ TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] await new-next, empty start") {
   REQUIRE_OK(a0_reader_zc_close(&rz));
 }
 
-
 struct ReaderFixture : ReaderBaseFixture {
   a0_reader_t r;
 
@@ -662,14 +658,14 @@ struct ReaderFixture : ReaderBaseFixture {
 
   a0_packet_callback_t make_callback() {
     return a0_packet_callback_t{
-      .user_data = &sync_data,
-      .fn = [](void* user_data, a0_packet_t pkt) {
-        auto* sync_data = (a0::sync<data_t>*)user_data;
+        .user_data = &sync_data,
+        .fn = [](void* user_data, a0_packet_t pkt) {
+          auto* sync_data = (a0::sync<data_t>*)user_data;
 
-        sync_data->notify_all([&](auto& data) {
-          data.collected_payloads.push_back(a0::test::str(pkt.payload));
-        });
-      },
+          sync_data->notify_all([&](auto& data) {
+            data.collected_payloads.push_back(a0::test::str(pkt.payload));
+          });
+        },
     };
   }
 
@@ -773,7 +769,6 @@ TEST_CASE_FIXTURE(ReaderFixture, "reader] await new-next, empty start") {
 
   REQUIRE_OK(a0_reader_close(&r));
 }
-
 
 struct ReaderReadOneFixture : ReaderBaseFixture {};
 

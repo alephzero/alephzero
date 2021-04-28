@@ -85,20 +85,15 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] basic") {
 
   REQUIRE_OK(a0_writer_close(&w));
 
-  require_transport_state({
-    {
-        {
-            {"key", "val"}
-        },
-        "msg #0",
-    },
-    {
-        {
-            {"key", "val"}
-        },
-        "msg #1",
-    }
-  });
+  require_transport_state(
+      {{
+           {{"key", "val"}},
+           "msg #0",
+       },
+       {
+           {{"key", "val"}},
+           "msg #1",
+       }});
 }
 
 TEST_CASE_FIXTURE(WriterFixture, "writer] one middleware") {
@@ -114,21 +109,20 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] one middleware") {
   REQUIRE_OK(a0_writer_close(&w_1));
   REQUIRE_OK(a0_writer_close(&w_0));
 
-  require_transport_state({
-    {
-        {
-            {"key", "val"},
-        },
-        "msg #0",
-    },
-    {
-        {
-            {"a0_time_mono", "???"},
-            {"key", "val"},
-        },
-        "msg #1",
-    }
-  });
+  require_transport_state(
+      {{
+           {
+               {"key", "val"},
+           },
+           "msg #0",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"key", "val"},
+           },
+           "msg #1",
+       }});
 }
 
 TEST_CASE_FIXTURE(WriterFixture, "writer] multiple middleware") {
@@ -160,58 +154,57 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] multiple middleware") {
   REQUIRE_OK(a0_writer_close(&w_1));
   REQUIRE_OK(a0_writer_close(&w_0));
 
-  require_transport_state({
-    {
-        {
-            {"key", "val"},
-        },
-        "msg #0",
-    },
-    {
-        {
-            {"a0_time_mono", "???"},
-            {"key", "val"},
-        },
-        "msg #1",
-    },
-    {
-        {
-            {"a0_time_mono", "???"},
-            {"a0_time_wall", "???"},
-            {"key", "val"},
-        },
-        "msg #2",
-    },
-    {
-        {
-            {"a0_time_mono", "???"},
-            {"a0_time_wall", "???"},
-            {"a0_writer_id", "???"},
-            {"key", "val"},
-        },
-        "msg #3",
-    },
-    {
-        {
-            {"a0_time_mono", "???"},
-            {"a0_time_wall", "???"},
-            {"a0_writer_id", "???"},
-            {"a0_writer_seq", "0"},
-            {"key", "val"},
-        },
-        "msg #4",
-    },
-    {
-        {
-            {"a0_time_mono", "???"},
-            {"a0_time_wall", "???"},
-            {"a0_writer_id", "???"},
-            {"a0_writer_seq", "1"},
-            {"key", "val"},
-        },
-        "msg #5",
-    }
-  });
+  require_transport_state(
+      {{
+           {
+               {"key", "val"},
+           },
+           "msg #0",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"key", "val"},
+           },
+           "msg #1",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"a0_time_wall", "???"},
+               {"key", "val"},
+           },
+           "msg #2",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"a0_time_wall", "???"},
+               {"a0_writer_id", "???"},
+               {"key", "val"},
+           },
+           "msg #3",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"a0_time_wall", "???"},
+               {"a0_writer_id", "???"},
+               {"a0_writer_seq", "0"},
+               {"key", "val"},
+           },
+           "msg #4",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"a0_time_wall", "???"},
+               {"a0_writer_id", "???"},
+               {"a0_writer_seq", "1"},
+               {"key", "val"},
+           },
+           "msg #5",
+       }});
 }
 
 TEST_CASE_FIXTURE(WriterFixture, "writer] standard headers") {
@@ -228,34 +221,33 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] standard headers") {
   REQUIRE_OK(a0_writer_close(&w_1));
   REQUIRE_OK(a0_writer_close(&w_0));
 
-  require_transport_state({
-    {
-        {
-            {"key", "val"},
-        },
-        "msg #0",
-    },
-    {
-        {
-            {"a0_time_mono", "???"},
-            {"a0_time_wall", "???"},
-            {"a0_writer_id", "???"},
-            {"a0_writer_seq", "0"},
-            {"key", "val"},
-        },
-        "msg #1",
-    },
-    {
-        {
-            {"a0_time_mono", "???"},
-            {"a0_time_wall", "???"},
-            {"a0_writer_id", "???"},
-            {"a0_writer_seq", "1"},
-            {"key", "val"},
-        },
-        "msg #2",
-    }
-  });
+  require_transport_state(
+      {{
+           {
+               {"key", "val"},
+           },
+           "msg #0",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"a0_time_wall", "???"},
+               {"a0_writer_id", "???"},
+               {"a0_writer_seq", "0"},
+               {"key", "val"},
+           },
+           "msg #1",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"a0_time_wall", "???"},
+               {"a0_writer_id", "???"},
+               {"a0_writer_seq", "1"},
+               {"key", "val"},
+           },
+           "msg #2",
+       }});
 }
 
 #ifdef DEBUG

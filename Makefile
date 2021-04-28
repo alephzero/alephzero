@@ -137,7 +137,7 @@ valgrind: $(BIN_DIR)/test
 		echo "\e[01;31mError: valgrind is not installed\e[0m";  \
 		exit 1;                                                 \
 	}
-	RUNNING_ON_VALGRIND=1 valgrind --tool=memcheck --leak-check=yes ./bin/test
+	RUNNING_ON_VALGRIND=1 valgrind --tool=memcheck --leak-check=yes -q ./bin/test
 
 cov: $(BIN_DIR)/test
 	$(BIN_DIR)/test

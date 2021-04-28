@@ -3,6 +3,7 @@
 #include <a0/buf.h>
 #include <a0/callback.h>
 #include <a0/err.h>
+#include <a0/event.h>
 #include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
@@ -13,13 +14,10 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <syscall.h>
 #include <unistd.h>
 
 #include "err_util.h"
-#include "event.h"
 #include "unused.h"
 
 #ifdef DEBUG
@@ -190,23 +188,8 @@ errno_t a0_reader_sync_next(a0_reader_sync_t* reader_sync, a0_packet_t* pkt) {
 
 // Threaded zero-copy version.
 
-struct a0_reader_zc_impl_s {
-  a0_transport_t transport;
-  bool started_empty;
-
-  pthread_t thread;
-  uint32_t thread_id;
-  a0_event_t thread_start_event;
-
-  a0_reader_init_t init;
-  a0_reader_iter_t iter;
-
-  a0_zero_copy_callback_t onpacket;
-  a0_callback_t onclose;
-};
-
 A0_STATIC_INLINE
-void a0_reader_zc_thread_handle_pkt(a0_reader_zc_impl_t* impl, a0_locked_transport_t tlk) {
+void a0_reader_zc_thread_handle_pkt(a0_reader_zc_t* reader_zc, a0_locked_transport_t tlk) {
   a0_transport_frame_t frame;
   a0_transport_frame(tlk, &frame);
 
@@ -215,14 +198,14 @@ void a0_reader_zc_thread_handle_pkt(a0_reader_zc_impl_t* impl, a0_locked_transpo
       .size = frame.hdr.data_size,
   };
 
-  impl->onpacket.fn(impl->onpacket.user_data, tlk, fpkt);
+  reader_zc->_onpacket.fn(reader_zc->_onpacket.user_data, tlk, fpkt);
 }
 
 A0_STATIC_INLINE
-bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_impl_t* impl, a0_locked_transport_t tlk) {
+bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_t* reader_zc, a0_locked_transport_t tlk) {
   if (a0_transport_await(tlk, a0_transport_nonempty) == A0_OK) {
     bool reset = false;
-    if (impl->started_empty) {
+    if (reader_zc->_started_empty) {
       reset = true;
     } else {
       bool ptr_valid;
@@ -234,8 +217,8 @@ bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_impl_t* impl, a0_locked_t
       a0_transport_jump_head(tlk);
     }
 
-    if (reset || impl->init == A0_INIT_OLDEST || impl->init == A0_INIT_MOST_RECENT) {
-      a0_reader_zc_thread_handle_pkt(impl, tlk);
+    if (reset || reader_zc->_init == A0_INIT_OLDEST || reader_zc->_init == A0_INIT_MOST_RECENT) {
+      a0_reader_zc_thread_handle_pkt(reader_zc, tlk);
     }
 
     return true;
@@ -245,15 +228,15 @@ bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_impl_t* impl, a0_locked_t
 }
 
 A0_STATIC_INLINE
-bool a0_reader_zc_thread_handle_next_pkt(a0_reader_zc_impl_t* impl, a0_locked_transport_t tlk) {
+bool a0_reader_zc_thread_handle_next_pkt(a0_reader_zc_t* reader_zc, a0_locked_transport_t tlk) {
   if (a0_transport_await(tlk, a0_transport_has_next) == A0_OK) {
-    if (impl->iter == A0_ITER_NEXT) {
+    if (reader_zc->_iter == A0_ITER_NEXT) {
       a0_transport_next(tlk);
-    } else if (impl->iter == A0_ITER_NEWEST) {
+    } else if (reader_zc->_iter == A0_ITER_NEWEST) {
       a0_transport_jump_tail(tlk);
     }
 
-    a0_reader_zc_thread_handle_pkt(impl, tlk);
+    a0_reader_zc_thread_handle_pkt(reader_zc, tlk);
 
     return true;
   }
@@ -263,38 +246,24 @@ bool a0_reader_zc_thread_handle_next_pkt(a0_reader_zc_impl_t* impl, a0_locked_tr
 
 A0_STATIC_INLINE
 void* a0_reader_zc_thread_main(void* data) {
-  a0_reader_zc_impl_t* impl = (a0_reader_zc_impl_t*)data;
+  a0_reader_zc_t* reader_zc = (a0_reader_zc_t*)data;
   // Alert that the thread has started.
-  impl->thread_id = syscall(SYS_gettid);
-  a0_event_set(&impl->thread_start_event);
+  reader_zc->_thread_id = syscall(SYS_gettid);
+  a0_event_set(&reader_zc->_thread_start_event);
 
   // Lock until shutdown.
   // Lock will release lock while awaiting packets.
   a0_locked_transport_t tlk;
-  a0_transport_lock(&impl->transport, &tlk);
+  a0_transport_lock(&reader_zc->_transport, &tlk);
 
   // Loop until shutdown is triggered.
-  if (a0_reader_zc_thread_handle_first_pkt(impl, tlk)) {
-    while (a0_reader_zc_thread_handle_next_pkt(impl, tlk)) {
+  if (a0_reader_zc_thread_handle_first_pkt(reader_zc, tlk)) {
+    while (a0_reader_zc_thread_handle_next_pkt(reader_zc, tlk)) {
     }
   }
 
-  // Start shutdown.
-
-  // No longer need transport access.
+  // Shutting down.
   a0_transport_unlock(tlk);
-
-  // Be nice and cleanup memory.
-  a0_event_close(&impl->thread_start_event);
-
-  // Save for later.
-  a0_callback_t onclose = impl->onclose;
-
-  // Done with impl.
-  free(impl);
-
-  // Alert user that shutdown is complete.
-  onclose.fn(onclose.user_data);
 
   return NULL;
 }
@@ -304,23 +273,21 @@ errno_t a0_reader_zc_init(a0_reader_zc_t* reader_zc,
                           a0_reader_init_t init,
                           a0_reader_iter_t iter,
                           a0_zero_copy_callback_t onpacket) {
-  a0_reader_zc_impl_t* impl = (a0_reader_zc_impl_t*)malloc(sizeof(a0_reader_zc_impl_t));
+  reader_zc->_init = init;
+  reader_zc->_iter = iter;
+  reader_zc->_onpacket = onpacket;
 
-  errno_t err = a0_transport_init(&impl->transport, arena);
-  if (err) {
-    free(impl);
-    return err;
-  }
+  A0_RETURN_ERR_ON_ERR(a0_transport_init(&reader_zc->_transport, arena));
 
 #ifdef DEBUG
   a0_ref_cnt_inc(arena.buf.ptr, NULL);
 #endif
 
   a0_locked_transport_t tlk;
-  a0_transport_lock(&impl->transport, &tlk);
+  a0_transport_lock(&reader_zc->_transport, &tlk);
 
-  a0_transport_empty(tlk, &impl->started_empty);
-  if (!impl->started_empty) {
+  a0_transport_empty(tlk, &reader_zc->_started_empty);
+  if (!reader_zc->_started_empty) {
     if (init == A0_INIT_OLDEST) {
       a0_transport_jump_head(tlk);
     } else if (init == A0_INIT_MOST_RECENT || init == A0_INIT_AWAIT_NEW) {
@@ -330,82 +297,48 @@ errno_t a0_reader_zc_init(a0_reader_zc_t* reader_zc,
 
   a0_transport_unlock(tlk);
 
-  impl->init = init;
-  impl->iter = iter;
-  impl->onpacket = onpacket;
-  impl->onclose.user_data = NULL;
-  impl->onclose.fn = NULL;
-  a0_event_init(&impl->thread_start_event);
-
-  pthread_attr_t thread_attr;
-  pthread_attr_init(&thread_attr);
-  pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_DETACHED);
+  a0_event_init(&reader_zc->_thread_start_event);
 
   pthread_create(
-      &impl->thread,
-      &thread_attr,
+      &reader_zc->_thread,
+      NULL,
       a0_reader_zc_thread_main,
-      impl);
-
-  reader_zc->_impl = impl;
+      reader_zc);
 
   return A0_OK;
 }
 
-errno_t a0_reader_zc_async_close(a0_reader_zc_t* reader_zc, a0_locked_transport_t tlk, a0_callback_t onclose) {
-#ifdef DEBUG
-  a0_ref_cnt_dec(reader_zc->_impl->transport._arena.buf.ptr, NULL);
-#endif
-
-  reader_zc->_impl->onclose = onclose;
-  return a0_transport_start_shutdown(tlk);
-}
-
 errno_t a0_reader_zc_close(a0_reader_zc_t* reader_zc) {
-  a0_event_wait(&reader_zc->_impl->thread_start_event);
-  if (syscall(SYS_gettid) == reader_zc->_impl->thread_id) {
+  a0_event_wait(&reader_zc->_thread_start_event);
+  if (pthread_equal(pthread_self(), reader_zc->_thread_id)) {
     return EDEADLK;
   }
+#ifdef DEBUG
+  a0_ref_cnt_dec(reader_zc->_transport._arena.buf.ptr, NULL);
+#endif
 
   a0_locked_transport_t tlk;
-  a0_transport_lock(&reader_zc->_impl->transport, &tlk);
-
-  a0_event_t close_event;
-  a0_event_init(&close_event);
-
-  a0_callback_t onclose = (a0_callback_t){
-      .user_data = &close_event,
-      .fn = (void (*)(void*))a0_event_set,
-  };
-
-  a0_reader_zc_async_close(reader_zc, tlk, onclose);
-
+  a0_transport_lock(&reader_zc->_transport, &tlk);
+  a0_transport_shutdown(tlk);
   a0_transport_unlock(tlk);
 
-  a0_event_wait(&close_event);
-  a0_event_close(&close_event);
+  a0_event_close(&reader_zc->_thread_start_event);
+  pthread_join(reader_zc->_thread, NULL);
 
   return A0_OK;
 }
 
 // Threaded version.
 
-struct a0_reader_impl_s {
-  a0_reader_zc_t reader_zc;
-  a0_alloc_t alloc;
-  a0_packet_callback_t onpacket;
-  a0_callback_t onclose;
-};
-
 A0_STATIC_INLINE
 void a0_reader_onpacket_wrapper(void* user_data, a0_locked_transport_t tlk, a0_flat_packet_t fpkt) {
-  a0_reader_impl_t* impl = (a0_reader_impl_t*)user_data;
+  a0_reader_t* reader = (a0_reader_t*)user_data;
   a0_packet_t pkt;
-  a0_packet_deserialize(fpkt, impl->alloc, &pkt);
+  a0_packet_deserialize(fpkt, reader->_alloc, &pkt);
   a0_transport_unlock(tlk);
 
-  impl->onpacket.fn(impl->onpacket.user_data, pkt);
-  a0_packet_dealloc(pkt, impl->alloc);
+  a0_packet_callback_call(reader->_onpacket, pkt);
+  a0_packet_dealloc(pkt, reader->_alloc);
 
   a0_transport_lock(tlk.transport, &tlk);
 }
@@ -416,52 +349,22 @@ errno_t a0_reader_init(a0_reader_t* reader,
                        a0_reader_init_t init,
                        a0_reader_iter_t iter,
                        a0_packet_callback_t onpacket) {
-  reader->_impl = (a0_reader_impl_t*)malloc(sizeof(a0_reader_impl_t));
-  reader->_impl->alloc = alloc;
-  reader->_impl->onpacket = onpacket;
-  memset(&reader->_impl->onclose, 0, sizeof(a0_callback_t));
+  reader->_alloc = alloc;
+  reader->_onpacket = onpacket;
 
   a0_zero_copy_callback_t onpacket_wrapper = (a0_zero_copy_callback_t){
-      .user_data = reader->_impl,
+      .user_data = reader,
       .fn = a0_reader_onpacket_wrapper,
   };
 
-  errno_t err = a0_reader_zc_init(&reader->_impl->reader_zc, arena, init, iter, onpacket_wrapper);
-
-  if (err) {
-    free(reader->_impl);
-    reader->_impl = NULL;
-  }
-  return err;
-}
-
-A0_STATIC_INLINE
-void a0_reader_onclose_wrapper(void* user_data) {
-  a0_reader_impl_t* impl = (a0_reader_impl_t*)user_data;
-  impl->onclose.fn(impl->onclose.user_data);
-  free(impl);
-}
-
-errno_t a0_reader_async_close(a0_reader_t* reader, a0_callback_t onclose) {
-  reader->_impl->onclose = onclose;
-
-  a0_callback_t onclose_wrapper = (a0_callback_t){
-      .user_data = reader->_impl,
-      .fn = a0_reader_onclose_wrapper,
-  };
-
-  a0_locked_transport_t tlk;
-  a0_transport_lock(&reader->_impl->reader_zc._impl->transport, &tlk);
-  errno_t err = a0_reader_zc_async_close(&reader->_impl->reader_zc, tlk, onclose_wrapper);
-  a0_transport_unlock(tlk);
-  return err;
+  return a0_reader_zc_init(&reader->_reader_zc, arena, init, iter, onpacket_wrapper);
 }
 
 errno_t a0_reader_close(a0_reader_t* reader) {
-  errno_t err = a0_reader_zc_close(&reader->_impl->reader_zc);
-  free(reader->_impl);
-  return err;
+  return a0_reader_zc_close(&reader->_reader_zc);
 }
+
+// Read one version.
 
 typedef struct a0_reader_read_one_data_s {
   a0_packet_t* pkt;
@@ -470,7 +373,7 @@ typedef struct a0_reader_read_one_data_s {
 
 void a0_reader_read_one_callback(void* user_data, a0_packet_t pkt) {
   a0_reader_read_one_data_t* data = (a0_reader_read_one_data_t*)user_data;
-  if (data->done_event.is_set) {
+  if (a0_event_is_set(&data->done_event)) {
     return;
   }
 

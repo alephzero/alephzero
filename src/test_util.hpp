@@ -148,12 +148,6 @@ inline pkt_cmp_t pkt_cmp(a0_packet_t lhs, a0_packet_t rhs) {
   return ret;
 }
 
-template <typename C>
-struct _c2cpp_ {
-  C c;
-  
-};
-
 inline bool is_valgrind() {
 #ifdef RUNNING_ON_VALGRIND
   return RUNNING_ON_VALGRIND;
@@ -187,41 +181,6 @@ pid_t subproc(Fn&& fn) {
 }
 
 }  // namespace a0::test
-
-#define Test_AutoC2CPP_start(STEM, CPPNAME)                        \
-class CPPNAME {                                                    \
-  CPPNAME() = default;                                             \
- public:                                                           \
-  a0_##STEM##_t c;                                                 \
-  template <typename... Args>                                      \
-  explicit CPPNAME(Args&&... args) {                               \
-    REQUIRE_OK(a0_##STEM##_init(&c, std::forward<Args>(args)...)); \
-  }                                                                \
-  CPPNAME(const CPPNAME&) = delete;                                \
-  CPPNAME(CPPNAME&&) = default;                                    \
-  ~CPPNAME() { a0_##STEM##_close(&c); }                            \
-  static CPPNAME from_c(a0_##STEM##_t c) {                         \
-    CPPNAME cpp;                                                   \
-    cpp.c = c;                                                     \
-    return cpp;                                                    \
-  }
-
-#define Test_AutoC2CPP_end(STEM) \
-};
-
-#define Test_AutoC2CPP_method(STEM, FN)                          \
-template <typename... Args>                                      \
-void FN(Args&&... args) {                                        \
-  REQUIRE_OK(a0_##STEM##_##FN(&c, std::forward<Args>(args)...)); \
-}
-
-#define Test_AutoC2CPP_method_ret(STEM, FN, RETURN_T)                  \
-template <typename... Args>                                            \
-RETURN_T FN(Args&&... args) {                                          \
-  RETURN_T ret;                                                        \
-  REQUIRE_OK(a0_##STEM##_##FN(&c, std::forward<Args>(args)..., &ret)); \
-  return ret;                                                          \
-}
 
 inline void REQUIRE_SUBPROC_EXITED(pid_t pid) {
   REQUIRE(pid != -1);

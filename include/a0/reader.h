@@ -15,6 +15,7 @@
 #include <a0/arena.h>
 #include <a0/callback.h>
 #include <a0/err.h>
+#include <a0/event.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
 
@@ -115,7 +116,17 @@ errno_t a0_reader_sync_next(a0_reader_sync_t*, a0_packet_t*);
 typedef struct a0_reader_zc_impl_s a0_reader_zc_impl_t;
 
 typedef struct a0_reader_zc_s {
-  a0_reader_zc_impl_t* _impl;
+  a0_transport_t _transport;
+  bool _started_empty;
+
+  a0_reader_init_t _init;
+  a0_reader_iter_t _iter;
+
+  a0_zero_copy_callback_t _onpacket;
+
+  pthread_t _thread;
+  uint32_t _thread_id;
+  a0_event_t _thread_start_event;
 } a0_reader_zc_t;
 
 /// ...
@@ -125,10 +136,7 @@ errno_t a0_reader_zc_init(a0_reader_zc_t*,
                           a0_reader_iter_t,
                           a0_zero_copy_callback_t);
 
-/// ...
-errno_t a0_reader_zc_async_close(a0_reader_zc_t*, a0_locked_transport_t, a0_callback_t);
-
-/// ...
+/// May not be called from within a callback.
 errno_t a0_reader_zc_close(a0_reader_zc_t*);
 
 /** @}*/
@@ -140,7 +148,9 @@ errno_t a0_reader_zc_close(a0_reader_zc_t*);
 typedef struct a0_reader_impl_s a0_reader_impl_t;
 
 typedef struct a0_reader_s {
-  a0_reader_impl_t* _impl;
+  a0_reader_zc_t _reader_zc;
+  a0_alloc_t _alloc;
+  a0_packet_callback_t _onpacket;
 } a0_reader_t;
 
 /// ...
@@ -150,9 +160,6 @@ errno_t a0_reader_init(a0_reader_t*,
                        a0_reader_init_t,
                        a0_reader_iter_t,
                        a0_packet_callback_t);
-
-/// ...
-errno_t a0_reader_async_close(a0_reader_t*, a0_callback_t);
 
 /// ...
 errno_t a0_reader_close(a0_reader_t*);

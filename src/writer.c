@@ -5,6 +5,7 @@
 #include <a0/packet.h>
 #include <a0/transport.h>
 #include <a0/writer.h>
+#include <a0/writer_middleware.h>
 
 #include <stdlib.h>
 

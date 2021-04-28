@@ -400,8 +400,12 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] many waiters") {
   a0_mtx_t mtx = A0_EMPTY;
 
   std::vector<std::unique_ptr<latch_t>> latches;
+  size_t num_threads = 1000;
+  if (a0::test::is_valgrind()) {
+    num_threads = 100;
+  }
 
-  for (size_t i = 0; i < 1000; i++) {
+  for (size_t i = 0; i < num_threads; i++) {
     latches.push_back(std::make_unique<latch_t>(2));
     latch_t* latch = latches.back().get();
 
@@ -431,7 +435,12 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] signal chain") {
   a0_mtx_t mtx = A0_EMPTY;
   size_t state = 0;
 
-  for (size_t i = 0; i < 1000; i++) {
+  size_t num_threads = 1000;
+  if (a0::test::is_valgrind()) {
+    num_threads = 100;
+  }
+
+  for (size_t i = 0; i < num_threads; i++) {
     threads.emplace_back([&, i]() {
       REQUIRE_OK(a0_mtx_lock(&mtx));
       while (state != i) {
@@ -448,7 +457,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] signal chain") {
     t.join();
   }
 
-  REQUIRE(state == 1000);
+  REQUIRE(state == num_threads);
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "cnd] broadcast chain") {
@@ -457,7 +466,12 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] broadcast chain") {
   a0_mtx_t mtx = A0_EMPTY;
   size_t state = 0;
 
-  for (size_t i = 0; i < 1000; i++) {
+  size_t num_threads = 1000;
+  if (a0::test::is_valgrind()) {
+    num_threads = 100;
+  }
+
+  for (size_t i = 0; i < num_threads; i++) {
     threads.emplace_back([&, i]() {
       REQUIRE_OK(a0_mtx_lock(&mtx));
       while (state != i) {
@@ -473,7 +487,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] broadcast chain") {
     t.join();
   }
 
-  REQUIRE(state == 1000);
+  REQUIRE(state == num_threads);
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "cnd] signal ping broadcast pong") {
