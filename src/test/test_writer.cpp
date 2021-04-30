@@ -1,11 +1,13 @@
+#include <a0/arena.h>
+#include <a0/buf.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
 #include <a0/writer.h>
+#include <a0/writer_middleware.h>
 
 #include <doctest.h>
 
 #include <algorithm>
-#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -14,7 +16,6 @@
 #include <vector>
 
 #include "src/test_util.hpp"
-#include "src/transport_tools.hpp"
 
 struct WriterFixture {
   std::vector<uint8_t> arena_data;

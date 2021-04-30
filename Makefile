@@ -23,6 +23,8 @@ TEST_OBJ := $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cpp=$(OBJ_DIR)/test/%.o)
 
 TEST_CXXFLAGS += -I. -Itest -Ithird_party/doctest/doctest
 
+IWYU_FLAGS += -Xiwyu --mapping_file=./iwyu.imp
+
 BENCH_SRC_C := $(wildcard $(SRC_DIR)/bench/*.c)
 BENCH_SRC_CXX := $(wildcard $(SRC_DIR)/bench/*.cpp)
 
@@ -153,22 +155,22 @@ covweb: cov
 
 iwyu/$(SRC_DIR)/%.c.ok: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
-	iwyu $(CFLAGS) $(CXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	iwyu $(CFLAGS) $(CXFLAGS) $(IWYU_FLAGS) -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu/$(SRC_DIR)/%.cpp.ok: $(SRC_DIR)/%.cpp
 	@mkdir -p $(@D)
-	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	iwyu $(CXFLAGS) $(CXXFLAGS) $(IWYU_FLAGS) -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu/$(SRC_DIR)/%.hpp.ok: $(SRC_DIR)/%.hpp
 	@mkdir -p $(@D)
-	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	iwyu $(CXFLAGS) $(CXXFLAGS) $(IWYU_FLAGS) -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu/$(SRC_DIR)/test/%.cpp.ok: $(SRC_DIR)/test/%.cpp
 	@mkdir -p $(@D)
-	iwyu $(CXFLAGS) $(CXXFLAGS) $(TEST_CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	iwyu $(CXFLAGS) $(CXXFLAGS) $(TEST_CXXFLAGS) $(IWYU_FLAGS) -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu: $(patsubst $(SRC_DIR)/%.c,iwyu/$(SRC_DIR)/%.c.ok,$(wildcard $(SRC_DIR)/*.c))

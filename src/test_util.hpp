@@ -5,6 +5,7 @@
 #include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
+#include <a0/uuid.h>
 
 #include <sys/wait.h>
 #include <unistd.h>
@@ -12,13 +13,15 @@
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "sync.hpp"
-#include "transport_tools.hpp"
 #include "unused.h"
 
 #ifndef REQUIRE

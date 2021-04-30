@@ -6,7 +6,9 @@
 
 #include <doctest.h>
 
+#include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>

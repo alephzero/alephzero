@@ -1,7 +1,6 @@
 #include <a0/alloc.h>
 #include <a0/arena.h>
 #include <a0/buf.h>
-#include <a0/callback.h>
 #include <a0/err.h>
 #include <a0/event.h>
 #include <a0/inline.h>
@@ -423,12 +422,16 @@ errno_t a0_reader_read_one_nonblocking(a0_arena_t arena,
   A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, arena, alloc, init, A0_ITER_NEXT));
 
   bool has_next;
-  a0_reader_sync_has_next(&reader_sync, &has_next);
-  if (!has_next) {
-    return EAGAIN;
+  errno_t err = a0_reader_sync_has_next(&reader_sync, &has_next);
+  if (!err) {
+    if (has_next) {
+      a0_reader_sync_next(&reader_sync, out);
+    } else {
+      err = EAGAIN;
+    }
   }
-  a0_reader_sync_next(&reader_sync, out);
-  return a0_reader_sync_close(&reader_sync);
+  a0_reader_sync_close(&reader_sync);
+  return err;
 }
 
 errno_t a0_reader_read_one(a0_arena_t arena,

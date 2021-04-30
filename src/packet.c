@@ -164,7 +164,6 @@ errno_t a0_packet_deserialize(a0_flat_packet_t fpkt, a0_alloc_t alloc, a0_packet
   out->payload.size = fpkt.size - payload_off;
   out->payload.ptr = write_ptr;
   memcpy(out->payload.ptr, fpkt.ptr + payload_off, out->payload.size);
-  write_ptr += out->payload.size;
 
   return A0_OK;
 }

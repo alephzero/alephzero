@@ -74,38 +74,38 @@ errno_t a0_subscriber_sync_next(a0_subscriber_sync_t*, a0_packet_t*);
 
 // Threaded zero-copy version.
 
-typedef struct a0_subscriber_zc_impl_s a0_subscriber_zc_impl_t;
-
 typedef struct a0_subscriber_zc_s {
-  a0_subscriber_zc_impl_t* _impl;
+  a0_file_t _file;
+  a0_reader_zc_t _reader_zc;
 } a0_subscriber_zc_t;
 
 errno_t a0_subscriber_zc_init(a0_subscriber_zc_t*,
-                              a0_arena_t,
+                              const char* topic,
+                              const a0_file_options_t* topic_opts,
                               a0_reader_init_t,
                               a0_reader_iter_t,
                               a0_zero_copy_callback_t);
 
 errno_t a0_subscriber_zc_close(a0_subscriber_zc_t*);
-errno_t a0_subscriber_zc_async_close(a0_subscriber_zc_t*, a0_callback_t);
 
 // Threaded allocated version.
 
 typedef struct a0_subscriber_impl_s a0_subscriber_impl_t;
 
 typedef struct a0_subscriber_s {
-  a0_subscriber_impl_t* _impl;
+  a0_file_t _file;
+  a0_reader_t _reader;
 } a0_subscriber_t;
 
 errno_t a0_subscriber_init(a0_subscriber_t*,
-                           a0_arena_t,
+                           const char* topic,
+                           const a0_file_options_t* topic_opts,
                            a0_alloc_t,
                            a0_reader_init_t,
                            a0_reader_iter_t,
                            a0_packet_callback_t);
 
 errno_t a0_subscriber_close(a0_subscriber_t*);
-errno_t a0_subscriber_async_close(a0_subscriber_t*, a0_callback_t);
 
 // One-off reader.
 
@@ -113,7 +113,8 @@ errno_t a0_subscriber_async_close(a0_subscriber_t*, a0_callback_t);
 // Pass O_NDELAY or O_NONBLOCK to flags to run non-blocking.
 // If non-blocking and transport is empty, returns EAGAIN.
 
-errno_t a0_subscriber_read_one(a0_arena_t,
+errno_t a0_subscriber_read_one(const char* topic,
+                               const a0_file_options_t* topic_opts,
                                a0_alloc_t,
                                a0_reader_init_t,
                                int flags,
