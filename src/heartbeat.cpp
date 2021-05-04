@@ -107,7 +107,7 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
   impl->onmissed = onmissed;
 
   A0_RETURN_ERR_ON_ERR(
-      a0_subscriber_sync_init(&impl->sub, arena, alloc, A0_INIT_MOST_RECENT, A0_ITER_NEWEST));
+      a0_subscriber_sync_init(&impl->sub, arena, alloc, A0_INIT_AWAIT_NEW, A0_ITER_NEWEST));
 
   auto sleep_dur = std::chrono::nanoseconds(uint64_t(1e9 / opts->min_freq));
 
