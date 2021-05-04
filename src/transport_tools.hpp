@@ -84,7 +84,7 @@
 
 //     bool handle_first_pkt() {
 //       scoped_transport_lock stlk(&transport);
-//       if (a0_transport_await(stlk.tlk, a0_transport_nonempty) == A0_OK) {
+//       if (a0_transport_wait(stlk.tlk, a0_transport_nonempty) == A0_OK) {
 //         on_transport_nonempty(stlk.tlk);
 //         return true;
 //       }
@@ -93,7 +93,7 @@
 
 //     bool handle_next_pkt() {
 //       scoped_transport_lock stlk(&transport);
-//       if (a0_transport_await(stlk.tlk, a0_transport_has_next) == A0_OK) {
+//       if (a0_transport_wait(stlk.tlk, a0_transport_has_next) == A0_OK) {
 //         on_transport_hasnext(stlk.tlk);
 //         return true;
 //       }

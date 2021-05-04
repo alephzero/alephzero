@@ -5,18 +5,7 @@
 
 A0_STATIC_INLINE
 void a0_barrier() {
-  asm volatile(""
-               :
-               :
-               : "memory");
-}
-
-A0_STATIC_INLINE
-void a0_spin() {
-  asm volatile("pause"
-               :
-               :
-               : "memory");
+  __atomic_thread_fence(__ATOMIC_SEQ_CST);
 }
 
 #define a0_atomic_fetch_add(P, V) __atomic_fetch_add((P), (V), __ATOMIC_RELAXED)

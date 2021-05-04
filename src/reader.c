@@ -202,7 +202,7 @@ void a0_reader_zc_thread_handle_pkt(a0_reader_zc_t* reader_zc, a0_locked_transpo
 
 A0_STATIC_INLINE
 bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_t* reader_zc, a0_locked_transport_t tlk) {
-  if (a0_transport_await(tlk, a0_transport_nonempty) == A0_OK) {
+  if (a0_transport_wait(tlk, a0_transport_nonempty_pred(&tlk)) == A0_OK) {
     bool reset = false;
     if (reader_zc->_started_empty) {
       reset = true;
@@ -228,7 +228,7 @@ bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_t* reader_zc, a0_locked_t
 
 A0_STATIC_INLINE
 bool a0_reader_zc_thread_handle_next_pkt(a0_reader_zc_t* reader_zc, a0_locked_transport_t tlk) {
-  if (a0_transport_await(tlk, a0_transport_has_next) == A0_OK) {
+  if (a0_transport_wait(tlk, a0_transport_has_next_pred(&tlk)) == A0_OK) {
     if (reader_zc->_iter == A0_ITER_NEXT) {
       a0_transport_next(tlk);
     } else if (reader_zc->_iter == A0_ITER_NEWEST) {

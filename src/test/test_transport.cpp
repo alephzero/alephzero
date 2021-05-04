@@ -577,7 +577,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] disk await") {
   a0_locked_transport_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
-  REQUIRE_OK(a0_transport_await(lk, a0_transport_nonempty));
+  REQUIRE_OK(a0_transport_wait(lk, a0_transport_nonempty_pred(&lk)));
 
   REQUIRE_OK(a0_transport_jump_head(lk));
 
@@ -586,10 +586,10 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] disk await") {
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "ABC");
 
-  REQUIRE_OK(a0_transport_await(lk, a0_transport_nonempty));
+  REQUIRE_OK(a0_transport_wait(lk, a0_transport_nonempty_pred(&lk)));
 
   fork_sleep_push(&transport, "DEF");
-  REQUIRE_OK(a0_transport_await(lk, a0_transport_has_next));
+  REQUIRE_OK(a0_transport_wait(lk, a0_transport_has_next_pred(&lk)));
 
   REQUIRE_OK(a0_transport_next(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
@@ -609,7 +609,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] shm await") {
   a0_locked_transport_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
-  REQUIRE_OK(a0_transport_await(lk, a0_transport_nonempty));
+  REQUIRE_OK(a0_transport_wait(lk, a0_transport_nonempty_pred(&lk)));
 
   REQUIRE_OK(a0_transport_jump_head(lk));
 
@@ -618,10 +618,10 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] shm await") {
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "ABC");
 
-  REQUIRE_OK(a0_transport_await(lk, a0_transport_nonempty));
+  REQUIRE_OK(a0_transport_wait(lk, a0_transport_nonempty_pred(&lk)));
 
   fork_sleep_push(&transport, "DEF");
-  REQUIRE_OK(a0_transport_await(lk, a0_transport_has_next));
+  REQUIRE_OK(a0_transport_wait(lk, a0_transport_has_next_pred(&lk)));
 
   REQUIRE_OK(a0_transport_next(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));

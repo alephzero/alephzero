@@ -185,7 +185,7 @@ bool ftx_notrecoverable(a0_ftx_t ftx) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
+errno_t a0_mtx_timedlock_robust(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   const uint32_t tid = a0_tid();
 
   errno_t err = EINTR;
@@ -211,11 +211,12 @@ errno_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   return err;
 }
 
-errno_t a0_mtx_timedlock(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
+A0_STATIC_INLINE
+errno_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   // Note: __tsan_mutex_pre_lock should come here, but tsan doesn't provide
   //       a way to "fail" a lock. Only a trylock.
   robust_op_start(mtx);
-  const errno_t err = a0_mtx_timedlock_impl(mtx, timeout);
+  const errno_t err = a0_mtx_timedlock_robust(mtx, timeout);
   if (!err || err == EOWNERDEAD) {
     __tsan_mutex_pre_lock(mtx, 0);
     robust_op_add(mtx);
@@ -225,8 +226,12 @@ errno_t a0_mtx_timedlock(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   return err;
 }
 
+errno_t a0_mtx_timedlock(a0_mtx_t* mtx, a0_time_mono_t timeout) {
+  return a0_mtx_timedlock_impl(mtx, &timeout);
+}
+
 errno_t a0_mtx_lock(a0_mtx_t* mtx) {
-  return a0_mtx_timedlock(mtx, NULL);
+  return a0_mtx_timedlock_impl(mtx, NULL);
 }
 
 A0_STATIC_INLINE
@@ -337,12 +342,7 @@ errno_t a0_mtx_unlock(a0_mtx_t* mtx) {
 }
 
 // TODO: Handle ENOTRECOVERABLE
-errno_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
-  // Let's not unlock the mutex if we're going to get EINVAL due to a bad timeout.
-  if (timeout && (timeout->ts.tv_sec < 0 || timeout->ts.tv_nsec < 0 || (!timeout->ts.tv_sec && !timeout->ts.tv_nsec) || timeout->ts.tv_nsec >= NS_PER_SEC)) {
-    return EINVAL;
-  }
-
+errno_t a0_cnd_timedwait_impl(a0_cnd_t* cnd, a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   const uint32_t init_cnd = a0_atomic_load(cnd);
 
   // Unblock other threads to do the things that will eventually signal this wait.
@@ -362,12 +362,12 @@ errno_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, const a0_time_mono_t* tim
   // We need to manually lock on timeout.
   // Note: We keep the timeout error.
   if (err == ETIMEDOUT) {
-    a0_mtx_timedlock_impl(mtx, NULL);
+    a0_mtx_timedlock_robust(mtx, NULL);
   }
   // Someone else grabbed and mutated the resource between the unlock and wait.
   // No need to wait.
   if (err == EAGAIN) {
-    err = a0_mtx_timedlock_impl(mtx, NULL);
+    err = a0_mtx_timedlock_robust(mtx, NULL);
   }
 
   robust_op_add(mtx);
@@ -382,8 +382,16 @@ errno_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, const a0_time_mono_t* tim
   return err;
 }
 
+errno_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, a0_time_mono_t timeout) {
+  // Let's not unlock the mutex if we're going to get EINVAL due to a bad timeout.
+  if ((timeout.ts.tv_sec < 0 || timeout.ts.tv_nsec < 0 || (!timeout.ts.tv_sec && !timeout.ts.tv_nsec) || timeout.ts.tv_nsec >= NS_PER_SEC)) {
+    return EINVAL;
+  }
+  return a0_cnd_timedwait_impl(cnd, mtx, &timeout);
+}
+
 errno_t a0_cnd_wait(a0_cnd_t* cnd, a0_mtx_t* mtx) {
-  return a0_cnd_timedwait(cnd, mtx, NULL);
+  return a0_cnd_timedwait_impl(cnd, mtx, NULL);
 }
 
 A0_STATIC_INLINE

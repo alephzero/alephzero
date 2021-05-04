@@ -102,26 +102,22 @@ errno_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
 
   return A0_OK;
 }
-errno_t a0_transport_start_shutdown(a0_locked_transport_t lk) {
+
+errno_t a0_transport_shutdown(a0_locked_transport_t lk) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   lk.transport->_shutdown = true;
   a0_cnd_broadcast(&hdr->cnd, &hdr->mtx);
-  return A0_OK;
-}
 
-errno_t a0_transport_await_shutdown(a0_locked_transport_t lk) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
-
-  while (lk.transport->_await_cnt) {
+  while (lk.transport->_wait_cnt) {
     a0_cnd_wait(&hdr->cnd, &hdr->mtx);
   }
   return A0_OK;
 }
 
-errno_t a0_transport_shutdown(a0_locked_transport_t lk) {
-  A0_RETURN_ERR_ON_ERR(a0_transport_start_shutdown(lk));
-  return a0_transport_await_shutdown(lk);
+errno_t a0_transport_shutdown_requested(a0_locked_transport_t lk, bool* out) {
+  *out = lk.transport->_shutdown;
+  return A0_OK;
 }
 
 errno_t a0_transport_lock(a0_transport_t* transport, a0_locked_transport_t* lk_out) {
@@ -267,8 +263,30 @@ errno_t a0_transport_prev(a0_locked_transport_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_await(a0_locked_transport_t lk,
-                           errno_t (*pred)(a0_locked_transport_t, bool*)) {
+typedef struct a0_transport_timedwait_data_s {
+  a0_predicate_t user_pred;
+  a0_time_mono_t timeout;
+} a0_transport_timedwait_data_t;
+
+A0_STATIC_INLINE
+errno_t a0_transport_timedwait_predicate(void* data_, bool* out) {
+  a0_transport_timedwait_data_t* data = (a0_transport_timedwait_data_t*)data_;
+
+  a0_time_mono_t now;
+  a0_time_mono_now(&now);
+
+  uint64_t now_ns = now.ts.tv_sec * NS_PER_SEC + now.ts.tv_nsec;
+  uint64_t timeout_ns = data->timeout.ts.tv_sec * NS_PER_SEC + data->timeout.ts.tv_nsec;
+
+  if (now_ns >= timeout_ns) {
+    *out = true;
+    return A0_OK;
+  }
+  return a0_predicate_eval(data->user_pred, out);
+}
+
+A0_STATIC_INLINE
+errno_t a0_transport_timedwait_impl(a0_locked_transport_t lk, a0_predicate_t pred, const a0_time_mono_t* timeout) {
   if (lk.transport->_shutdown) {
     return ESHUTDOWN;
   }
@@ -278,28 +296,97 @@ errno_t a0_transport_await(a0_locked_transport_t lk,
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   bool sat = false;
-  errno_t err = pred(lk, &sat);
+  errno_t err = a0_predicate_eval(pred, &sat);
   if (err | sat) {
     return err;
   }
 
-  lk.transport->_await_cnt++;
+  lk.transport->_wait_cnt++;
 
   while (!lk.transport->_shutdown) {
-    err = pred(lk, &sat);
+    err = a0_predicate_eval(pred, &sat);
     if (err | sat) {
       break;
     }
-    a0_cnd_wait(&hdr->cnd, &hdr->mtx);
+    if (timeout) {
+      a0_cnd_timedwait(&hdr->cnd, &hdr->mtx, *timeout);
+    } else {
+      a0_cnd_wait(&hdr->cnd, &hdr->mtx);
+    }
   }
   if (!err && lk.transport->_shutdown) {
     err = ESHUTDOWN;
   }
 
-  lk.transport->_await_cnt--;
+  lk.transport->_wait_cnt--;
   a0_cnd_broadcast(&hdr->cnd, &hdr->mtx);
 
   return err;
+}
+
+errno_t a0_transport_timedwait(a0_locked_transport_t lk, a0_predicate_t pred, a0_time_mono_t timeout) {
+  a0_transport_timedwait_data_t data = (a0_transport_timedwait_data_t){
+      .user_pred = pred,
+      .timeout = timeout,
+  };
+  a0_predicate_t full_pred = (a0_predicate_t){
+      .user_data = &data,
+      .fn = a0_transport_timedwait_predicate,
+  };
+
+  return a0_transport_timedwait_impl(lk, full_pred, &timeout);
+}
+
+errno_t a0_transport_wait(a0_locked_transport_t lk, a0_predicate_t pred) {
+  return a0_transport_timedwait_impl(lk, pred, NULL);
+}
+
+A0_STATIC_INLINE
+errno_t a0_transport_empty_pred_fn(void* user_data, bool* out) {
+  return a0_transport_empty(*(a0_locked_transport_t*)user_data, out);
+}
+
+a0_predicate_t a0_transport_empty_pred(a0_locked_transport_t* lk) {
+  return (a0_predicate_t){
+      .user_data = lk,
+      .fn = a0_transport_empty_pred_fn,
+  };
+}
+
+A0_STATIC_INLINE
+errno_t a0_transport_nonempty_pred_fn(void* user_data, bool* out) {
+  return a0_transport_nonempty(*(a0_locked_transport_t*)user_data, out);
+}
+
+a0_predicate_t a0_transport_nonempty_pred(a0_locked_transport_t* lk) {
+  return (a0_predicate_t){
+      .user_data = lk,
+      .fn = a0_transport_nonempty_pred_fn,
+  };
+}
+
+A0_STATIC_INLINE
+errno_t a0_transport_has_next_pred_fn(void* user_data, bool* out) {
+  return a0_transport_has_next(*(a0_locked_transport_t*)user_data, out);
+}
+
+a0_predicate_t a0_transport_has_next_pred(a0_locked_transport_t* lk) {
+  return (a0_predicate_t){
+      .user_data = lk,
+      .fn = a0_transport_has_next_pred_fn,
+  };
+}
+
+A0_STATIC_INLINE
+errno_t a0_transport_has_prev_pred_fn(void* user_data, bool* out) {
+  return a0_transport_has_prev(*(a0_locked_transport_t*)user_data, out);
+}
+
+a0_predicate_t a0_transport_has_prev_pred(a0_locked_transport_t* lk) {
+  return (a0_predicate_t){
+      .user_data = lk,
+      .fn = a0_transport_has_prev_pred_fn,
+  };
 }
 
 errno_t a0_transport_frame(a0_locked_transport_t lk, a0_transport_frame_t* frame_out) {

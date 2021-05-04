@@ -92,7 +92,7 @@
  * -------------
  *
  * The transport provides a simple condition-variable style wait/notify.
- * a0_transport_await atomically unlocks the transport and will be awoken when
+ * a0_transport_wait atomically unlocks the transport and will be awoken when
  * a given predicate is satisfied.
  *
  * The predicate is checked immediately, then whenever the transport is unlocked
@@ -118,6 +118,7 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/callback.h>
+#include <a0/time.h>
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -139,7 +140,7 @@ typedef struct a0_transport_s {
   uint64_t _off;
 
   // Number of active awaits using this transport connection.
-  uint32_t _await_cnt;
+  uint32_t _wait_cnt;
 
   // Whether the transport has shutdown the notification mechanism.
   bool _shutdown;
@@ -165,13 +166,6 @@ typedef struct a0_transport_frame_s {
   uint8_t* data;
 } a0_transport_frame_t;
 
-/// Whether the a0_transport_init call created or connected to the
-/// transport in the given arena.
-typedef enum a0_transport_init_status_s {
-  A0_TRANSPORT_CREATED,
-  A0_TRANSPORT_CONNECTED,
-} a0_transport_init_status_t;
-
 /// Wrapper around a transport, used to "strongly" type unique-access.
 typedef struct a0_locked_transport_s {
   /// Wrapped transport.
@@ -188,20 +182,10 @@ errno_t a0_transport_lock(a0_transport_t*, a0_locked_transport_t* lk_out);
 /// The locked_transport object is invalid afterwards.
 errno_t a0_transport_unlock(a0_locked_transport_t);
 
-/// Shuts down the notification mechanism.
-///
-/// Returns immediately.
-/// Existing awaits will gradually wake with return ESHUTDOWN.
-/// New awaits will fail with ESHUTDOWN.
-errno_t a0_transport_start_shutdown(a0_locked_transport_t);
-
-/// Waits for the full completion of a0_transport_start_shutdown.
-///
-/// Returns once all awaiting calls wake with ESHUTDOWN.
-errno_t a0_transport_await_shutdown(a0_locked_transport_t);
-
-/// Shuts down the notification mechanism and waits for all awaits to return.
+/// Shuts down the notification mechanism and waits for all waiters to return.
 errno_t a0_transport_shutdown(a0_locked_transport_t);
+
+errno_t a0_transport_shutdown_requested(a0_locked_transport_t, bool*);
 
 /// Checks whether the transport is empty.
 errno_t a0_transport_empty(a0_locked_transport_t, bool*);
@@ -232,12 +216,20 @@ errno_t a0_transport_has_prev(a0_locked_transport_t, bool*);
 /// Step the user's transport pointer backward by one frame.
 errno_t a0_transport_prev(a0_locked_transport_t);
 
-/// Await until the given predicate is satisfied.
+/// Wait until the given predicate is satisfied.
 ///
 /// The predicate is checked when an unlock event occurs following a commit or eviction.
+errno_t a0_transport_wait(a0_locked_transport_t, a0_predicate_t);
+
+/// Wait until the given predicate is satisfied or the timeout expires.
 ///
-/// TODO(lshamis): should pred take user_data?
-errno_t a0_transport_await(a0_locked_transport_t, errno_t (*pred)(a0_locked_transport_t, bool*));
+/// The predicate is checked when an unlock event occurs following a commit or eviction.
+errno_t a0_transport_timedwait(a0_locked_transport_t, a0_predicate_t, a0_time_mono_t);
+
+a0_predicate_t a0_transport_empty_pred(a0_locked_transport_t*);
+a0_predicate_t a0_transport_nonempty_pred(a0_locked_transport_t*);
+a0_predicate_t a0_transport_has_next_pred(a0_locked_transport_t*);
+a0_predicate_t a0_transport_has_prev_pred(a0_locked_transport_t*);
 
 /// Accesses the frame within the arena, at the current transport pointer.
 ///

@@ -44,9 +44,12 @@
 #define A0_HEARTBEAT_H
 
 #include <a0/alloc.h>
-#include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/callback.h>
+#include <a0/event.h>
+#include <a0/file.h>
+#include <a0/transport.h>
+#include <a0/writer.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -66,15 +69,21 @@ typedef struct a0_heartbeat_options_s {
 /// Defaults to a 10Hz frequency.
 extern const a0_heartbeat_options_t A0_HEARTBEAT_OPTIONS_DEFAULT;
 
-typedef struct a0_heartbeat_impl_s a0_heartbeat_impl_t;
-
 /// A heartbeat publisher.
 typedef struct a0_heartbeat_s {
-  a0_heartbeat_impl_t* _impl;
+  a0_heartbeat_options_t _opts;
+  a0_file_t _file;
+  a0_writer_t _simple_writer;
+  a0_writer_t _annotated_writer;
+  a0_event_t _stop_event;
+  pthread_t _thread;
 } a0_heartbeat_t;
 
 /// Initializes a heartbeat publisher.
-errno_t a0_heartbeat_init(a0_heartbeat_t*, a0_arena_t, const a0_heartbeat_options_t*);
+errno_t a0_heartbeat_init(a0_heartbeat_t*,
+                          const char* topic,
+                          const a0_file_options_t* topic_opts,
+                          const a0_heartbeat_options_t*);
 /// Stops and shuts down a heartbeat publisher.
 errno_t a0_heartbeat_close(a0_heartbeat_t*);
 
@@ -94,18 +103,22 @@ typedef struct a0_heartbeat_listener_options_s {
 /// Defaults to 5Hz acceptable frequency.
 extern const a0_heartbeat_listener_options_t A0_HEARTBEAT_LISTENER_OPTIONS_DEFAULT;
 
-typedef struct a0_heartbeat_listener_impl_s a0_heartbeat_listener_impl_t;
-
 /// A heartbeat listener.
 typedef struct a0_heartbeat_listener_s {
-  a0_heartbeat_listener_impl_t* _impl;
+  a0_heartbeat_listener_options_t _opts;
+  a0_file_t _file;
+  a0_transport_t _transport;
+  pthread_t _thread;
+
+  a0_callback_t ondetected;
+  a0_callback_t onmissed;
 } a0_heartbeat_listener_t;
 
 /// Initializes a heartbeat listener.
 /// TODO: If heartbeat packets are fixed-size, remove alloc and use stack space.
 errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t*,
-                                   a0_arena_t arena,
-                                   a0_alloc_t alloc,
+                                   const char* topic,
+                                   const a0_file_options_t* topic_opts,
                                    const a0_heartbeat_listener_options_t*,
                                    a0_callback_t ondetected,
                                    a0_callback_t onmissed);
@@ -115,12 +128,6 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t*,
 /// This will block if a callback is currently running.
 /// This cannot be called from inside a callback.
 errno_t a0_heartbeat_listener_close(a0_heartbeat_listener_t*);
-
-/// Stops and shuts down a heartbeat listener.
-/// This is intended to be called from within a heartbeat listener callback.
-/// This returns immediately, and the given callback will execute when the
-/// close operation is complete.
-errno_t a0_heartbeat_listener_async_close(a0_heartbeat_listener_t*, a0_callback_t);
 
 /** @}*/
 

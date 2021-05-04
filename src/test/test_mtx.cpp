@@ -186,7 +186,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] timedlock") {
   REQUIRE_OK(a0_mtx_lock(&mtx));
   std::thread t([&]() {
     auto wake_time = delay(1e9);
-    REQUIRE(a0_mtx_timedlock(&mtx, &wake_time) == ETIMEDOUT);
+    REQUIRE(a0_mtx_timedlock(&mtx, wake_time) == ETIMEDOUT);
   });
   t.join();
   REQUIRE_OK(a0_mtx_unlock(&mtx));
@@ -383,13 +383,13 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout fail") {
   REQUIRE_OK(a0_mtx_lock(&mtx));
 
   auto wake_time = delay(0);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == ETIMEDOUT);
+  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == ETIMEDOUT);
 
   wake_time = delay(0.1 * 1e9);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == ETIMEDOUT);
+  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == ETIMEDOUT);
 
   wake_time = delay(-0.1 * 1e9);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == ETIMEDOUT);
+  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == ETIMEDOUT);
 
   REQUIRE_OK(a0_mtx_unlock(&mtx));
 }
@@ -538,13 +538,13 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] wait must lock") {
   auto wake_time = delay(0.1 * 1e9);
 
   REQUIRE(a0_cnd_wait(&cnd, &mtx) == EPERM);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == EPERM);
+  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == EPERM);
 
   REQUIRE_OK(a0_mtx_lock(&mtx));
 
   std::thread t([&]() {
     REQUIRE(a0_cnd_wait(&cnd, &mtx) == EPERM);
-    REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == EPERM);
+    REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == EPERM);
   });
   t.join();
 
@@ -559,16 +559,16 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout") {
   REQUIRE_OK(a0_mtx_lock(&mtx));
 
   a0_time_mono_t wake_time = A0_EMPTY;
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == EINVAL);
+  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == EINVAL);
 
   wake_time = delay(0);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == ETIMEDOUT);
+  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == ETIMEDOUT);
 
   wake_time = delay(-1e9);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == ETIMEDOUT);
+  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == ETIMEDOUT);
 
   wake_time = delay(1e9);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, &wake_time) == ETIMEDOUT);
+  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == ETIMEDOUT);
 
   REQUIRE_OK(a0_mtx_unlock(&mtx));
   auto end = std::chrono::steady_clock::now();
@@ -598,7 +598,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] robust") {
   REQUIRE_SUBPROC_SIGNALED(child);
 
   auto wake_time = delay(0);
-  REQUIRE(a0_cnd_timedwait(cnd, mtx, &wake_time) == ETIMEDOUT);
+  REQUIRE(a0_cnd_timedwait(cnd, mtx, wake_time) == ETIMEDOUT);
 
   REQUIRE_OK(a0_mtx_unlock(mtx));
 }

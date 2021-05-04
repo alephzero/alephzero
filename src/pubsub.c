@@ -14,30 +14,7 @@
 #include <string.h>
 
 #include "err_util.h"
-
-A0_STATIC_INLINE
-errno_t open_topic(const char* topic,
-                   const a0_file_options_t* topic_opts,
-                   a0_file_t* file) {
-  if (topic[0] == '\0' || topic[0] == '/') {
-    return EINVAL;
-  }
-
-  const char* TEMPLATE_PRE = "alephzero/";
-  const char* TEMPLATE_POST = ".pubsub.a0";
-  char* path = (char*)alloca(strlen(TEMPLATE_PRE) + strlen(topic) + strlen(TEMPLATE_POST) + 1);
-
-  size_t off = 0;
-  memcpy(path + off, TEMPLATE_PRE, strlen(TEMPLATE_PRE));
-  off += strlen(TEMPLATE_PRE);
-  memcpy(path + off, topic, strlen(topic));
-  off += strlen(topic);
-  memcpy(path + off, TEMPLATE_POST, strlen(TEMPLATE_POST));
-  off += strlen(TEMPLATE_POST);
-  path[off] = '\0';
-
-  return a0_file_open(path, topic_opts, file);
-}
+#include "protocol_util.h"
 
 /////////////////
 //  Publisher  //
@@ -47,7 +24,7 @@ errno_t a0_publisher_init(
     a0_publisher_t* pub,
     const char* topic,
     const a0_file_options_t* topic_opts) {
-  A0_RETURN_ERR_ON_ERR(open_topic(topic, topic_opts, &pub->_file));
+  A0_RETURN_ERR_ON_ERR(a0_open_topic("pubsub", topic, topic_opts, &pub->_file));
 
   errno_t err = a0_writer_init(&pub->_simple_writer, pub->_file.arena);
   if (err) {
@@ -90,7 +67,7 @@ errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
                                    const a0_file_options_t* topic_opts,
                                    a0_reader_init_t init,
                                    a0_reader_iter_t iter) {
-  A0_RETURN_ERR_ON_ERR(open_topic(topic, topic_opts, &sub_sync_zc->_file));
+  A0_RETURN_ERR_ON_ERR(a0_open_topic("pubsub", topic, topic_opts, &sub_sync_zc->_file));
 
   errno_t err = a0_reader_sync_zc_init(
       &sub_sync_zc->_reader_sync_zc,
@@ -128,7 +105,7 @@ errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
                                 a0_alloc_t alloc,
                                 a0_reader_init_t init,
                                 a0_reader_iter_t iter) {
-  A0_RETURN_ERR_ON_ERR(open_topic(topic, topic_opts, &sub_sync->_file));
+  A0_RETURN_ERR_ON_ERR(a0_open_topic("pubsub", topic, topic_opts, &sub_sync->_file));
 
   errno_t err = a0_reader_sync_init(
       &sub_sync->_reader_sync,
@@ -166,7 +143,7 @@ errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
                               a0_reader_init_t init,
                               a0_reader_iter_t iter,
                               a0_zero_copy_callback_t onpacket) {
-  A0_RETURN_ERR_ON_ERR(open_topic(topic, topic_opts, &sub_zc->_file));
+  A0_RETURN_ERR_ON_ERR(a0_open_topic("pubsub", topic, topic_opts, &sub_zc->_file));
 
   errno_t err = a0_reader_zc_init(
       &sub_zc->_reader_zc,
@@ -197,7 +174,7 @@ errno_t a0_subscriber_init(a0_subscriber_t* sub,
                            a0_reader_init_t init,
                            a0_reader_iter_t iter,
                            a0_packet_callback_t onpacket) {
-  A0_RETURN_ERR_ON_ERR(open_topic(topic, topic_opts, &sub->_file));
+  A0_RETURN_ERR_ON_ERR(a0_open_topic("pubsub", topic, topic_opts, &sub->_file));
 
   errno_t err = a0_reader_init(
       &sub->_reader,
@@ -229,7 +206,7 @@ errno_t a0_subscriber_read_one(const char* topic,
                                int flags,
                                a0_packet_t* out) {
   a0_file_t file;
-  A0_RETURN_ERR_ON_ERR(open_topic(topic, topic_opts, &file));
+  A0_RETURN_ERR_ON_ERR(a0_open_topic("pubsub", topic, topic_opts, &file));
 
   errno_t err = a0_reader_read_one(file.arena,
                                    alloc,
