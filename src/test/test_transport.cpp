@@ -94,13 +94,15 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] construct") {
       "seq_low": 0,
       "seq_high": 0,
       "off_head": 0,
-      "off_tail": 0
+      "off_tail": 0,
+      "high_water_mark": 144
     },
     "working_state": {
       "seq_low": 0,
       "seq_high": 0,
       "off_head": 0,
-      "off_tail": 0
+      "off_tail": 0,
+      "high_water_mark": 144
     }
   },
   "data": [
@@ -130,13 +132,15 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
       "seq_low": 0,
       "seq_high": 0,
       "off_head": 0,
-      "off_tail": 0
+      "off_tail": 0,
+      "high_water_mark": 144
     },
     "working_state": {
       "seq_low": 0,
       "seq_high": 0,
       "off_head": 0,
-      "off_tail": 0
+      "off_tail": 0,
+      "high_water_mark": 144
     }
   },
   "data": [
@@ -160,30 +164,32 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 128,
-      "off_tail": 128
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 194
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 128,
-      "off_tail": 192
+      "off_head": 144,
+      "off_tail": 208,
+      "high_water_mark": 288
     }
   },
   "data": [
     {
-      "off": 128,
+      "off": 144,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 192,
+      "next_off": 208,
       "data_size": 10,
       "data": "0123456789"
     },
     {
       "committed": false,
-      "off": 192,
+      "off": 208,
       "seq": 2,
-      "prev_off": 128,
+      "prev_off": 144,
       "next_off": 0,
       "data_size": 40,
       "data": "01234567890123456789012345678..."
@@ -201,29 +207,31 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 128,
-      "off_tail": 192
+      "off_head": 144,
+      "off_tail": 208,
+      "high_water_mark": 288
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 128,
-      "off_tail": 192
+      "off_head": 144,
+      "off_tail": 208,
+      "high_water_mark": 288
     }
   },
   "data": [
     {
-      "off": 128,
+      "off": 144,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 192,
+      "next_off": 208,
       "data_size": 10,
       "data": "0123456789"
     },
     {
-      "off": 192,
+      "off": 208,
       "seq": 2,
-      "prev_off": 128,
+      "prev_off": 144,
       "next_off": 0,
       "data_size": 40,
       "data": "01234567890123456789012345678..."
@@ -235,7 +243,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] evicts") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, arena));
 
@@ -401,37 +409,39 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] wrap around") {
     "committed_state": {
       "seq_low": 18,
       "seq_high": 20,
-      "off_head": 2272,
-      "off_tail": 1200
+      "off_head": 2288,
+      "off_tail": 1216,
+      "high_water_mark": 3352
     },
     "working_state": {
       "seq_low": 18,
       "seq_high": 20,
-      "off_head": 2272,
-      "off_tail": 1200
+      "off_head": 2288,
+      "off_tail": 1216,
+      "high_water_mark": 3352
     }
   },
   "data": [
     {
-      "off": 2272,
+      "off": 2288,
       "seq": 18,
-      "prev_off": 1200,
-      "next_off": 128,
+      "prev_off": 1216,
+      "next_off": 144,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     },
     {
-      "off": 128,
+      "off": 144,
       "seq": 19,
-      "prev_off": 2272,
-      "next_off": 1200,
+      "prev_off": 2288,
+      "next_off": 1216,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     },
     {
-      "off": 1200,
+      "off": 1216,
       "seq": 20,
-      "prev_off": 128,
+      "prev_off": 144,
       "next_off": 0,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
@@ -523,19 +533,21 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] large alloc") {
     "committed_state": {
       "seq_low": 5,
       "seq_high": 5,
-      "off_head": 128,
-      "off_tail": 128
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 3256
     },
     "working_state": {
       "seq_low": 5,
       "seq_high": 5,
-      "off_head": 128,
-      "off_tail": 128
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 3256
     }
   },
   "data": [
     {
-      "off": 128,
+      "off": 144,
       "seq": 5,
       "prev_off": 0,
       "next_off": 0,
@@ -545,6 +557,219 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] large alloc") {
   ]
 }
 )");
+
+  REQUIRE_OK(a0_transport_unlock(lk));
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] resize") {
+  a0_transport_t transport;
+  REQUIRE_OK(a0_transport_init(&transport, arena));
+
+  a0_locked_transport_t lk;
+  REQUIRE_OK(a0_transport_lock(&transport, &lk));
+
+  size_t used_space;
+  REQUIRE_OK(a0_transport_used_space(lk, &used_space));
+  REQUIRE(used_space == 144);
+
+  std::string data(1024, 'a');
+  a0_transport_frame_t frame;
+
+  REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
+  memcpy(frame.data, data.c_str(), data.size());
+  REQUIRE_OK(a0_transport_commit(lk));
+
+  REQUIRE_OK(a0_transport_used_space(lk, &used_space));
+  REQUIRE(used_space == 1208);
+
+  REQUIRE(a0_transport_resize(lk, 0) == EINVAL);
+  REQUIRE(a0_transport_resize(lk, 1207) == EINVAL);
+  REQUIRE_OK(a0_transport_resize(lk, 1208));
+
+  data = std::string(1024 + 1, 'a');  // 1 byte larger than previous.
+  REQUIRE(a0_transport_alloc(lk, data.size(), &frame) == EOVERFLOW);
+
+  data = std::string(1024, 'b');  // same size as existing.
+  REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
+  memcpy(frame.data, data.c_str(), data.size());
+  REQUIRE_OK(a0_transport_commit(lk));
+
+  REQUIRE_OK(a0_transport_jump_tail(lk));
+  REQUIRE_OK(a0_transport_frame(lk, &frame));
+  REQUIRE(frame.hdr.data_size == 1024);
+  REQUIRE(a0::test::str(frame) == data);
+  REQUIRE(arena.buf.ptr[1207] == 'b');
+  REQUIRE(arena.buf.ptr[1208] != 'b');
+
+  require_debugstr(lk, R"(
+{
+  "header": {
+    "arena_size": 1208,
+    "committed_state": {
+      "seq_low": 2,
+      "seq_high": 2,
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 1208
+    },
+    "working_state": {
+      "seq_low": 2,
+      "seq_high": 2,
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 1208
+    }
+  },
+  "data": [
+    {
+      "off": 144,
+      "seq": 2,
+      "prev_off": 0,
+      "next_off": 0,
+      "data_size": 1024,
+      "data": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbb..."
+    }
+  ]
+}
+)");
+
+  REQUIRE_OK(a0_transport_used_space(lk, &used_space));
+  REQUIRE(used_space == 1208);
+
+  REQUIRE_OK(a0_transport_resize(lk, 4096));
+
+  data = std::string(2 * 1024, 'c');
+  REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
+  memcpy(frame.data, data.c_str(), data.size());
+  REQUIRE_OK(a0_transport_commit(lk));
+
+  REQUIRE_OK(a0_transport_used_space(lk, &used_space));
+  REQUIRE(used_space == 3304);
+
+  require_debugstr(lk, R"(
+{
+  "header": {
+    "arena_size": 4096,
+    "committed_state": {
+      "seq_low": 2,
+      "seq_high": 3,
+      "off_head": 144,
+      "off_tail": 1216,
+      "high_water_mark": 3304
+    },
+    "working_state": {
+      "seq_low": 2,
+      "seq_high": 3,
+      "off_head": 144,
+      "off_tail": 1216,
+      "high_water_mark": 3304
+    }
+  },
+  "data": [
+    {
+      "off": 144,
+      "seq": 2,
+      "prev_off": 0,
+      "next_off": 1216,
+      "data_size": 1024,
+      "data": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbb..."
+    },
+    {
+      "off": 1216,
+      "seq": 3,
+      "prev_off": 144,
+      "next_off": 0,
+      "data_size": 2048,
+      "data": "ccccccccccccccccccccccccccccc..."
+    }
+  ]
+}
+)");
+
+  // This forces an eviction of some existing data, reducing the high water mark.
+  // We replace it with less data.
+  data = std::string(16, 'd');
+  REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
+  memcpy(frame.data, data.c_str(), data.size());
+  REQUIRE_OK(a0_transport_commit(lk));
+
+  REQUIRE_OK(a0_transport_used_space(lk, &used_space));
+  REQUIRE(used_space == 3368);
+
+  data = std::string(3 * 1024, 'e');
+  REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
+  memcpy(frame.data, data.c_str(), data.size());
+  REQUIRE_OK(a0_transport_commit(lk));
+
+  REQUIRE_OK(a0_transport_used_space(lk, &used_space));
+  REQUIRE(used_space == 3368);
+
+  data = std::string(16, 'f');
+  REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
+  memcpy(frame.data, data.c_str(), data.size());
+  REQUIRE_OK(a0_transport_commit(lk));
+
+  REQUIRE_OK(a0_transport_used_space(lk, &used_space));
+  REQUIRE(used_space == 3320);
+
+  require_debugstr(lk, R"(
+{
+  "header": {
+    "arena_size": 4096,
+    "committed_state": {
+      "seq_low": 5,
+      "seq_high": 6,
+      "off_head": 144,
+      "off_tail": 3264,
+      "high_water_mark": 3320
+    },
+    "working_state": {
+      "seq_low": 5,
+      "seq_high": 6,
+      "off_head": 144,
+      "off_tail": 3264,
+      "high_water_mark": 3320
+    }
+  },
+  "data": [
+    {
+      "off": 144,
+      "seq": 5,
+      "prev_off": 3312,
+      "next_off": 3264,
+      "data_size": 3072,
+      "data": "eeeeeeeeeeeeeeeeeeeeeeeeeeeee..."
+    },
+    {
+      "off": 3264,
+      "seq": 6,
+      "prev_off": 144,
+      "next_off": 0,
+      "data_size": 16,
+      "data": "ffffffffffffffff"
+    }
+  ]
+}
+)");
+
+  // This forces an eviction of all existing data, reducing the high water mark.
+  // We replace it with less data.
+  data = std::string(3264, 'e');
+  REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
+  memcpy(frame.data, data.c_str(), data.size());
+  REQUIRE_OK(a0_transport_commit(lk));
+
+  REQUIRE_OK(a0_transport_used_space(lk, &used_space));
+  REQUIRE(used_space == (144 + 40 + 3264));
+
+  // This forces an eviction of all existing data, reducing the high water mark.
+  // We replace it with nothing.
+  REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
+  REQUIRE_OK(a0_transport_unlock(lk));
+  REQUIRE_OK(a0_transport_lock(&transport, &lk));
+
+  REQUIRE_OK(a0_transport_used_space(lk, &used_space));
+  REQUIRE(used_space == 144);
 
   REQUIRE_OK(a0_transport_unlock(lk));
 }
@@ -667,30 +892,32 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 128,
-      "off_tail": 128
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 187
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 128,
-      "off_tail": 176
+      "off_head": 144,
+      "off_tail": 192,
+      "high_water_mark": 234
     }
   },
   "data": [
     {
-      "off": 128,
+      "off": 144,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 176,
+      "next_off": 192,
       "data_size": 3,
       "data": "YES"
     },
     {
       "committed": false,
-      "off": 176,
+      "off": 192,
       "seq": 2,
-      "prev_off": 128,
+      "prev_off": 144,
       "next_off": 0,
       "data_size": 2,
       "data": "NO"
@@ -720,22 +947,24 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 128,
-      "off_tail": 128
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 187
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 128,
-      "off_tail": 128
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 187
     }
   },
   "data": [
     {
-      "off": 128,
+      "off": 144,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 176,
+      "next_off": 192,
       "data_size": 3,
       "data": "YES"
     }

@@ -254,6 +254,11 @@ errno_t a0_transport_alloc_evicts(a0_locked_transport_t, size_t, bool*);
 errno_t a0_transport_allocator(a0_locked_transport_t*, a0_alloc_t*);
 errno_t a0_transport_commit(a0_locked_transport_t);
 
+/// Returns the arena space in use.
+errno_t a0_transport_used_space(a0_locked_transport_t, size_t*);
+/// Resizes the underlying arena. Fails with EINVAL if this would delete active data.
+errno_t a0_transport_resize(a0_locked_transport_t, size_t);
+
 /** @}*/
 
 #ifdef __cplusplus

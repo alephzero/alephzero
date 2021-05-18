@@ -23,6 +23,7 @@ typedef struct a0_transport_state_s {
   uint64_t seq_high;
   transport_off_t off_head;
   transport_off_t off_tail;
+  transport_off_t high_water_mark;
 } a0_transport_state_t;
 
 typedef struct a0_transport_version_s {
@@ -46,7 +47,7 @@ typedef struct a0_transport_hdr_s {
 } a0_transport_hdr_t;
 
 // TODO(lshamis): Consider packing or reordering fields to reduce this.
-_Static_assert(sizeof(a0_transport_hdr_t) == 128, "Unexpected transport binary representation.");
+_Static_assert(sizeof(a0_transport_hdr_t) == 144, "Unexpected transport binary representation.");
 
 A0_STATIC_INLINE
 a0_transport_state_t* a0_transport_committed_page(a0_locked_transport_t lk) {
@@ -93,6 +94,8 @@ errno_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
     hdr->version.minor = 3;
     hdr->version.patch = 0;
     hdr->arena_size = transport->_arena.buf.size;
+    hdr->state_pages[0].high_water_mark = a0_transport_workspace_off();
+    hdr->state_pages[1].high_water_mark = a0_transport_workspace_off();
     hdr->initialized = true;
   } else {
     // TODO(lshamis): Verify magic + version.
@@ -447,11 +450,20 @@ void a0_transport_remove_head(a0_locked_transport_t lk, a0_transport_state_t* st
   if (state->off_head == state->off_tail) {
     state->off_head = 0;
     state->off_tail = 0;
+    state->high_water_mark = a0_transport_workspace_off();
   } else {
     a0_transport_frame_hdr_t* head_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + state->off_head);
     state->off_head = head_hdr->next_off;
+
+    // Check whether the old head frame was responsible for the high water mark.
+    transport_off_t head_end = a0_transport_frame_end(hdr, head_hdr->off);
+    if (state->high_water_mark == head_end) {
+      // The high water mark is always set by a tail element.
+      state->high_water_mark = a0_transport_frame_end(hdr, state->off_tail);
+    }
   }
   state->seq_low++;
+
   a0_transport_commit(lk);
 }
 
@@ -472,7 +484,7 @@ errno_t a0_transport_find_slot(a0_locked_transport_t lk, size_t frame_size, tran
     }
   }
 
-  if (*off + frame_size >= hdr->arena_size) {
+  if (*off + frame_size > hdr->arena_size) {
     return EOVERFLOW;
   }
 
@@ -528,6 +540,16 @@ void a0_transport_update_tail(a0_transport_hdr_t* hdr,
   state->off_tail = frame_hdr->off;
 }
 
+A0_STATIC_INLINE
+void a0_transport_update_high_water_mark(a0_transport_hdr_t* hdr,
+                                         a0_transport_state_t* state,
+                                         a0_transport_frame_hdr_t* frame_hdr) {
+  transport_off_t high_water_mark = a0_transport_frame_end(hdr, frame_hdr->off);
+  if (state->high_water_mark < high_water_mark) {
+    state->high_water_mark = high_water_mark;
+  }
+}
+
 errno_t a0_transport_alloc_evicts(a0_locked_transport_t lk, size_t size, bool* out) {
   size_t frame_size = sizeof(a0_transport_frame_hdr_t) + size;
 
@@ -564,6 +586,7 @@ errno_t a0_transport_alloc(a0_locked_transport_t lk, size_t size, a0_transport_f
 
   a0_transport_maybe_set_head(state, frame_hdr);
   a0_transport_update_tail(hdr, state, frame_hdr);
+  a0_transport_update_high_water_mark(hdr, state, frame_hdr);
 
   frame_out->hdr = *frame_hdr;
   frame_out->data = (uint8_t*)hdr + off + sizeof(a0_transport_frame_hdr_t);
@@ -602,6 +625,24 @@ errno_t a0_transport_commit(a0_locked_transport_t lk) {
   return A0_OK;
 }
 
+errno_t a0_transport_used_space(a0_locked_transport_t lk, size_t* out) {
+  a0_transport_state_t* state = a0_transport_working_page(lk);
+  *out = state->high_water_mark;
+  return A0_OK;
+}
+
+errno_t a0_transport_resize(a0_locked_transport_t lk, size_t arena_size) {
+  size_t used_space;
+  A0_RETURN_ERR_ON_ERR(a0_transport_used_space(lk, &used_space));
+  if (arena_size < used_space) {
+    return EINVAL;
+  }
+
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
+  hdr->arena_size = arena_size;
+  return A0_OK;
+}
+
 A0_STATIC_INLINE
 void write_limited(FILE* f, a0_buf_t str) {
   size_t line_size = str.size;
@@ -631,13 +672,15 @@ void a0_transport_debugstr(a0_locked_transport_t lk, a0_buf_t* out) {
   fprintf(ss, "      \"seq_low\": %lu,\n", committed_state->seq_low);
   fprintf(ss, "      \"seq_high\": %lu,\n", committed_state->seq_high);
   fprintf(ss, "      \"off_head\": %lu,\n", committed_state->off_head);
-  fprintf(ss, "      \"off_tail\": %lu\n", committed_state->off_tail);
+  fprintf(ss, "      \"off_tail\": %lu,\n", committed_state->off_tail);
+  fprintf(ss, "      \"high_water_mark\": %lu\n", committed_state->high_water_mark);
   fprintf(ss, "    },\n");
   fprintf(ss, "    \"working_state\": {\n");
   fprintf(ss, "      \"seq_low\": %lu,\n", working_state->seq_low);
   fprintf(ss, "      \"seq_high\": %lu,\n", working_state->seq_high);
   fprintf(ss, "      \"off_head\": %lu,\n", working_state->off_head);
-  fprintf(ss, "      \"off_tail\": %lu\n", working_state->off_tail);
+  fprintf(ss, "      \"off_tail\": %lu,\n", working_state->off_tail);
+  fprintf(ss, "      \"high_water_mark\": %lu\n", working_state->high_water_mark);
   fprintf(ss, "    }\n");
   fprintf(ss, "  },\n");
   fprintf(ss, "  \"data\": [\n");
