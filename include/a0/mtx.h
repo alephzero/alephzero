@@ -1,15 +1,15 @@
-#ifndef A0_SRC_MTX_H
-#define A0_SRC_MTX_H
+#ifndef A0_MTX_H
+#define A0_MTX_H
 
 #include <a0/err.h>
 #include <a0/time.h>
-
-#include "ftx.h"
-#include "unused.h"
+#include <a0/unused.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef uint32_t a0_ftx_t;
 
 // https://stackoverflow.com/questions/61645966/is-typedef-allowed-before-definition
 struct a0_mtx_s;
@@ -54,4 +54,4 @@ errno_t a0_cnd_broadcast(a0_cnd_t*, a0_mtx_t*);
 }
 #endif
 
-#endif  // A0_SRC_MTX_H
+#endif  // A0_MTX_H

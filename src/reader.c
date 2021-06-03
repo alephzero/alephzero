@@ -7,6 +7,7 @@
 #include <a0/packet.h>
 #include <a0/reader.h>
 #include <a0/transport.h>
+#include <a0/unused.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -17,7 +18,6 @@
 #include <unistd.h>
 
 #include "err_util.h"
-#include "unused.h"
 
 #ifdef DEBUG
 #include "assert.h"

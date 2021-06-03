@@ -12,9 +12,9 @@
 #include "err_util.h"
 
 #ifdef DEBUG
+#include <a0/unused.h>
 #include "assert.h"
 #include "ref_cnt.h"
-#include "unused.h"
 #endif
 
 A0_STATIC_INLINE

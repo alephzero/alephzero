@@ -2,6 +2,7 @@
 #include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/time.h>
+#include <a0/unused.h>
 #include <a0/uuid.h>
 #include <a0/writer_middleware.h>
 
@@ -10,7 +11,6 @@
 
 #include "atomic.h"
 #include "strconv.h"
-#include "unused.h"
 
 A0_STATIC_INLINE
 errno_t a0_writer_middleware_add_time_mono_header_process(void* data, a0_packet_t* pkt, a0_writer_middleware_chain_t chain) {

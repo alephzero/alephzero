@@ -5,6 +5,7 @@
 #include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
+#include <a0/unused.h>
 #include <a0/uuid.h>
 
 #include <sys/wait.h>
@@ -22,7 +23,6 @@
 #include <vector>
 
 #include "sync.hpp"
-#include "unused.h"
 
 #ifndef REQUIRE
 #define REQUIRE(...)

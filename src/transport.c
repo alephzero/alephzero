@@ -3,6 +3,7 @@
 #include <a0/buf.h>
 #include <a0/err.h>
 #include <a0/inline.h>
+#include <a0/mtx.h>
 #include <a0/transport.h>
 
 #include <errno.h>
@@ -13,8 +14,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "clock.h"
 #include "err_util.h"
-#include "mtx.h"
 
 typedef uintptr_t transport_off_t;  // ptr offset from start of the arena.
 

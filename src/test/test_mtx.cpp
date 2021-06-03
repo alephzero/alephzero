@@ -1,6 +1,7 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/file.h>
+#include <a0/mtx.h>
 #include <a0/time.h>
 
 #include <doctest.h>
@@ -19,7 +20,6 @@
 #include <vector>
 
 #include "src/empty.h"
-#include "src/mtx.h"
 #include "src/sync.hpp"
 #include "src/test_util.hpp"
 
