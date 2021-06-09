@@ -49,7 +49,7 @@ a0::Subscriber sub(
 ```cc
 a0::RpcServer server(
     a0::File("my_rpc_topic"),
-    /* onrequest =  */ [](a0::RpcRequest req) {
+    /* onrequest = */ [](a0::RpcRequest req) {
         std::cout << "Got: " << req.pkt().payload() << std::endl;
         req.reply("echo " + std::string(req.pkt().payload()));
     },
