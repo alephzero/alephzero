@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <img src="https://raw.githubusercontent.com/alephzero/logo/master/rendered/alephzero.svg" style="width: 300px">
+  <img src="https://raw.githubusercontent.com/alephzero/logo/master/rendered/alephzero.svg" width="256px">
   <br>
   AlephZero
 </h1>
