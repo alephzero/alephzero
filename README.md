@@ -124,6 +124,9 @@ while (sub_sync.has_next()) {
 ```
 
 ## RPC
+
+Create an `RpcServer`:
+
 ```cc
 a0::RpcServer server(
     a0::File("my_rpc_topic"),
@@ -133,6 +136,8 @@ a0::RpcServer server(
     },
     /* oncancel = */ nullptr);
 ```
+
+Create an `RpcClient`:
 
 ```cc
 a0::RpcClient client(a0::File("my_rpc_topic"));
