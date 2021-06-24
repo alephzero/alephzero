@@ -1,8 +1,9 @@
-#include <a0/inline.h>
 #include <a0/time.h>
 
+#include <errno.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <time.h>
 
 #include "clock.h"
 

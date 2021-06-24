@@ -2,17 +2,14 @@
 #include <a0/file.h>
 #include <a0/heartbeat.h>
 #include <a0/packet.h>
-#include <a0/pubsub.h>
+#include <a0/reader.h>
 
 #include <doctest.h>
 
-#include <atomic>
 #include <chrono>
-#include <condition_variable>
 #include <cstdint>
 #include <thread>
 
-#include "src/sync.hpp"
 #include "src/test_util.hpp"
 
 static const char TEST_TOPIC[] = "test";

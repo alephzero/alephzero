@@ -1,15 +1,14 @@
-// Necessary for strptime.
-#define _GNU_SOURCE
-
 #include <a0/err.h>
 #include <a0/time.h>
 
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 
 #include "clock.h"
+#include "empty.h"
 #include "err_util.h"
 #include "strconv.h"
 
@@ -58,11 +57,69 @@ errno_t a0_time_wall_str(a0_time_wall_t wall_time, char wall_str[36]) {
 }
 
 errno_t a0_time_wall_parse(const char wall_str[36], a0_time_wall_t* out) {
-  struct tm wall_tm;
-  if (!strptime(wall_str, "%Y-%m-%dT%H:%M:%S", &wall_tm)) {
+  // strptime requires _GNU_SOURCE, which we don't want, so we do it our selves.
+  // Hard code "%Y-%m-%dT%H:%M:%S" + ".%09ld-00:00" pattern.
+
+  struct tm wall_tm = A0_EMPTY;
+  // %Y
+  A0_RETURN_ERR_ON_ERR(a0_str_to_u32(wall_str + 0, wall_str + 4, (uint32_t*)&wall_tm.tm_year));
+  wall_tm.tm_year -= 1900;
+  // -
+  if (wall_str[4] != '-') {
+    return EINVAL;
+  }
+  // %m
+  A0_RETURN_ERR_ON_ERR(a0_str_to_u32(wall_str + 5, wall_str + 7, (uint32_t*)&wall_tm.tm_mon));
+  if (wall_tm.tm_mon < 1 || wall_tm.tm_mon > 12) {
+    return EINVAL;
+  }
+  wall_tm.tm_mon--;
+  // -
+  if (wall_str[7] != '-') {
+    return EINVAL;
+  }
+  // %d
+  A0_RETURN_ERR_ON_ERR(a0_str_to_u32(wall_str + 8, wall_str + 10, (uint32_t*)&wall_tm.tm_mday));
+  if (wall_tm.tm_mday < 1 || wall_tm.tm_mday > 31) {
+    return EINVAL;
+  }
+  // T
+  if (wall_str[10] != 'T') {
+    return EINVAL;
+  }
+  // %H
+  A0_RETURN_ERR_ON_ERR(a0_str_to_u32(wall_str + 11, wall_str + 13, (uint32_t*)&wall_tm.tm_hour));
+  if (wall_tm.tm_hour > 24) {
+    return EINVAL;
+  }
+  // :
+  if (wall_str[13] != ':') {
+    return EINVAL;
+  }
+  // %M
+  A0_RETURN_ERR_ON_ERR(a0_str_to_u32(wall_str + 14, wall_str + 16, (uint32_t*)&wall_tm.tm_min));
+  if (wall_tm.tm_min > 60) {
+    return EINVAL;
+  }
+  // :
+  if (wall_str[16] != ':') {
+    return EINVAL;
+  }
+  // %S
+  A0_RETURN_ERR_ON_ERR(a0_str_to_u32(wall_str + 17, wall_str + 19, (uint32_t*)&wall_tm.tm_sec));
+  if (wall_tm.tm_sec > 61) {
+    return EINVAL;
+  }
+  // .
+  if (wall_str[19] != '.') {
     return EINVAL;
   }
 
+  if (memcmp(wall_str + 29, "-00:00", 6)) {
+    return EINVAL;
+  }
+
+  // Use timegm, cause it's a pain to compute months/years to seconds.
   out->ts.tv_sec = timegm(&wall_tm);
   return a0_str_to_u64(wall_str + 20, wall_str + 29, (uint64_t*)&out->ts.tv_nsec);
 }

@@ -1,16 +1,14 @@
-// Necessary for nftw and mkostemp.
-#define _GNU_SOURCE
-
 #include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <ftw.h>
 #include <libgen.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -143,7 +141,7 @@ connect:
     goto fail_with_err;
   }
 
-  file->fd = mkostemp(tmppath, open_flags);
+  file->fd = mkstemp(tmppath);
   A0_FAIL_ON_MINUS_ONE(file->fd);
   A0_FAIL_ON_MINUS_ONE(fchmod(file->fd, opts->create_options.mode));
   A0_FAIL_ON_MINUS_ONE(ftruncate(file->fd, opts->create_options.size));
@@ -313,21 +311,59 @@ errno_t a0_file_remove(const char* path) {
   return err;
 }
 
-A0_STATIC_INLINE
-int a0_nftw_remove_one(const char* subpath, const stat_t* st, int type, struct FTW* ftw) {
-  (void)st;
-  (void)type;
-  (void)ftw;
-  return remove(subpath);
+A0_STATIC_INLINE_RECURSIVE
+errno_t a0_file_remove_all_impl(char* path, size_t path_len) {
+  stat_t stat;
+  A0_RETURN_ERR_ON_MINUS_ONE(lstat(path, &stat));
+
+  // If the path is a directory, recursively remove all files inside before
+  // trying to remove the current path.
+  if (S_ISDIR(stat.st_mode)) {
+    DIR* dir = opendir(path);
+    if (!dir) {
+      return errno;
+    }
+
+    if (path[path_len - 1] != '/') {
+      path[path_len] = '/';
+      path_len++;
+    }
+
+    struct dirent* dir_entity;
+    while ((dir_entity = readdir(dir))) {
+      // Skip this and up.
+      if (!memcmp(dir_entity->d_name, ".", 2) | !memcmp(dir_entity->d_name, "..", 3)) {
+        continue;
+      }
+      size_t entity_len = strlen(dir_entity->d_name);
+      if (path_len + entity_len >= PATH_MAX) {
+        continue;
+      }
+
+      memcpy(path + path_len, dir_entity->d_name, entity_len + 1);
+      a0_file_remove_all_impl(path, path_len + entity_len);
+    }
+    closedir(dir);
+  }
+
+  path[path_len] = '\0';
+  A0_RETURN_ERR_ON_MINUS_ONE(remove(path));
+  return A0_OK;
 }
 
 errno_t a0_file_remove_all(const char* path) {
   char* abspath;
   A0_RETURN_ERR_ON_ERR(a0_abspath(path, &abspath));
-  errno_t err = A0_OK;
-  if (nftw(abspath, a0_nftw_remove_one, /* fd_limit */ 10, FTW_DEPTH | FTW_MOUNT | FTW_PHYS) == -1) {
-    err = errno;
+
+  size_t path_len = strlen(abspath);
+  if (path_len > PATH_MAX) {
+    free(abspath);
+    return ENAMETOOLONG;
   }
+
+  char path_buf[PATH_MAX + 1];
+  memcpy(path_buf, abspath, path_len + 1);
   free(abspath);
-  return err;
+
+  return a0_file_remove_all_impl(path_buf, path_len);
 }

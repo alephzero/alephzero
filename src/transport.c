@@ -1,9 +1,11 @@
 #include <a0/alloc.h>
 #include <a0/arena.h>
 #include <a0/buf.h>
+#include <a0/callback.h>
 #include <a0/err.h>
 #include <a0/inline.h>
 #include <a0/mtx.h>
+#include <a0/time.h>
 #include <a0/transport.h>
 
 #include <errno.h>
@@ -13,6 +15,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "clock.h"
 #include "err_util.h"

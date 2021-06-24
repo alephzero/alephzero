@@ -1,10 +1,11 @@
 #include <a0/event.h>
+#include <a0/time.h>
 
 #include <doctest.h>
 
+#include <cstdint>
+#include <ctime>
 #include <thread>
-
-#include "src/test_util.hpp"
 
 TEST_CASE("event] default false") {
   a0_event_t evt;
