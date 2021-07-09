@@ -16,6 +16,10 @@
 #include "clock.h"
 #include "err_util.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // FUTEX_WAIT and FUTEX_WAIT_REQUEUE_PI default to CLOCK_MONOTONIC,
 // but FUTEX_LOCK_PI always uses CLOCK_REALTIME.
 //
@@ -100,5 +104,9 @@ errno_t a0_ftx_wait_requeue_pi(a0_ftx_t* ftx, int confirm_val, const a0_time_mon
   A0_RETURN_ERR_ON_ERR(a0_clock_convert(CLOCK_BOOTTIME, time_mono->ts, CLOCK_MONOTONIC, &ts_mono));
   return a0_futex(ftx, FUTEX_WAIT_REQUEUE_PI, confirm_val, (uintptr_t)&ts_mono, requeue_ftx, 0);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // A0_SRC_FTX_H

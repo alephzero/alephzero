@@ -7,6 +7,10 @@
 
 #include "err_util.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static const int64_t NS_PER_SEC = 1e9;
 
 typedef struct timespec timespec_t;
@@ -46,5 +50,9 @@ errno_t a0_clock_convert(
   int64_t add_nsec = (orig_ts.tv_sec - orig_now.tv_sec) * NS_PER_SEC + (orig_ts.tv_nsec - orig_now.tv_nsec);
   return a0_clock_add(target_now, add_nsec, target_ts);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // A0_SRC_CLOCK_H

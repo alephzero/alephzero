@@ -3,6 +3,10 @@
 
 #include <a0/inline.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 A0_STATIC_INLINE
 void a0_barrier() {
   __atomic_thread_fence(__ATOMIC_SEQ_CST);
@@ -23,5 +27,9 @@ void a0_barrier() {
 // TODO(lshamis): Switch from __sync to __atomic.
 #define a0_cas_val(P, OV, NV) __sync_val_compare_and_swap((P), (OV), (NV))
 #define a0_cas(P, OV, NV) __sync_bool_compare_and_swap((P), (OV), (NV))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // A0_SRC_ATOMIC_H

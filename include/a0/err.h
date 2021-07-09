@@ -1,5 +1,5 @@
-#ifndef A0_ERRNO_H
-#define A0_ERRNO_H
+#ifndef A0_ERR_H
+#define A0_ERR_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,4 +13,4 @@ static const errno_t A0_OK = 0;
 }
 #endif
 
-#endif  // A0_ERRNO_H
+#endif  // A0_ERR_H
