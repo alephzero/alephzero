@@ -19,27 +19,6 @@
 #endif
 
 A0_STATIC_INLINE
-errno_t a0_writer_process(a0_writer_t*, a0_packet_t*);
-
-A0_STATIC_INLINE
-errno_t a0_write_process_chain(void* data, a0_packet_t* pkt) {
-  a0_writer_t* next_writer = (a0_writer_t*)data;
-  if (next_writer) {
-    return a0_writer_process(next_writer, pkt);
-  }
-  return A0_OK;
-}
-
-A0_STATIC_INLINE
-errno_t a0_writer_process(a0_writer_t* w, a0_packet_t* pkt) {
-  a0_writer_middleware_chain_t chain;
-  chain.data = w->_next_writer;
-  chain.chain_fn = a0_write_process_chain;
-
-  return w->_action.process(w->_action.user_data, pkt, chain);
-}
-
-A0_STATIC_INLINE
 errno_t a0_write_action_init(a0_arena_t arena, void** user_data) {
   a0_transport_t transport;
   A0_RETURN_ERR_ON_ERR(a0_transport_init(&transport, arena));
@@ -77,11 +56,11 @@ errno_t a0_write_action_process(void* user_data, a0_packet_t* pkt, a0_writer_mid
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, &lk));
 
   a0_alloc_t alloc;
-  A0_RETURN_ERR_ON_ERR(a0_transport_allocator(&lk, &alloc));
-  A0_RETURN_ERR_ON_ERR(a0_packet_serialize(*pkt, alloc, NULL));
+  a0_transport_allocator(&lk, &alloc);
+  a0_packet_serialize(*pkt, alloc, NULL);
 
-  A0_RETURN_ERR_ON_ERR(a0_transport_commit(lk));
-  A0_RETURN_ERR_ON_ERR(a0_transport_unlock(lk));
+  a0_transport_commit(lk);
+  a0_transport_unlock(lk);
 
   return a0_writer_middleware_chain(chain, pkt);
 }
@@ -129,8 +108,26 @@ errno_t a0_writer_close(a0_writer_t* w) {
   return A0_OK;
 }
 
+A0_STATIC_INLINE
+errno_t a0_writer_write_impl(void* data, a0_packet_t* pkt) {
+  a0_writer_t* w = (a0_writer_t*)data;
+  if (!w) {
+    return A0_OK;
+  }
+
+  a0_writer_middleware_chain_t chain = (a0_writer_middleware_chain_t){
+    .data = w->_next_writer,
+    .chain_fn = a0_writer_write_impl,
+  };
+
+  if (!w->_action.process) {
+    return a0_writer_middleware_chain(chain, pkt);
+  }
+  return w->_action.process(w->_action.user_data, pkt, chain);
+}
+
 errno_t a0_writer_write(a0_writer_t* w, a0_packet_t pkt) {
-  return a0_writer_process(w, &pkt);
+  return a0_writer_write_impl(w, &pkt);
 }
 
 errno_t a0_writer_wrap(a0_writer_t* in, a0_writer_middleware_t middleware, a0_writer_t* out) {
