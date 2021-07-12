@@ -55,6 +55,11 @@
 extern "C" {
 #endif
 
+typedef struct a0_heartbeat_topic_s {
+  const char* name;
+  const a0_file_options_t* file_opts;
+} a0_heartbeat_topic_t;
+
 /** \addtogroup HEARTBEAT
  *  @{
  */
@@ -81,8 +86,7 @@ typedef struct a0_heartbeat_s {
 
 /// Initializes a heartbeat publisher.
 errno_t a0_heartbeat_init(a0_heartbeat_t*,
-                          const char* topic,
-                          const a0_file_options_t* topic_opts,
+                          a0_heartbeat_topic_t,
                           const a0_heartbeat_options_t*);
 /// Stops and shuts down a heartbeat publisher.
 errno_t a0_heartbeat_close(a0_heartbeat_t*);
@@ -117,8 +121,7 @@ typedef struct a0_heartbeat_listener_s {
 /// Initializes a heartbeat listener.
 /// TODO: If heartbeat packets are fixed-size, remove alloc and use stack space.
 errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t*,
-                                   const char* topic,
-                                   const a0_file_options_t* topic_opts,
+                                   a0_heartbeat_topic_t,
                                    const a0_heartbeat_listener_options_t*,
                                    a0_callback_t ondetected,
                                    a0_callback_t onmissed);

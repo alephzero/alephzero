@@ -24,13 +24,14 @@
 
 struct PubsubFixture {
   a0_pubsub_topic_t topic = {"test", nullptr};
+  const char* topic_path = "alephzero/test.pubsub.a0";
 
   PubsubFixture() {
-    a0_file_remove("alephzero/test.pubsub.a0");
+    a0_file_remove(topic_path);
   }
 
   ~PubsubFixture() {
-    a0_file_remove("alephzero/test.pubsub.a0");
+    a0_file_remove(topic_path);
   }
 };
 

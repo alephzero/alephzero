@@ -47,15 +47,14 @@ void* a0_heartbeat_thread_main(void* data) {
 }
 
 errno_t a0_heartbeat_init(a0_heartbeat_t* h,
-                          const char* topic,
-                          const a0_file_options_t* topic_opts,
+                          a0_heartbeat_topic_t topic,
                           const a0_heartbeat_options_t* opts) {
   h->_opts = A0_HEARTBEAT_OPTIONS_DEFAULT;
   if (opts) {
     h->_opts = *opts;
   }
 
-  A0_RETURN_ERR_ON_ERR(a0_open_topic("heartbeat", topic, topic_opts, &h->_file));
+  A0_RETURN_ERR_ON_ERR(a0_open_topic("heartbeat", topic.name, topic.file_opts, &h->_file));
 
   errno_t err = a0_writer_init(&h->_simple_writer, h->_file.arena);
   if (err) {
@@ -186,8 +185,7 @@ void* a0_heartbeat_listener_thread_main(void* data) {
 }
 
 errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
-                                   const char* topic,
-                                   const a0_file_options_t* topic_opts,
+                                   a0_heartbeat_topic_t topic,
                                    const a0_heartbeat_listener_options_t* opts,
                                    a0_callback_t ondetected,
                                    a0_callback_t onmissed) {
@@ -199,7 +197,7 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
   hl->ondetected = ondetected;
   hl->onmissed = onmissed;
 
-  A0_RETURN_ERR_ON_ERR(a0_open_topic("heartbeat", topic, topic_opts, &hl->_file));
+  A0_RETURN_ERR_ON_ERR(a0_open_topic("heartbeat", topic.name, topic.file_opts, &hl->_file));
 
   errno_t err = a0_transport_init(&hl->_transport, hl->_file.arena);
   if (err) {
