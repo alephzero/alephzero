@@ -35,6 +35,7 @@
 #include <a0/err.h>
 #include <a0/inline.h>
 #include <a0/packet.h>
+#include <a0/transport.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,9 +56,16 @@ typedef struct a0_writer_s a0_writer_t;
  *
  * Note: NOT INTENDED TO BE USED BY USERS DIRECTLY.
  */
+
+typedef struct a0_writer_middleware_chain_node_s {
+  a0_writer_t* _curr;
+  a0_writer_t* _head;
+  a0_locked_transport_t _tlk;
+} a0_writer_middleware_chain_node_t;
+
 typedef struct a0_writer_middleware_chain_s {
-  void* data;
-  errno_t (*chain_fn)(void* data, a0_packet_t*);
+  a0_writer_middleware_chain_node_t _node;
+  errno_t (*_chain_fn)(a0_writer_middleware_chain_node_t, a0_packet_t*);
 } a0_writer_middleware_chain_t;
 
 /**
@@ -76,6 +84,8 @@ typedef struct a0_writer_middleware_s {
   errno_t (*close)(void* user_data);
   /// Processes a packet before forwarding it on to the next middleware in the chain.
   errno_t (*process)(void* user_data, a0_packet_t*, a0_writer_middleware_chain_t);
+  /// ...
+  errno_t (*process_locked)(void* user_data, a0_locked_transport_t, a0_packet_t*, a0_writer_middleware_chain_t);
 } a0_writer_middleware_t;
 
 /**
@@ -104,7 +114,7 @@ errno_t a0_writer_middleware_compose(a0_writer_middleware_t, a0_writer_middlewar
  */
 A0_STATIC_INLINE
 errno_t a0_writer_middleware_chain(a0_writer_middleware_chain_t chain, a0_packet_t* pkt) {
-  return chain.chain_fn(chain.data, pkt);
+  return chain._chain_fn(chain._node, pkt);
 }
 
 /** @}*/
@@ -121,10 +131,8 @@ a0_writer_middleware_t a0_writer_middleware_add_time_wall_header();
 a0_writer_middleware_t a0_writer_middleware_add_writer_id_header();
 /// Creates a middleware that adds a writer sequence header.
 a0_writer_middleware_t a0_writer_middleware_add_writer_seq_header();
-
-// TODO(lshamis): Add
-// a0_writer_middleware_t a0_writer_middleware_add_transport_seq_header();
-
+/// ...
+a0_writer_middleware_t a0_writer_middleware_add_transport_seq_header();
 /// Creates a middleware that adds all standard headers.
 a0_writer_middleware_t a0_writer_middleware_add_standard_headers();
 

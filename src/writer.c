@@ -4,11 +4,13 @@
 #include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
+#include <a0/unused.h>
 #include <a0/writer.h>
 #include <a0/writer_middleware.h>
 
 #include <stdlib.h>
 
+#include "empty.h"
 #include "err_util.h"
 
 #ifdef DEBUG
@@ -17,6 +19,31 @@
 #include "assert.h"
 #include "ref_cnt.h"
 #endif
+
+A0_STATIC_INLINE
+errno_t a0_writer_write_impl(a0_writer_middleware_chain_node_t node, a0_packet_t* pkt) {
+  a0_writer_middleware_t action = node._curr->_action;
+  a0_writer_middleware_chain_t chain = {
+      ._node = {
+          ._curr = node._curr->_next_writer,
+          ._head = node._head,
+          ._tlk = node._tlk,
+      },
+      ._chain_fn = a0_writer_write_impl,
+  };
+
+  if (!node._tlk.transport) {
+    if (!action.process) {
+      return a0_writer_middleware_chain(chain, pkt);
+    }
+    return action.process(action.user_data, pkt, chain);
+  } else {
+    if (!action.process_locked) {
+      return a0_writer_middleware_chain(chain, pkt);
+    }
+    return action.process_locked(action.user_data, node._tlk, pkt, chain);
+  }
+}
 
 A0_STATIC_INLINE
 errno_t a0_write_action_init(a0_arena_t arena, void** user_data) {
@@ -52,23 +79,38 @@ errno_t a0_write_action_close(void* user_data) {
 A0_STATIC_INLINE
 errno_t a0_write_action_process(void* user_data, a0_packet_t* pkt, a0_writer_middleware_chain_t chain) {
   a0_transport_t* transport = (a0_transport_t*)user_data;
-  a0_locked_transport_t lk;
-  A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, &lk));
+  a0_locked_transport_t tlk;
+  A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, &tlk));
+
+  a0_writer_middleware_chain_node_t next_node = {
+      ._curr = chain._node._head,
+      ._head = chain._node._head,
+      ._tlk = tlk,
+  };
+
+  return a0_writer_write_impl(next_node, pkt);
+}
+
+A0_STATIC_INLINE
+errno_t a0_write_action_process_locked(void* user_data, a0_locked_transport_t tlk, a0_packet_t* pkt, a0_writer_middleware_chain_t chain) {
+  A0_MAYBE_UNUSED(user_data);
+  A0_MAYBE_UNUSED(chain);
 
   a0_alloc_t alloc;
-  a0_transport_allocator(&lk, &alloc);
+  a0_transport_allocator(&tlk, &alloc);
   a0_packet_serialize(*pkt, alloc, NULL);
 
-  a0_transport_commit(lk);
-  a0_transport_unlock(lk);
+  a0_transport_commit(tlk);
+  a0_transport_unlock(tlk);
 
-  return a0_writer_middleware_chain(chain, pkt);
+  return A0_OK;
 }
 
 errno_t a0_writer_init(a0_writer_t* w, a0_arena_t arena) {
   A0_RETURN_ERR_ON_ERR(a0_write_action_init(arena, &w->_action.user_data));
   w->_action.close = a0_write_action_close;
   w->_action.process = a0_write_action_process;
+  w->_action.process_locked = a0_write_action_process_locked;
   w->_next_writer = NULL;
 
 #ifdef DEBUG
@@ -108,26 +150,13 @@ errno_t a0_writer_close(a0_writer_t* w) {
   return A0_OK;
 }
 
-A0_STATIC_INLINE
-errno_t a0_writer_write_impl(void* data, a0_packet_t* pkt) {
-  a0_writer_t* w = (a0_writer_t*)data;
-  if (!w) {
-    return A0_OK;
-  }
-
-  a0_writer_middleware_chain_t chain = (a0_writer_middleware_chain_t){
-    .data = w->_next_writer,
-    .chain_fn = a0_writer_write_impl,
-  };
-
-  if (!w->_action.process) {
-    return a0_writer_middleware_chain(chain, pkt);
-  }
-  return w->_action.process(w->_action.user_data, pkt, chain);
-}
-
 errno_t a0_writer_write(a0_writer_t* w, a0_packet_t pkt) {
-  return a0_writer_write_impl(w, &pkt);
+  a0_writer_middleware_chain_node_t node = {
+      ._curr = w,
+      ._head = w,
+      ._tlk = A0_EMPTY,
+  };
+  return a0_writer_write_impl(node, &pkt);
 }
 
 errno_t a0_writer_wrap(a0_writer_t* in, a0_writer_middleware_t middleware, a0_writer_t* out) {
@@ -142,19 +171,14 @@ errno_t a0_writer_wrap(a0_writer_t* in, a0_writer_middleware_t middleware, a0_wr
   return A0_OK;
 }
 
-typedef struct a0_middleware_pair_s {
+typedef struct a0_compose_pair_s {
   a0_writer_middleware_t first;
   a0_writer_middleware_t second;
-} a0_middleware_pair_t;
-
-typedef struct a0_middleware_chain_s {
-  a0_writer_middleware_t middleware;
-  a0_writer_middleware_chain_t chain;
-} a0_middleware_chain_t;
+} a0_compose_pair_t;
 
 A0_STATIC_INLINE
 errno_t a0_compose_init(a0_writer_middleware_t first, a0_writer_middleware_t second, void** user_data) {
-  a0_middleware_pair_t* heap_middleware_pair = (a0_middleware_pair_t*)malloc(sizeof(a0_middleware_pair_t));
+  a0_compose_pair_t* heap_middleware_pair = (a0_compose_pair_t*)malloc(sizeof(a0_compose_pair_t));
   heap_middleware_pair->first = first;
   heap_middleware_pair->second = second;
   *user_data = heap_middleware_pair;
@@ -163,7 +187,7 @@ errno_t a0_compose_init(a0_writer_middleware_t first, a0_writer_middleware_t sec
 
 A0_STATIC_INLINE
 errno_t a0_compose_close(void* user_data) {
-  a0_middleware_pair_t* pair = (a0_middleware_pair_t*)user_data;
+  a0_compose_pair_t* pair = (a0_compose_pair_t*)user_data;
   if (pair->first.close) {
     pair->first.close(pair->first.user_data);
   }
@@ -175,31 +199,35 @@ errno_t a0_compose_close(void* user_data) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_compose_process_chain(void* data, a0_packet_t* pkt) {
-  a0_middleware_chain_t* chain_2_data = (a0_middleware_chain_t*)data;
-  return chain_2_data->middleware.process(
-      chain_2_data->middleware.user_data, pkt, chain_2_data->chain);
+errno_t a0_compose_process(void* user_data, a0_packet_t* pkt, a0_writer_middleware_chain_t chain) {
+  a0_compose_pair_t* middleware_pair = (a0_compose_pair_t*)user_data;
+
+  a0_writer_t second_writer = {
+      ._action = middleware_pair->second,
+      ._next_writer = chain._node._curr,
+  };
+
+  a0_writer_t first_writer = {
+      ._action = middleware_pair->first,
+      ._next_writer = &second_writer,
+  };
+
+  a0_writer_middleware_chain_node_t node = chain._node;
+  node._curr = &first_writer;
+
+  return a0_writer_write_impl(node, pkt);
 }
 
 A0_STATIC_INLINE
-errno_t a0_compose_process(void* user_data, a0_packet_t* pkt, a0_writer_middleware_chain_t chain_2) {
-  a0_middleware_pair_t* middleware_pair = (a0_middleware_pair_t*)user_data;
-
-  a0_middleware_chain_t chain_2_data;
-  chain_2_data.middleware = middleware_pair->second;
-  chain_2_data.chain = chain_2;
-
-  a0_writer_middleware_chain_t chain_1 = {
-      .data = &chain_2_data,
-      .chain_fn = a0_compose_process_chain,
-  };
-
-  return middleware_pair->first.process(middleware_pair->first.user_data, pkt, chain_1);
+errno_t a0_compose_process_locked(void* user_data, a0_locked_transport_t tlk, a0_packet_t* pkt, a0_writer_middleware_chain_t chain) {
+  A0_MAYBE_UNUSED(tlk);
+  return a0_compose_process(user_data, pkt, chain);
 }
 
 errno_t a0_writer_middleware_compose(a0_writer_middleware_t first, a0_writer_middleware_t second, a0_writer_middleware_t* out) {
   A0_RETURN_ERR_ON_ERR(a0_compose_init(first, second, &out->user_data));
   out->close = a0_compose_close;
   out->process = a0_compose_process;
+  out->process_locked = a0_compose_process_locked;
   return A0_OK;
 }

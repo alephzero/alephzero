@@ -396,6 +396,18 @@ a0_predicate_t a0_transport_has_prev_pred(a0_locked_transport_t* lk) {
   };
 }
 
+errno_t a0_transport_seq_low(a0_locked_transport_t lk, uint64_t* out) {
+  a0_transport_state_t* state = a0_transport_working_page(lk);
+  *out = state->seq_low;
+  return A0_OK;
+}
+
+errno_t a0_transport_seq_high(a0_locked_transport_t lk, uint64_t* out) {
+  a0_transport_state_t* state = a0_transport_working_page(lk);
+  *out = state->seq_high;
+  return A0_OK;
+}
+
 errno_t a0_transport_frame(a0_locked_transport_t lk, a0_transport_frame_t* frame_out) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   a0_transport_state_t* state = a0_transport_working_page(lk);

@@ -231,6 +231,9 @@ a0_predicate_t a0_transport_nonempty_pred(a0_locked_transport_t*);
 a0_predicate_t a0_transport_has_next_pred(a0_locked_transport_t*);
 a0_predicate_t a0_transport_has_prev_pred(a0_locked_transport_t*);
 
+errno_t a0_transport_seq_low(a0_locked_transport_t, uint64_t* out);
+errno_t a0_transport_seq_high(a0_locked_transport_t, uint64_t* out);
+
 /// Accesses the frame within the arena, at the current transport pointer.
 ///
 /// Caller does NOT own `frame_out->data` and should not clean it up!

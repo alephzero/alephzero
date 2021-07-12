@@ -78,7 +78,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
 
-      REQUIRE(pkt.headers_block.size == 6);
+      REQUIRE(pkt.headers_block.size == 7);
       REQUIRE(pkt.headers_block.next_block == nullptr);
 
       std::map<std::string, std::string> hdrs;
@@ -93,7 +93,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
       REQUIRE(hdrs["key1"] == "val1");
       REQUIRE(hdrs["a0_time_mono"].size() == 19);
       REQUIRE(hdrs["a0_time_wall"].size() == 35);
-      // REQUIRE(hdrs["a0_transport_seq"] == "0");
+      REQUIRE(hdrs["a0_transport_seq"] == "0");
       REQUIRE(hdrs["a0_writer_seq"] == "0");
       REQUIRE(hdrs["a0_writer_id"].size() == 36);
       pkt1_time_mono = stoull(hdrs["a0_time_mono"]);
@@ -120,7 +120,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
       REQUIRE(hdrs["key2"] == "val2");
       REQUIRE(hdrs["a0_time_mono"].size() == 19);
       REQUIRE(hdrs["a0_time_wall"].size() == 35);
-      // REQUIRE(hdrs["a0_transport_seq"] == "1");
+      REQUIRE(hdrs["a0_transport_seq"] == "1");
       REQUIRE(hdrs["a0_writer_seq"] == "1");
       REQUIRE(hdrs["a0_writer_id"].size() == 36);
 

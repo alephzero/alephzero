@@ -162,7 +162,7 @@ void* a0_heartbeat_listener_thread_main(void* data) {
     a0_transport_frame(tlk, &frame);
 
     // It's faster not to copy the packet out.
-    a0_flat_packet_t fpkt = (a0_flat_packet_t){
+    a0_flat_packet_t fpkt = {
         .ptr = frame.data,
         .size = frame.hdr.data_size,
     };

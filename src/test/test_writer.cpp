@@ -142,13 +142,17 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] multiple middleware") {
   a0_writer_t w_4;
   REQUIRE_OK(a0_writer_wrap(&w_3, a0_writer_middleware_add_writer_seq_header(), &w_4));
 
+  a0_writer_t w_5;
+  REQUIRE_OK(a0_writer_wrap(&w_4, a0_writer_middleware_add_transport_seq_header(), &w_5));
+
   REQUIRE_OK(a0_writer_write(&w_0, a0::test::pkt({{"key", "val"}}, "msg #0")));
   REQUIRE_OK(a0_writer_write(&w_1, a0::test::pkt({{"key", "val"}}, "msg #1")));
   REQUIRE_OK(a0_writer_write(&w_2, a0::test::pkt({{"key", "val"}}, "msg #2")));
   REQUIRE_OK(a0_writer_write(&w_3, a0::test::pkt({{"key", "val"}}, "msg #3")));
   REQUIRE_OK(a0_writer_write(&w_4, a0::test::pkt({{"key", "val"}}, "msg #4")));
-  REQUIRE_OK(a0_writer_write(&w_4, a0::test::pkt({{"key", "val"}}, "msg #5")));
+  REQUIRE_OK(a0_writer_write(&w_5, a0::test::pkt({{"key", "val"}}, "msg #5")));
 
+  REQUIRE_OK(a0_writer_close(&w_5));
   REQUIRE_OK(a0_writer_close(&w_4));
   REQUIRE_OK(a0_writer_close(&w_3));
   REQUIRE_OK(a0_writer_close(&w_2));
@@ -202,6 +206,7 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] multiple middleware") {
                {"a0_time_wall", "???"},
                {"a0_writer_id", "???"},
                {"a0_writer_seq", "1"},
+               {"a0_transport_seq", "5"},
                {"key", "val"},
            },
            "msg #5",
@@ -235,6 +240,7 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] standard headers") {
                {"a0_time_wall", "???"},
                {"a0_writer_id", "???"},
                {"a0_writer_seq", "0"},
+               {"a0_transport_seq", "1"},
                {"key", "val"},
            },
            "msg #1",
@@ -245,6 +251,7 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] standard headers") {
                {"a0_time_wall", "???"},
                {"a0_writer_id", "???"},
                {"a0_writer_seq", "1"},
+               {"a0_transport_seq", "2"},
                {"key", "val"},
            },
            "msg #2",
