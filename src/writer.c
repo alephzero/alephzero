@@ -20,7 +20,7 @@
 #include "ref_cnt.h"
 #endif
 
-A0_STATIC_INLINE
+A0_STATIC_INLINE_RECURSIVE
 errno_t a0_writer_write_impl(a0_writer_middleware_chain_node_t node, a0_packet_t* pkt) {
   a0_writer_middleware_t action = node._curr->_action;
   a0_writer_middleware_chain_t chain = {
