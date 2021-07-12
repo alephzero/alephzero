@@ -102,80 +102,95 @@ errno_t a0_abspath(const char* rel, char** out) {
   return a0_joinpath(root, rel, out);
 }
 
-#define A0_FAIL_ON_MINUS_ONE(x) \
-  if ((x) == -1) {              \
-    goto fail;                  \
+A0_STATIC_INLINE
+errno_t a0_open(const char* path, a0_file_open_options_t opts, a0_file_t* file) {
+  int flags = O_RDWR;
+  if (opts.arena_mode == A0_ARENA_MODE_READONLY) {
+    flags = O_RDONLY;
   }
 
+  file->path = path;
+  file->fd = open(path, flags);
+  A0_RETURN_ERR_ON_MINUS_ONE(file->fd);
+  errno_t err = A0_OK;
+  if (fstat(file->fd, &file->stat) == -1) {
+    err = errno;
+    close(file->fd);
+    file->fd = -1;
+  }
+  return err;
+}
+
 A0_STATIC_INLINE
-errno_t a0_create_or_connect(
+errno_t a0_mktmp(const char* dir, a0_file_create_options_t opts, a0_file_t* file) {
+  char* path;
+  A0_RETURN_ERR_ON_ERR(a0_joinpath(dir, ".alephzero_mkstemp.XXXXXX", &path));
+
+  file->fd = mkstemp(path);
+  A0_RETURN_ERR_ON_MINUS_ONE(file->fd);
+  file->path = path;
+
+  if (fchmod(file->fd, opts.mode) == -1 ||
+      ftruncate(file->fd, opts.size) == -1 ||
+      fstat(file->fd, &file->stat) == -1) {
+    errno_t err = errno;
+
+    close(file->fd);
+    file->fd = -1;
+
+    free(path);
+    file->path = NULL;
+
+    return err;
+  }
+
+  return A0_OK;
+}
+
+A0_STATIC_INLINE
+errno_t a0_tmp_move(a0_file_t* file, const char* path) {
+  errno_t err = A0_OK;
+  if (link(file->path, path) == -1) {
+    err = errno;
+  }
+  unlink(file->path);
+  free((char*)file->path);
+  file->path = path;
+  return err;
+}
+
+A0_STATIC_INLINE
+errno_t a0_open_gen(
     a0_file_t* file,
     const char* path,
     const a0_file_options_t* opts) {
-  errno_t err = A0_OK;
   char* path_copy = NULL;
   char* dir = NULL;
-  char* tmppath = NULL;
 
-  int open_flags = O_RDWR;
-  if (opts->open_options.arena_mode == A0_ARENA_MODE_READONLY) {
-    open_flags = O_RDONLY;
-  }
-
-connect:
-  // Optimistically try to connect.
-  file->fd = open(path, open_flags);
-  if (file->fd != -1) {
-    A0_FAIL_ON_MINUS_ONE(fstat(file->fd, &file->stat));
-    return A0_OK;
-  }
-  if (errno != ENOENT) {
-    goto fail;
-  }
-
-  // Make a file with another name. Set the mode and size. Move it to the final destination.
-  path_copy = strdup(path);
-  dir = dirname(path_copy);
-  err = a0_joinpath(dir, ".alephzero_mkstemp.XXXXXX", &tmppath);
-  if (err) {
-    goto fail_with_err;
-  }
-
-  file->fd = mkstemp(tmppath);
-  A0_FAIL_ON_MINUS_ONE(file->fd);
-  A0_FAIL_ON_MINUS_ONE(fchmod(file->fd, opts->create_options.mode));
-  A0_FAIL_ON_MINUS_ONE(ftruncate(file->fd, opts->create_options.size));
-  A0_FAIL_ON_MINUS_ONE(fstat(file->fd, &file->stat));
-  if (link(tmppath, path) == -1) {
-    // Check for a race condition. Another process has already made the final file.
-    if (errno == EEXIST) {
-      close(file->fd);
-      unlink(tmppath);
-      free(path_copy);
-      path_copy = NULL;
-      free(tmppath);
-      tmppath = NULL;
-      goto connect;
+  errno_t err = EEXIST;
+  while (err == EEXIST) {
+    err = a0_open(path, opts->open_options, file);
+    if (err != ENOENT) {
+      break;
     }
-    goto fail;
-  }
-  goto cleanup;
 
-fail:
-  err = errno;
-fail_with_err:
-  if (file->fd != -1) {
-    close(file->fd);
-  }
-  file->fd = 0;
-  if (tmppath) {
-    unlink(tmppath);
+    if (!path_copy) {
+      path_copy = strdup(path);
+      dir = dirname(path_copy);
+    }
+
+    err = a0_mktmp(dir, opts->create_options, file);
+    if (err) {
+      close(file->fd);
+      break;
+    }
+
+    err = a0_tmp_move(file, path);
   }
 
-cleanup:
-  free(path_copy);
-  free(tmppath);
-
+  if (path_copy) {
+    free(path_copy);
+  }
   return err;
 }
 
@@ -249,7 +264,7 @@ errno_t a0_file_open(
     return err;
   }
 
-  err = a0_create_or_connect(out, filepath, opts);
+  err = a0_open_gen(out, filepath, opts);
   if (err) {
     free(filepath);
     return err;
@@ -261,8 +276,6 @@ errno_t a0_file_open(
     free(filepath);
     return err;
   }
-
-  out->path = filepath;
 
 #ifdef DEBUG
   a0_ref_cnt_inc(out->arena.buf.ptr, NULL);
