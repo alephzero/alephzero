@@ -22,28 +22,22 @@
 #include "src/sync.hpp"
 #include "src/test_util.hpp"
 
-static const char TEST_TOPIC[] = "test";
-static const char TEST_FILE[] = "alephzero/test.pubsub.a0";
-
 struct PubsubFixture {
-  a0_file_t file;
+  a0_pubsub_topic_t topic = {"test", nullptr};
 
   PubsubFixture() {
-    a0_file_remove(TEST_FILE);
-
-    a0_file_open(TEST_FILE, nullptr, &file);
+    a0_file_remove("alephzero/test.pubsub.a0");
   }
 
   ~PubsubFixture() {
-    a0_file_close(&file);
-    a0_file_remove(TEST_FILE);
+    a0_file_remove("alephzero/test.pubsub.a0");
   }
 };
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, TEST_TOPIC, nullptr));
+    REQUIRE_OK(a0_publisher_init(&pub, topic));
 
     REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt({{"key0", "val0"}, {"key1", "val1"}}, "msg #0")));
     REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt({{"key2", "val2"}}, "msg #1")));
@@ -52,7 +46,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   }
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, TEST_TOPIC, nullptr));
+    REQUIRE_OK(a0_publisher_init(&pub, topic));
 
     REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt({{"key3", "val3"}}, "msg #2")));
 
@@ -62,8 +56,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   {
     a0_subscriber_sync_t sub;
     REQUIRE_OK(a0_subscriber_sync_init(&sub,
-                                       TEST_TOPIC,
-                                       nullptr,
+                                       topic,
                                        a0::test::alloc(),
                                        A0_INIT_OLDEST,
                                        A0_ITER_NEXT));
@@ -165,8 +158,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   {
     a0_subscriber_sync_t sub;
     REQUIRE_OK(a0_subscriber_sync_init(&sub,
-                                       TEST_TOPIC,
-                                       nullptr,
+                                       topic,
                                        a0::test::alloc(),
                                        A0_INIT_MOST_RECENT,
                                        A0_ITER_NEWEST));
@@ -206,13 +198,12 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately await_new") {
   };
 
   a0_publisher_t pub;
-  REQUIRE_OK(a0_publisher_init(&pub, TEST_TOPIC, nullptr));
+  REQUIRE_OK(a0_publisher_init(&pub, topic));
   REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg before")));
 
   a0_subscriber_t sub;
   REQUIRE_OK(a0_subscriber_init(&sub,
-                                TEST_TOPIC,
-                                nullptr,
+                                topic,
                                 a0::test::alloc(),
                                 A0_INIT_AWAIT_NEW,
                                 A0_ITER_NEXT,
@@ -246,13 +237,12 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately most_recent") {
   };
 
   a0_publisher_t pub;
-  REQUIRE_OK(a0_publisher_init(&pub, TEST_TOPIC, nullptr));
+  REQUIRE_OK(a0_publisher_init(&pub, topic));
   REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg before")));
 
   a0_subscriber_t sub;
   REQUIRE_OK(a0_subscriber_init(&sub,
-                                TEST_TOPIC,
-                                nullptr,
+                                topic,
                                 a0::test::alloc(),
                                 A0_INIT_MOST_RECENT,
                                 A0_ITER_NEXT,
@@ -272,7 +262,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately most_recent") {
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, TEST_TOPIC, nullptr));
+    REQUIRE_OK(a0_publisher_init(&pub, topic));
 
     REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg #0")));
     REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg #1")));
@@ -301,8 +291,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
 
   a0_subscriber_t sub;
   REQUIRE_OK(a0_subscriber_init(&sub,
-                                TEST_TOPIC,
-                                nullptr,
+                                topic,
                                 a0::test::alloc(),
                                 A0_INIT_OLDEST,
                                 A0_ITER_NEXT,
@@ -323,8 +312,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Nonblocking, oldest, not available.
   {
     a0_packet_t pkt;
-    REQUIRE(a0_subscriber_read_one(TEST_TOPIC,
-                                   nullptr,
+    REQUIRE(a0_subscriber_read_one(topic,
                                    a0::test::alloc(),
                                    A0_INIT_OLDEST,
                                    O_NONBLOCK,
@@ -334,8 +322,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Nonblocking, most recent, not available.
   {
     a0_packet_t pkt;
-    REQUIRE(a0_subscriber_read_one(TEST_TOPIC,
-                                   nullptr,
+    REQUIRE(a0_subscriber_read_one(topic,
                                    a0::test::alloc(),
                                    A0_INIT_MOST_RECENT,
                                    O_NONBLOCK,
@@ -345,8 +332,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Nonblocking, await new.
   {
     a0_packet_t pkt;
-    REQUIRE(a0_subscriber_read_one(TEST_TOPIC,
-                                   nullptr,
+    REQUIRE(a0_subscriber_read_one(topic,
                                    a0::test::alloc(),
                                    A0_INIT_AWAIT_NEW,
                                    O_NONBLOCK,
@@ -356,7 +342,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Do writes.
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, TEST_TOPIC, nullptr));
+    REQUIRE_OK(a0_publisher_init(&pub, topic));
 
     REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg #0")));
     REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg #1")));
@@ -367,8 +353,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Blocking, oldest, available.
   {
     a0_packet_t pkt;
-    REQUIRE_OK(a0_subscriber_read_one(TEST_TOPIC,
-                                      nullptr,
+    REQUIRE_OK(a0_subscriber_read_one(topic,
                                       a0::test::alloc(),
                                       A0_INIT_OLDEST,
                                       0,
@@ -379,8 +364,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Blocking, most recent, available.
   {
     a0_packet_t pkt;
-    REQUIRE_OK(a0_subscriber_read_one(TEST_TOPIC,
-                                      nullptr,
+    REQUIRE_OK(a0_subscriber_read_one(topic,
                                       a0::test::alloc(),
                                       A0_INIT_MOST_RECENT,
                                       0,
@@ -391,8 +375,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Nonblocking, oldest, available.
   {
     a0_packet_t pkt;
-    REQUIRE_OK(a0_subscriber_read_one(TEST_TOPIC,
-                                      nullptr,
+    REQUIRE_OK(a0_subscriber_read_one(topic,
                                       a0::test::alloc(),
                                       A0_INIT_OLDEST,
                                       O_NONBLOCK,
@@ -403,8 +386,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Nonblocking, most recent, available.
   {
     a0_packet_t pkt;
-    REQUIRE_OK(a0_subscriber_read_one(TEST_TOPIC,
-                                      nullptr,
+    REQUIRE_OK(a0_subscriber_read_one(topic,
                                       a0::test::alloc(),
                                       A0_INIT_MOST_RECENT,
                                       O_NONBLOCK,
@@ -415,8 +397,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Nonblocking, await new.
   {
     a0_packet_t pkt;
-    REQUIRE(a0_subscriber_read_one(TEST_TOPIC,
-                                   nullptr,
+    REQUIRE(a0_subscriber_read_one(topic,
                                    a0::test::alloc(),
                                    A0_INIT_AWAIT_NEW,
                                    O_NONBLOCK,
@@ -432,7 +413,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
   for (int i = 0; i < NUM_THREADS; i++) {
     threads.emplace_back([this, i]() {
       a0_publisher_t pub;
-      REQUIRE_OK(a0_publisher_init(&pub, TEST_TOPIC, nullptr));
+      REQUIRE_OK(a0_publisher_init(&pub, topic));
 
       for (int j = 0; j < NUM_PACKETS; j++) {
         REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt(a0::strutil::fmt("pub %d msg %d", i, j))));
@@ -450,8 +431,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
   std::set<std::string> msgs;
   a0_subscriber_sync_t sub;
   REQUIRE_OK(a0_subscriber_sync_init(&sub,
-                                     TEST_TOPIC,
-                                     nullptr,
+                                     topic,
                                      a0::test::alloc(),
                                      A0_INIT_OLDEST,
                                      A0_ITER_NEXT));
@@ -472,7 +452,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
   REQUIRE_OK(a0_subscriber_sync_close(&sub));
 
   // Note that this assumes the topic is lossless.
-  REQUIRE(msgs.size() == 5000);
+  REQUIRE(msgs.size() == NUM_THREADS * NUM_PACKETS);
   for (int i = 0; i < NUM_THREADS; i++) {
     for (int j = 0; j < NUM_PACKETS; j++) {
       REQUIRE(msgs.count(a0::strutil::fmt("pub %d msg %d", i, j)));

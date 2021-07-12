@@ -146,11 +146,11 @@ connect:
   A0_FAIL_ON_MINUS_ONE(fchmod(file->fd, opts->create_options.mode));
   A0_FAIL_ON_MINUS_ONE(ftruncate(file->fd, opts->create_options.size));
   A0_FAIL_ON_MINUS_ONE(fstat(file->fd, &file->stat));
-  if (rename(tmppath, path) == -1) {
+  if (link(tmppath, path) == -1) {
     // Check for a race condition. Another process has already made the final file.
     if (errno == EEXIST) {
       close(file->fd);
-      remove(tmppath);
+      unlink(tmppath);
       free(path_copy);
       path_copy = NULL;
       free(tmppath);
@@ -169,7 +169,7 @@ fail_with_err:
   }
   file->fd = 0;
   if (tmppath) {
-    remove(tmppath);
+    unlink(tmppath);
   }
 
 cleanup:

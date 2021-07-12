@@ -14,6 +14,11 @@
 extern "C" {
 #endif
 
+typedef struct a0_pubsub_topic_s {
+  const char* name;
+  const a0_file_options_t* file_opts;
+} a0_pubsub_topic_t;
+
 ///////////////
 // Publisher //
 ///////////////
@@ -24,10 +29,7 @@ typedef struct a0_publisher_s {
   a0_writer_t _annotated_writer;
 } a0_publisher_t;
 
-errno_t a0_publisher_init(
-    a0_publisher_t*,
-    const char* topic,
-    const a0_file_options_t* topic_opts);
+errno_t a0_publisher_init(a0_publisher_t*, a0_pubsub_topic_t);
 errno_t a0_publisher_close(a0_publisher_t*);
 errno_t a0_publisher_pub(a0_publisher_t*, a0_packet_t);
 
@@ -43,8 +45,7 @@ typedef struct a0_subscriber_sync_zc_s {
 } a0_subscriber_sync_zc_t;
 
 errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t*,
-                                   const char* topic,
-                                   const a0_file_options_t* topic_opts,
+                                   a0_pubsub_topic_t,
                                    a0_reader_init_t,
                                    a0_reader_iter_t);
 
@@ -61,8 +62,7 @@ typedef struct a0_subscriber_sync_s {
 } a0_subscriber_sync_t;
 
 errno_t a0_subscriber_sync_init(a0_subscriber_sync_t*,
-                                const char* topic,
-                                const a0_file_options_t* topic_opts,
+                                a0_pubsub_topic_t,
                                 a0_alloc_t,
                                 a0_reader_init_t,
                                 a0_reader_iter_t);
@@ -80,8 +80,7 @@ typedef struct a0_subscriber_zc_s {
 } a0_subscriber_zc_t;
 
 errno_t a0_subscriber_zc_init(a0_subscriber_zc_t*,
-                              const char* topic,
-                              const a0_file_options_t* topic_opts,
+                              a0_pubsub_topic_t,
                               a0_reader_init_t,
                               a0_reader_iter_t,
                               a0_zero_copy_callback_t);
@@ -98,8 +97,7 @@ typedef struct a0_subscriber_s {
 } a0_subscriber_t;
 
 errno_t a0_subscriber_init(a0_subscriber_t*,
-                           const char* topic,
-                           const a0_file_options_t* topic_opts,
+                           a0_pubsub_topic_t,
                            a0_alloc_t,
                            a0_reader_init_t,
                            a0_reader_iter_t,
@@ -113,8 +111,7 @@ errno_t a0_subscriber_close(a0_subscriber_t*);
 // Pass O_NDELAY or O_NONBLOCK to flags to run non-blocking.
 // If non-blocking and transport is empty, returns EAGAIN.
 
-errno_t a0_subscriber_read_one(const char* topic,
-                               const a0_file_options_t* topic_opts,
+errno_t a0_subscriber_read_one(a0_pubsub_topic_t,
                                a0_alloc_t,
                                a0_reader_init_t,
                                int flags,

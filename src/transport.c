@@ -78,7 +78,7 @@ transport_off_t a0_transport_workspace_off() {
 errno_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
   // The arena is expected to be either:
   // 1) all null bytes.
-  //    this is guaranteed by ftruncate, as is used in a0/file_arena.h
+  //    this is guaranteed by ftruncate, as is used in a0/file.h
   // 2) a pre-initialized buffer.
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)arena.buf.ptr;
 
