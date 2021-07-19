@@ -185,6 +185,7 @@ errno_t a0_transport_unlock(a0_locked_transport_t);
 /// Shuts down the notification mechanism and waits for all waiters to return.
 errno_t a0_transport_shutdown(a0_locked_transport_t);
 
+/// Returns whether the a transport shutdown is requested.
 errno_t a0_transport_shutdown_requested(a0_locked_transport_t, bool*);
 
 /// Checks whether the transport is empty.
@@ -226,12 +227,17 @@ errno_t a0_transport_wait(a0_locked_transport_t, a0_predicate_t);
 /// The predicate is checked when an unlock event occurs following a commit or eviction.
 errno_t a0_transport_timedwait(a0_locked_transport_t, a0_predicate_t, a0_time_mono_t);
 
+/// Predicate that is satisfied when the transport is empty.
 a0_predicate_t a0_transport_empty_pred(a0_locked_transport_t*);
+/// Predicate that is satisfied when the transport is not empty.
 a0_predicate_t a0_transport_nonempty_pred(a0_locked_transport_t*);
+/// Predicate that is satisfied when a newer frame exists than one at the current pointer.
 a0_predicate_t a0_transport_has_next_pred(a0_locked_transport_t*);
-a0_predicate_t a0_transport_has_prev_pred(a0_locked_transport_t*);
 
+/// Returns the earliest available sequence number.
 errno_t a0_transport_seq_low(a0_locked_transport_t, uint64_t* out);
+
+/// Returns the latest available sequence number.
 errno_t a0_transport_seq_high(a0_locked_transport_t, uint64_t* out);
 
 /// Accesses the frame within the arena, at the current transport pointer.
@@ -254,7 +260,9 @@ errno_t a0_transport_frame(a0_locked_transport_t, a0_transport_frame_t* frame_ou
 errno_t a0_transport_alloc(a0_locked_transport_t, size_t, a0_transport_frame_t* frame_out);
 /// Checks whether an alloc call would evict.
 errno_t a0_transport_alloc_evicts(a0_locked_transport_t, size_t, bool*);
+/// Creates an allocator that allocates within the transport.
 errno_t a0_transport_allocator(a0_locked_transport_t*, a0_alloc_t*);
+/// Commits the allocated frames.
 errno_t a0_transport_commit(a0_locked_transport_t);
 
 /// Returns the arena space in use.

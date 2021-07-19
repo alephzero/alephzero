@@ -384,18 +384,6 @@ a0_predicate_t a0_transport_has_next_pred(a0_locked_transport_t* lk) {
   };
 }
 
-A0_STATIC_INLINE
-errno_t a0_transport_has_prev_pred_fn(void* user_data, bool* out) {
-  return a0_transport_has_prev(*(a0_locked_transport_t*)user_data, out);
-}
-
-a0_predicate_t a0_transport_has_prev_pred(a0_locked_transport_t* lk) {
-  return (a0_predicate_t){
-      .user_data = lk,
-      .fn = a0_transport_has_prev_pred_fn,
-  };
-}
-
 errno_t a0_transport_seq_low(a0_locked_transport_t lk, uint64_t* out) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
   *out = state->seq_low;

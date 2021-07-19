@@ -5,6 +5,7 @@
 
 #include <fcntl.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -12,11 +13,11 @@
 extern "C" {
 #endif
 
-extern __thread unsigned short a0_xsubi[3];
+extern __thread uint16_t a0_xsubi[3];
 extern __thread bool a0_xsubi_init;
 
 A0_STATIC_INLINE
-long int a0_mrand48() {
+uint32_t a0_mrand48() {
   if (!a0_xsubi_init) {
     // TODO(lshamis): error handling.
     int fd = open("/dev/urandom", O_RDONLY);
