@@ -46,19 +46,15 @@ struct WriterFixture {
     for (size_t i = 0; i < want_pkts.size(); i++) {
       auto&& [want_hdrs, want_payload] = want_pkts[i];
       REQUIRE_OK(a0_transport_frame(lk, &frame));
-      a0_packet_t got_pkt = a0::test::pkt(a0::test::buf(frame));
+      a0_packet_t got_pkt = a0::test::unflatten(a0::test::buf(frame));
       REQUIRE(got_pkt.headers_block.size == want_hdrs.size());
-
-      std::unordered_map<std::string, std::string> got_hdrs_map;
 
       for (size_t j = 0; j < got_pkt.headers_block.size; j++) {
         auto&& got_hdr = got_pkt.headers_block.headers[j];
-        got_hdrs_map[std::string(got_hdr.key)] = std::string(got_hdr.val);
-      }
-      for (auto&& [want_key, want_val] : want_hdrs) {
-        REQUIRE(got_hdrs_map.count(want_key));
+        auto&& [want_key, want_val] = want_hdrs[j];
+        REQUIRE(std::string(got_hdr.key) == want_key);
         if (want_val != "???") {
-          REQUIRE(got_hdrs_map[want_key] == want_val);
+          REQUIRE(std::string(got_hdr.val) == want_val);
         }
       }
       REQUIRE(a0::test::str(got_pkt.payload) == want_payload);
@@ -203,10 +199,10 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] multiple middleware") {
        {
            {
                {"a0_time_mono", "???"},
+               {"a0_transport_seq", "5"},
                {"a0_time_wall", "???"},
                {"a0_writer_id", "???"},
                {"a0_writer_seq", "1"},
-               {"a0_transport_seq", "5"},
                {"key", "val"},
            },
            "msg #5",
@@ -236,25 +232,44 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] standard headers") {
        },
        {
            {
-               {"a0_time_mono", "???"},
-               {"a0_time_wall", "???"},
-               {"a0_writer_id", "???"},
-               {"a0_writer_seq", "0"},
                {"a0_transport_seq", "1"},
+               {"a0_time_mono", "???"},
+               {"a0_writer_seq", "0"},
+               {"a0_writer_id", "???"},
+               {"a0_time_wall", "???"},
                {"key", "val"},
            },
            "msg #1",
        },
        {
            {
-               {"a0_time_mono", "???"},
-               {"a0_time_wall", "???"},
-               {"a0_writer_id", "???"},
-               {"a0_writer_seq", "1"},
                {"a0_transport_seq", "2"},
+               {"a0_time_mono", "???"},
+               {"a0_writer_seq", "1"},
+               {"a0_writer_id", "???"},
+               {"a0_time_wall", "???"},
                {"key", "val"},
            },
            "msg #2",
+       }});
+}
+
+TEST_CASE_FIXTURE(WriterFixture, "writer] push middleware") {
+  a0_writer_t w;
+  REQUIRE_OK(a0_writer_init(&w, arena));
+  REQUIRE_OK(a0_writer_push(&w, a0_writer_middleware_add_writer_seq_header()));
+  REQUIRE_OK(a0_writer_push(&w, a0_writer_middleware_add_time_wall_header()));
+  REQUIRE_OK(a0_writer_write(&w, a0::test::pkt({{"key", "val"}}, "msg #1")));
+  REQUIRE_OK(a0_writer_close(&w));
+
+  require_transport_state(
+      {{
+           {
+               {"a0_writer_seq", "0"},
+               {"a0_time_wall", "???"},
+               {"key", "val"},
+           },
+           "msg #1",
        }});
 }
 

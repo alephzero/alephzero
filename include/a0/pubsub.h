@@ -25,8 +25,7 @@ typedef struct a0_pubsub_topic_s {
 
 typedef struct a0_publisher_s {
   a0_file_t _file;
-  a0_writer_t _simple_writer;
-  a0_writer_t _annotated_writer;
+  a0_writer_t _writer;
 } a0_publisher_t;
 
 errno_t a0_publisher_init(a0_publisher_t*, a0_pubsub_topic_t);

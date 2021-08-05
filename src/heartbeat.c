@@ -13,6 +13,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -20,6 +21,15 @@
 #include "empty.h"
 #include "err_util.h"
 #include "protocol_util.h"
+
+A0_STATIC_INLINE
+errno_t _a0_heartbeat_open_topic(a0_heartbeat_topic_t topic, a0_file_t* file) {
+  const char* template  = getenv("A0_HEARTBEAT_TOPIC_TEMPLATE");
+  if (!template) {
+    template = "alephzero/{topic}.heartbeat.a0";
+  }
+  return a0_open_topic(template, topic.name, topic.file_opts, file);
+}
 
 const a0_heartbeat_options_t A0_HEARTBEAT_OPTIONS_DEFAULT = {
     .freq = 10,
@@ -54,7 +64,7 @@ errno_t a0_heartbeat_init(a0_heartbeat_t* h,
     h->_opts = *opts;
   }
 
-  A0_RETURN_ERR_ON_ERR(a0_open_topic("heartbeat", topic.name, topic.file_opts, &h->_file));
+  A0_RETURN_ERR_ON_ERR(_a0_heartbeat_open_topic(topic, &h->_file));
 
   errno_t err = a0_writer_init(&h->_simple_writer, h->_file.arena);
   if (err) {
@@ -197,7 +207,7 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
   hl->ondetected = ondetected;
   hl->onmissed = onmissed;
 
-  A0_RETURN_ERR_ON_ERR(a0_open_topic("heartbeat", topic.name, topic.file_opts, &hl->_file));
+  A0_RETURN_ERR_ON_ERR(_a0_heartbeat_open_topic(topic, &hl->_file));
 
   errno_t err = a0_transport_init(&hl->_transport, hl->_file.arena);
   if (err) {

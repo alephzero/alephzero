@@ -86,6 +86,10 @@ inline a0_packet_t pkt(std::string payload) {
   return pkt_;
 }
 
+inline a0_packet_t pkt(a0_buf_t payload) {
+  return pkt(str(payload));
+}
+
 inline a0_packet_t pkt(
     std::vector<std::pair<std::string, std::string>> hdrs,
     std::string payload) {
@@ -110,10 +114,24 @@ inline a0_packet_t pkt(
   return pkt_;
 }
 
-inline a0_packet_t pkt(a0_flat_packet_t fpkt) {
+inline a0_packet_t unflatten(a0_flat_packet_t fpkt) {
   a0_packet_t out;
   REQUIRE_OK(a0_packet_deserialize(fpkt, alloc(), &out));
   return out;
+}
+
+inline std::multimap<std::string, std::string> hdr(a0_packet_t pkt) {
+  std::multimap<std::string, std::string> result;
+
+  a0_packet_header_iterator_t iter;
+  a0_packet_header_t hdr;
+
+  REQUIRE_OK(a0_packet_header_iterator_init(&iter, &pkt.headers_block));
+  while (a0_packet_header_iterator_next(&iter, &hdr) == A0_OK) {
+    result.insert({std::string(hdr.key), std::string(hdr.val)});
+  }
+
+  return result;
 }
 
 struct pkt_cmp_t {
@@ -124,29 +142,7 @@ struct pkt_cmp_t {
 inline pkt_cmp_t pkt_cmp(a0_packet_t lhs, a0_packet_t rhs) {
   pkt_cmp_t ret;
   ret.payload_match = (str(lhs.payload) == str(rhs.payload));
-  ret.content_match = ret.payload_match && [&]() {
-    std::vector<std::pair<std::string, std::string>> lhs_hdrs;
-    a0_packet_header_callback_t lhs_cb = {
-        .user_data = &lhs_hdrs,
-        .fn = [](void* user_data, a0_packet_header_t hdr) {
-          auto* hdrs = (std::vector<std::pair<std::string, std::string>>*)user_data;
-          hdrs->push_back({std::string(hdr.key), std::string(hdr.val)});
-        },
-    };
-    REQUIRE_OK(a0_packet_for_each_header(lhs.headers_block, lhs_cb));
-
-    std::vector<std::pair<std::string, std::string>> rhs_hdrs;
-    a0_packet_header_callback_t rhs_cb = {
-        .user_data = &rhs_hdrs,
-        .fn = [](void* user_data, a0_packet_header_t hdr) {
-          auto* hdrs = (std::vector<std::pair<std::string, std::string>>*)user_data;
-          hdrs->push_back({std::string(hdr.key), std::string(hdr.val)});
-        },
-    };
-    REQUIRE_OK(a0_packet_for_each_header(rhs.headers_block, rhs_cb));
-
-    return lhs_hdrs == rhs_hdrs;
-  }();
+  ret.content_match = ret.payload_match && (hdr(lhs) == hdr(rhs));
   ret.full_match = ret.content_match && (memcmp(lhs.id, rhs.id, sizeof(a0_uuid_t)) == 0);
   return ret;
 }
@@ -177,6 +173,7 @@ pid_t subproc(Fn&& fn) {
     // Unhook doctest from the subprocess.
     // Otherwise, we would see a test-failure printout after the crash.
     signal(SIGABRT, SIG_DFL);
+    signal(SIGSEGV, SIG_DFL);
     fn();
     exit(0);
   }

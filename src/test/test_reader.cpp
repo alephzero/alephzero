@@ -67,7 +67,7 @@ struct ReaderSyncZCFixture : ReaderBaseFixture {
         .user_data = &data,
         .fn = [](void* user_data, a0_locked_transport_t, a0_flat_packet_t fpkt) {
           auto* want = (data_t*)user_data;
-          REQUIRE(a0::test::pkt_cmp(want->pkt, a0::test::pkt(fpkt)).content_match);
+          REQUIRE(a0::test::pkt_cmp(want->pkt, a0::test::unflatten(fpkt)).content_match);
           want->executed = true;
         },
     };

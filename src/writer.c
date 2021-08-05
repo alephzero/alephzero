@@ -25,7 +25,7 @@ errno_t a0_writer_write_impl(a0_writer_middleware_chain_node_t node, a0_packet_t
   a0_writer_middleware_t action = node._curr->_action;
   a0_writer_middleware_chain_t chain = {
       ._node = {
-          ._curr = node._curr->_next_writer,
+          ._curr = node._curr->_next,
           ._head = node._head,
           ._tlk = node._tlk,
       },
@@ -111,7 +111,7 @@ errno_t a0_writer_init(a0_writer_t* w, a0_arena_t arena) {
   w->_action.close = a0_write_action_close;
   w->_action.process = a0_write_action_process;
   w->_action.process_locked = a0_write_action_process_locked;
-  w->_next_writer = NULL;
+  w->_next = NULL;
 
 #ifdef DEBUG
   A0_ASSERT_OK(a0_ref_cnt_inc(w, NULL), "");
@@ -124,10 +124,10 @@ errno_t a0_writer_close(a0_writer_t* w) {
 #ifdef DEBUG
   A0_ASSERT(w, "Cannot close null writer.");
 
-  if (w->_next_writer) {
+  if (w->_next) {
     size_t next_writer_ref_cnt;
     A0_ASSERT_OK(
-        a0_ref_cnt_dec(w->_next_writer, &next_writer_ref_cnt),
+        a0_ref_cnt_dec(w->_next, &next_writer_ref_cnt),
         "Closing writer while still in use.");
     A0_ASSERT(
         next_writer_ref_cnt > 0,
@@ -161,13 +161,18 @@ errno_t a0_writer_write(a0_writer_t* w, a0_packet_t pkt) {
 
 errno_t a0_writer_wrap(a0_writer_t* in, a0_writer_middleware_t middleware, a0_writer_t* out) {
   out->_action = middleware;
-  out->_next_writer = in;
+  out->_next = in;
 
 #ifdef DEBUG
-  A0_ASSERT_OK(a0_ref_cnt_inc(out->_next_writer, NULL), "");
+  A0_ASSERT_OK(a0_ref_cnt_inc(out->_next, NULL), "");
   A0_ASSERT_OK(a0_ref_cnt_inc(out, NULL), "");
 #endif
 
+  return A0_OK;
+}
+
+errno_t a0_writer_push(a0_writer_t* w, a0_writer_middleware_t middleware) {
+  A0_RETURN_ERR_ON_ERR(a0_writer_middleware_compose(middleware, w->_action, &w->_action));
   return A0_OK;
 }
 
@@ -204,12 +209,12 @@ errno_t a0_compose_process(void* user_data, a0_packet_t* pkt, a0_writer_middlewa
 
   a0_writer_t second_writer = {
       ._action = middleware_pair->second,
-      ._next_writer = chain._node._curr,
+      ._next = chain._node._curr,
   };
 
   a0_writer_t first_writer = {
       ._action = middleware_pair->first,
-      ._next_writer = &second_writer,
+      ._next = &second_writer,
   };
 
   a0_writer_middleware_chain_node_t node = chain._node;

@@ -69,6 +69,16 @@ typedef struct a0_writer_middleware_chain_s {
 } a0_writer_middleware_chain_t;
 
 /**
+ * Runs the next middleware in the chain.
+ *
+ * This is intended to be the last line in the middleware implementation.
+ */
+A0_STATIC_INLINE
+errno_t a0_writer_middleware_chain(a0_writer_middleware_chain_t chain, a0_packet_t* pkt) {
+  return chain._chain_fn(chain._node, pkt);
+}
+
+/**
  * Writer Middleware is designed to intercept and modify packets before they are
  * serialized onto the arena.
  *
@@ -89,16 +99,6 @@ typedef struct a0_writer_middleware_s {
 } a0_writer_middleware_t;
 
 /**
- * Wraps a writer with a middleware as a new writer.
- *
- * The middleware is owned by the new writer and will be closed when the new writer is closed.
- *
- * The new writer does NOT own the old writer. The old writer may be reused.
- * The caller is responsible for closing the old writer AFTER the new writer is closed.
- */
-errno_t a0_writer_wrap(a0_writer_t* in, a0_writer_middleware_t, a0_writer_t* out);
-
-/**
  * Composes two middleware into a single middleware.
  *
  * The original middleware are owned by the new middleware.
@@ -106,16 +106,6 @@ errno_t a0_writer_wrap(a0_writer_t* in, a0_writer_middleware_t, a0_writer_t* out
  * They will be closed when the new middleware is closed.
  */
 errno_t a0_writer_middleware_compose(a0_writer_middleware_t, a0_writer_middleware_t, a0_writer_middleware_t* out);
-
-/**
- * Runs the next middleware in the chain.
- *
- * This is intended to be the last line in the middleware implementation.
- */
-A0_STATIC_INLINE
-errno_t a0_writer_middleware_chain(a0_writer_middleware_chain_t chain, a0_packet_t* pkt) {
-  return chain._chain_fn(chain._node, pkt);
-}
 
 /** @}*/
 
@@ -131,7 +121,7 @@ a0_writer_middleware_t a0_writer_middleware_add_time_wall_header();
 a0_writer_middleware_t a0_writer_middleware_add_writer_id_header();
 /// Creates a middleware that adds a writer sequence header.
 a0_writer_middleware_t a0_writer_middleware_add_writer_seq_header();
-/// ...
+/// Creates a middleware that adds a transport sequence header.
 a0_writer_middleware_t a0_writer_middleware_add_transport_seq_header();
 /// Creates a middleware that adds all standard headers.
 a0_writer_middleware_t a0_writer_middleware_add_standard_headers();

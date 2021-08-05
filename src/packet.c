@@ -48,13 +48,23 @@ errno_t a0_packet_stats(a0_packet_t pkt, a0_packet_stats_t* stats) {
   return A0_OK;
 }
 
-errno_t a0_packet_for_each_header(a0_packet_headers_block_t headers_block,
-                                  a0_packet_header_callback_t onheader) {
-  for (a0_packet_headers_block_t* block = &headers_block; block; block = block->next_block) {
-    for (size_t i = 0; i < block->size; i++) {
-      onheader.fn(onheader.user_data, block->headers[i]);
-    }
+errno_t a0_packet_header_iterator_init(a0_packet_header_iterator_t* iter,
+                                       a0_packet_headers_block_t* block) {
+  *iter = (a0_packet_header_iterator_t){block, 0};
+  return A0_OK;
+}
+
+errno_t a0_packet_header_iterator_next(a0_packet_header_iterator_t* iter,
+                                       a0_packet_header_t* out) {
+  while (iter->_block && iter->_idx >= iter->_block->size) {
+    *iter = (a0_packet_header_iterator_t){iter->_block->next_block, 0};
   }
+
+  if (!iter->_block) {
+    return EINVAL;
+  }
+
+  *out = iter->_block->headers[iter->_idx++];
   return A0_OK;
 }
 

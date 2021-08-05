@@ -190,11 +190,6 @@ void a0_packet_callback_call(a0_packet_callback_t callback, a0_packet_t pkt) {
   }
 }
 
-typedef struct a0_packet_header_callback_s {
-  void* user_data;
-  void (*fn)(void* user_data, a0_packet_header_t);
-} a0_packet_header_callback_t;
-
 typedef struct a0_packet_id_callback_s {
   void* user_data;
   void (*fn)(void* user_data, a0_uuid_t);
@@ -216,10 +211,16 @@ typedef struct a0_packet_stats_s {
 /// Compute packet statistics.
 errno_t a0_packet_stats(a0_packet_t, a0_packet_stats_t*);
 
-/// Executes the given callback on all headers.
-///
-/// This includes headers across blocks.
-errno_t a0_packet_for_each_header(a0_packet_headers_block_t, a0_packet_header_callback_t);
+typedef struct a0_packet_header_iterator_s {
+  a0_packet_headers_block_t* _block;
+  size_t _idx;
+} a0_packet_header_iterator_t;
+
+/// Initializes an iterator over all headers.
+errno_t a0_packet_header_iterator_init(a0_packet_header_iterator_t*, a0_packet_headers_block_t*);
+
+/// Emit the next header.
+errno_t a0_packet_header_iterator_next(a0_packet_header_iterator_t*, a0_packet_header_t* out);
 
 /// Serializes the packet to the allocated location.
 ///

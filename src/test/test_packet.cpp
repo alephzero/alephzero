@@ -73,11 +73,13 @@ std::map<std::string, std::string> standard_packet_hdrs() {
 
 std::map<std::string, std::string> map_from(a0_packet_headers_block_t hdr_block) {
   std::map<std::string, std::string> kv;
-  for (auto* block = &hdr_block; block; block = block->next_block) {
-    for (size_t i = 0; i < block->size; i++) {
-      auto& hdr = block->headers[i];
-      kv[hdr.key] = hdr.val;
-    }
+
+  a0_packet_header_iterator_t iter;
+  a0_packet_header_iterator_init(&iter, &hdr_block);
+
+  a0_packet_header_t hdr;
+  while (a0_packet_header_iterator_next(&iter, &hdr) == A0_OK) {
+    kv[hdr.key] = hdr.val;
   }
   return kv;
 }
