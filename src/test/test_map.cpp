@@ -1,6 +1,6 @@
-#include <doctest.h>
-
 #include <a0/map.h>
+
+#include <doctest.h>
 
 #include <random>
 #include <unordered_map>

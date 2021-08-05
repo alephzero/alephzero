@@ -10,7 +10,7 @@
 
 A0_STATIC_INLINE
 errno_t _a0_log_open_topic(a0_log_topic_t topic, a0_file_t* file) {
-  const char* template  = getenv("A0_LOG_TOPIC_TEMPLATE");
+  const char* template = getenv("A0_LOG_TOPIC_TEMPLATE");
   if (!template) {
     template = "alephzero/{topic}.log.a0";
   }
@@ -22,12 +22,24 @@ static const char LOG_LEVEL[] = "a0_level";
 A0_STATIC_INLINE
 const char* _a0_log_level_name(a0_log_level_t level) {
   switch (level) {
-    case A0_LOG_LEVEL_CRIT: return "CRIT";
-    case A0_LOG_LEVEL_ERR: return "ERR";
-    case A0_LOG_LEVEL_WARN: return "WARN";
-    case A0_LOG_LEVEL_INFO: return "INFO";
-    case A0_LOG_LEVEL_DBG: return "DBG";
-    default: return "UNKNOWN";
+    case A0_LOG_LEVEL_CRIT: {
+      return "CRIT";
+    }
+    case A0_LOG_LEVEL_ERR: {
+      return "ERR";
+    }
+    case A0_LOG_LEVEL_WARN: {
+      return "WARN";
+    }
+    case A0_LOG_LEVEL_INFO: {
+      return "INFO";
+    }
+    case A0_LOG_LEVEL_DBG: {
+      return "DBG";
+    }
+    default: {
+      return "UNKNOWN";
+    }
   }
 }
 

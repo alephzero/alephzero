@@ -5,10 +5,10 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/callback.h>
+#include <a0/map.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
 #include <a0/writer.h>
-#include <a0/map.h>
 
 #include <stdbool.h>
 

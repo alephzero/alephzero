@@ -215,9 +215,9 @@ errno_t a0_map_pop(a0_map_t* map, const void* key, void* val) {
 }
 
 errno_t a0_map_iterator_init(a0_map_iterator_t* iter, a0_map_t* map) {
-  *iter = (a0_map_iterator_t) {
+  *iter = (a0_map_iterator_t){
       ._map = map,
-      ._idx = 0
+      ._idx = 0,
   };
   return A0_OK;
 }

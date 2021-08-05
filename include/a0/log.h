@@ -26,7 +26,7 @@ typedef enum a0_log_level_e {
 
 typedef struct a0_log_topic_s {
   const char* name;
-  const a0_file_options_t* file_opts;;
+  const a0_file_options_t* file_opts;
 } a0_log_topic_t;
 
 typedef struct a0_logger_s {

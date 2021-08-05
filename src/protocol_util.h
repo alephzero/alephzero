@@ -4,8 +4,8 @@
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
-#include <a0/unused.h>
 #include <a0/packet.h>
+#include <a0/unused.h>
 
 #include <alloca.h>
 

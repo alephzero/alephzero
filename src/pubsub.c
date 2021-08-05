@@ -8,15 +8,15 @@
 #include <a0/writer_middleware.h>
 
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "err_util.h"
 #include "protocol_util.h"
 
 A0_STATIC_INLINE
 errno_t _a0_pubsub_open_topic(a0_pubsub_topic_t topic, a0_file_t* file) {
-  const char* template  = getenv("A0_PUBSUB_TOPIC_TEMPLATE");
+  const char* template = getenv("A0_PUBSUB_TOPIC_TEMPLATE");
   if (!template) {
     template = "alephzero/{topic}.pubsub.a0";
   }

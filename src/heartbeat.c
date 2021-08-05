@@ -24,7 +24,7 @@
 
 A0_STATIC_INLINE
 errno_t _a0_heartbeat_open_topic(a0_heartbeat_topic_t topic, a0_file_t* file) {
-  const char* template  = getenv("A0_HEARTBEAT_TOPIC_TEMPLATE");
+  const char* template = getenv("A0_HEARTBEAT_TOPIC_TEMPLATE");
   if (!template) {
     template = "alephzero/{topic}.heartbeat.a0";
   }

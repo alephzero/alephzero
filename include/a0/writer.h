@@ -52,7 +52,6 @@ errno_t a0_writer_push(a0_writer_t*, a0_writer_middleware_t);
  */
 errno_t a0_writer_wrap(a0_writer_t* in, a0_writer_middleware_t, a0_writer_t* out);
 
-
 /** @}*/
 
 #ifdef __cplusplus

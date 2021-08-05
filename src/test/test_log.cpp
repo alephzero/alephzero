@@ -6,10 +6,10 @@
 
 #include <doctest.h>
 
-#include <iostream>
-#include <chrono>
 #include <cerrno>
+#include <chrono>
 #include <cstdint>
+#include <iostream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -41,7 +41,7 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
       .fn =
           [](void* user_data, a0_packet_t pkt) {
             auto* cnt = (std::map<std::string, size_t>*)user_data;
-            
+
             auto hdr = a0::test::hdr(pkt);
             auto range = hdr.equal_range("a0_level");
             for (auto it = range.first; it != range.second; ++it) {

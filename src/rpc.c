@@ -22,7 +22,7 @@ static const char REQUEST_ID[] = "a0_req_id";
 
 A0_STATIC_INLINE
 errno_t _a0_rpc_open_topic(a0_rpc_topic_t topic, a0_file_t* file) {
-  const char* template  = getenv("A0_RPC_TOPIC_TEMPLATE");
+  const char* template = getenv("A0_RPC_TOPIC_TEMPLATE");
   if (!template) {
     template = "alephzero/{topic}.rpc.a0";
   }
@@ -86,7 +86,7 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
       A0_INIT_AWAIT_NEW,
       A0_ITER_NEXT,
       (a0_packet_callback_t){
-          .user_data = server, 
+          .user_data = server,
           .fn = a0_rpc_server_onpacket,
       });
   if (err) {
@@ -149,7 +149,6 @@ void _a0_rpc_client_onpacket(void* user_data, a0_packet_t pkt) {
 errno_t a0_rpc_client_init(a0_rpc_client_t* client,
                            a0_rpc_topic_t topic,
                            a0_alloc_t alloc) {
-  
   // Outstanding requests must be initialized before the response reader is opened to avoid a race condition.
 
   A0_RETURN_ERR_ON_ERR(a0_map_init(
@@ -160,7 +159,7 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client,
       A0_UUID_COMPARE));
   pthread_mutex_init(&client->_outstanding_requests_mu, NULL);
 
-  errno_t err =_a0_rpc_open_topic(topic, &client->_file);
+  errno_t err = _a0_rpc_open_topic(topic, &client->_file);
   if (err) {
     a0_map_close(&client->_outstanding_requests);
     pthread_mutex_destroy(&client->_outstanding_requests_mu);
@@ -193,7 +192,7 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client,
       A0_INIT_AWAIT_NEW,
       A0_ITER_NEXT,
       (a0_packet_callback_t){
-          .user_data = client, 
+          .user_data = client,
           .fn = _a0_rpc_client_onpacket,
       });
   if (err) {
@@ -253,9 +252,9 @@ errno_t a0_rpc_client_cancel(a0_rpc_client_t* client, const a0_uuid_t uuid) {
   };
 
   pkt.headers_block = (a0_packet_headers_block_t){
-    .headers = headers,
-    .size = num_headers,
-    .next_block = NULL,
+      .headers = headers,
+      .size = num_headers,
+      .next_block = NULL,
   };
   pkt.payload = (a0_buf_t){
       .ptr = (uint8_t*)uuid,

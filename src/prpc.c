@@ -2,9 +2,9 @@
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/packet.h>
+#include <a0/prpc.h>
 #include <a0/pubsub.h>
 #include <a0/reader.h>
-#include <a0/prpc.h>
 #include <a0/writer.h>
 #include <a0/writer_middleware.h>
 
@@ -23,7 +23,7 @@ static const char CONN_ID[] = "a0_conn_id";
 
 A0_STATIC_INLINE
 errno_t _a0_prpc_open_topic(a0_prpc_topic_t topic, a0_file_t* file) {
-  const char* template  = getenv("A0_PRPC_TOPIC_TEMPLATE");
+  const char* template = getenv("A0_PRPC_TOPIC_TEMPLATE");
   if (!template) {
     template = "alephzero/{topic}.prpc.a0";
   }
@@ -87,7 +87,7 @@ errno_t a0_prpc_server_init(a0_prpc_server_t* server,
       A0_INIT_AWAIT_NEW,
       A0_ITER_NEXT,
       (a0_packet_callback_t){
-          .user_data = server, 
+          .user_data = server,
           .fn = a0_prpc_server_onpacket,
       });
   if (err) {
@@ -166,7 +166,6 @@ void _a0_prpc_client_onpacket(void* user_data, a0_packet_t pkt) {
 errno_t a0_prpc_client_init(a0_prpc_client_t* client,
                             a0_prpc_topic_t topic,
                             a0_alloc_t alloc) {
-  
   // Outstanding connections must be initialized before the response reader to avoid a race condition.
 
   A0_RETURN_ERR_ON_ERR(a0_map_init(
@@ -177,7 +176,7 @@ errno_t a0_prpc_client_init(a0_prpc_client_t* client,
       A0_UUID_COMPARE));
   pthread_mutex_init(&client->_outstanding_connections_mu, NULL);
 
-  errno_t err =_a0_prpc_open_topic(topic, &client->_file);
+  errno_t err = _a0_prpc_open_topic(topic, &client->_file);
   if (err) {
     a0_map_close(&client->_outstanding_connections);
     pthread_mutex_destroy(&client->_outstanding_connections_mu);
@@ -210,7 +209,7 @@ errno_t a0_prpc_client_init(a0_prpc_client_t* client,
       A0_INIT_AWAIT_NEW,
       A0_ITER_NEXT,
       (a0_packet_callback_t){
-          .user_data = client, 
+          .user_data = client,
           .fn = _a0_prpc_client_onpacket,
       });
   if (err) {
@@ -270,9 +269,9 @@ errno_t a0_prpc_client_cancel(a0_prpc_client_t* client, const a0_uuid_t uuid) {
   };
 
   pkt.headers_block = (a0_packet_headers_block_t){
-    .headers = headers,
-    .size = num_headers,
-    .next_block = NULL,
+      .headers = headers,
+      .size = num_headers,
+      .next_block = NULL,
   };
   pkt.payload = (a0_buf_t){
       .ptr = (uint8_t*)uuid,

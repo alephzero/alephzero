@@ -264,13 +264,13 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] push middleware") {
 
   require_transport_state(
       {{
-           {
-               {"a0_writer_seq", "0"},
-               {"a0_time_wall", "???"},
-               {"key", "val"},
-           },
-           "msg #1",
-       }});
+          {
+              {"a0_writer_seq", "0"},
+              {"a0_time_wall", "???"},
+              {"key", "val"},
+          },
+          "msg #1",
+      }});
 }
 
 #ifdef DEBUG
