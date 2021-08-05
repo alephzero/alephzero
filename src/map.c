@@ -3,8 +3,12 @@
 #include <a0/inline.h>
 #include <a0/map.h>
 
+#include <alloca.h>
+#include <errno.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "err_util.h"
 

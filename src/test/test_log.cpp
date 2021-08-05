@@ -1,18 +1,15 @@
-#include <a0/arena.h>
-#include <a0/buf.h>
+#include <a0/file.h>
 #include <a0/log.h>
 #include <a0/packet.h>
-#include <a0/pubsub.h>
 
 #include <doctest.h>
+#include <stddef.h>
 
-#include <cerrno>
 #include <chrono>
-#include <cstdint>
-#include <iostream>
+#include <map>
 #include <string>
 #include <thread>
-#include <vector>
+#include <utility>
 
 #include "src/test_util.hpp"
 

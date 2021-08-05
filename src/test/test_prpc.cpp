@@ -1,5 +1,3 @@
-#include <a0/buf.h>
-#include <a0/callback.h>
 #include <a0/file.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
@@ -7,9 +5,8 @@
 
 #include <doctest.h>
 
-#include <condition_variable>
 #include <cstring>
-#include <memory>
+#include <string>
 
 #include "src/sync.hpp"
 #include "src/test_util.hpp"

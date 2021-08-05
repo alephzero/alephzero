@@ -1,9 +1,16 @@
+#include <a0/callback.h>
+#include <a0/err.h>
 #include <a0/map.h>
 
 #include <doctest.h>
+#include <errno.h>
+#include <stddef.h>
+#include <stdint.h>
 
+#include <iterator>
 #include <random>
 #include <unordered_map>
+#include <utility>
 
 #include "src/test_util.hpp"
 

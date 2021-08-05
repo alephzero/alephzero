@@ -1,15 +1,10 @@
 #ifndef A0_SRC_PROTOCOL_UTIL_H
 #define A0_SRC_PROTOCOL_UTIL_H
 
+#include <a0/callback.h>
 #include <a0/err.h>
 #include <a0/file.h>
-#include <a0/inline.h>
 #include <a0/packet.h>
-#include <a0/unused.h>
-
-#include <alloca.h>
-
-#include "err_util.h"
 
 #ifdef __cplusplus
 extern "C" {

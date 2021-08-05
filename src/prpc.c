@@ -1,14 +1,21 @@
 #include <a0/alloc.h>
+#include <a0/buf.h>
 #include <a0/err.h>
 #include <a0/file.h>
+#include <a0/inline.h>
+#include <a0/map.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
-#include <a0/pubsub.h>
 #include <a0/reader.h>
+#include <a0/uuid.h>
 #include <a0/writer.h>
 #include <a0/writer_middleware.h>
 
+#include <pthread.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "err_util.h"
 #include "protocol_util.h"

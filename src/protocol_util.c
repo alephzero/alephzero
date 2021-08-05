@@ -1,12 +1,17 @@
 #include "protocol_util.h"
 
+#include <a0/callback.h>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
+#include <a0/packet.h>
 #include <a0/unused.h>
 #include <a0/uuid.h>
 
 #include <alloca.h>
+#include <errno.h>
+#include <stdint.h>
+#include <string.h>
 
 #include "err_util.h"
 

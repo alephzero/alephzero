@@ -1,6 +1,7 @@
 #include <a0/alloc.h>
 #include <a0/err.h>
 #include <a0/file.h>
+#include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
 #include <a0/reader.h>
@@ -8,7 +9,6 @@
 #include <a0/writer_middleware.h>
 
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "err_util.h"
