@@ -312,71 +312,87 @@ errno_t a0_file_close(a0_file_t* file) {
   return a0_munmap(file);
 }
 
+errno_t a0_file_iter_init(a0_file_iter_t* iter, const char* path) {
+  char* abspath;
+  A0_RETURN_ERR_ON_ERR(a0_abspath(path, &abspath));
+
+  iter->_path_len = strlen(abspath);
+  if (iter->_path_len > PATH_MAX) {
+    free(abspath);
+    return ENAMETOOLONG;
+  }
+
+  memcpy(iter->_path, abspath, iter->_path_len + 1);
+  free(abspath);
+
+  if (iter->_path[iter->_path_len - 1] != '/') {
+    iter->_path[iter->_path_len] = '/';
+    iter->_path_len++;
+  }
+
+  stat_t stat;
+  A0_RETURN_ERR_ON_MINUS_ONE(lstat(path, &stat));
+
+  if (!S_ISDIR(stat.st_mode)) {
+    return ENOTDIR;
+  }
+
+  iter->_dir = opendir(path);
+  if (!iter->_dir) {
+    return errno;
+  }
+  return A0_OK;
+}
+
+errno_t a0_file_iter_next(a0_file_iter_t* iter, a0_file_iter_entry_t* entry) {
+  struct dirent* dir_entity;
+  while ((dir_entity = readdir(iter->_dir)) && (!memcmp(dir_entity->d_name, ".", 2) || !memcmp(dir_entity->d_name, "..", 3))) {
+  }
+  if (!dir_entity) {
+    return EINVAL;
+  }
+
+  size_t len = strlen(dir_entity->d_name);
+
+  entry->filename = dir_entity->d_name;
+  entry->fullpath = iter->_path;
+  entry->d_type = dir_entity->d_type;
+  memcpy(iter->_path + iter->_path_len, dir_entity->d_name, len);
+  iter->_path[iter->_path_len + len] = '\0';
+
+  return A0_OK;
+}
+
+errno_t a0_file_iter_close(a0_file_iter_t* iter) {
+  closedir(iter->_dir);
+  return A0_OK;
+}
+
 errno_t a0_file_remove(const char* path) {
   char* abspath;
   A0_RETURN_ERR_ON_ERR(a0_abspath(path, &abspath));
 
   errno_t err = A0_OK;
-  if (unlink(abspath) == -1) {
+  if (remove(abspath) == -1) {
     err = errno;
   }
   free(abspath);
   return err;
 }
 
-A0_STATIC_INLINE_RECURSIVE
-errno_t a0_file_remove_all_impl(char* path, size_t path_len) {
-  stat_t stat;
-  A0_RETURN_ERR_ON_MINUS_ONE(lstat(path, &stat));
-
-  // If the path is a directory, recursively remove all files inside before
-  // trying to remove the current path.
-  if (S_ISDIR(stat.st_mode)) {
-    DIR* dir = opendir(path);
-    if (!dir) {
-      return errno;
-    }
-
-    if (path[path_len - 1] != '/') {
-      path[path_len] = '/';
-      path_len++;
-    }
-
-    struct dirent* dir_entity;
-    while ((dir_entity = readdir(dir))) {
-      // Skip this and up.
-      if (!memcmp(dir_entity->d_name, ".", 2) | !memcmp(dir_entity->d_name, "..", 3)) {
-        continue;
-      }
-      size_t entity_len = strlen(dir_entity->d_name);
-      if (path_len + entity_len >= PATH_MAX) {
-        continue;
-      }
-
-      memcpy(path + path_len, dir_entity->d_name, entity_len + 1);
-      a0_file_remove_all_impl(path, path_len + entity_len);
-    }
-    closedir(dir);
-  }
-
-  path[path_len] = '\0';
-  A0_RETURN_ERR_ON_MINUS_ONE(remove(path));
-  return A0_OK;
-}
-
 errno_t a0_file_remove_all(const char* path) {
-  char* abspath;
-  A0_RETURN_ERR_ON_ERR(a0_abspath(path, &abspath));
+  a0_file_iter_t iter;
+  A0_RETURN_ERR_ON_ERR(a0_file_iter_init(&iter, path));
 
-  size_t path_len = strlen(abspath);
-  if (path_len > PATH_MAX) {
-    free(abspath);
-    return ENAMETOOLONG;
+  a0_file_iter_entry_t entry;
+  while (!a0_file_iter_next(&iter, &entry)) {
+    if (entry.d_type == DT_DIR) {
+      a0_file_remove_all(entry.fullpath);
+    }
+    a0_file_remove(entry.fullpath);
   }
 
-  char path_buf[PATH_MAX + 1];
-  memcpy(path_buf, abspath, path_len + 1);
-  free(abspath);
-
-  return a0_file_remove_all_impl(path_buf, path_len);
+  errno_t err = a0_file_remove(path);
+  a0_file_iter_close(&iter);
+  return err;
 }

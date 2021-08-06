@@ -38,6 +38,8 @@
 #include <a0/callback.h>
 #include <a0/err.h>
 
+#include <dirent.h>
+#include <linux/limits.h>
 #include <stdbool.h>
 #include <sys/stat.h>
 
@@ -120,6 +122,22 @@ errno_t a0_file_open(
 
 /// Closes a file. The file still exists.
 errno_t a0_file_close(a0_file_t*);
+
+typedef struct a0_file_iter_s {
+  char _path[PATH_MAX + 1];
+  size_t _path_len;
+  DIR* _dir;
+} a0_file_iter_t;
+
+typedef struct a0_file_iter_entry_s {
+  const char* fullpath;
+  const char* filename;
+  int d_type;
+} a0_file_iter_entry_t;
+
+errno_t a0_file_iter_init(a0_file_iter_t*, const char* path);
+errno_t a0_file_iter_next(a0_file_iter_t*, a0_file_iter_entry_t*);
+errno_t a0_file_iter_close(a0_file_iter_t*);
 
 /// Removes the specified file.
 errno_t a0_file_remove(const char* path);
