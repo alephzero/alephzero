@@ -113,8 +113,6 @@ errno_t a0_reader_sync_next(a0_reader_sync_t*, a0_packet_t*);
  *  @{
  */
 
-typedef struct a0_reader_zc_impl_s a0_reader_zc_impl_t;
-
 typedef struct a0_reader_zc_s {
   a0_transport_t _transport;
   bool _started_empty;
@@ -144,8 +142,6 @@ errno_t a0_reader_zc_close(a0_reader_zc_t*);
 /** \addtogroup READER
  *  @{
  */
-
-typedef struct a0_reader_impl_s a0_reader_impl_t;
 
 typedef struct a0_reader_s {
   a0_reader_zc_t _reader_zc;

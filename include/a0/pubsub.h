@@ -88,8 +88,6 @@ errno_t a0_subscriber_zc_close(a0_subscriber_zc_t*);
 
 // Threaded allocated version.
 
-typedef struct a0_subscriber_impl_s a0_subscriber_impl_t;
-
 typedef struct a0_subscriber_s {
   a0_file_t _file;
   a0_reader_t _reader;

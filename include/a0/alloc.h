@@ -36,26 +36,6 @@ errno_t a0_dealloc(a0_alloc_t alloc, a0_buf_t buf) {
   return A0_OK;
 }
 
-/** \addtogroup MALLOC_ALLOCATOR
- *  @{
- * Each call to alloc allocates a new, independent buffer.
- *
- * Allocs must be explicitly freed by the user.
- */
-errno_t a0_malloc_allocator_init(a0_alloc_t*);
-errno_t a0_malloc_allocator_close(a0_alloc_t*);
-/** @}*/
-
-/** \addtogroup REALLOC_ALLOCATOR
- *  @{
- * Each call to alloc reuses the same buffer space.
- *
- * Allocs may NOT be explicitly freed by the user.
- */
-errno_t a0_realloc_allocator_init(a0_alloc_t*);
-errno_t a0_realloc_allocator_close(a0_alloc_t*);
-/** @}*/
-
 #ifdef __cplusplus
 }
 #endif
