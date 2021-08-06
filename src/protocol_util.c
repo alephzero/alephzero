@@ -1,12 +1,8 @@
 #include "protocol_util.h"
 
-#include <a0/callback.h>
 #include <a0/err.h>
 #include <a0/file.h>
-#include <a0/inline.h>
 #include <a0/packet.h>
-#include <a0/unused.h>
-#include <a0/uuid.h>
 
 #include <alloca.h>
 #include <errno.h>
@@ -72,61 +68,3 @@ errno_t a0_find_header(a0_packet_t pkt, const char* key, const char** val) {
   }
   return EINVAL;
 }
-
-// clang-format off
-static const uint8_t UNHEX_VALUES[] = {
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  0,  0,  0,  0,  0,  0,
-    0, 10, 11, 12, 13, 14, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0, 10, 11, 12, 13, 14, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-};
-// clang-format on
-
-A0_STATIC_INLINE
-errno_t a0_uuid_hash_fn(void* user_data, const void* data, size_t* out) {
-  A0_MAYBE_UNUSED(user_data);
-  // UUID is 16 bytes stretched to 37 bytes.
-  // The hash is computed by recovering some of the random bytes from the uuid.
-  //
-  // Each random byte is replaced by two bytes that are human-readable.
-  // 4 bytes are added as dashes.
-  // 1 byte is the uuid version.
-  // 1 byte is the uuid variant.
-  //
-  // In the unhexing process, we exclude bytes:
-  //    8, 13, 18, and 23 ... for being dashes.
-  //   14                 ... for being a version.
-  //   19                 ... for being a variant.
-  uint8_t* uuid = (uint8_t*)data;
-  uint8_t* hash_bytes = (uint8_t*)out;
-  hash_bytes[0] = (UNHEX_VALUES[uuid[0]] << 4) | UNHEX_VALUES[uuid[1]];
-  hash_bytes[1] = (UNHEX_VALUES[uuid[2]] << 4) | UNHEX_VALUES[uuid[3]];
-  hash_bytes[2] = (UNHEX_VALUES[uuid[4]] << 4) | UNHEX_VALUES[uuid[5]];
-  hash_bytes[3] = (UNHEX_VALUES[uuid[6]] << 4) | UNHEX_VALUES[uuid[7]];
-  hash_bytes[4] = (UNHEX_VALUES[uuid[9]] << 4) | UNHEX_VALUES[uuid[10]];
-  hash_bytes[5] = (UNHEX_VALUES[uuid[11]] << 4) | UNHEX_VALUES[uuid[12]];
-  hash_bytes[6] = (UNHEX_VALUES[uuid[13]] << 4) | UNHEX_VALUES[uuid[15]];
-  hash_bytes[7] = (UNHEX_VALUES[uuid[16]] << 4) | UNHEX_VALUES[uuid[17]];
-
-  return A0_OK;
-}
-
-const a0_hash_t A0_UUID_HASH = {
-    .user_data = NULL,
-    .fn = a0_uuid_hash_fn,
-};
-
-errno_t a0_uuid_compare_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
-  A0_MAYBE_UNUSED(user_data);
-  *out = memcmp(lhs, rhs, A0_UUID_SIZE);
-  return A0_OK;
-}
-
-const a0_compare_t A0_UUID_COMPARE = {
-    .user_data = NULL,
-    .fn = a0_uuid_compare_fn,
-};

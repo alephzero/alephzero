@@ -2,6 +2,7 @@
 #define A0_MAP_H
 
 #include <a0/callback.h>
+#include <a0/compare.h>
 #include <a0/err.h>
 #include <a0/inline.h>
 

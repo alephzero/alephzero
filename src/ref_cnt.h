@@ -1,5 +1,5 @@
-#ifndef A0_REF_CNT_H
-#define A0_REF_CNT_H
+#ifndef A0_SRC_REF_CNT_H
+#define A0_SRC_REF_CNT_H
 
 #include <a0/err.h>
 
@@ -17,4 +17,4 @@ errno_t a0_ref_cnt_get(void*, size_t*);
 }
 #endif
 
-#endif  // A0_REF_CNT_H
+#endif  // A0_SRC_REF_CNT_H

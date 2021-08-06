@@ -1,5 +1,6 @@
 #include <a0/alloc.h>
 #include <a0/buf.h>
+#include <a0/compare.h>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
@@ -179,8 +180,8 @@ errno_t a0_prpc_client_init(a0_prpc_client_t* client,
       &client->_outstanding_connections,
       sizeof(a0_uuid_t),
       sizeof(a0_prpc_progress_callback_t),
-      A0_UUID_HASH,
-      A0_UUID_COMPARE));
+      A0_HASH_UUID,
+      A0_COMPARE_UUID));
   pthread_mutex_init(&client->_outstanding_connections_mu, NULL);
 
   errno_t err = _a0_prpc_open_topic(topic, &client->_file);
