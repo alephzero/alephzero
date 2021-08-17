@@ -5,7 +5,9 @@
 
 #include <alloca.h>
 #include <errno.h>
+#include <stdalign.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,6 +24,11 @@ typedef struct _a0_map_bucket_s {
   void* val;
 } _a0_map_bucket_t;
 
+A0_STATIC_INLINE
+size_t a0_max_align(size_t off) {
+  return ((off + alignof(max_align_t) - 1) & ~(alignof(max_align_t) - 1));
+}
+
 errno_t a0_map_init(a0_map_t* map,
                     size_t key_size,
                     size_t val_size,
@@ -33,7 +40,7 @@ errno_t a0_map_init(a0_map_t* map,
   map->_key_hash = key_hash;
   map->_key_compare = key_compare;
 
-  map->_bucket_size = sizeof(size_t) + map->_key_size + map->_val_size;
+  map->_bucket_size = sizeof(size_t) + a0_max_align(map->_key_size) + map->_val_size;
 
   return A0_OK;
 }
@@ -62,7 +69,7 @@ errno_t _a0_map_bucket(a0_map_t* map, size_t idx, _a0_map_bucket_t* bkt) {
   bkt->idx = idx;
   bkt->off = (size_t*)bkt->ptr;
   bkt->key = (uint8_t*)(bkt->off) + sizeof(size_t);
-  bkt->val = (uint8_t*)(bkt->key) + map->_key_size;
+  bkt->val = (uint8_t*)(bkt->key) + a0_max_align(map->_key_size);
   return A0_OK;
 }
 
@@ -134,7 +141,7 @@ errno_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
   new_bkt.idx = hash & map->_hash2idx;
   new_bkt.off = (size_t*)new_bkt.ptr;
   new_bkt.key = (uint8_t*)(new_bkt.off) + sizeof(size_t);
-  new_bkt.val = (uint8_t*)(new_bkt.key) + map->_key_size;
+  new_bkt.val = (uint8_t*)(new_bkt.key) + a0_max_align(map->_key_size);
 
   *new_bkt.off = 1;
   memcpy(new_bkt.key, key, map->_key_size);

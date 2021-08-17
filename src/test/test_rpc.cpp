@@ -6,11 +6,12 @@
 #include <doctest.h>
 
 #include <chrono>
+#include <condition_variable>
 #include <cstring>
+#include <mutex>
 #include <string>
 #include <thread>
 
-#include "src/sync.hpp"
 #include "src/test_util.hpp"
 
 struct RpcFixture {
@@ -34,8 +35,9 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
   struct data_t {
     size_t reply_cnt;
     size_t cancel_cnt;
-  };
-  a0::sync<data_t> data;
+    std::mutex mu;
+    std::condition_variable cv;
+  } data{};
 
   a0_rpc_request_callback_t onrequest = {
       .user_data = nullptr,
@@ -51,10 +53,10 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
       .user_data = &data,
       .fn =
           [](void* user_data, a0_uuid_t) {
-            auto* data = (a0::sync<data_t>*)user_data;
-            data->notify_all([](auto* data_) {
-              data_->cancel_cnt++;
-            });
+            auto* data = (data_t*)user_data;
+            std::unique_lock<std::mutex> lk{data->mu};
+            data->cancel_cnt++;
+            data->cv.notify_all();
           },
   };
 
@@ -68,10 +70,10 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
       .user_data = &data,
       .fn =
           [](void* user_data, a0_packet_t) {
-            auto* data = (a0::sync<data_t>*)user_data;
-            data->notify_all([](auto* data_) {
-              data_->reply_cnt++;
-            });
+            auto* data = (data_t*)user_data;
+            std::unique_lock<std::mutex> lk{data->mu};
+            data->reply_cnt++;
+            data->cv.notify_all();
           },
   };
 
@@ -85,9 +87,12 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
     REQUIRE_OK(a0_rpc_client_cancel(&client, req.id));
   }
 
-  data.wait([](auto* data_) {
-    return data_->reply_cnt >= 5 && data_->cancel_cnt >= 5;
-  });
+  {
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.cv.wait(lk, [&]() {
+      return data.reply_cnt >= 5 && data.cancel_cnt >= 5;
+    });
+  }
 
   REQUIRE_OK(a0_rpc_client_close(&client));
   REQUIRE_OK(a0_rpc_server_close(&server));

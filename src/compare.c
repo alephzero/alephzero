@@ -1,19 +1,12 @@
-#include <a0/callback.h>
 #include <a0/compare.h>
 #include <a0/err.h>
-#include <a0/file.h>
 #include <a0/inline.h>
-#include <a0/packet.h>
 #include <a0/unused.h>
 #include <a0/uuid.h>
 
-#include <alloca.h>
-#include <errno.h>
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
-
-#include "err_util.h"
 
 //////////////////////
 // Compare pointers //
@@ -22,7 +15,7 @@
 // https://stackoverflow.com/questions/20953390/what-is-the-fastest-hash-function-for-pointers
 errno_t a0_hash_ptr_fn(void* user_data, const void* data, size_t* out) {
   A0_MAYBE_UNUSED(user_data);
-  static const size_t shift = (size_t)log2(1 + sizeof(uintptr_t));
+  const size_t shift = (size_t)log2(1 + sizeof(uintptr_t));
   *out = (*(uintptr_t*)data) >> shift;
   return A0_OK;
 }

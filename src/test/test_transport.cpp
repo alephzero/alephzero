@@ -16,7 +16,6 @@
 #include <cstring>
 #include <fstream>
 #include <string>
-#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -1044,7 +1043,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust fuzz") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-void copy_file(std::string_view from, std::string_view to) {
+void copy_file(const std::string& from, const std::string& to) {
   std::ifstream src(from.data(), std::ios::binary);
   std::ofstream dst(to.data(), std::ios::binary);
 

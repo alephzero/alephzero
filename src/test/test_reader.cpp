@@ -11,14 +11,15 @@
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <utility>
 #include <vector>
 
-#include "src/sync.hpp"
 #include "src/test_util.hpp"
 
 struct ReaderBaseFixture {
@@ -531,29 +532,31 @@ struct ReaderZCFixture : ReaderBaseFixture {
 
   struct data_t {
     std::vector<std::string> collected_payloads;
-  };
-  a0::sync<data_t> sync_data;
+    std::mutex mu;
+    std::condition_variable cv;
+  } data;
 
   a0_zero_copy_callback_t make_callback() {
     return a0_zero_copy_callback_t{
-        .user_data = &sync_data,
+        .user_data = &data,
         .fn = [](void* user_data, a0_locked_transport_t, a0_flat_packet_t fpkt) {
-          auto* sync_data = (a0::sync<data_t>*)user_data;
+          auto* data = (data_t*)user_data;
           a0_buf_t payload;
           a0_flat_packet_payload(fpkt, &payload);
 
-          sync_data->notify_all([&](auto& data) {
-            data.collected_payloads.push_back(a0::test::str(payload));
-          });
+          std::unique_lock<std::mutex> lk{data->mu};
+          data->collected_payloads.push_back(a0::test::str(payload));
+          data->cv.notify_all();
         },
     };
   }
 
   void WAIT_AND_REQUIRE_PAYLOADS(std::vector<std::string> want_payloads) {
-    sync_data.shared_wait([&](const auto& data) {
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.cv.wait(lk, [&]() {
       return data.collected_payloads.size() >= want_payloads.size();
     });
-    REQUIRE(sync_data.copy().collected_payloads == want_payloads);
+    REQUIRE(data.collected_payloads == want_payloads);
   }
 };
 
@@ -655,27 +658,29 @@ struct ReaderFixture : ReaderBaseFixture {
 
   struct data_t {
     std::vector<std::string> collected_payloads;
-  };
-  a0::sync<data_t> sync_data;
+    std::mutex mu;
+    std::condition_variable cv;
+  } data;
 
   a0_packet_callback_t make_callback() {
     return a0_packet_callback_t{
-        .user_data = &sync_data,
+        .user_data = &data,
         .fn = [](void* user_data, a0_packet_t pkt) {
-          auto* sync_data = (a0::sync<data_t>*)user_data;
+          auto* data = (data_t*)user_data;
 
-          sync_data->notify_all([&](auto& data) {
-            data.collected_payloads.push_back(a0::test::str(pkt.payload));
-          });
+          std::unique_lock<std::mutex> lk{data->mu};
+          data->collected_payloads.push_back(a0::test::str(pkt.payload));
+          data->cv.notify_all();
         },
     };
   }
 
   void WAIT_AND_REQUIRE_PAYLOADS(std::vector<std::string> want_payloads) {
-    sync_data.shared_wait([&](const auto& data) {
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.cv.wait(lk, [&]() {
       return data.collected_payloads.size() >= want_payloads.size();
     });
-    REQUIRE(sync_data.copy().collected_payloads == want_payloads);
+    REQUIRE(data.collected_payloads == want_payloads);
   }
 };
 

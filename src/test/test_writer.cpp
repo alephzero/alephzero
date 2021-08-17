@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -43,14 +44,16 @@ struct WriterFixture {
     REQUIRE_OK(a0_transport_jump_head(lk));
 
     for (size_t i = 0; i < want_pkts.size(); i++) {
-      auto&& [want_hdrs, want_payload] = want_pkts[i];
+      auto&& want_hdrs = want_pkts[i].first;
+      auto&& want_payload = want_pkts[i].second;
       REQUIRE_OK(a0_transport_frame(lk, &frame));
       a0_packet_t got_pkt = a0::test::unflatten(a0::test::buf(frame));
       REQUIRE(got_pkt.headers_block.size == want_hdrs.size());
 
       for (size_t j = 0; j < got_pkt.headers_block.size; j++) {
         auto&& got_hdr = got_pkt.headers_block.headers[j];
-        auto&& [want_key, want_val] = want_hdrs[j];
+        auto&& want_key = want_hdrs[j].first;
+        auto&& want_val = want_hdrs[j].second;
         REQUIRE(std::string(got_hdr.key) == want_key);
         if (want_val != "???") {
           REQUIRE(std::string(got_hdr.val) == want_val);

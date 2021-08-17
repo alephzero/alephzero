@@ -5,7 +5,6 @@
 #include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
-#include <a0/unused.h>
 #include <a0/uuid.h>
 
 #include <sys/wait.h>
@@ -13,16 +12,16 @@
 
 #include <csignal>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "sync.hpp"
 
 #ifndef REQUIRE
 #define REQUIRE(...)
@@ -30,7 +29,16 @@
 
 #define REQUIRE_OK(err) REQUIRE((err) == A0_OK);
 
-namespace a0::test {
+namespace a0 {
+namespace test {
+
+template <typename... Args>
+static std::string fmt(const std::string& format, Args... args) {
+  size_t size = snprintf(nullptr, 0, format.data(), args...);
+  std::vector<char> buf(size + 1);
+  sprintf(buf.data(), format.data(), args...);
+  return std::string(buf.data(), size);
+}
 
 inline a0_buf_t buf(a0_transport_frame_t frame) {
   return a0_buf_t{
@@ -48,31 +56,36 @@ inline std::string str(a0_transport_frame_t frame) {
 }
 
 inline a0_buf_t buf(std::string str) {
-  static sync<std::set<std::string>> memory;
-  return memory.with_lock([&](auto* mem) {
-    auto [iter, did_insert] = mem->insert(std::move(str));
-    A0_MAYBE_UNUSED(did_insert);
-    return a0_buf_t{
-        .ptr = (uint8_t*)iter->c_str(),
-        .size = iter->size(),
-    };
-  });
+  static struct {
+    std::mutex mu;
+    std::set<std::string> mem;
+  } data{};
+  std::unique_lock<std::mutex> lk{data.mu};
+
+  auto result = data.mem.insert(std::move(str));
+  return a0_buf_t{
+      .ptr = (uint8_t*)result.first->c_str(),
+      .size = result.first->size(),
+  };
 }
 
 inline a0_alloc_t alloc() {
-  static sync<std::map<size_t, std::string>> data;
+  static struct data_t {
+    std::mutex mu;
+    std::map<size_t, std::string> dump;
+  } data{};
 
   return (a0_alloc_t){
       .user_data = &data,
       .alloc =
           [](void* user_data, size_t size, a0_buf_t* out) {
-            auto* data = (sync<std::map<size_t, std::string>>*)user_data;
-            data->with_lock([&](auto* dump) {
-              auto key = dump->size();
-              (*dump)[key].resize(size);
-              out->size = size;
-              out->ptr = (uint8_t*)((*dump)[key].c_str());
-            });
+            auto* data = (data_t*)user_data;
+            std::unique_lock<std::mutex> lk{data->mu};
+
+            auto key = data->dump.size();
+            data->dump[key].resize(size);
+            out->size = size;
+            out->ptr = (uint8_t*)(data->dump[key].c_str());
             return A0_OK;
           },
       .dealloc = nullptr,
@@ -93,11 +106,16 @@ inline a0_packet_t pkt(a0_buf_t payload) {
 inline a0_packet_t pkt(
     std::vector<std::pair<std::string, std::string>> hdrs,
     std::string payload) {
-  static sync<std::vector<std::unique_ptr<std::vector<a0_packet_header_t>>>> memory;
-  auto pkt_ = pkt(std::move(payload));
+  static struct {
+    std::mutex mu;
+    std::vector<std::unique_ptr<std::vector<a0_packet_header_t>>> mem;
+  } data{};
 
-  auto pkt_hdrs = std::make_unique<std::vector<a0_packet_header_t>>();
-  for (auto&& [k, v] : hdrs) {
+  auto pkt_ = pkt(std::move(payload));
+  std::unique_ptr<std::vector<a0_packet_header_t>> pkt_hdrs(new std::vector<a0_packet_header_t>);
+  for (const auto& elem : hdrs) {
+    const auto& k = elem.first;
+    const auto& v = elem.second;
     pkt_hdrs->push_back(a0_packet_header_t{
         .key = (char*)a0::test::buf(std::move(k)).ptr,
         .val = (char*)a0::test::buf(std::move(v)).ptr,
@@ -108,9 +126,9 @@ inline a0_packet_t pkt(
       .size = pkt_hdrs->size(),
       .next_block = nullptr,
   };
-  memory.with_lock([&](auto* mem) {
-    mem->push_back(std::move(pkt_hdrs));
-  });
+
+  std::unique_lock<std::mutex> lk{data.mu};
+  data.mem.push_back(std::move(pkt_hdrs));
   return pkt_;
 }
 
@@ -180,7 +198,8 @@ pid_t subproc(Fn&& fn) {
   return pid;
 }
 
-}  // namespace a0::test
+}  // namespace test
+}  // namespace a0
 
 inline void REQUIRE_SUBPROC_EXITED(pid_t pid) {
   REQUIRE(pid != -1);

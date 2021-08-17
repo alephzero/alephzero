@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "src/empty.h"
-#include "src/sync.hpp"
 #include "src/test_util.hpp"
 
 struct MtxTestFixture {
@@ -79,6 +78,38 @@ class latch_t {
       REQUIRE_OK(a0_cnd_broadcast(&cnd, &mtx));
     }
     while (val > 0) {
+      REQUIRE_OK(a0_cnd_wait(&cnd, &mtx));
+    }
+    REQUIRE_OK(a0_mtx_unlock(&mtx));
+  }
+};
+
+class event_t {
+  bool val = false;
+  a0_mtx_t mtx = A0_EMPTY;
+  a0_cnd_t cnd = A0_EMPTY;
+
+ public:
+  event_t() = default;
+
+  bool is_set() {
+    bool copy;
+    REQUIRE_OK(a0_mtx_lock(&mtx));
+    copy = val;
+    REQUIRE_OK(a0_mtx_unlock(&mtx));
+    return copy;
+  }
+
+  void set() {
+    REQUIRE_OK(a0_mtx_lock(&mtx));
+    val = true;
+    REQUIRE_OK(a0_cnd_broadcast(&cnd, &mtx));
+    REQUIRE_OK(a0_mtx_unlock(&mtx));
+  }
+
+  void wait() {
+    REQUIRE_OK(a0_mtx_lock(&mtx));
+    while (!val) {
       REQUIRE_OK(a0_cnd_wait(&cnd, &mtx));
     }
     REQUIRE_OK(a0_mtx_unlock(&mtx));
@@ -147,8 +178,8 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, lock2, unlock, unlock2") {
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] unlock in wrong thread") {
   a0_mtx_t mtx = A0_EMPTY;
 
-  a0::Event event_0;
-  a0::Event event_1;
+  event_t event_0;
+  event_t event_1;
   std::thread t([&]() {
     REQUIRE_OK(a0_mtx_lock(&mtx));
     event_0.set();
@@ -164,8 +195,8 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] unlock in wrong thread") {
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] trylock in different thread") {
   auto* mtx = make_ipc<a0_mtx_t>();
 
-  a0::Event event_0;
-  a0::Event event_1;
+  event_t event_0;
+  event_t event_1;
   std::thread t([&]() {
     REQUIRE_OK(a0_mtx_lock(mtx));
     event_0.set();
@@ -201,8 +232,8 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] consistent call must be from owner") {
   auto* mtx = make_ipc<a0_mtx_t>();
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
-  a0::Event event_0;
-  a0::Event event_1;
+  event_t event_0;
+  event_t event_1;
   std::thread t([&]() {
     REQUIRE(a0_mtx_lock(mtx) == EOWNERDEAD);
     event_0.set();
@@ -406,7 +437,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] many waiters") {
   }
 
   for (size_t i = 0; i < num_threads; i++) {
-    latches.push_back(std::make_unique<latch_t>(2));
+    latches.push_back(std::unique_ptr<latch_t>(new latch_t(2)));
     latch_t* latch = latches.back().get();
 
     threads.emplace_back([&, latch]() {

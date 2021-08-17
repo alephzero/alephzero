@@ -1,4 +1,4 @@
-#include <a0/callback.h>
+#include <a0/compare.h>
 #include <a0/err.h>
 #include <a0/map.h>
 
@@ -117,9 +117,9 @@ TEST_CASE_FIXTURE(MapFixture, "map] fuzz") {
           continue;
         }
         map_key_t key = rng();
-        map_val_t value = rng();
-        REQUIRE_OK(a0_map_put(&map, &key, &value));
-        ref_map[key] = value;
+        map_val_t val = rng();
+        REQUIRE_OK(a0_map_put(&map, &key, &val));
+        ref_map[key] = val;
         break;
       }
       case 1: {
@@ -138,9 +138,9 @@ TEST_CASE_FIXTURE(MapFixture, "map] fuzz") {
         }
         auto it = std::next(std::begin(ref_map), rng() % ref_map.size());
         map_key_t key = it->first;
-        map_val_t value = rng();
-        REQUIRE_OK(a0_map_put(&map, &key, &value));
-        ref_map[key] = value;
+        map_val_t val = rng();
+        REQUIRE_OK(a0_map_put(&map, &key, &val));
+        ref_map[key] = val;
         break;
       }
     }
@@ -150,13 +150,15 @@ TEST_CASE_FIXTURE(MapFixture, "map] fuzz") {
   REQUIRE_OK(a0_map_size(&map, &size));
   REQUIRE(size == ref_map.size());
 
-  for (auto&& [key, value] : ref_map) {
+  for (auto&& item : ref_map) {
+    auto&& key = item.first;
+    auto&& val = item.second;
     bool contains;
     REQUIRE_OK(a0_map_has(&map, &key, &contains));
     REQUIRE(contains);
-    map_val_t* value_ptr = nullptr;
-    REQUIRE_OK(a0_map_get(&map, &key, (void**)&value_ptr));
-    REQUIRE(*value_ptr == value);
+    map_val_t* val_ptr = nullptr;
+    REQUIRE_OK(a0_map_get(&map, &key, (void**)&val_ptr));
+    REQUIRE(*val_ptr == val);
   }
 
   REQUIRE_OK(a0_map_close(&map));

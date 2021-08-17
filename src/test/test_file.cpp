@@ -1,6 +1,5 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
-#include <a0/err.h>
 #include <a0/file.h>
 
 #include <doctest.h>
@@ -11,11 +10,15 @@
 
 #include <cerrno>
 #include <cstring>
-#include <limits>
 
 #include "src/test_util.hpp"
 
 static const int REGULAR_FILE_MASK = 0x8000;
+
+inline bool file_exists(const char* path) {
+  stat_t s;
+  return !stat(path, &s);
+}
 
 TEST_CASE("file] basic") {
   static const char* TEST_FILE = "/tmp/test.a0";
@@ -56,21 +59,29 @@ TEST_CASE("file] no override") {
 TEST_CASE("file] bad size") {
   static const char* TEST_FILE = "/tmp/test.a0";
   a0_file_remove(TEST_FILE);
+  REQUIRE(!file_exists(TEST_FILE));
 
-  // Too big.
   a0_file_t file;
   a0_file_options_t opt = A0_FILE_OPTIONS_DEFAULT;
-  opt.create_options.size = std::numeric_limits<off_t>::max();
-  errno_t err = a0_file_open(TEST_FILE, &opt, &file);
-  REQUIRE((err == ENOMEM || err == EINVAL || err == EFBIG));
+
+  // Note: Some OS are ok with really, really, ridiculously large files.
+  //       Lazy bunch!
+  //
+  // Too big.
+  // opt.create_options.size = std::numeric_limits<off_t>::max();
+  // errno_t err = a0_file_open(TEST_FILE, &opt, &file);
+  // REQUIRE((err == ENOMEM || err == EINVAL || err == EFBIG));
+  // REQUIRE(!file_exists(TEST_FILE));
 
   // Too small.
   opt.create_options.size = -1;
   REQUIRE(a0_file_open(TEST_FILE, &opt, &file) == EINVAL);
+  REQUIRE(!file_exists(TEST_FILE));
 
   // Just right.
   opt.create_options.size = 16 * 1024;
-  REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
+  REQUIRE_OK(a0_file_open(TEST_FILE, &opt, &file));
+  REQUIRE(file_exists(TEST_FILE));
   REQUIRE(!strcmp(file.path, TEST_FILE));
   REQUIRE(file.fd > 0);
   REQUIRE_OK(a0_file_close(&file));

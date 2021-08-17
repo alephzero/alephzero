@@ -8,9 +8,11 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <mutex>
 #include <ostream>
 #include <set>
 #include <string>
@@ -18,8 +20,6 @@
 #include <utility>
 #include <vector>
 
-#include "src/strutil.hpp"
-#include "src/sync.hpp"
 #include "src/test_util.hpp"
 
 struct PubsubFixture {
@@ -185,16 +185,20 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately await_new") {
-  a0::sync<std::string> msg;
+  struct data_t {
+    std::string msg;
+    std::mutex mu;
+    std::condition_variable cv;
+  } data{};
 
   a0_packet_callback_t cb = {
-      .user_data = &msg,
+      .user_data = &data,
       .fn =
           [](void* user_data, a0_packet_t pkt) {
-            auto* data = (a0::sync<std::string>*)user_data;
-            data->notify_all([&](auto* msg_) {
-              *msg_ = a0::test::str(pkt.payload);
-            });
+            auto* data = (data_t*)user_data;
+            std::unique_lock<std::mutex> lk{data->mu};
+            data->msg = a0::test::str(pkt.payload);
+            data->cv.notify_all();
           },
   };
 
@@ -213,27 +217,34 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately await_new") {
   REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg after")));
   REQUIRE_OK(a0_publisher_close(&pub));
 
-  msg.wait([](auto* msg_) {
-    return !msg_->empty();
-  });
+  {
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.cv.wait(lk, [&]() {
+      return !data.msg.empty();
+    });
+  }
 
-  REQUIRE(msg.copy() == "msg after");
+  REQUIRE(data.msg == "msg after");
   REQUIRE_OK(a0_subscriber_close(&sub));
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately most_recent") {
-  a0::sync<std::string> msg;
+  struct data_t {
+    std::string msg;
+    std::mutex mu;
+    std::condition_variable cv;
+  } data{};
 
   a0_packet_callback_t cb = {
-      .user_data = &msg,
+      .user_data = &data,
       .fn =
           [](void* user_data, a0_packet_t pkt) {
-            auto* data = (a0::sync<std::string>*)user_data;
-            data->notify_all([&](auto* msg_) {
-              if (msg_->empty()) {
-                *msg_ = a0::test::str(pkt.payload);
-              }
-            });
+            auto* data = (data_t*)user_data;
+            std::unique_lock<std::mutex> lk{data->mu};
+            if (data->msg.empty()) {
+              data->msg = a0::test::str(pkt.payload);
+              data->cv.notify_all();
+            }
           },
   };
 
@@ -252,11 +263,14 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately most_recent") {
   REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg after")));
   REQUIRE_OK(a0_publisher_close(&pub));
 
-  msg.wait([](auto* msg_) {
-    return !msg_->empty();
-  });
+  {
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.cv.wait(lk, [&]() {
+      return !data.msg.empty();
+    });
+  }
 
-  REQUIRE(msg.copy() == "msg before");
+  REQUIRE(data.msg == "msg before");
   REQUIRE_OK(a0_subscriber_close(&sub));
 }
 
@@ -271,22 +285,27 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
     REQUIRE_OK(a0_publisher_close(&pub));
   }
 
-  a0::sync<size_t> msg_cnt;
+  struct data_t {
+    size_t msg_cnt;
+    std::mutex mu;
+    std::condition_variable cv;
+  } data{};
 
   a0_packet_callback_t cb = {
-      .user_data = &msg_cnt,
+      .user_data = &data,
       .fn =
           [](void* user_data, a0_packet_t pkt) {
-            auto* data = (a0::sync<size_t>*)user_data;
-            data->notify_all([&](auto* msg_cnt_) {
-              if (*msg_cnt_ == 0) {
-                REQUIRE(a0::test::str(pkt.payload) == "msg #0");
-              } else {
-                REQUIRE(a0::test::str(pkt.payload) == "msg #1");
-              }
+            auto* data = (data_t*)user_data;
+            std::unique_lock<std::mutex> lk{data->mu};
 
-              (*msg_cnt_)++;
-            });
+            if (data->msg_cnt == 0) {
+              REQUIRE(a0::test::str(pkt.payload) == "msg #0");
+            } else {
+              REQUIRE(a0::test::str(pkt.payload) == "msg #1");
+            }
+
+            data->msg_cnt++;
+            data->cv.notify_all();
           },
   };
 
@@ -298,9 +317,12 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
                                 A0_ITER_NEXT,
                                 cb));
 
-  msg_cnt.wait([](auto* msg_cnt_) {
-    return (*msg_cnt_) == 2;
-  });
+  {
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.cv.wait(lk, [&]() {
+      return data.msg_cnt == 2;
+    });
+  }
 
   REQUIRE_OK(a0_subscriber_close(&sub));
 }
@@ -417,7 +439,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
       REQUIRE_OK(a0_publisher_init(&pub, topic));
 
       for (int j = 0; j < NUM_PACKETS; j++) {
-        REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt(a0::strutil::fmt("pub %d msg %d", i, j))));
+        REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt(a0::test::fmt("pub %d msg %d", i, j))));
       }
 
       REQUIRE_OK(a0_publisher_close(&pub));
@@ -456,7 +478,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
   REQUIRE(msgs.size() == NUM_THREADS * NUM_PACKETS);
   for (int i = 0; i < NUM_THREADS; i++) {
     for (int j = 0; j < NUM_PACKETS; j++) {
-      REQUIRE(msgs.count(a0::strutil::fmt("pub %d msg %d", i, j)));
+      REQUIRE(msgs.count(a0::test::fmt("pub %d msg %d", i, j)));
     }
   }
 }

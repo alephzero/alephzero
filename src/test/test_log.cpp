@@ -5,10 +5,10 @@
 #include <doctest.h>
 #include <stddef.h>
 
-#include <chrono>
+#include <condition_variable>
 #include <map>
+#include <mutex>
 #include <string>
-#include <thread>
 #include <utility>
 
 #include "src/test_util.hpp"
@@ -31,19 +31,27 @@ struct LogFixture {
 };
 
 TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
-  std::map<std::string, size_t> counter;
+  struct data_t {
+    std::map<std::string, size_t> cnt;
+    size_t total_cnt;
+    std::mutex mu;
+    std::condition_variable cv;
+  } data{};
 
   a0_packet_callback_t onmsg = {
-      .user_data = &counter,
+      .user_data = &data,
       .fn =
           [](void* user_data, a0_packet_t pkt) {
-            auto* cnt = (std::map<std::string, size_t>*)user_data;
+            auto* data = (data_t*)user_data;
+            std::unique_lock<std::mutex> lk{data->mu};
 
             auto hdr = a0::test::hdr(pkt);
             auto range = hdr.equal_range("a0_level");
             for (auto it = range.first; it != range.second; ++it) {
-              (*cnt)[it->second]++;
+              data->cnt[it->second]++;
+              data->total_cnt++;
             }
+            data->cv.notify_all();
           },
   };
 
@@ -67,9 +75,13 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
 
   REQUIRE_OK(a0_logger_close(&logger));
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-  REQUIRE(counter == std::map<std::string, size_t>{{"CRIT", 2}, {"ERR", 2}, {"WARN", 2}, {"INFO", 2}});
+  {
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.cv.wait(lk, [&]() {
+      return data.total_cnt == 8;
+    });
+    REQUIRE(data.cnt == std::map<std::string, size_t>{{"CRIT", 2}, {"ERR", 2}, {"WARN", 2}, {"INFO", 2}});
+  }
 
   REQUIRE_OK(a0_log_listener_close(&log_list));
 }

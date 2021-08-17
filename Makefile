@@ -6,7 +6,7 @@ LIB_DIR = lib
 BIN_DIR = bin
 
 CXFLAGS += -Wall -Wextra -fPIC -Iinclude
-CXXFLAGS += -std=c++17
+CXXFLAGS += -std=c++11
 LDFLAGS += -lpthread
 
 SRC_C := $(wildcard $(SRC_DIR)/*.c)

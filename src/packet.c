@@ -125,7 +125,9 @@ errno_t a0_packet_serialize(a0_packet_t pkt, a0_alloc_t alloc, a0_buf_t* out) {
   memcpy(out->ptr + idx_off, &off, sizeof(size_t));
 
   // Payload content.
-  memcpy(out->ptr + off, pkt.payload.ptr, pkt.payload.size);
+  if (pkt.payload.size) {
+    memcpy(out->ptr + off, pkt.payload.ptr, pkt.payload.size);
+  }
 
   return A0_OK;
 }
