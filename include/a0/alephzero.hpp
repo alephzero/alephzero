@@ -23,125 +23,13 @@
 #include <utility>
 #include <vector>
 
+#include <a0/arena.hpp>
+#include <a0/buf.hpp>
+#include <a0/c_wrap.hpp>
+#include <a0/file.hpp>
+#include <a0/packet.hpp>
+
 namespace a0 {
-
-namespace details {
-
-template <typename CType>
-struct CppWrap {
-  std::shared_ptr<CType> c;
-  uint32_t magic_number;
-
-  CppWrap()
-      : magic_number{0xA0A0A0A0} {}
-  ~CppWrap() {
-    magic_number = 0xDEADBEEF;
-  }
-};
-
-}  // namespace details
-
-static const struct tag_ref_t {} ref{};
-
-struct Buf : details::CppWrap<a0_buf_t> {
-  Buf() = default;
-  Buf(uint8_t*, size_t);
-
-  const uint8_t* ptr() const;
-  uint8_t* ptr();
-  size_t size() const;
-};
-
-struct Arena : details::CppWrap<a0_arena_t> {
-  Arena() = default;
-  Arena(Buf, a0_arena_mode_t);
-
-  const Buf buf() const;
-  Buf buf();
-  a0_arena_mode_t mode() const;
-
-  /// Implicit conversions.
-  operator const Buf() const;
-  operator Buf();
-};
-
-struct File : details::CppWrap<a0_file_t> {
-  /// Options for creating new files or directories.
-  ///
-  /// These will not change existing files.
-  struct Options {
-    struct CreateOptions {
-      /// File size.
-      off_t size;
-      /// File mode.
-      mode_t mode;
-      /// Mode for directories that will be created as part of file creation.
-      mode_t dir_mode;
-    } create_options;
-
-    struct OpenOptions {
-      /// ...
-      a0_arena_mode_t arena_mode;
-    } open_options;
-
-    /// Default file creation options.
-    ///
-    /// 16MB and universal read+write.
-    static Options DEFAULT;
-  };
-
-  File() = default;
-  File(a0::string_view path);
-  File(a0::string_view path, Options);
-
-  /// Implicit conversions.
-  operator const Buf() const;
-  operator Buf();
-  operator const Arena() const;
-  operator Arena();
-
-  /// File size.
-  size_t size() const;
-  /// File path.
-  std::string path() const;
-
-  /// File descriptor.
-  int fd() const;
-  /// File state.
-  stat_t stat() const;
-
-  /// Removes the specified file.
-  static void remove(a0::string_view path);
-  /// Removes the specified file or directory, including all subdirectories.
-  static void remove_all(a0::string_view path);
-};
-
-/// Packet owns the underlying data.
-///
-/// Packet is immutable.
-struct Packet : details::CppWrap<a0_packet_t> {
-  /// Creates a new packet with no headers and an empty payload.
-  Packet();
-  /// Creates a new packet with no headers and the given payload.
-  Packet(std::string payload);
-  /// ...
-  Packet(a0::string_view payload, tag_ref_t);
-  /// Creates a new packet with the given headers and the given payload.
-  Packet(std::vector<std::pair<std::string, std::string>> headers,
-         std::string payload);
-  /// ...
-  Packet(std::vector<std::pair<std::string, std::string>> headers,
-         a0::string_view payload, tag_ref_t);
-
-  Packet(a0_packet_t);
-
-  /// Packet unique identifier.
-  a0::string_view id() const;
-  /// Packet headers.
-  const std::vector<std::pair<std::string, std::string>>& headers() const;
-  /// Packet payload.
-  a0::string_view payload() const;
-};
 
 // struct Publisher : details::CppWrap<a0_publisher_t> {
 //   Publisher() = default;
