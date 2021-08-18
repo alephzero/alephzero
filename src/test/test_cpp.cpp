@@ -1,8 +1,8 @@
-// #include <a0/alephzero.hpp>
+#include <a0/alephzero.hpp>
 // #include <a0/file.h>
 // #include <a0/pubsub.h>
 
-// #include <doctest.h>
+#include <doctest.h>
 // #include <fcntl.h>
 // #include <sys/types.h>
 
@@ -29,147 +29,114 @@
 // #include "src/sync.hpp"
 // #include "src/test_util.hpp"
 
-// static const char TEST_FILE[] = "test.file";
+static const char TEST_FILE[] = "cpp_test.file";
 
-// static constexpr size_t MB = 1024 * 1024;
+static constexpr size_t MB = 1024 * 1024;
 
-// struct CppPubsubFixture {
-//   a0::File file;
+struct CppPubsubFixture {
+  a0::File file;
 
-//   CppPubsubFixture() {
-//     cleanup();
+  CppPubsubFixture() {
+    cleanup();
 
-//     file = a0::File(TEST_FILE);
+    file = a0::File(TEST_FILE);
+  }
 
-//     a0::GlobalTopicManager() = {};
-//   }
+  ~CppPubsubFixture() {
+    cleanup();
+  }
 
-//   ~CppPubsubFixture() {
-//     cleanup();
-//   }
+  void cleanup() {
+    a0::File::remove(TEST_FILE);
+    unsetenv("A0_ROOT");
+  }
+};
 
-//   void cleanup() {
-//     a0::File::remove(TEST_FILE);
-//     unsetenv("A0_ROOT");
-//   }
-// };
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] file") {
+  REQUIRE(file.path() == "/dev/shm/cpp_test.file");
+  REQUIRE(file.size() == A0_FILE_OPTIONS_DEFAULT.create_options.size);
+  REQUIRE(file.size() == a0::Buf(a0::Arena(file)).size());
+  REQUIRE(file.size() == a0::Buf(file).size());
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] file") {
-//   REQUIRE(file.path() == "/dev/shm/test.file");
-//   REQUIRE(file.size() == A0_FILE_OPTIONS_DEFAULT.create_options.size);
-//   REQUIRE(file.size() == a0::Arena(file).size());
+  a0::Arena arena;
+  {
+    a0::File file2(TEST_FILE);
+    arena = file2;
+  }
+  REQUIRE(file.size() == arena.buf().size());
 
-//   a0::Arena arena;
-//   {
-//     a0::File file2(TEST_FILE);
-//     arena = file2;
-//   }
-//   REQUIRE(file.size() == arena.size());
+  file = {};
+  a0::File::remove(TEST_FILE);
 
-//   file = {};
-//   a0::File::remove(TEST_FILE);
+  a0::File::Options opts = a0::File::Options::DEFAULT;
+  opts.create_options.size = 32 * MB;
 
-//   a0::File::Options opts = a0::File::Options::DEFAULT;
-//   opts.create_options.size = 32 * MB;
+  file = a0::File(TEST_FILE, opts);
+  REQUIRE(file.size() == 32 * MB);
 
-//   file = a0::File(TEST_FILE, opts);
-//   REQUIRE(file.size() == 32 * MB);
+  file = {};
+  a0::File::remove(TEST_FILE);
 
-//   file = {};
-//   a0::File::remove(TEST_FILE);
+  opts.create_options.size = std::numeric_limits<off_t>::max();
 
-//   opts.create_options.size = std::numeric_limits<off_t>::max();
+  try {
+    file = a0::File(TEST_FILE, opts);
+  } catch (const std::exception& e) {
+    std::string err = e.what();
+    REQUIRE((err == "Cannot allocate memory" ||
+             err == "File too large" ||
+             err == "Invalid argument" ||
+             err == "Out of memory"));
+  }
 
-//   try {
-//     file = a0::File(TEST_FILE, opts);
-//   } catch (const std::exception& e) {
-//     std::string err = e.what();
-//     REQUIRE((err == "Cannot allocate memory" ||
-//              err == "File too large" ||
-//              err == "Invalid argument" ||
-//              err == "Out of memory"));
-//   }
+  file = {};
+  a0::File::remove(TEST_FILE);
 
-//   file = {};
-//   a0::File::remove(TEST_FILE);
+  opts.create_options.size = -1;
 
-//   opts.create_options.size = -1;
+  REQUIRE_THROWS_WITH(
+      [&]() { file = a0::File(TEST_FILE, opts); }(),
+      "Invalid argument");
 
-//   REQUIRE_THROWS_WITH(
-//       [&]() { file = a0::File(TEST_FILE, opts); }(),
-//       "Invalid argument");
+  REQUIRE_THROWS_WITH(
+      [&]() {
+        file = a0::File();
+        file.size();
+      }(),
+      "AlephZero method called with NULL object: size_t a0::File::size() const");
+}
 
-//   REQUIRE_THROWS_WITH(
-//       [&]() {
-//         file = a0::File();
-//         file.size();
-//       }(),
-//       "AlephZero method called with NULL object: size_t a0::File::size() const");
-// }
+TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
+  a0::Packet pkt1({{"hdr-key", "hdr-val"}}, "Hello, World!");
+  REQUIRE(pkt1.payload() == "Hello, World!");
+  REQUIRE(pkt1.headers().size() == 1);
+  REQUIRE(pkt1.id().size() == 36);
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
-//   a0::Packet pkt({{"hdr-key", "hdr-val"}}, "Hello, World!");
-//   REQUIRE(pkt.payload() == "Hello, World!");
-//   REQUIRE(pkt.headers().size() == 1);
-//   REQUIRE(pkt.id().size() == 36);
+  REQUIRE(pkt1.headers()[0].first == "hdr-key");
+  REQUIRE(pkt1.headers()[0].second == "hdr-val");
 
-//   REQUIRE(pkt.headers()[0].first == "hdr-key");
-//   REQUIRE(pkt.headers()[0].second == "hdr-val");
+  a0::Packet pkt2 = pkt1;
+  REQUIRE(pkt2.id() == pkt1.id());
+  REQUIRE(pkt1.id() == pkt2.id());
+  REQUIRE(pkt1.headers() == pkt2.headers());
+  REQUIRE(pkt1.payload() == pkt2.payload());
+  REQUIRE(pkt1.payload().data() == pkt2.payload().data());
 
-//   a0::PacketView pkt_view = pkt;
-//   REQUIRE(pkt.id() == pkt_view.id());
-//   REQUIRE(pkt.headers() == pkt_view.headers());
-//   REQUIRE(pkt.payload() == pkt_view.payload());
-//   REQUIRE(pkt.payload().data() == pkt_view.payload().data());
+  a0::Packet pkt3("Hello, World!");
+  REQUIRE(pkt3.payload() == "Hello, World!");
+  REQUIRE(pkt3.headers().empty());
+  REQUIRE(pkt3.id().size() == 36);
 
-//   a0::Packet pkt2 = pkt_view;
-//   REQUIRE(pkt2.id() == pkt_view.id());
-//   REQUIRE(pkt.id() == pkt2.id());
-//   REQUIRE(pkt.headers() == pkt2.headers());
-//   REQUIRE(pkt.payload() == pkt2.payload());
-//   REQUIRE(pkt.payload().data() != pkt2.payload().data());
-// }
+  std::string owner = "Hello, World!";
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] topic manager") {
-//   a0::TopicManager tm = {
-//       .container = "aaa",
-//       .subscriber_aliases =
-//           {
-//               {"subby", {.container = "bbb", .topic = "foo"}},
-//           },
-//       .rpc_client_aliases =
-//           {
-//               {"rpcy", {.container = "bbb", .topic = "bar"}},
-//           },
-//       .prpc_client_aliases =
-//           {
-//               {"prpcy", {.container = "ccc", .topic = "bat"}},
-//           },
-//   };
+  a0::Packet pkt4(owner);
+  REQUIRE(pkt4.payload() == owner);
+  REQUIRE(pkt4.payload().data() != owner.data());
 
-//   auto REQUIRE_PATH = [&](a0::File file, std::string_view expected_path) {
-//     REQUIRE(file.path() == expected_path);
-//     a0::File::remove(file.path());
-//   };
-
-//   REQUIRE_PATH(tm.config_topic(), "/dev/shm/a0_config__aaa");
-//   REQUIRE_PATH(tm.heartbeat_topic(), "/dev/shm/a0_heartbeat__aaa");
-//   REQUIRE_PATH(tm.log_crit_topic(), "/dev/shm/a0_log_crit__aaa");
-//   REQUIRE_PATH(tm.log_err_topic(), "/dev/shm/a0_log_err__aaa");
-//   REQUIRE_PATH(tm.log_warn_topic(), "/dev/shm/a0_log_warn__aaa");
-//   REQUIRE_PATH(tm.log_info_topic(), "/dev/shm/a0_log_info__aaa");
-//   REQUIRE_PATH(tm.log_dbg_topic(), "/dev/shm/a0_log_dbg__aaa");
-//   REQUIRE_PATH(tm.publisher_topic("baz"), "/dev/shm/a0_pubsub__aaa__baz");
-//   REQUIRE_PATH(tm.subscriber_topic("subby"), "/dev/shm/a0_pubsub__bbb__foo");
-//   REQUIRE_PATH(tm.rpc_server_topic("alice"), "/dev/shm/a0_rpc__aaa__alice");
-//   REQUIRE_PATH(tm.rpc_client_topic("rpcy"), "/dev/shm/a0_rpc__bbb__bar");
-//   REQUIRE_PATH(tm.prpc_server_topic("bob"), "/dev/shm/a0_prpc__aaa__bob");
-//   REQUIRE_PATH(tm.prpc_client_topic("prpcy"), "/dev/shm/a0_prpc__ccc__bat");
-
-//   REQUIRE_THROWS_WITH(tm.subscriber_topic("not_subby"), "Invalid argument");
-//   REQUIRE_THROWS_WITH(tm.rpc_client_topic("not_rpcy"), "Invalid argument");
-//   REQUIRE_THROWS_WITH(tm.prpc_client_topic("not_prpcy"), "Invalid argument");
-// }
+  a0::Packet pkt5(owner, a0::ref);
+  REQUIRE(pkt5.payload() == owner);
+  REQUIRE(pkt5.payload().data() == owner.data());
+}
 
 // TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] config") {
 //   a0::File::remove("a0_config__test");

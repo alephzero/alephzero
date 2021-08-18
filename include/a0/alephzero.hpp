@@ -1,113 +1,201 @@
-// #pragma once
+#pragma once
 
-// #include <a0/arena.h>
-// #include <a0/file.h>
-// #include <a0/heartbeat.h>
-// #include <a0/log.h>
-// #include <a0/packet.h>
-// #include <a0/prpc.h>
-// #include <a0/pubsub.h>
-// #include <a0/rpc.h>
+#include <a0/arena.h>
+#include <a0/file.h>
+#include <a0/heartbeat.h>
+#include <a0/log.h>
+#include <a0/packet.h>
+#include <a0/prpc.h>
+#include <a0/pubsub.h>
+#include <a0/rpc.h>
+#include <a0/string_view.hpp>
 
-// #include <sys/stat.h>
+#include <sys/stat.h>
 
-// #include <cstddef>
-// #include <cstdint>
-// #include <functional>
-// #include <future>
-// #include <map>
-// #include <memory>
-// #include <string>
-// #include <string_view>
-// #include <utility>
-// #include <vector>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <future>
+#include <map>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
-// namespace a0 {
+namespace a0 {
 
-// namespace details {
+namespace details {
 
-// template <typename CType>
-// struct CppWrap {
-//   std::shared_ptr<CType> c;
-//   uint32_t magic_number;
+template <typename CType>
+struct CppWrap {
+  std::shared_ptr<CType> c;
+  uint32_t magic_number;
 
-//   CppWrap()
-//       : magic_number{0xA0A0A0A0} {}
-//   ~CppWrap() {
-//     magic_number = 0xDEADBEEF;
-//   }
+  CppWrap()
+      : magic_number{0xA0A0A0A0} {}
+  ~CppWrap() {
+    magic_number = 0xDEADBEEF;
+  }
+};
+
+}  // namespace details
+
+static const struct tag_ref_t {} ref{};
+
+struct Buf : details::CppWrap<a0_buf_t> {
+  Buf() = default;
+  Buf(uint8_t*, size_t);
+
+  const uint8_t* ptr() const;
+  uint8_t* ptr();
+  size_t size() const;
+};
+
+struct Arena : details::CppWrap<a0_arena_t> {
+  Arena() = default;
+  Arena(Buf, a0_arena_mode_t);
+
+  const Buf buf() const;
+  Buf buf();
+  a0_arena_mode_t mode() const;
+
+  /// Implicit conversions.
+  operator const Buf() const;
+  operator Buf();
+};
+
+struct File : details::CppWrap<a0_file_t> {
+  /// Options for creating new files or directories.
+  ///
+  /// These will not change existing files.
+  struct Options {
+    struct CreateOptions {
+      /// File size.
+      off_t size;
+      /// File mode.
+      mode_t mode;
+      /// Mode for directories that will be created as part of file creation.
+      mode_t dir_mode;
+    } create_options;
+
+    struct OpenOptions {
+      /// ...
+      a0_arena_mode_t arena_mode;
+    } open_options;
+
+    /// Default file creation options.
+    ///
+    /// 16MB and universal read+write.
+    static Options DEFAULT;
+  };
+
+  File() = default;
+  File(a0::string_view path);
+  File(a0::string_view path, Options);
+
+  /// Implicit conversions.
+  operator const Buf() const;
+  operator Buf();
+  operator const Arena() const;
+  operator Arena();
+
+  /// File size.
+  size_t size() const;
+  /// File path.
+  std::string path() const;
+
+  /// File descriptor.
+  int fd() const;
+  /// File state.
+  stat_t stat() const;
+
+  /// Removes the specified file.
+  static void remove(a0::string_view path);
+  /// Removes the specified file or directory, including all subdirectories.
+  static void remove_all(a0::string_view path);
+};
+
+/// Packet owns the underlying data.
+///
+/// Packet is immutable.
+struct Packet : details::CppWrap<a0_packet_t> {
+  /// Creates a new packet with no headers and an empty payload.
+  Packet();
+  /// Creates a new packet with no headers and the given payload.
+  Packet(std::string payload);
+  /// ...
+  Packet(a0::string_view payload, tag_ref_t);
+  /// Creates a new packet with the given headers and the given payload.
+  Packet(std::vector<std::pair<std::string, std::string>> headers,
+         std::string payload);
+  /// ...
+  Packet(std::vector<std::pair<std::string, std::string>> headers,
+         a0::string_view payload, tag_ref_t);
+
+  Packet(a0_packet_t);
+
+  /// Packet unique identifier.
+  a0::string_view id() const;
+  /// Packet headers.
+  const std::vector<std::pair<std::string, std::string>>& headers() const;
+  /// Packet payload.
+  a0::string_view payload() const;
+};
+
+// struct Publisher : details::CppWrap<a0_publisher_t> {
+//   Publisher() = default;
+//   Publisher(std::string_view);
+
+//   void pub(const PacketView&);
+//   void pub(std::vector<std::pair<std::string, std::string>> headers,
+//            std::string_view payload);
+//   void pub(std::string_view payload);
 // };
 
-// }  // namespace details
+// struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
+//   SubscriberSync() = default;
+//   SubscriberSync(Arena, a0_subscriber_init_t, a0_subscriber_iter_t);
+//   // User-friendly constructor that uses GlobalTopicManager subscriber_topic for shm.
+//   SubscriberSync(std::string_view, a0_subscriber_init_t, a0_subscriber_iter_t);
 
-// struct Arena : details::CppWrap<a0_arena_t> {
-//   uint8_t* ptr() const;
-//   size_t size() const;
-//   a0_arena_mode_t mode() const;
+//   bool has_next();
+//   PacketView next();
 // };
 
-// struct File : details::CppWrap<a0_file_t> {
-//   /// Options for creating new files or directories.
-//   ///
-//   /// These will not change existing files.
-//   struct Options {
-//     struct CreateOptions {
-//       /// File size.
-//       off_t size;
-//       /// File mode.
-//       mode_t mode;
-//       /// Mode for directories that will be created as part of file creation.
-//       mode_t dir_mode;
-//     } create_options;
+// struct Subscriber : details::CppWrap<a0_subscriber_t> {
+//   Subscriber() = default;
+//   Subscriber(Arena,
+//              a0_subscriber_init_t,
+//              a0_subscriber_iter_t,
+//              std::function<void(const PacketView&)>);
+//   // User-friendly constructor that uses GlobalTopicManager subscriber_topic for shm.
+//   Subscriber(std::string_view,
+//              a0_subscriber_init_t,
+//              a0_subscriber_iter_t,
+//              std::function<void(const PacketView&)>);
+//   void async_close(std::function<void()>);
 
-//     struct OpenOptions {
-//       /// ...
-//       a0_arena_mode_t arena_mode;
-//     } open_options;
-
-//     /// Default file creation options.
-//     ///
-//     /// 16MB and universal read+write.
-//     static Options DEFAULT;
-//   };
-
-//   File() = default;
-//   File(std::string_view path);
-//   File(std::string_view path, Options);
-
-//   /// Implicit conversion to Arena.
-//   operator Arena() const;
-
-//   /// File size.
-//   size_t size() const;
-//   /// File path.
-//   std::string path() const;
-
-//   /// File descriptor.
-//   int fd() const;
-//   /// File state.
-//   stat_t stat() const;
-
-//   /// Removes the specified file.
-//   static void remove(std::string_view path);
-//   /// Removes the specified file or directory, including all subdirectories.
-//   static void remove_all(std::string_view path);
+//   static Packet read_one(Arena, a0_subscriber_init_t, int flags = 0);
+//   static Packet read_one(std::string_view, a0_subscriber_init_t, int flags = 0);
 // };
 
-// struct Packet;
+// Subscriber onconfig(std::function<void(const PacketView&)>);
+// Packet read_config(int flags = 0);
+// void write_config(const TopicManager&, const PacketView&);
+// void write_config(const TopicManager&,
+//                   std::vector<std::pair<std::string, std::string>> headers,
+//                   std::string_view payload);
+// void write_config(const TopicManager&, std::string_view payload);
 
-// /// PacketView does not own the underlying data.
-// ///
-// /// Ownership and lifetime semantics of payload is managed externally.
-// ///
-// /// PacketView is immutable.
-// struct PacketView : details::CppWrap<a0_packet_t> {
-//   /// Creates a new packet view with no headers and an empty payload.
-//   PacketView();
-//   /// Creates a new packet view with no headers and the given payload.
-//   PacketView(std::string_view payload);
-//   /// Creates a new packet view with the given headers and the given payload.
-//   PacketView(std::vector<std::pair<std::string, std::string>> headers,
+// struct RpcServer;
+
+// struct RpcRequest : details::CppWrap<a0_rpc_request_t> {
+//   RpcServer server();
+//   PacketView pkt();
+
+//   void reply(const PacketView&);
+//   void reply(std::vector<std::pair<std::string, std::string>> headers,
 //              std::string_view payload);
 
 //   /// Create a shallow copy of the given Packet.
@@ -120,72 +208,6 @@
 //   const std::vector<std::pair<std::string, std::string>>& headers() const;
 //   /// Packet payload.
 //   std::string_view payload() const;
-// };
-
-// /// Packet owns the underlying data.
-// ///
-// /// Packet is immutable.
-// struct Packet : details::CppWrap<a0_packet_t> {
-//   /// Creates a new packet with no headers and an empty payload.
-//   Packet();
-//   /// Creates a new packet with no headers and the given payload.
-//   Packet(std::string payload);
-//   /// Creates a new packet with the given headers and the given payload.
-//   Packet(std::vector<std::pair<std::string, std::string>> headers,
-//          std::string payload);
-
-//   /// Create a deep copy of the given PacketView.
-//   Packet(const PacketView&);
-//   /// Create a deep copy of the given PacketView.
-//   Packet(PacketView&&);
-//   Packet(a0_packet_t);
-
-//   /// Packet unique identifier.
-//   std::string_view id() const;
-//   /// Packet headers.
-//   const std::vector<std::pair<std::string, std::string>>& headers() const;
-//   /// Packet payload.
-//   std::string_view payload() const;
-// };
-
-// struct TopicAliasTarget {
-//   std::string container;
-//   std::string topic;
-// };
-
-// struct TopicManager {
-//   std::string container;
-
-//   std::map<std::string, TopicAliasTarget> subscriber_aliases;
-//   std::map<std::string, TopicAliasTarget> rpc_client_aliases;
-//   std::map<std::string, TopicAliasTarget> prpc_client_aliases;
-
-//   File config_topic() const;
-//   File heartbeat_topic() const;
-//   File log_crit_topic() const;
-//   File log_err_topic() const;
-//   File log_warn_topic() const;
-//   File log_info_topic() const;
-//   File log_dbg_topic() const;
-//   File publisher_topic(std::string_view) const;
-//   File subscriber_topic(std::string_view) const;
-//   File rpc_server_topic(std::string_view) const;
-//   File rpc_client_topic(std::string_view) const;
-//   File prpc_server_topic(std::string_view) const;
-//   File prpc_client_topic(std::string_view) const;
-// };
-
-// void InitGlobalTopicManager(TopicManager);
-// TopicManager& GlobalTopicManager();
-
-// struct Publisher : details::CppWrap<a0_publisher_t> {
-//   Publisher() = default;
-//   Publisher(std::string_view);
-
-//   void pub(const PacketView&);
-//   void pub(std::vector<std::pair<std::string, std::string>> headers,
-//            std::string_view payload);
-//   void pub(std::string_view payload);
 // };
 
 // struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
@@ -399,4 +421,4 @@
 //   void async_close(std::function<void()>);
 // };
 
-// }  // namespace a0
+}  // namespace a0
