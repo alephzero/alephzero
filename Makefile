@@ -13,13 +13,13 @@ SRC_C := $(wildcard $(SRC_DIR)/*.c)
 SRC_CXX := $(wildcard $(SRC_DIR)/*.cpp)
 
 OBJ := $(SRC_C:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
-OBJ += $(SRC_CXX:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
+OBJ += $(SRC_CXX:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%_cpp.o)
 
 DEP = $(OBJ:%.o=%.d)
 
 TEST_SRC_CXX := $(wildcard $(SRC_DIR)/test/*.cpp)
 
-TEST_OBJ := $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cpp=$(OBJ_DIR)/test/%.o)
+TEST_OBJ := $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cpp=$(OBJ_DIR)/test/%_cpp.o)
 
 TEST_CXXFLAGS += -I. -Itest -Ithird_party/doctest/doctest
 
@@ -77,11 +77,11 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CXFLAGS) -MMD -c $< -o $@
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+$(OBJ_DIR)/%_cpp.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXFLAGS) $(CXXFLAGS) -MMD -c $< -o $@
 
-$(OBJ_DIR)/test/%.o: $(SRC_DIR)/test/%.cpp
+$(OBJ_DIR)/test/%_cpp.o: $(SRC_DIR)/test/%.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXFLAGS) $(CXXFLAGS) $(TEST_CXXFLAGS) -MMD -c $< -o $@
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 namespace a0 {
 namespace details {
 
