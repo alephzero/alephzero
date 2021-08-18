@@ -5,12 +5,12 @@
 #include <a0/file.h>
 #include <a0/inline.h>
 #include <a0/map.h>
+#include <a0/middleware.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
 #include <a0/rpc.h>
 #include <a0/uuid.h>
 #include <a0/writer.h>
-#include <a0/writer_middleware.h>
 
 #include <pthread.h>
 #include <stdint.h>
@@ -77,9 +77,7 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
     return err;
   }
 
-  err = a0_writer_push(
-      &server->_response_writer,
-      a0_writer_middleware_add_standard_headers());
+  err = a0_writer_push(&server->_response_writer, a0_add_standard_headers());
   if (err) {
     a0_writer_close(&server->_response_writer);
     a0_file_close(&server->_file);
@@ -181,9 +179,7 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client,
     return err;
   }
 
-  err = a0_writer_push(
-      &client->_request_writer,
-      a0_writer_middleware_add_standard_headers());
+  err = a0_writer_push(&client->_request_writer, a0_add_standard_headers());
   if (err) {
     a0_writer_close(&client->_request_writer);
     a0_file_close(&client->_file);

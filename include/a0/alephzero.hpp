@@ -27,6 +27,7 @@
 #include <a0/buf.hpp>
 #include <a0/c_wrap.hpp>
 #include <a0/file.hpp>
+#include <a0/middleware.hpp>
 #include <a0/packet.hpp>
 
 namespace a0 {

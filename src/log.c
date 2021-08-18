@@ -2,11 +2,11 @@
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
+#include <a0/middleware.h>
 #include <a0/log.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
 #include <a0/writer.h>
-#include <a0/writer_middleware.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -75,9 +75,7 @@ errno_t a0_logger_init(a0_logger_t* logger, a0_log_topic_t topic) {
     return err;
   }
 
-  err = a0_writer_push(
-      &logger->_writer,
-      a0_writer_middleware_add_standard_headers());
+  err = a0_writer_push(&logger->_writer, a0_add_standard_headers());
   if (err) {
     a0_writer_close(&logger->_writer);
     a0_file_close(&logger->_file);

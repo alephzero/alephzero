@@ -4,11 +4,11 @@
 #include <a0/file.h>
 #include <a0/heartbeat.h>
 #include <a0/inline.h>
+#include <a0/middleware.h>
 #include <a0/packet.h>
 #include <a0/time.h>
 #include <a0/transport.h>
 #include <a0/writer.h>
-#include <a0/writer_middleware.h>
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -74,7 +74,7 @@ errno_t a0_heartbeat_init(a0_heartbeat_t* h,
 
   err = a0_writer_wrap(
       &h->_simple_writer,
-      a0_writer_middleware_add_standard_headers(),
+      a0_add_standard_headers(),
       &h->_annotated_writer);
   if (err) {
     a0_writer_close(&h->_simple_writer);

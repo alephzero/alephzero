@@ -1,9 +1,9 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
+#include <a0/middleware.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
 #include <a0/writer.h>
-#include <a0/writer_middleware.h>
 
 #include <doctest.h>
 
@@ -100,7 +100,7 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] one middleware") {
   REQUIRE_OK(a0_writer_init(&w_0, arena));
 
   a0_writer_t w_1;
-  REQUIRE_OK(a0_writer_wrap(&w_0, a0_writer_middleware_add_time_mono_header(), &w_1));
+  REQUIRE_OK(a0_writer_wrap(&w_0, a0_add_time_mono_header(), &w_1));
 
   REQUIRE_OK(a0_writer_write(&w_0, a0::test::pkt({{"key", "val"}}, "msg #0")));
   REQUIRE_OK(a0_writer_write(&w_1, a0::test::pkt({{"key", "val"}}, "msg #1")));
@@ -129,19 +129,19 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] multiple middleware") {
   REQUIRE_OK(a0_writer_init(&w_0, arena));
 
   a0_writer_t w_1;
-  REQUIRE_OK(a0_writer_wrap(&w_0, a0_writer_middleware_add_time_mono_header(), &w_1));
+  REQUIRE_OK(a0_writer_wrap(&w_0, a0_add_time_mono_header(), &w_1));
 
   a0_writer_t w_2;
-  REQUIRE_OK(a0_writer_wrap(&w_1, a0_writer_middleware_add_time_wall_header(), &w_2));
+  REQUIRE_OK(a0_writer_wrap(&w_1, a0_add_time_wall_header(), &w_2));
 
   a0_writer_t w_3;
-  REQUIRE_OK(a0_writer_wrap(&w_2, a0_writer_middleware_add_writer_id_header(), &w_3));
+  REQUIRE_OK(a0_writer_wrap(&w_2, a0_add_writer_id_header(), &w_3));
 
   a0_writer_t w_4;
-  REQUIRE_OK(a0_writer_wrap(&w_3, a0_writer_middleware_add_writer_seq_header(), &w_4));
+  REQUIRE_OK(a0_writer_wrap(&w_3, a0_add_writer_seq_header(), &w_4));
 
   a0_writer_t w_5;
-  REQUIRE_OK(a0_writer_wrap(&w_4, a0_writer_middleware_add_transport_seq_header(), &w_5));
+  REQUIRE_OK(a0_writer_wrap(&w_4, a0_add_transport_seq_header(), &w_5));
 
   REQUIRE_OK(a0_writer_write(&w_0, a0::test::pkt({{"key", "val"}}, "msg #0")));
   REQUIRE_OK(a0_writer_write(&w_1, a0::test::pkt({{"key", "val"}}, "msg #1")));
@@ -216,7 +216,7 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] standard headers") {
   REQUIRE_OK(a0_writer_init(&w_0, arena));
 
   a0_writer_t w_1;
-  REQUIRE_OK(a0_writer_wrap(&w_0, a0_writer_middleware_add_standard_headers(), &w_1));
+  REQUIRE_OK(a0_writer_wrap(&w_0, a0_add_standard_headers(), &w_1));
 
   REQUIRE_OK(a0_writer_write(&w_0, a0::test::pkt({{"key", "val"}}, "msg #0")));
   REQUIRE_OK(a0_writer_write(&w_1, a0::test::pkt({{"key", "val"}}, "msg #1")));
@@ -259,8 +259,8 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] standard headers") {
 TEST_CASE_FIXTURE(WriterFixture, "writer] push middleware") {
   a0_writer_t w;
   REQUIRE_OK(a0_writer_init(&w, arena));
-  REQUIRE_OK(a0_writer_push(&w, a0_writer_middleware_add_writer_seq_header()));
-  REQUIRE_OK(a0_writer_push(&w, a0_writer_middleware_add_time_wall_header()));
+  REQUIRE_OK(a0_writer_push(&w, a0_add_writer_seq_header()));
+  REQUIRE_OK(a0_writer_push(&w, a0_add_time_wall_header()));
   REQUIRE_OK(a0_writer_write(&w, a0::test::pkt({{"key", "val"}}, "msg #1")));
   REQUIRE_OK(a0_writer_close(&w));
 
@@ -281,7 +281,7 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] middleware close mis-order") {
   REQUIRE_OK(a0_writer_init(&w_0, arena));
 
   a0_writer_t w_1;
-  REQUIRE_OK(a0_writer_wrap(&w_0, a0_writer_middleware_add_time_mono_header(), &w_1));
+  REQUIRE_OK(a0_writer_wrap(&w_0, a0_add_time_mono_header(), &w_1));
 
   REQUIRE_SIGNAL({ a0_writer_close(&w_0); });
   REQUIRE_OK(a0_writer_close(&w_1));
