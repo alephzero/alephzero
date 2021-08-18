@@ -1,0 +1,6 @@
+[submodule "third_party/doctest"]
+	path = third_party/doctest
+	url = https://github.com/onqtam/doctest.git
+[submodule "third_party/picobench"]
+	path = third_party/picobench
+	url = https://github.com/iboB/picobench.git
