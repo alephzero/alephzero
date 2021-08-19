@@ -137,7 +137,7 @@ typedef struct a0_transport_s {
 
   // Connection pointer info.
   uint64_t _seq;
-  uint64_t _off;
+  size_t _off;
 
   // Number of active awaits using this transport connection.
   uint32_t _wait_cnt;
@@ -150,13 +150,13 @@ typedef struct a0_transport_frame_hdr_s {
   /// Sequence number.
   uint64_t seq;
   /// Offset within the arena.
-  uint64_t off;
+  size_t off;
   /// Offset of the next frame.
-  uint64_t next_off;
+  size_t next_off;
   /// Offset of the previous frame.
-  uint64_t prev_off;
+  size_t prev_off;
   /// Size of the data within the frame.
-  uint64_t data_size;
+  size_t data_size;
 } a0_transport_frame_hdr_t;
 
 typedef struct a0_transport_frame_s {

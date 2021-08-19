@@ -20,14 +20,12 @@
 #include "clock.h"
 #include "err_util.h"
 
-typedef uintptr_t transport_off_t;  // ptr offset from start of the arena.
-
 typedef struct a0_transport_state_s {
   uint64_t seq_low;
   uint64_t seq_high;
-  transport_off_t off_head;
-  transport_off_t off_tail;
-  transport_off_t high_water_mark;
+  size_t off_head;
+  size_t off_tail;
+  size_t high_water_mark;
 } a0_transport_state_t;
 
 typedef struct a0_transport_version_s {
@@ -66,12 +64,12 @@ a0_transport_state_t* a0_transport_working_page(a0_locked_transport_t lk) {
 }
 
 A0_STATIC_INLINE
-transport_off_t a0_max_align(transport_off_t off) {
+size_t a0_max_align(size_t off) {
   return ((off + alignof(max_align_t) - 1) & ~(alignof(max_align_t) - 1));
 }
 
 A0_STATIC_INLINE
-transport_off_t a0_transport_workspace_off() {
+size_t a0_transport_workspace_off() {
   return a0_max_align(sizeof(a0_transport_hdr_t));
 }
 
@@ -413,25 +411,25 @@ errno_t a0_transport_frame(a0_locked_transport_t lk, a0_transport_frame_t* frame
 }
 
 A0_STATIC_INLINE
-transport_off_t a0_transport_frame_end(a0_transport_hdr_t* hdr, transport_off_t frame_off) {
+size_t a0_transport_frame_end(a0_transport_hdr_t* hdr, size_t frame_off) {
   a0_transport_frame_hdr_t* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + frame_off);
   return frame_off + sizeof(a0_transport_frame_hdr_t) + frame_hdr->data_size;
 }
 
 A0_STATIC_INLINE
-bool a0_transport_frame_intersects(transport_off_t frame1_start,
+bool a0_transport_frame_intersects(size_t frame1_start,
                                    size_t frame1_size,
-                                   transport_off_t frame2_start,
+                                   size_t frame2_start,
                                    size_t frame2_size) {
-  transport_off_t frame1_end = frame1_start + frame1_size;
-  transport_off_t frame2_end = frame2_start + frame2_size;
+  size_t frame1_end = frame1_start + frame1_size;
+  size_t frame2_end = frame2_start + frame2_size;
   return (frame1_start < frame2_end) && (frame2_start < frame1_end);
 }
 
 A0_STATIC_INLINE
 bool a0_transport_head_interval(a0_locked_transport_t lk,
                                 a0_transport_state_t* state,
-                                transport_off_t* head_off,
+                                size_t* head_off,
                                 size_t* head_size) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
@@ -460,7 +458,7 @@ void a0_transport_remove_head(a0_locked_transport_t lk, a0_transport_state_t* st
     state->off_head = head_hdr->next_off;
 
     // Check whether the old head frame was responsible for the high water mark.
-    transport_off_t head_end = a0_transport_frame_end(hdr, head_hdr->off);
+    size_t head_end = a0_transport_frame_end(hdr, head_hdr->off);
     if (state->high_water_mark == head_end) {
       // The high water mark is always set by a tail element.
       state->high_water_mark = a0_transport_frame_end(hdr, state->off_tail);
@@ -472,7 +470,7 @@ void a0_transport_remove_head(a0_locked_transport_t lk, a0_transport_state_t* st
 }
 
 A0_STATIC_INLINE
-errno_t a0_transport_find_slot(a0_locked_transport_t lk, size_t frame_size, transport_off_t* off) {
+errno_t a0_transport_find_slot(a0_locked_transport_t lk, size_t frame_size, size_t* off) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
@@ -496,8 +494,8 @@ errno_t a0_transport_find_slot(a0_locked_transport_t lk, size_t frame_size, tran
 }
 
 A0_STATIC_INLINE
-void a0_transport_evict(a0_locked_transport_t lk, transport_off_t off, size_t frame_size) {
-  transport_off_t head_off;
+void a0_transport_evict(a0_locked_transport_t lk, size_t off, size_t frame_size) {
+  size_t head_off;
   size_t head_size;
   a0_transport_state_t* state = a0_transport_working_page(lk);
   while (a0_transport_head_interval(lk, state, &head_off, &head_size) &&
@@ -509,7 +507,7 @@ void a0_transport_evict(a0_locked_transport_t lk, transport_off_t off, size_t fr
 A0_STATIC_INLINE
 void a0_transport_slot_init(a0_transport_state_t* state,
                             a0_transport_frame_hdr_t* frame_hdr,
-                            transport_off_t off,
+                            size_t off,
                             size_t size) {
   memset(frame_hdr, 0, sizeof(a0_transport_frame_hdr_t));
 
@@ -548,7 +546,7 @@ A0_STATIC_INLINE
 void a0_transport_update_high_water_mark(a0_transport_hdr_t* hdr,
                                          a0_transport_state_t* state,
                                          a0_transport_frame_hdr_t* frame_hdr) {
-  transport_off_t high_water_mark = a0_transport_frame_end(hdr, frame_hdr->off);
+  size_t high_water_mark = a0_transport_frame_end(hdr, frame_hdr->off);
   if (state->high_water_mark < high_water_mark) {
     state->high_water_mark = high_water_mark;
   }
@@ -557,10 +555,10 @@ void a0_transport_update_high_water_mark(a0_transport_hdr_t* hdr,
 errno_t a0_transport_alloc_evicts(a0_locked_transport_t lk, size_t size, bool* out) {
   size_t frame_size = sizeof(a0_transport_frame_hdr_t) + size;
 
-  transport_off_t off;
+  size_t off;
   A0_RETURN_ERR_ON_ERR(a0_transport_find_slot(lk, frame_size, &off));
 
-  transport_off_t head_off;
+  size_t head_off;
   size_t head_size;
   a0_transport_state_t* state = a0_transport_working_page(lk);
   *out = a0_transport_head_interval(lk, state, &head_off, &head_size) &&
@@ -575,7 +573,7 @@ errno_t a0_transport_alloc(a0_locked_transport_t lk, size_t size, a0_transport_f
   }
   size_t frame_size = sizeof(a0_transport_frame_hdr_t) + size;
 
-  transport_off_t off;
+  size_t off;
   A0_RETURN_ERR_ON_ERR(a0_transport_find_slot(lk, frame_size, &off));
 
   a0_transport_evict(lk, off, frame_size);
@@ -691,7 +689,7 @@ void a0_transport_debugstr(a0_locked_transport_t lk, a0_buf_t* out) {
   // clang-format on
 
   if (working_state->off_head) {
-    uint64_t off = working_state->off_head;
+    size_t off = working_state->off_head;
     bool first = true;
     while (true) {
       a0_transport_frame_hdr_t* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + off);
