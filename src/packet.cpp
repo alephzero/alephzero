@@ -123,4 +123,32 @@ a0::string_view Packet::payload() const {
   return a0::string_view((char*)c->payload.ptr, c->payload.size);
 }
 
+a0::string_view FlatPacket::id() const {
+  CHECK_C;
+  a0_uuid_t* uuid;
+  check(a0_flat_packet_id(*c, &uuid));
+  return a0::string_view(*uuid, sizeof(a0_uuid_t));
+}
+
+a0::string_view FlatPacket::payload() const {
+  CHECK_C;
+  a0_buf_t buf;
+  check(a0_flat_packet_payload(*c, &buf));
+  return a0::string_view((const char*)buf.ptr, buf.size);
+}
+
+size_t FlatPacket::num_headers() const {
+  CHECK_C;
+  a0_packet_stats_t stats;
+  check(a0_flat_packet_stats(*c, &stats));
+  return stats.num_hdrs;
+}
+
+std::pair<a0::string_view, a0::string_view> FlatPacket::header(size_t idx) const {
+  CHECK_C;
+  a0_packet_header_t hdr;
+  check(a0_flat_packet_header(*c, idx, &hdr));
+  return {hdr.key, hdr.val};
+}
+
 }  // namespace a0

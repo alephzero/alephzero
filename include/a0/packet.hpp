@@ -38,4 +38,12 @@ struct Packet : details::CppWrap<a0_packet_t> {
   a0::string_view payload() const;
 };
 
+/// FlatPacket is immutable.
+struct FlatPacket : details::CppWrap<a0_flat_packet_t> {
+  a0::string_view id() const;
+  a0::string_view payload() const;
+  size_t num_headers() const;
+  std::pair<a0::string_view, a0::string_view> header(size_t idx) const;
+};
+
 }  // namespace a0
