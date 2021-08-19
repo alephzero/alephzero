@@ -5,20 +5,6 @@
 
 namespace a0 {
 
-
-// struct TimeMono : details::CppWrap<a0_time_mono_t> {
-//   static TimeMono now();
-//   std::string to_string();
-//   static TimeMono parse(const std::string&);
-//   TimeMono add(std::chrono::nanoseconds);
-// };
-
-// struct TimeWall : details::CppWrap<a0_time_wall_t> {
-//   static TimeWall now();
-//   std::string to_string();
-//   static TimeWall parse(const std::string&);
-// };
-
 TimeMono TimeMono::now() {
   return make_cpp<TimeMono>(
       [&](a0_time_mono_t* c) {
