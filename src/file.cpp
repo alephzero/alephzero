@@ -1,6 +1,7 @@
 #include <a0/file.hpp>
 
 #include "c_wrap.hpp"
+#include "file_opts.hpp"
 
 namespace a0 {
 
@@ -19,19 +20,10 @@ File::File(string_view path)
     : File(path, Options::DEFAULT) {}
 
 File::File(string_view path, Options opts) {
-  a0_file_options_t c_opts{
-      .create_options = {
-          .size = opts.create_options.size,
-          .mode = opts.create_options.mode,
-          .dir_mode = opts.create_options.dir_mode,
-      },
-      .open_options = {
-          .arena_mode = opts.open_options.arena_mode,
-      },
-  };
   set_c(
       &c,
       [&](a0_file_t* c) {
+        auto c_opts = c_fileopts(opts);
         return a0_file_open(path.data(), &c_opts, c);
       },
       a0_file_close);

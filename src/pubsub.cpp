@@ -9,24 +9,16 @@
 #include <memory>
 
 #include "c_wrap.hpp"
+#include "file_opts.hpp"
 
 namespace a0 {
 
 Publisher::Publisher(PubSubTopic topic) {
-  a0_file_options_t c_file_opts{
-      .create_options = {
-          .size = topic.file_opts.create_options.size,
-          .mode = topic.file_opts.create_options.mode,
-          .dir_mode = topic.file_opts.create_options.dir_mode,
-      },
-      .open_options = {
-          .arena_mode = topic.file_opts.open_options.arena_mode,
-      },
-  };
   set_c(
       &c,
       [&](a0_publisher_t* c) {
-        a0_pubsub_topic_t c_topic = {topic.name.c_str(), &c_file_opts};
+        auto cfo = c_fileopts(topic.file_opts);
+        a0_pubsub_topic_t c_topic{topic.name.c_str(), &cfo};
         return a0_publisher_init(c, c_topic);
       },
       a0_publisher_close);
@@ -35,6 +27,106 @@ Publisher::Publisher(PubSubTopic topic) {
 void Publisher::pub(Packet pkt) {
   CHECK_C;
   check(a0_publisher_pub(&*c, *pkt.c));
+}
+
+namespace {
+
+struct SubscriberSyncImpl {
+  std::vector<uint8_t> data;
+};
+
+}  // namespace
+
+SubscriberSync::SubscriberSync(PubSubTopic topic, ReaderInit init, ReaderIter iter) {
+  set_c_impl<SubscriberSyncImpl>(
+      &c,
+      [&](a0_subscriber_sync_t* c, SubscriberSyncImpl* impl) {
+        auto cfo = c_fileopts(topic.file_opts);
+        a0_pubsub_topic_t c_topic{topic.name.c_str(), &cfo};
+
+        a0_alloc_t alloc = {
+            .user_data = impl,
+            .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
+              auto* impl = (SubscriberSyncImpl*)user_data;
+              impl->data.resize(size);
+              *out = {impl->data.data(), size};
+              return A0_OK;
+            },
+            .dealloc = nullptr,
+        };
+        return a0_subscriber_sync_init(c, c_topic, alloc, init, iter);
+      },
+      [](a0_subscriber_sync_t* c, SubscriberSyncImpl*) {
+        a0_subscriber_sync_close(c);
+      });
+}
+
+bool SubscriberSync::has_next() {
+  CHECK_C;
+  bool ret;
+  check(a0_subscriber_sync_has_next(&*c, &ret));
+  return ret;
+}
+
+Packet SubscriberSync::next() {
+  CHECK_C;
+  auto* impl = c_impl<SubscriberSyncImpl>(&c);
+
+  a0_packet_t pkt;
+  check(a0_subscriber_sync_next(&*c, &pkt));
+  auto data = std::make_shared<std::vector<uint8_t>>();
+  std::swap(*data, impl->data);
+  return Packet(pkt, [data](a0_packet_t*) {});
+}
+
+namespace {
+
+struct SubscriberImpl {
+  std::vector<uint8_t> data;
+  std::function<void(Packet)> cb;
+};
+
+}  // namespace
+
+Subscriber::Subscriber(
+    PubSubTopic topic,
+    ReaderInit init,
+    ReaderIter iter,
+    std::function<void(Packet)> cb) {
+  set_c_impl<SubscriberImpl>(
+      &c,
+      [&](a0_subscriber_t* c, SubscriberImpl* impl) {
+        impl->cb = cb;
+
+        auto cfo = c_fileopts(topic.file_opts);
+        a0_pubsub_topic_t c_topic{topic.name.c_str(), &cfo};
+
+        a0_alloc_t alloc = {
+            .user_data = impl,
+            .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
+              auto* impl = (SubscriberImpl*)user_data;
+              impl->data.resize(size);
+              *out = {impl->data.data(), size};
+              return A0_OK;
+            },
+            .dealloc = nullptr,
+        };
+
+        a0_packet_callback_t c_cb = {
+            .user_data = impl,
+            .fn = [](void* user_data, a0_packet_t pkt) {
+                auto* impl = (SubscriberImpl*)user_data;
+                auto data = std::make_shared<std::vector<uint8_t>>();
+                std::swap(*data, impl->data);
+                impl->cb(Packet(pkt, [data](a0_packet_t*) {}));
+            }
+        };
+
+        return a0_subscriber_init(c, c_topic, alloc, init, iter, c_cb);
+      },
+      [](a0_subscriber_t* c, SubscriberImpl*) {
+        a0_subscriber_close(c);
+      });
 }
 
 }  // namespace a0
