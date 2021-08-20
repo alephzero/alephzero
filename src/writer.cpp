@@ -1,4 +1,11 @@
+#include <a0/arena.hpp>
+#include <a0/middleware.h>
+#include <a0/middleware.hpp>
+#include <a0/packet.hpp>
+#include <a0/writer.h>
 #include <a0/writer.hpp>
+
+#include <memory>
 
 #include "c_wrap.hpp"
 

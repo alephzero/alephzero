@@ -210,12 +210,12 @@ errno_t a0_transport_has_next(a0_locked_transport_t, bool*);
 /// Note: This steps to the oldest frame, still available, that was added
 /// after the current frame. If the sequentially next frame has already
 /// been evicted, this will effectively jump to head.
-errno_t a0_transport_next(a0_locked_transport_t);
+errno_t a0_transport_step_next(a0_locked_transport_t);
 /// Checks whether a earlier frame exists than that at the current
 /// user's transport pointer.
 errno_t a0_transport_has_prev(a0_locked_transport_t, bool*);
 /// Step the user's transport pointer backward by one frame.
-errno_t a0_transport_prev(a0_locked_transport_t);
+errno_t a0_transport_step_prev(a0_locked_transport_t);
 
 /// Wait until the given predicate is satisfied.
 ///

@@ -3,6 +3,7 @@
 #include <a0/buf.h>
 #include <a0/c_wrap.hpp>
 
+#include <cstddef>
 #include <cstdint>
 
 namespace a0 {

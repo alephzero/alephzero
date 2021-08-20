@@ -7,6 +7,8 @@ namespace details {
 
 template <typename CType>
 struct CppWrap {
+  using c_type = CType;
+
   std::shared_ptr<CType> c;
   uint32_t magic_number;
 

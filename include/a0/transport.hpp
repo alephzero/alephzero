@@ -1,14 +1,17 @@
 #pragma once
 
-#include <a0/arena.hpp>
 #include <a0/c_wrap.hpp>
-#include <a0/time.hpp>
 #include <a0/transport.h>
 
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 
 namespace a0 {
+
+struct Arena;
+struct TimeMono;
 
 using Frame = a0_transport_frame_t;
 
@@ -27,9 +30,9 @@ struct LockedTransport : details::CppWrap<a0_locked_transport_t> {
   void jump_head();
   void jump_tail();
   bool has_next() const;
-  void next();
+  void step_next();
   bool has_prev() const;
-  void prev();
+  void step_prev();
 
   Frame alloc(size_t);
   bool alloc_evicts(size_t) const;

@@ -1,73 +1,82 @@
+#include <a0/buf.h>
+#include <a0/err.h>
+#include <a0/packet.h>
 #include <a0/packet.hpp>
+#include <a0/string_view.hpp>
+#include <a0/uuid.h>
+
+#include <errno.h>
+
+#include <algorithm>
+#include <cstring>
+#include <functional>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "c_wrap.hpp"
+#include "err_util.h"
 
 namespace a0 {
 
 struct PacketImpl {
-  bool is_view = false;
-  std::string cpp_payload;
   std::vector<std::pair<std::string, std::string>> cpp_hdrs;
   std::vector<a0_packet_header_t> c_hdrs;
-
-  void operator()(a0_packet_t* self) {
-    delete self;
-  }
 };
 
 namespace {
 
 std::shared_ptr<a0_packet_t> make_cpp_packet(
-    a0::string_view id,
+    string_view id,
     std::vector<std::pair<std::string, std::string>> hdrs,
-    std::string payload,
-    a0::string_view payload_view,
-    bool is_view) {
-  // Create basic object.
+    string_view payload_view,
+    std::function<void(a0_packet_t*)> deleter) {
+  std::shared_ptr<a0_packet_t> c;
+  set_c_impl<PacketImpl>(
+      &c,
+      [&](a0_packet_t* c, PacketImpl* impl) {
+        // Handle id.
 
-  std::shared_ptr<a0_packet_t> c(new a0_packet_t, PacketImpl{});
-  memset(&*c, 0, sizeof(a0_packet_t));
-  auto* impl = std::get_deleter<PacketImpl>(c);
+        if (id.empty()) {
+          // Create a new ID.
+          A0_RETURN_ERR_ON_ERR(a0_packet_init(&*c));
+        } else if (id.size() == A0_UUID_SIZE - 1) {
+          memcpy(c->id, id.data(), A0_UUID_SIZE - 1);
+          c->id[A0_UUID_SIZE - 1] = '\0';
+        } else {
+          // TODO(lshamis): Handle corrupt ids.
+          return EINVAL;
+        }
 
-  // Handle id.
+        // Handle headers.
 
-  if (id.empty()) {
-    // Create a new ID.
-    check(a0_packet_init(&*c));
-  } else if (id.size() == A0_UUID_SIZE - 1) {
-    memcpy(c->id, id.data(), A0_UUID_SIZE - 1);
-    c->id[A0_UUID_SIZE - 1] = '\0';
-  } else {
-    // TODO(lshamis): Handle corrupt ids.
-    throw;
-  }
+        impl->cpp_hdrs = std::move(hdrs);
 
-  // Handle headers.
+        for (size_t i = 0; i < impl->cpp_hdrs.size(); i++) {
+          impl->c_hdrs.push_back(a0_packet_header_t{
+              .key = impl->cpp_hdrs[i].first.c_str(),
+              .val = impl->cpp_hdrs[i].second.c_str(),
+          });
+        }
 
-  impl->cpp_hdrs = std::move(hdrs);
+        c->headers_block = {
+            .headers = impl->c_hdrs.data(),
+            .size = impl->c_hdrs.size(),
+            .next_block = nullptr,
+        };
 
-  for (size_t i = 0; i < impl->cpp_hdrs.size(); i++) {
-    impl->c_hdrs.push_back(a0_packet_header_t{
-        .key = impl->cpp_hdrs[i].first.c_str(),
-        .val = impl->cpp_hdrs[i].second.c_str(),
-    });
-  }
+        // Handle payload.
 
-  c->headers_block = {
-      .headers = impl->c_hdrs.data(),
-      .size = impl->c_hdrs.size(),
-      .next_block = nullptr,
-  };
+        c->payload = as_buf(payload_view);
 
-  // Handle payload.
-
-  if (is_view) {
-    c->payload = as_buf(payload_view);
-  } else {
-    impl->cpp_payload = std::move(payload);
-    c->payload = as_buf(impl->cpp_payload);
-  }
-
+        return A0_OK;
+      },
+      [deleter](a0_packet_t* c, PacketImpl*) {
+        if (deleter) {
+          deleter(c);
+        }
+      });
   return c;
 }
 
@@ -81,18 +90,27 @@ Packet::Packet(std::string payload)
 
 Packet::Packet(std::vector<std::pair<std::string, std::string>> headers,
                std::string payload) {
-  c = make_cpp_packet("", std::move(headers), std::move(payload), "", false);
+  auto owned_payload = std::make_shared<std::string>(std::move(payload));
+  c = make_cpp_packet(
+      std::string{},
+      std::move(headers),
+      *owned_payload,
+      [owned_payload](a0_packet_t*) {});
 }
 
-Packet::Packet(a0::string_view payload, tag_ref_t ref)
+Packet::Packet(string_view payload, tag_ref_t ref)
     : Packet({}, std::move(payload), ref) {}
 
 Packet::Packet(std::vector<std::pair<std::string, std::string>> headers,
-               a0::string_view payload, tag_ref_t) {
-  c = make_cpp_packet("", std::move(headers), "", payload, true);
+               string_view payload, tag_ref_t) {
+  c = make_cpp_packet(
+      std::string{},
+      std::move(headers),
+      payload,
+      nullptr);
 }
 
-Packet::Packet(a0_packet_t pkt) {
+Packet::Packet(a0_packet_t pkt, std::function<void(a0_packet_t*)> deleter) {
   std::vector<std::pair<std::string, std::string>> hdrs;
 
   a0_packet_header_iterator_t iter;
@@ -102,12 +120,14 @@ Packet::Packet(a0_packet_t pkt) {
     hdrs.push_back({hdr.key, hdr.val});
   }
 
-  a0::string_view payload_view((char*)pkt.payload.ptr, pkt.payload.size);
-
-  c = make_cpp_packet(pkt.id, std::move(hdrs), "", payload_view, true);
+  c = make_cpp_packet(
+      pkt.id,
+      std::move(hdrs),
+      string_view((char*)pkt.payload.ptr, pkt.payload.size),
+      deleter);
 }
 
-a0::string_view Packet::id() const {
+string_view Packet::id() const {
   CHECK_C;
   return c->id;
 }
@@ -118,23 +138,23 @@ const std::vector<std::pair<std::string, std::string>>& Packet::headers() const 
   return impl->cpp_hdrs;
 }
 
-a0::string_view Packet::payload() const {
+string_view Packet::payload() const {
   CHECK_C;
-  return a0::string_view((char*)c->payload.ptr, c->payload.size);
+  return string_view((char*)c->payload.ptr, c->payload.size);
 }
 
-a0::string_view FlatPacket::id() const {
+string_view FlatPacket::id() const {
   CHECK_C;
   a0_uuid_t* uuid;
   check(a0_flat_packet_id(*c, &uuid));
-  return a0::string_view(*uuid, sizeof(a0_uuid_t));
+  return string_view(*uuid, sizeof(a0_uuid_t));
 }
 
-a0::string_view FlatPacket::payload() const {
+string_view FlatPacket::payload() const {
   CHECK_C;
   a0_buf_t buf;
   check(a0_flat_packet_payload(*c, &buf));
-  return a0::string_view((const char*)buf.ptr, buf.size);
+  return string_view((const char*)buf.ptr, buf.size);
 }
 
 size_t FlatPacket::num_headers() const {
@@ -144,7 +164,7 @@ size_t FlatPacket::num_headers() const {
   return stats.num_hdrs;
 }
 
-std::pair<a0::string_view, a0::string_view> FlatPacket::header(size_t idx) const {
+std::pair<string_view, string_view> FlatPacket::header(size_t idx) const {
   CHECK_C;
   a0_packet_header_t hdr;
   check(a0_flat_packet_header(*c, idx, &hdr));

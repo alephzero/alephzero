@@ -3,8 +3,6 @@
 #include <a0/c_wrap.hpp>
 #include <a0/middleware.h>
 
-#include <cstdint>
-
 namespace a0 {
 
 struct Middleware : details::CppWrap<a0_middleware_t> {};

@@ -16,11 +16,6 @@
 #define A0_ARENA_H
 
 #include <a0/buf.h>
-#include <a0/callback.h>
-#include <a0/err.h>
-
-#include <stdbool.h>
-#include <sys/stat.h>
 
 #ifdef __cplusplus
 extern "C" {

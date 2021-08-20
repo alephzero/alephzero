@@ -213,7 +213,7 @@ errno_t a0_transport_has_next(a0_locked_transport_t lk, bool* out) {
   return A0_OK;
 }
 
-errno_t a0_transport_next(a0_locked_transport_t lk) {
+errno_t a0_transport_step_next(a0_locked_transport_t lk) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool has_next;
@@ -249,7 +249,7 @@ errno_t a0_transport_has_prev(a0_locked_transport_t lk, bool* out) {
   return A0_OK;
 }
 
-errno_t a0_transport_prev(a0_locked_transport_t lk) {
+errno_t a0_transport_step_prev(a0_locked_transport_t lk) {
   bool has_prev;
   A0_RETURN_ERR_ON_ERR(a0_transport_has_prev(lk, &has_prev));
   if (!has_prev) {

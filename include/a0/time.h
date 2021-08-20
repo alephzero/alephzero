@@ -32,8 +32,6 @@
 #ifndef A0_TIME_H
 #define A0_TIME_H
 
-#include <a0/buf.h>
-#include <a0/callback.h>
 #include <a0/err.h>
 
 #include <stdint.h>

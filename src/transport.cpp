@@ -1,4 +1,13 @@
 #include <a0/transport.hpp>
+#include <a0/arena.hpp>
+#include <a0/callback.h>
+#include <a0/err.h>
+#include <a0/time.hpp>
+#include <a0/transport.h>
+
+#include <errno.h>
+
+#include <memory>
 
 #include "c_wrap.hpp"
 
@@ -72,9 +81,9 @@ bool LockedTransport::has_next() const {
   return ret;
 }
 
-void LockedTransport::next() {
+void LockedTransport::step_next() {
   CHECK_C;
-  check(a0_transport_next(*c));
+  check(a0_transport_step_next(*c));
 }
 
 bool LockedTransport::has_prev() const {
@@ -84,9 +93,9 @@ bool LockedTransport::has_prev() const {
   return ret;
 }
 
-void LockedTransport::prev() {
+void LockedTransport::step_prev() {
   CHECK_C;
-  check(a0_transport_prev(*c));
+  check(a0_transport_step_prev(*c));
 }
 
 Frame LockedTransport::alloc(size_t size) {

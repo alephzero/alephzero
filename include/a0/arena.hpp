@@ -4,8 +4,6 @@
 #include <a0/buf.hpp>
 #include <a0/c_wrap.hpp>
 
-#include <cstdint>
-
 namespace a0 {
 
 struct Arena : details::CppWrap<a0_arena_t> {

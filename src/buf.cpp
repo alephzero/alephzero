@@ -1,4 +1,8 @@
+#include <a0/buf.h>
 #include <a0/buf.hpp>
+#include <a0/err.h>
+
+#include <memory>
 
 #include "c_wrap.hpp"
 
@@ -10,8 +14,7 @@ Buf::Buf(uint8_t* ptr, size_t size) {
       [&](a0_buf_t* c) {
         *c = {ptr, size};
         return A0_OK;
-      },
-      nullptr);
+      });
 }
 
 const uint8_t* Buf::ptr() const {

@@ -1,5 +1,10 @@
+#include <a0/arena.h>
 #include <a0/arena.hpp>
+#include <a0/buf.h>
 #include <a0/buf.hpp>
+#include <a0/err.h>
+
+#include <memory>
 
 #include "c_wrap.hpp"
 

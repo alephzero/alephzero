@@ -4,7 +4,8 @@
 #include <a0/packet.h>
 #include <a0/string_view.hpp>
 
-#include <cstdint>
+#include <cstddef>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,7 +29,7 @@ struct Packet : details::CppWrap<a0_packet_t> {
   Packet(std::vector<std::pair<std::string, std::string>> headers,
          a0::string_view payload, tag_ref_t);
 
-  Packet(a0_packet_t);
+  Packet(a0_packet_t, std::function<void(a0_packet_t*)> deleter);
 
   /// Packet unique identifier.
   a0::string_view id() const;

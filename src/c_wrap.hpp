@@ -18,45 +18,59 @@ void check(errno_t err) {
   }
 }
 
-template <typename C>
+template <typename C, typename Impl>
 struct CDeleter {
-  std::function<void(C*)> primary;
-  std::vector<std::function<void()>> also;
-
-  CDeleter() = default;
-  explicit CDeleter(std::function<void(C*)> primary)
-      : primary{std::move(primary)} {}
-
-  CDeleter(const CDeleter&) = delete;
-  CDeleter(CDeleter&&) noexcept = default;
-  CDeleter& operator=(const CDeleter&) = delete;
-  CDeleter& operator=(CDeleter&&) noexcept = default;
+  std::unique_ptr<Impl> impl;
+  std::function<void(C*, Impl*)> closer;
 
   void operator()(C* c) {
-    if (primary) {
-      primary(c);
-    }
-    for (auto&& fn : also) {
-      fn();
-    }
+    closer(c, impl.get());
+    closer = nullptr;
+    impl = nullptr;
     delete c;
   }
 };
 
+template <typename Impl, typename C, typename InitFn, typename Closer>
+void set_c_impl(std::shared_ptr<C>* c, InitFn&& init, Closer&& closer) {
+  auto unique_c = std::unique_ptr<C>(new C);
+  auto unique_impl = std::unique_ptr<Impl>(new Impl);
+  check(init(unique_c.get(), unique_impl.get()));
+
+  *c = std::shared_ptr<C>(unique_c.release(), CDeleter<C, Impl>{
+      std::move(unique_impl),
+      [closer](C* c, Impl* impl) { closer(c, impl); },
+  });
+}
+
+template <typename Impl, typename C, typename InitFn>
+void set_c_impl(std::shared_ptr<C>* c, InitFn&& init) {
+  set_c_impl<Impl>(c, std::forward<InitFn>(init), [](C*, Impl*) {});
+}
+
 template <typename C, typename InitFn, typename Closer>
 void set_c(std::shared_ptr<C>* c, InitFn&& init, Closer&& closer) {
-  set_c(c, std::forward<InitFn>(init), CDeleter<C>(std::forward<Closer>(closer)));
+  set_c_impl<int>(
+      c,
+      [init](C* c, int*) { return init(c); },
+      [closer](C* c, int*) { closer(c); });
 }
 
 template <typename C, typename InitFn>
-void set_c(std::shared_ptr<C>* c, InitFn&& init, CDeleter<C> deleter) {
-  *c = std::shared_ptr<C>(new C, std::move(deleter));
-  errno_t err = init(c->get());
-  if (err) {
-    std::get_deleter<CDeleter<C>>(*c)->primary = nullptr;
-    *c = nullptr;
-    check(err);
-  }
+void set_c(std::shared_ptr<C>* c, InitFn&& init) {
+  set_c(c, std::forward<InitFn>(init), [](C*) {});
+}
+
+template <typename Impl, typename C>
+Impl* c_impl(std::shared_ptr<C>* c) {
+  return std::get_deleter<CDeleter<C, Impl>>(*c)->impl.get();
+}
+
+template <typename CPP, typename Impl, typename InitFn, typename Closer>
+CPP make_cpp_impl(InitFn&& init, Closer&& closer) {
+  CPP cpp;
+  set_c_impl<Impl>(&cpp.c, std::forward<InitFn>(init), std::forward<Closer>(closer));
+  return cpp;
 }
 
 template <typename CPP, typename InitFn, typename Closer>
@@ -64,6 +78,41 @@ CPP make_cpp(InitFn&& init, Closer&& closer) {
   CPP cpp;
   set_c(&cpp.c, std::forward<InitFn>(init), std::forward<Closer>(closer));
   return cpp;
+}
+
+template <typename CPP, typename Impl, typename InitFn>
+CPP make_cpp_impl(InitFn&& init) {
+  using c_type = typename CPP::c_type;
+  return make_cpp_impl<CPP, Impl>(std::forward<InitFn>(init), [](c_type*) {});
+}
+
+template <typename CPP, typename InitFn>
+CPP make_cpp(InitFn&& init) {
+  using c_type = typename CPP::c_type;
+  return make_cpp<CPP>(std::forward<InitFn>(init), [](c_type*) {});
+}
+
+template <typename CPP, typename Impl>
+CPP make_cpp_impl() {
+  using c_type = typename CPP::c_type;
+  return make_cpp_impl<CPP, Impl>([](c_type*) { return A0_OK; }, [](c_type*) {});
+}
+
+template <typename CPP>
+CPP make_cpp() {
+  using c_type = typename CPP::c_type;
+  return make_cpp<CPP>([](c_type*) { return A0_OK; }, [](c_type*) {});
+}
+
+template <typename CPP>
+CPP cpp_wrap(typename CPP::c_type c) {
+  using c_type = typename CPP::c_type;
+  return make_cpp<CPP>(
+    [&](c_type* c_) {
+      *c_ = c;
+      return A0_OK;
+    },
+    [](c_type*) {});
 }
 
 template <typename T>

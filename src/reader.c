@@ -110,7 +110,7 @@ errno_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
 
   if (should_step) {
     if (reader_sync_zc->_iter == A0_ITER_NEXT) {
-      a0_transport_next(tlk);
+      a0_transport_step_next(tlk);
     } else if (reader_sync_zc->_iter == A0_ITER_NEWEST) {
       a0_transport_jump_tail(tlk);
     }
@@ -230,7 +230,7 @@ A0_STATIC_INLINE
 bool a0_reader_zc_thread_handle_next_pkt(a0_reader_zc_t* reader_zc, a0_locked_transport_t tlk) {
   if (a0_transport_wait(tlk, a0_transport_has_next_pred(&tlk)) == A0_OK) {
     if (reader_zc->_iter == A0_ITER_NEXT) {
-      a0_transport_next(tlk);
+      a0_transport_step_next(tlk);
     } else if (reader_zc->_iter == A0_ITER_NEWEST) {
       a0_transport_jump_tail(tlk);
     }

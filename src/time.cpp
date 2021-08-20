@@ -1,5 +1,10 @@
+#include <a0/string_view.hpp>
 #include <a0/time.h>
 #include <a0/time.hpp>
+
+#include <chrono>
+#include <memory>
+#include <string>
 
 #include "c_wrap.hpp"
 
@@ -9,8 +14,7 @@ TimeMono TimeMono::now() {
   return make_cpp<TimeMono>(
       [&](a0_time_mono_t* c) {
         return a0_time_mono_now(c);
-      },
-      nullptr);
+      });
 }
 
 std::string TimeMono::to_string() {
@@ -24,8 +28,7 @@ TimeMono TimeMono::parse(string_view str) {
   return make_cpp<TimeMono>(
       [&](a0_time_mono_t* c) {
         return a0_time_mono_parse(str.data(), c);
-      },
-      nullptr);
+      });
 }
 
 TimeMono TimeMono::add(std::chrono::nanoseconds dur) {
@@ -33,16 +36,14 @@ TimeMono TimeMono::add(std::chrono::nanoseconds dur) {
   return make_cpp<TimeMono>(
       [&](a0_time_mono_t* out) {
         return a0_time_mono_add(*c, dur.count(), out);
-      },
-      nullptr);
+      });
 }
 
 TimeWall TimeWall::now() {
   return make_cpp<TimeWall>(
       [&](a0_time_wall_t* c) {
         return a0_time_wall_now(c);
-      },
-      nullptr);
+      });
 }
 
 std::string TimeWall::to_string() {
@@ -56,8 +57,7 @@ TimeWall TimeWall::parse(string_view str) {
   return make_cpp<TimeWall>(
       [&](a0_time_wall_t* c) {
         return a0_time_wall_parse(str.data(), c);
-      },
-      nullptr);
+      });
 }
 
 }  // namespace a0

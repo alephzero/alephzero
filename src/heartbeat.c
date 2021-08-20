@@ -165,7 +165,7 @@ void* a0_heartbeat_listener_thread_main(void* data) {
       return NULL;
     }
 
-    a0_transport_next(tlk);
+    a0_transport_step_next(tlk);
 
     a0_transport_frame_t frame;
     a0_transport_frame(tlk, &frame);
