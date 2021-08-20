@@ -36,23 +36,6 @@ errno_t a0_publisher_pub(a0_publisher_t*, a0_packet_t);
 // Subscriber //
 ////////////////
 
-// Synchronous zero-copy version.
-
-typedef struct a0_subscriber_sync_zc_s {
-  a0_file_t _file;
-  a0_reader_sync_zc_t _reader_sync_zc;
-} a0_subscriber_sync_zc_t;
-
-errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t*,
-                                   a0_pubsub_topic_t,
-                                   a0_reader_init_t,
-                                   a0_reader_iter_t);
-
-errno_t a0_subscriber_sync_zc_close(a0_subscriber_sync_zc_t*);
-
-errno_t a0_subscriber_sync_zc_has_next(a0_subscriber_sync_zc_t*, bool*);
-errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t*, a0_zero_copy_callback_t);
-
 // Synchronous allocated version.
 
 typedef struct a0_subscriber_sync_s {
@@ -70,21 +53,6 @@ errno_t a0_subscriber_sync_close(a0_subscriber_sync_t*);
 
 errno_t a0_subscriber_sync_has_next(a0_subscriber_sync_t*, bool*);
 errno_t a0_subscriber_sync_next(a0_subscriber_sync_t*, a0_packet_t*);
-
-// Threaded zero-copy version.
-
-typedef struct a0_subscriber_zc_s {
-  a0_file_t _file;
-  a0_reader_zc_t _reader_zc;
-} a0_subscriber_zc_t;
-
-errno_t a0_subscriber_zc_init(a0_subscriber_zc_t*,
-                              a0_pubsub_topic_t,
-                              a0_reader_init_t,
-                              a0_reader_iter_t,
-                              a0_zero_copy_callback_t);
-
-errno_t a0_subscriber_zc_close(a0_subscriber_zc_t*);
 
 // Threaded allocated version.
 

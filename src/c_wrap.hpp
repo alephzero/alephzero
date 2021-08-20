@@ -1,5 +1,6 @@
 #pragma once
 
+#include <a0/buf.h>
 #include <a0/c_wrap.hpp>
 #include <a0/err.h>
 

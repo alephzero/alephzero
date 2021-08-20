@@ -16,16 +16,15 @@
 #include <vector>
 
 #include "c_wrap.hpp"
-#include "err_util.h"
+#include "err_macro.h"
 
 namespace a0 {
+namespace {
 
 struct PacketImpl {
   std::vector<std::pair<std::string, std::string>> cpp_hdrs;
   std::vector<a0_packet_header_t> c_hdrs;
 };
-
-namespace {
 
 std::shared_ptr<a0_packet_t> make_cpp_packet(
     string_view id,

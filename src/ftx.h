@@ -14,7 +14,7 @@
 #include <unistd.h>
 
 #include "clock.h"
-#include "err_util.h"
+#include "err_macro.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -4,6 +4,7 @@
 #include <a0/time.h>
 
 #include <pthread.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {

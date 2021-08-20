@@ -19,7 +19,7 @@
 
 #include "clock.h"
 #include "empty.h"
-#include "err_util.h"
+#include "err_macro.h"
 #include "protocol_util.h"
 
 A0_STATIC_INLINE

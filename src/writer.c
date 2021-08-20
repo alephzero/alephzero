@@ -11,7 +11,7 @@
 #include <stdlib.h>
 
 #include "empty.h"
-#include "err_util.h"
+#include "err_macro.h"
 
 #ifdef DEBUG
 #include <a0/unused.h>

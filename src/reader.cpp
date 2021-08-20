@@ -63,10 +63,14 @@ void ReaderSyncZeroCopy::next(std::function<void(LockedTransport, FlatPacket)> f
   check(a0_reader_sync_zc_next(&*c, cb));
 }
 
+namespace {
+
 struct ReaderSyncImpl {
   Arena arena;
   std::vector<uint8_t> data;
 };
+
+}  // namespace
 
 ReaderSync::ReaderSync(Arena arena, ReaderInit init, ReaderIter iter) {
   set_c_impl<ReaderSyncImpl>(
@@ -136,11 +140,15 @@ ReaderZeroCopy::ReaderZeroCopy(
       });
 }
 
+namespace {
+
 struct ReaderImpl {
   Arena arena;
   std::vector<uint8_t> data;
   std::function<void(Packet)> cb;
 };
+
+}  // namespace
 
 Reader::Reader(
     Arena arena,

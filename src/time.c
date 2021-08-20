@@ -9,7 +9,7 @@
 
 #include "clock.h"
 #include "empty.h"
-#include "err_util.h"
+#include "err_macro.h"
 #include "strconv.h"
 
 const char A0_TIME_MONO[] = "a0_time_mono";

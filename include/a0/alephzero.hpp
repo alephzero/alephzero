@@ -29,9 +29,11 @@
 #include <a0/file.hpp>
 #include <a0/middleware.hpp>
 #include <a0/packet.hpp>
+#include <a0/pubsub.hpp>
 #include <a0/reader.hpp>
 #include <a0/time.hpp>
 #include <a0/transport.hpp>
+#include <a0/writer.hpp>
 
 namespace a0 {
 

@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "err_util.h"
+#include "err_macro.h"
 
 errno_t a0_open_topic(const char* template,
                       const char* topic,

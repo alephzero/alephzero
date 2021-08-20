@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "err_util.h"
+#include "err_macro.h"
 
 const char* A0_PACKET_DEP_KEY = "a0_dep";
 

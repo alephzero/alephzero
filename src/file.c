@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "err_util.h"
+#include "err_macro.h"
 
 #ifdef DEBUG
 #include "assert.h"

@@ -11,7 +11,7 @@
 
 #include "atomic.h"
 #include "empty.h"
-#include "err_util.h"
+#include "err_macro.h"
 
 typedef enum a0_init_status_e {
   A0_INIT_NOT_STARTED,

@@ -12,7 +12,7 @@ namespace a0 {
 
 TimeMono TimeMono::now() {
   return make_cpp<TimeMono>(
-      [&](a0_time_mono_t* c) {
+      [](a0_time_mono_t* c) {
         return a0_time_mono_now(c);
       });
 }
@@ -41,7 +41,7 @@ TimeMono TimeMono::add(std::chrono::nanoseconds dur) {
 
 TimeWall TimeWall::now() {
   return make_cpp<TimeWall>(
-      [&](a0_time_wall_t* c) {
+      [](a0_time_wall_t* c) {
         return a0_time_wall_now(c);
       });
 }

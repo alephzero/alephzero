@@ -15,10 +15,10 @@ File::Options File::Options::DEFAULT = {
     },
 };
 
-File::File(a0::string_view path)
+File::File(string_view path)
     : File(path, Options::DEFAULT) {}
 
-File::File(a0::string_view path, Options opts) {
+File::File(string_view path, Options opts) {
   a0_file_options_t c_opts{
       .create_options = {
           .size = opts.create_options.size,
@@ -80,17 +80,16 @@ stat_t File::stat() const {
   return c->stat;
 }
 
-void File::remove(a0::string_view path) {
+void File::remove(string_view path) {
   auto err = a0_file_remove(path.data());
   // Ignore "No such file or directory" errors.
   if (err == ENOENT) {
     return;
   }
-
   check(err);
 }
 
-void File::remove_all(a0::string_view path) {
+void File::remove_all(string_view path) {
   check(a0_file_remove_all(path.data()));
 }
 

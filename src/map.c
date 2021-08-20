@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "err_util.h"
+#include "err_macro.h"
 
 typedef struct _a0_map_bucket_s {
   void* ptr;

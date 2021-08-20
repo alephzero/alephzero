@@ -17,7 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "err_util.h"
+#include "err_macro.h"
 #include "protocol_util.h"
 
 static const char RPC_TYPE[] = "a0_rpc_type";

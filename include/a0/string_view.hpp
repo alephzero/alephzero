@@ -10,6 +10,7 @@ using string_view = std::string_view;
 
 #else
 
+#include <a0/inline.h>
 #include <a0/unused.h>
 
 #include <cstring>

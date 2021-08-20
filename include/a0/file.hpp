@@ -36,8 +36,8 @@ struct File : details::CppWrap<a0_file_t> {
   };
 
   File() = default;
-  File(a0::string_view path);
-  File(a0::string_view path, Options);
+  File(string_view path);
+  File(string_view path, Options);
 
   /// Implicit conversions.
   operator const Buf() const;
@@ -56,9 +56,9 @@ struct File : details::CppWrap<a0_file_t> {
   stat_t stat() const;
 
   /// Removes the specified file.
-  static void remove(a0::string_view path);
+  static void remove(string_view path);
   /// Removes the specified file or directory, including all subdirectories.
-  static void remove_all(a0::string_view path);
+  static void remove_all(string_view path);
 };
 
 }  // namespace a0

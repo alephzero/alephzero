@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "err_util.h"
+#include "err_macro.h"
 #include "protocol_util.h"
 
 A0_STATIC_INLINE
@@ -60,42 +60,6 @@ errno_t a0_publisher_pub(a0_publisher_t* pub, a0_packet_t pkt) {
 //  Subscriber  //
 //////////////////
 
-// Synchronous zero-copy version.
-
-errno_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
-                                   a0_pubsub_topic_t topic,
-                                   a0_reader_init_t init,
-                                   a0_reader_iter_t iter) {
-  A0_RETURN_ERR_ON_ERR(_a0_pubsub_open_topic(topic, &sub_sync_zc->_file));
-
-  errno_t err = a0_reader_sync_zc_init(
-      &sub_sync_zc->_reader_sync_zc,
-      sub_sync_zc->_file.arena,
-      init,
-      iter);
-  if (err) {
-    a0_file_close(&sub_sync_zc->_file);
-    return err;
-  }
-
-  return A0_OK;
-}
-
-errno_t a0_subscriber_sync_zc_close(a0_subscriber_sync_zc_t* sub_sync_zc) {
-  A0_RETURN_ERR_ON_ERR(a0_reader_sync_zc_close(&sub_sync_zc->_reader_sync_zc));
-  a0_file_close(&sub_sync_zc->_file);
-  return A0_OK;
-}
-
-errno_t a0_subscriber_sync_zc_has_next(a0_subscriber_sync_zc_t* sub_sync_zc, bool* has_next) {
-  return a0_reader_sync_zc_has_next(&sub_sync_zc->_reader_sync_zc, has_next);
-}
-
-errno_t a0_subscriber_sync_zc_next(a0_subscriber_sync_zc_t* sub_sync_zc,
-                                   a0_zero_copy_callback_t cb) {
-  return a0_reader_sync_zc_next(&sub_sync_zc->_reader_sync_zc, cb);
-}
-
 // Synchronous allocated version.
 
 errno_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
@@ -131,35 +95,6 @@ errno_t a0_subscriber_sync_has_next(a0_subscriber_sync_t* sub_sync, bool* has_ne
 
 errno_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync, a0_packet_t* pkt) {
   return a0_reader_sync_next(&sub_sync->_reader_sync, pkt);
-}
-
-// Zero-copy threaded version.
-
-errno_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
-                              a0_pubsub_topic_t topic,
-                              a0_reader_init_t init,
-                              a0_reader_iter_t iter,
-                              a0_zero_copy_callback_t onpacket) {
-  A0_RETURN_ERR_ON_ERR(_a0_pubsub_open_topic(topic, &sub_zc->_file));
-
-  errno_t err = a0_reader_zc_init(
-      &sub_zc->_reader_zc,
-      sub_zc->_file.arena,
-      init,
-      iter,
-      onpacket);
-  if (err) {
-    a0_file_close(&sub_zc->_file);
-    return err;
-  }
-
-  return A0_OK;
-}
-
-errno_t a0_subscriber_zc_close(a0_subscriber_zc_t* sub_zc) {
-  A0_RETURN_ERR_ON_ERR(a0_reader_zc_close(&sub_zc->_reader_zc));
-  a0_file_close(&sub_zc->_file);
-  return A0_OK;
 }
 
 // Normal threaded version.

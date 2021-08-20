@@ -18,7 +18,7 @@
 #include <time.h>
 
 #include "clock.h"
-#include "err_util.h"
+#include "err_macro.h"
 
 typedef struct a0_transport_state_s {
   uint64_t seq_low;

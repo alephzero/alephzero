@@ -1,5 +1,5 @@
-#ifndef A0_SRC_ERR_UTIL_H
-#define A0_SRC_ERR_UTIL_H
+#ifndef A0_SRC_ERR_MACRO_H
+#define A0_SRC_ERR_MACRO_H
 
 #include <errno.h>
 
@@ -18,4 +18,4 @@
     }                           \
   } while (0)
 
-#endif  // A0_SRC_ERR_UTIL_H
+#endif  // A0_SRC_ERR_MACRO_H
