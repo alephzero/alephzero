@@ -113,29 +113,35 @@ Packet ReaderSync::next() {
   return Packet(pkt, [data](a0_packet_t*) {});
 }
 
+namespace {
+
+struct ReaderZeroCopyImpl {
+  std::function<void(LockedTransport, FlatPacket)> cb;
+};
+
+}  // namespace
+
 ReaderZeroCopy::ReaderZeroCopy(
     Arena arena,
     ReaderInit init,
     ReaderIter iter,
     std::function<void(LockedTransport, FlatPacket)> cb) {
-  using cpp_callback_t = std::function<void(LockedTransport, FlatPacket)>;
-
-  set_c_impl<cpp_callback_t>(
+  set_c_impl<ReaderZeroCopyImpl>(
       &c,
-      [&](a0_reader_zc_t* c, cpp_callback_t* cpp_cb) {
-        *cpp_cb = cb;
+      [&](a0_reader_zc_t* c, ReaderZeroCopyImpl* impl) {
+        impl->cb = cb;
 
         a0_zero_copy_callback_t c_cb = {
-            .user_data = cpp_cb,
+            .user_data = impl,
             .fn = [](void* user_data, a0_locked_transport_t tlk, a0_flat_packet_t fpkt) {
-                auto* cpp_cb = (cpp_callback_t*)user_data;
-                (*cpp_cb)(cpp_wrap<LockedTransport>(tlk), cpp_wrap<FlatPacket>(fpkt));
+                auto* impl = (ReaderZeroCopyImpl*)user_data;
+                impl->cb(cpp_wrap<LockedTransport>(tlk), cpp_wrap<FlatPacket>(fpkt));
             },
         };
 
         return a0_reader_zc_init(c, *arena.c, init, iter, c_cb);
       },
-      [arena](a0_reader_zc_t* c, cpp_callback_t*) {
+      [arena](a0_reader_zc_t* c, ReaderZeroCopyImpl*) {
         a0_reader_zc_close(c);
       });
 }
@@ -187,6 +193,24 @@ Reader::Reader(
       [](a0_reader_t* c, ReaderImpl*) {
         a0_reader_close(c);
       });
+}
+
+Packet Reader::read_one(Arena arena, ReaderInit init, int flags) {
+  auto data = std::make_shared<std::vector<uint8_t>>();
+  a0_alloc_t alloc = {
+      .user_data = data.get(),
+      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
+        auto* data = (std::vector<uint8_t>*)user_data;
+        data->resize(size);
+        *out = {data->data(), size};
+        return A0_OK;
+      },
+      .dealloc = nullptr,
+  };
+
+  a0_packet_t c_pkt;
+  check(a0_reader_read_one(*arena.c, alloc, init, flags, &c_pkt));
+  return Packet(c_pkt, [data](a0_packet_t*) {});
 }
 
 }  // namespace a0

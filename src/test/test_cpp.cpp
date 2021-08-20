@@ -3,13 +3,13 @@
 // #include <a0/pubsub.h>
 
 #include <doctest.h>
-// #include <fcntl.h>
+#include <fcntl.h>
 // #include <sys/types.h>
 
 // #include <algorithm>
 // #include <atomic>
 // #include <chrono>
-// #include <condition_variable>
+#include <condition_variable>
 // #include <cstddef>
 // #include <cstdint>
 // #include <cstdlib>
@@ -18,31 +18,31 @@
 // #include <future>
 // #include <limits>
 // #include <memory>
-// #include <set>
+#include <mutex>
+#include <set>
 // #include <stdexcept>
 // #include <string>
 // #include <string_view>
-// #include <thread>
+#include <thread>
 // #include <utility>
 // #include <vector>
 
-// #include "src/sync.hpp"
-// #include "src/test_util.hpp"
+#include "src/test_util.hpp"
 
 static const char TEST_FILE[] = "cpp_test.file";
 
 static constexpr size_t MB = 1024 * 1024;
 
-struct CppPubsubFixture {
+struct CppFixture {
   a0::File file;
 
-  CppPubsubFixture() {
+  CppFixture() {
     cleanup();
 
     file = a0::File(TEST_FILE);
   }
 
-  ~CppPubsubFixture() {
+  ~CppFixture() {
     cleanup();
   }
 
@@ -52,7 +52,7 @@ struct CppPubsubFixture {
   }
 };
 
-TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] file") {
+TEST_CASE_FIXTURE(CppFixture, "cpp] file") {
   REQUIRE(file.path() == "/dev/shm/cpp_test.file");
   REQUIRE(file.size() == A0_FILE_OPTIONS_DEFAULT.create_options.size);
   REQUIRE(file.size() == a0::Buf(a0::Arena(file)).size());
@@ -106,7 +106,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] file") {
       "AlephZero method called with NULL object: size_t a0::File::size() const");
 }
 
-TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
+TEST_CASE_FIXTURE(CppFixture, "cpp] pkt") {
   a0::Packet pkt1({{"hdr-key", "hdr-val"}}, "Hello, World!");
   REQUIRE(pkt1.payload() == "Hello, World!");
   REQUIRE(pkt1.headers().size() == 1);
@@ -138,7 +138,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
   REQUIRE(pkt5.payload().data() == owner.data());
 }
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] config") {
+// TEST_CASE_FIXTURE(CppFixture, "cpp] config") {
 //   a0::File::remove("a0_config__test");
 //   a0::File::remove("a0_config__test_other");
 
@@ -170,168 +170,215 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
 //   a0::File::remove("a0_config__test_other");
 // }
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub raw sync") {
-//   a0::PublisherRaw p(file);
+TEST_CASE_FIXTURE(CppFixture, "cpp] reader/writer sync") {
+  a0::Writer w(file);
 
-//   p.pub("msg #0");
-//   p.pub(std::string("msg #1"));
-//   p.pub(a0::PacketView({{"key", "val"}}, "msg #2"));
-//   p.pub(a0::Packet({{"key", "val"}}, "msg #3"));
+  w.write("msg #0");
+  w.write(std::string("msg #1"));
+  w.write(a0::Packet({{"key", "val"}}, "msg #2"));
 
-//   {
-//     a0::SubscriberSync sub(file, A0_INIT_OLDEST, A0_ITER_NEXT);
+  {
+    a0::ReaderSync reader(file, A0_INIT_OLDEST, A0_ITER_NEXT);
 
-//     REQUIRE(sub.has_next());
-//     auto pkt_view = sub.next();
+    REQUIRE(reader.has_next());
+    auto pkt = reader.next();
 
-//     {
-//       std::set<std::string> hdr_keys;
-//       for (auto&& kv : pkt_view.headers()) {
-//         hdr_keys.insert(kv.first);
-//       }
-//       REQUIRE(hdr_keys.empty());
-//     }
+    {
+      std::set<std::string> hdr_keys;
+      for (auto&& kv : pkt.headers()) {
+        hdr_keys.insert(kv.first);
+      }
+      REQUIRE(hdr_keys.empty());
+    }
 
-//     REQUIRE(pkt_view.payload() == "msg #0");
+    REQUIRE(pkt.payload() == "msg #0");
 
-//     REQUIRE(sub.has_next());
-//     REQUIRE(sub.next().payload() == "msg #1");
+    REQUIRE(reader.has_next());
+    REQUIRE(reader.next().payload() == "msg #1");
 
-//     REQUIRE(sub.has_next());
-//     REQUIRE(sub.next().payload() == "msg #2");
+    REQUIRE(reader.has_next());
+    pkt = reader.next();
+    REQUIRE(pkt.payload() == "msg #2");
 
-//     REQUIRE(sub.has_next());
-//     pkt_view = sub.next();
-//     REQUIRE(pkt_view.payload() == "msg #3");
-//     {
-//       std::set<std::string> hdr_keys;
-//       for (auto&& kv : pkt_view.headers()) {
-//         hdr_keys.insert(kv.first);
-//       }
-//       REQUIRE(hdr_keys == std::set<std::string>{"key"});
-//     }
+    {
+      std::set<std::string> hdr_keys;
+      for (auto&& kv : pkt.headers()) {
+        hdr_keys.insert(kv.first);
+      }
+      REQUIRE(hdr_keys.size() == 1);
+      REQUIRE(hdr_keys == std::set<std::string>{"key"});
+    }
 
-//     REQUIRE(!sub.has_next());
-//   }
+    REQUIRE(!reader.has_next());
+#ifdef DEBUG
+    REQUIRE_THROWS_WITH(reader.next(), "Resource temporarily unavailable");
+#endif
+  }
 
-//   {
-//     a0::SubscriberSync sub(file, A0_INIT_MOST_RECENT, A0_ITER_NEWEST);
+  {
+    a0::ReaderSync reader(file, A0_INIT_MOST_RECENT, A0_ITER_NEWEST);
 
-//     REQUIRE(sub.has_next());
-//     REQUIRE(sub.next().payload() == "msg #3");
+    REQUIRE(reader.has_next());
+    REQUIRE(reader.next().payload() == "msg #2");
 
-//     REQUIRE(!sub.has_next());
-//   }
-// }
+    REQUIRE(!reader.has_next());
+  }
+}
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub sync") {
-//   a0::Publisher p(file);
+TEST_CASE_FIXTURE(CppFixture, "cpp] reader/writer") {
+  a0::Writer w(file);
+  w.write("msg #0");
+  w.write("msg #1");
 
-//   p.pub("msg #0");
-//   p.pub(std::string("msg #1"));
-//   p.pub(a0::PacketView({{"key", "val"}}, "msg #2"));
-//   p.pub(a0::Packet({{"key", "val"}}, "msg #3"));
+  std::vector<a0::Packet> pkts;
+  std::mutex mu;
+  std::condition_variable cv;
 
-//   {
-//     a0::SubscriberSync sub(file, A0_INIT_OLDEST, A0_ITER_NEXT);
+  a0::Reader reader(file, A0_INIT_OLDEST, A0_ITER_NEXT, [&](a0::Packet pkt) {
+    std::unique_lock<std::mutex> lk{mu};
+    pkts.push_back(pkt);
+    cv.notify_one();
+  });
 
-//     REQUIRE(sub.has_next());
-//     auto pkt_view = sub.next();
+  {
+    std::unique_lock<std::mutex> lk{mu};
+    cv.wait(lk, [&]() { return pkts.size() == 2; });
+  }
 
-//     {
-//       std::set<std::string> hdr_keys;
-//       for (auto&& kv : pkt_view.headers()) {
-//         hdr_keys.insert(kv.first);
-//       }
-//       REQUIRE(hdr_keys == std::set<std::string>{"a0_time_mono",
-//                                                 "a0_time_wall",
-//                                                 // "a0_transport_seq",
-//                                                 "a0_publisher_seq",
-//                                                 "a0_publisher_id"});
-//     }
+  {
+    std::unique_lock<std::mutex> lk{mu};
+    REQUIRE(pkts[0].payload() == "msg #0");
+    REQUIRE(pkts[1].payload() == "msg #1");
+  }
 
-//     REQUIRE(pkt_view.payload() == "msg #0");
+  {
+    auto pkt = a0::Reader::read_one(file, A0_INIT_OLDEST, O_NONBLOCK);
+    REQUIRE(pkt.payload() == "msg #0");
+  }
+  {
+    auto pkt = a0::Reader::read_one(file, A0_INIT_MOST_RECENT, O_NONBLOCK);
+    REQUIRE(pkt.payload() == "msg #1");
+  }
+  REQUIRE_THROWS_WITH(a0::Reader::read_one(file, A0_INIT_AWAIT_NEW, O_NONBLOCK),
+                      "Resource temporarily unavailable");
+}
 
-//     REQUIRE(sub.has_next());
-//     REQUIRE(sub.next().payload() == "msg #1");
+TEST_CASE_FIXTURE(CppFixture, "cpp] pubsub sync") {
+  a0::File::remove("alephzero/topic.pubsub.a0");
 
-//     REQUIRE(sub.has_next());
-//     REQUIRE(sub.next().payload() == "msg #2");
+  a0::Publisher p("topic");
 
-//     REQUIRE(sub.has_next());
-//     pkt_view = sub.next();
-//     REQUIRE(pkt_view.payload() == "msg #3");
-//     {
-//       std::set<std::string> hdr_keys;
-//       for (auto&& kv : pkt_view.headers()) {
-//         hdr_keys.insert(kv.first);
-//       }
-//       REQUIRE(hdr_keys == std::set<std::string>{"key",
-//                                                 "a0_time_mono",
-//                                                 "a0_time_wall",
-//                                                 // "a0_transport_seq",
-//                                                 "a0_publisher_seq",
-//                                                 "a0_publisher_id"});
-//     }
+  p.pub("msg #0");
+  p.pub(std::string("msg #1"));
+  p.pub(a0::Packet({{"key", "val"}}, "msg #2"));
 
-//     REQUIRE(!sub.has_next());
-//   }
+  {
+    a0::SubscriberSync sub("topic", A0_INIT_OLDEST, A0_ITER_NEXT);
 
-//   {
-//     a0::SubscriberSync sub(file, A0_INIT_MOST_RECENT, A0_ITER_NEWEST);
+    REQUIRE(sub.has_next());
+    auto pkt = sub.next();
 
-//     REQUIRE(sub.has_next());
-//     REQUIRE(sub.next().payload() == "msg #3");
+    {
+      std::set<std::string> hdr_keys;
+      for (auto&& kv : pkt.headers()) {
+        hdr_keys.insert(kv.first);
+      }
+      REQUIRE(hdr_keys == std::set<std::string>{"a0_time_mono",
+                                                "a0_time_wall",
+                                                "a0_transport_seq",
+                                                "a0_writer_seq",
+                                                "a0_writer_id"});
+    }
 
-//     REQUIRE(!sub.has_next());
-//   }
-// }
+    REQUIRE(pkt.payload() == "msg #0");
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pubsub") {
-//   a0::Publisher p(file);
-//   p.pub("msg #0");
-//   p.pub("msg #1");
+    REQUIRE(sub.has_next());
+    REQUIRE(sub.next().payload() == "msg #1");
 
-//   a0::sync<std::vector<std::string>> read_payloads;
-//   a0::Subscriber sub(file, A0_INIT_OLDEST, A0_ITER_NEXT, [&](a0::PacketView pkt_view) {
-//     read_payloads.notify_one([&](auto* payloads) {
-//       payloads->push_back(std::string(pkt_view.payload()));
-//     });
-//   });
+    REQUIRE(sub.has_next());
+    pkt = sub.next();
+    REQUIRE(pkt.payload() == "msg #2");
+    {
+      std::set<std::string> hdr_keys;
+      for (auto&& kv : pkt.headers()) {
+        hdr_keys.insert(kv.first);
+      }
+      REQUIRE(hdr_keys == std::set<std::string>{"key",
+                                                "a0_time_mono",
+                                                "a0_time_wall",
+                                                "a0_transport_seq",
+                                                "a0_writer_seq",
+                                                "a0_writer_id"});
+    }
 
-//   read_payloads.wait([&](auto* payloads) {
-//     return payloads->size() == 2;
-//   });
+    REQUIRE(!sub.has_next());
+#ifdef DEBUG
+    REQUIRE_THROWS_WITH(sub.next(), "Resource temporarily unavailable");
+#endif
+  }
 
-//   read_payloads.with_lock([&](auto* payloads) {
-//     REQUIRE((*payloads)[0] == "msg #0");
-//     REQUIRE((*payloads)[1] == "msg #1");
-//   });
+  {
+    a0::SubscriberSync sub("topic", A0_INIT_MOST_RECENT, A0_ITER_NEWEST);
 
-//   {
-//     auto pkt = a0::Subscriber::read_one(file, A0_INIT_OLDEST, O_NONBLOCK);
-//     REQUIRE(pkt.payload() == "msg #0");
-//   }
-//   {
-//     auto pkt = a0::Subscriber::read_one(file, A0_INIT_MOST_RECENT, O_NONBLOCK);
-//     REQUIRE(pkt.payload() == "msg #1");
-//   }
-//   REQUIRE_THROWS_WITH(a0::Subscriber::read_one(file, A0_INIT_AWAIT_NEW, O_NONBLOCK),
-//                       "Resource temporarily unavailable");
-// }
+    REQUIRE(sub.has_next());
+    REQUIRE(sub.next().payload() == "msg #2");
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] sub throw") {
-//   REQUIRE_SIGNAL({
-//     a0::Publisher p(file);
-//     p.pub("");
-//     a0::Subscriber sub(file, A0_INIT_OLDEST, A0_ITER_NEXT, [&](a0::PacketView) {
-//       throw std::runtime_error("FOOBAR");
-//     });
-//     std::this_thread::sleep_for(std::chrono::seconds(1));
-//   });
-// }
+    REQUIRE(!sub.has_next());
+  }
+}
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] rpc") {
+TEST_CASE_FIXTURE(CppFixture, "cpp] pubsub") {
+  a0::File::remove("alephzero/topic.pubsub.a0");
+
+  a0::Publisher p("topic");
+  p.pub("msg #0");
+  p.pub("msg #1");
+
+  std::vector<a0::Packet> pkts;
+  std::mutex mu;
+  std::condition_variable cv;
+
+  a0::Subscriber sub("topic", A0_INIT_OLDEST, A0_ITER_NEXT, [&](a0::Packet pkt) {
+    std::unique_lock<std::mutex> lk{mu};
+    pkts.push_back(pkt);
+    cv.notify_one();
+  });
+
+  {
+    std::unique_lock<std::mutex> lk{mu};
+    cv.wait(lk, [&]() { return pkts.size() == 2; });
+  }
+
+  {
+    std::unique_lock<std::mutex> lk{mu};
+    REQUIRE(pkts[0].payload() == "msg #0");
+    REQUIRE(pkts[1].payload() == "msg #1");
+  }
+
+  {
+    auto pkt = a0::Subscriber::read_one("topic", A0_INIT_OLDEST, O_NONBLOCK);
+    REQUIRE(pkt.payload() == "msg #0");
+  }
+  {
+    auto pkt = a0::Subscriber::read_one("topic", A0_INIT_MOST_RECENT, O_NONBLOCK);
+    REQUIRE(pkt.payload() == "msg #1");
+  }
+  REQUIRE_THROWS_WITH(a0::Subscriber::read_one("topic", A0_INIT_AWAIT_NEW, O_NONBLOCK),
+                      "Resource temporarily unavailable");
+}
+
+TEST_CASE_FIXTURE(CppFixture, "cpp] reader throw") {
+  REQUIRE_SIGNAL({
+    a0::Writer w(file);
+    w.write("");
+    a0::Reader reader(file, A0_INIT_OLDEST, A0_ITER_NEXT, [](a0::Packet) {
+      throw std::runtime_error("FOOBAR");
+    });
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  });
+}
+
+// TEST_CASE_FIXTURE(CppFixture, "cpp] rpc") {
 //   auto onrequest = [](a0::RpcRequest req) {
 //     REQUIRE(req.pkt().payload() == "foo");
 //     req.reply("bar");
@@ -359,7 +406,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
 //   cancel_event.wait();
 // }
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] rpc null callback") {
+// TEST_CASE_FIXTURE(CppFixture, "cpp] rpc null callback") {
 //   a0::Event req_evt;
 //   auto onrequest = [&](a0::RpcRequest) {
 //     req_evt.set();
@@ -376,7 +423,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
 //   req_evt.wait();
 // }
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] prpc") {
+// TEST_CASE_FIXTURE(CppFixture, "cpp] prpc") {
 //   auto onconnect = [](a0::PrpcConnection conn) {
 //     REQUIRE(conn.pkt().payload() == "foo");
 //     conn.send("msg #0", false);
@@ -414,7 +461,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
 //   cancel_event.wait();
 // }
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] prpc null callback") {
+// TEST_CASE_FIXTURE(CppFixture, "cpp] prpc null callback") {
 //   auto onconnect = [](a0::PrpcConnection conn) {
 //     conn.send("msg", true);
 //   };
@@ -447,7 +494,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
 //   return std::chrono::nanoseconds(uint64_t(1e9 / 40));
 // }
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hb start, hbl start, hbl close, hb close") {
+// TEST_CASE_FIXTURE(CppFixture, "cpp] heartbeat hb start, hbl start, hbl close, hb close") {
 //   auto hb = std::make_unique<a0::Heartbeat>(file, TestHeartbeatOptions());
 
 //   a0::Subscriber::read_one(file, A0_INIT_MOST_RECENT, 0);
@@ -469,7 +516,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
 //   REQUIRE(missed_cnt == 0);
 // }
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hb start, hbl start, hb close, hbl close") {
+// TEST_CASE_FIXTURE(CppFixture, "cpp] heartbeat hb start, hbl start, hb close, hbl close") {
 //   auto hb = std::make_unique<a0::Heartbeat>(file, TestHeartbeatOptions());
 
 //   a0::Subscriber::read_one(file, A0_INIT_MOST_RECENT, 0);
@@ -496,7 +543,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
 //   REQUIRE(missed_cnt == 1);
 // }
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat hbl start, hb start, hb close, hbl close") {
+// TEST_CASE_FIXTURE(CppFixture, "cpp] heartbeat hbl start, hb start, hb close, hbl close") {
 //   std::atomic<int> detected_cnt = 0;
 //   std::atomic<int> missed_cnt = 0;
 
@@ -526,7 +573,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
 //   REQUIRE(missed_cnt == 1);
 // }
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat ignore old") {
+// TEST_CASE_FIXTURE(CppFixture, "cpp] heartbeat ignore old") {
 //   auto hb = std::make_unique<a0::Heartbeat>(file, TestHeartbeatOptions());
 
 //   a0::Subscriber::read_one(file, A0_INIT_MOST_RECENT, 0);
@@ -559,7 +606,7 @@ TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] pkt") {
 //   REQUIRE(missed_cnt == 0);
 // }
 
-// TEST_CASE_FIXTURE(CppPubsubFixture, "cpp] heartbeat listener async close") {
+// TEST_CASE_FIXTURE(CppFixture, "cpp] heartbeat listener async close") {
 //   auto hb = std::make_unique<a0::Heartbeat>(file, TestHeartbeatOptions());
 
 //   a0::Event init_event;

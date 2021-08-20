@@ -101,6 +101,17 @@ errno_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
     return EAGAIN;
   }
 
+#ifdef DEBUG
+  bool has_next = true;
+  if (reader_sync_zc->_first_read_done || reader_sync_zc->_init == A0_INIT_AWAIT_NEW) {
+    a0_transport_has_next(tlk, &has_next);
+  }
+  if (!has_next) {
+    a0_transport_unlock(tlk);
+    return EAGAIN;
+  }
+#endif
+
   bool should_step = reader_sync_zc->_first_read_done || reader_sync_zc->_init == A0_INIT_AWAIT_NEW;
   if (!should_step) {
     bool is_valid;

@@ -15,6 +15,7 @@ struct Writer : details::CppWrap<a0_writer_t> {
   Writer(Arena);
 
   void write(Packet);
+  void write(string_view sv) { write(Packet(sv, ref)); }
 
   void push(Middleware);
   Writer wrap(Middleware);

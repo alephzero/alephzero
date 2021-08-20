@@ -1,28 +1,5 @@
 #pragma once
 
-// #include <a0/arena.h>
-// #include <a0/file.h>
-// #include <a0/heartbeat.h>
-// #include <a0/log.h>
-// #include <a0/packet.h>
-// #include <a0/prpc.h>
-// #include <a0/pubsub.h>
-// #include <a0/rpc.h>
-// #include <a0/string_view.hpp>
-
-// #include <sys/stat.h>
-
-// #include <cstddef>
-// #include <cstdint>
-// #include <functional>
-// #include <future>
-// #include <map>
-// #include <memory>
-// #include <string>
-// #include <string_view>
-// #include <utility>
-// #include <vector>
-
 #include <a0/arena.hpp>
 #include <a0/buf.hpp>
 #include <a0/c_wrap.hpp>
@@ -36,26 +13,6 @@
 #include <a0/writer.hpp>
 
 namespace a0 {
-
-// struct Publisher : details::CppWrap<a0_publisher_t> {
-//   Publisher() = default;
-//   Publisher(std::string_view);
-
-//   void pub(const PacketView&);
-//   void pub(std::vector<std::pair<std::string, std::string>> headers,
-//            std::string_view payload);
-//   void pub(std::string_view payload);
-// };
-
-// struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
-//   SubscriberSync() = default;
-//   SubscriberSync(Arena, a0_subscriber_init_t, a0_subscriber_iter_t);
-//   // User-friendly constructor that uses GlobalTopicManager subscriber_topic for shm.
-//   SubscriberSync(std::string_view, a0_subscriber_init_t, a0_subscriber_iter_t);
-
-//   bool has_next();
-//   PacketView next();
-// };
 
 // struct Subscriber : details::CppWrap<a0_subscriber_t> {
 //   Subscriber() = default;

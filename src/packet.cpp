@@ -133,7 +133,7 @@ string_view Packet::id() const {
 
 const std::vector<std::pair<std::string, std::string>>& Packet::headers() const {
   CHECK_C;
-  auto* impl = std::get_deleter<PacketImpl>(c);
+  auto* impl = c_impl<PacketImpl>(&c);
   return impl->cpp_hdrs;
 }
 

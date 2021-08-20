@@ -317,7 +317,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_has_prev(lk, &has_prev));
   REQUIRE(!has_prev);
 
-  REQUIRE_OK(a0_transport_next(lk));
+  REQUIRE_OK(a0_transport_step_next(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "BB");
@@ -325,7 +325,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
   REQUIRE(has_next);
 
-  REQUIRE_OK(a0_transport_next(lk));
+  REQUIRE_OK(a0_transport_step_next(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 3);
   REQUIRE(a0::test::str(frame) == "CCC");
@@ -336,12 +336,12 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_has_prev(lk, &has_prev));
   REQUIRE(has_prev);
 
-  REQUIRE_OK(a0_transport_prev(lk));
+  REQUIRE_OK(a0_transport_step_prev(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "BB");
 
-  REQUIRE_OK(a0_transport_prev(lk));
+  REQUIRE_OK(a0_transport_step_prev(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
@@ -371,8 +371,8 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] empty jumps") {
 
   REQUIRE(a0_transport_jump_head(lk) == EAGAIN);
   REQUIRE(a0_transport_jump_tail(lk) == EAGAIN);
-  REQUIRE(a0_transport_next(lk) == EAGAIN);
-  REQUIRE(a0_transport_prev(lk) == EAGAIN);
+  REQUIRE(a0_transport_step_next(lk) == EAGAIN);
+  REQUIRE(a0_transport_step_prev(lk) == EAGAIN);
 
   bool has_next;
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
@@ -493,7 +493,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] expired next") {
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
   REQUIRE(has_next);
 
-  REQUIRE_OK(a0_transport_next(lk));
+  REQUIRE_OK(a0_transport_step_next(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 18);
 
@@ -815,7 +815,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] disk await") {
   fork_sleep_push(&transport, "DEF");
   REQUIRE_OK(a0_transport_wait(lk, a0_transport_has_next_pred(&lk)));
 
-  REQUIRE_OK(a0_transport_next(lk));
+  REQUIRE_OK(a0_transport_step_next(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "DEF");
@@ -847,7 +847,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] shm await") {
   fork_sleep_push(&transport, "DEF");
   REQUIRE_OK(a0_transport_wait(lk, a0_transport_has_next_pred(&lk)));
 
-  REQUIRE_OK(a0_transport_next(lk));
+  REQUIRE_OK(a0_transport_step_next(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "DEF");

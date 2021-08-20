@@ -37,6 +37,8 @@ struct ReaderZeroCopy : details::CppWrap<a0_reader_zc_t> {
 struct Reader : details::CppWrap<a0_reader_t> {
   Reader() = default;
   Reader(Arena, ReaderInit, ReaderIter, std::function<void(Packet)>);
+
+  static Packet read_one(Arena, ReaderInit, int flags);
 };
 
 }  // namespace a0

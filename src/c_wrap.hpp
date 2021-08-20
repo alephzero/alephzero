@@ -67,6 +67,11 @@ Impl* c_impl(std::shared_ptr<C>* c) {
   return std::get_deleter<CDeleter<C, Impl>>(*c)->impl.get();
 }
 
+template <typename Impl, typename C>
+const Impl* c_impl(const std::shared_ptr<C>* c) {
+  return std::get_deleter<CDeleter<C, Impl>>(*c)->impl.get();
+}
+
 template <typename CPP, typename Impl, typename InitFn, typename Closer>
 CPP make_cpp_impl(InitFn&& init, Closer&& closer) {
   CPP cpp;

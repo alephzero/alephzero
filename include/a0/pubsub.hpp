@@ -19,6 +19,8 @@ struct PubSubTopic {
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
     : name{std::move(name)}, file_opts{std::move(file_opts)} {}
+
+  PubSubTopic(const char* name) : PubSubTopic(std::string(name)) {}
 };
 
 struct Publisher : details::CppWrap<a0_publisher_t> {
@@ -26,6 +28,7 @@ struct Publisher : details::CppWrap<a0_publisher_t> {
   Publisher(PubSubTopic);
 
   void pub(Packet);
+  void pub(string_view sv) { pub(Packet(sv, ref)); }
 };
 
 struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
@@ -39,6 +42,8 @@ struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
 struct Subscriber : details::CppWrap<a0_subscriber_t> {
   Subscriber() = default;
   Subscriber(PubSubTopic, ReaderInit, ReaderIter, std::function<void(Packet)>);
+
+  static Packet read_one(PubSubTopic, ReaderInit, int flags);
 };
 
 }  // namespace a0

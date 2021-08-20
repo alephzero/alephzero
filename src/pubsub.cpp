@@ -129,4 +129,25 @@ Subscriber::Subscriber(
       });
 }
 
+Packet Subscriber::read_one(PubSubTopic topic, ReaderInit init, int flags) {
+  auto cfo = c_fileopts(topic.file_opts);
+  a0_pubsub_topic_t c_topic{topic.name.c_str(), &cfo};
+
+  auto data = std::make_shared<std::vector<uint8_t>>();
+  a0_alloc_t alloc = {
+      .user_data = data.get(),
+      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
+        auto* data = (std::vector<uint8_t>*)user_data;
+        data->resize(size);
+        *out = {data->data(), size};
+        return A0_OK;
+      },
+      .dealloc = nullptr,
+  };
+
+  a0_packet_t c_pkt;
+  check(a0_subscriber_read_one(c_topic, alloc, init, flags, &c_pkt));
+  return Packet(c_pkt, [data](a0_packet_t*) {});
+}
+
 }  // namespace a0

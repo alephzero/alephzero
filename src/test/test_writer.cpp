@@ -67,7 +67,7 @@ struct WriterFixture {
         REQUIRE(!has_next);
       } else {
         REQUIRE(has_next);
-        REQUIRE_OK(a0_transport_next(lk));
+        REQUIRE_OK(a0_transport_step_next(lk));
       }
     }
 

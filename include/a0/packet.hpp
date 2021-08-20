@@ -19,7 +19,7 @@ struct Packet : details::CppWrap<a0_packet_t> {
   /// Creates a new packet with no headers and an empty payload.
   Packet();
   /// Creates a new packet with no headers and the given payload.
-  Packet(std::string payload);
+  explicit Packet(std::string payload);
   /// ...
   Packet(string_view payload, tag_ref_t);
   /// Creates a new packet with the given headers and the given payload.
