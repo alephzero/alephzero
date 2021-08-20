@@ -160,41 +160,6 @@ errno_t a0_tmp_move(a0_file_t* file, const char* path) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_open_gen(
-    a0_file_t* file,
-    const char* path,
-    const a0_file_options_t* opts) {
-  char* path_copy = NULL;
-  char* dir = NULL;
-
-  errno_t err = EEXIST;
-  while (err == EEXIST) {
-    err = a0_open(path, opts->open_options, file);
-    if (err != ENOENT) {
-      break;
-    }
-
-    if (!path_copy) {
-      path_copy = strdup(path);
-      dir = dirname(path_copy);
-    }
-
-    err = a0_mktmp(dir, opts->create_options, file);
-    if (err) {
-      close(file->fd);
-      break;
-    }
-
-    err = a0_tmp_move(file, path);
-  }
-
-  if (path_copy) {
-    free(path_copy);
-  }
-  return err;
-}
-
-A0_STATIC_INLINE
 errno_t a0_mmap(a0_file_t* file, const a0_file_open_options_t* open_options) {
   file->arena.mode = open_options->arena_mode;
   file->arena.buf.size = file->stat.st_size;
@@ -247,6 +212,82 @@ const a0_file_options_t A0_FILE_OPTIONS_DEFAULT = {
     },
 };
 
+A0_STATIC_INLINE
+errno_t a0_do_open(
+    a0_file_t* file,
+    const char* path,
+    const a0_file_options_t* opts) {
+  char* path_copy = NULL;
+  char* dir = NULL;
+
+  errno_t err;
+  while (true) {
+    err = a0_open(path, opts->open_options, file);
+    if (!err) {
+      err = a0_mmap(file, &opts->open_options);
+      if (err) {
+        if (file->fd) {
+          close(file->fd);
+          file->fd = 0;
+        }
+        if (file->path) {
+          free((void*)file->path);
+          file->path = NULL;
+        }
+      }
+      break;
+    } else if (err != ENOENT) {
+      break;
+    }
+
+    if (!path_copy) {
+      path_copy = strdup(path);
+      dir = dirname(path_copy);
+    }
+
+    err = a0_mktmp(dir, opts->create_options, file);
+    if (err) {
+      if (file->fd) {
+        close(file->fd);
+        file->fd = 0;
+      }
+      if (file->path) {
+        free((void*)file->path);
+        file->path = NULL;
+      }
+      break;
+    }
+    err = a0_mmap(file, &opts->open_options);
+    if (err) {
+      close(file->fd);
+      file->fd = 0;
+      if (file->path) {
+        free((void*)file->path);
+        file->path = NULL;
+      }
+      break;
+    }
+
+    err = a0_tmp_move(file, path);
+    if (err) {
+      if (file->fd) {
+        close(file->fd);
+        file->fd = 0;
+      }
+      file->path = NULL;
+    }
+    if (err != EEXIST) {
+      break;
+    }
+  }
+
+  if (path_copy) {
+    free(path_copy);
+  }
+
+  return err;
+}
+
 errno_t a0_file_open(
     const char* path,
     const a0_file_options_t* opts_,
@@ -264,15 +305,8 @@ errno_t a0_file_open(
     return err;
   }
 
-  err = a0_open_gen(out, filepath, opts);
+  err = a0_do_open(out, filepath, opts);
   if (err) {
-    free(filepath);
-    return err;
-  }
-
-  err = a0_mmap(out, &opts->open_options);
-  if (err) {
-    close(out->fd);
     free(filepath);
     return err;
   }

@@ -2,6 +2,7 @@
 #include <a0/buf.h>
 #include <a0/err.h>
 #include <a0/packet.h>
+#include <a0/packet.hpp>
 #include <a0/uuid.h>
 
 #include <doctest.h>
@@ -256,4 +257,36 @@ TEST_CASE("flat_packet] header") {
 
     REQUIRE(found_hdrs == standard_packet_hdrs());
   });
+}
+
+TEST_CASE("packet] cpp") {
+  a0::Packet pkt1({{"hdr-key", "hdr-val"}}, "Hello, World!");
+  REQUIRE(pkt1.payload() == "Hello, World!");
+  REQUIRE(pkt1.headers().size() == 1);
+  REQUIRE(pkt1.id().size() == 36);
+
+  REQUIRE(pkt1.headers()[0].first == "hdr-key");
+  REQUIRE(pkt1.headers()[0].second == "hdr-val");
+
+  a0::Packet pkt2 = pkt1;
+  REQUIRE(pkt2.id() == pkt1.id());
+  REQUIRE(pkt1.id() == pkt2.id());
+  REQUIRE(pkt1.headers() == pkt2.headers());
+  REQUIRE(pkt1.payload() == pkt2.payload());
+  REQUIRE(pkt1.payload().data() == pkt2.payload().data());
+
+  a0::Packet pkt3("Hello, World!");
+  REQUIRE(pkt3.payload() == "Hello, World!");
+  REQUIRE(pkt3.headers().empty());
+  REQUIRE(pkt3.id().size() == 36);
+
+  std::string owner = "Hello, World!";
+
+  a0::Packet pkt4(owner);
+  REQUIRE(pkt4.payload() == owner);
+  REQUIRE(pkt4.payload().data() != owner.data());
+
+  a0::Packet pkt5(owner, a0::ref);
+  REQUIRE(pkt5.payload() == owner);
+  REQUIRE(pkt5.payload().data() == owner.data());
 }

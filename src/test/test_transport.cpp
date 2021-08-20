@@ -1,7 +1,9 @@
 #include <a0/arena.h>
+#include <a0/arena.hpp>
 #include <a0/buf.h>
 #include <a0/file.h>
 #include <a0/transport.h>
+#include <a0/transport.hpp>
 
 #include <doctest.h>
 #include <sys/wait.h>
@@ -19,6 +21,7 @@
 #include <thread>
 #include <vector>
 
+#include "src/c_wrap.hpp"
 #include "src/test_util.hpp"
 #include "src/transport_debug.h"
 
@@ -110,6 +113,35 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] construct") {
 )");
 
   REQUIRE_OK(a0_transport_unlock(lk));
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp construct") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::LockedTransport tlk = transport.lock();
+
+  require_debugstr(*tlk.c, R"(
+{
+  "header": {
+    "arena_size": 4096,
+    "committed_state": {
+      "seq_low": 0,
+      "seq_high": 0,
+      "off_head": 0,
+      "off_tail": 0,
+      "high_water_mark": 144
+    },
+    "working_state": {
+      "seq_low": 0,
+      "seq_high": 0,
+      "off_head": 0,
+      "off_tail": 0,
+      "high_water_mark": 144
+    }
+  },
+  "data": [
+  ]
+}
+)");
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
@@ -242,6 +274,127 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp alloc/commit") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::LockedTransport tlk = transport.lock();
+
+  REQUIRE(tlk.empty());
+
+  require_debugstr(*tlk.c, R"(
+{
+  "header": {
+    "arena_size": 4096,
+    "committed_state": {
+      "seq_low": 0,
+      "seq_high": 0,
+      "off_head": 0,
+      "off_tail": 0,
+      "high_water_mark": 144
+    },
+    "working_state": {
+      "seq_low": 0,
+      "seq_high": 0,
+      "off_head": 0,
+      "off_tail": 0,
+      "high_water_mark": 144
+    }
+  },
+  "data": [
+  ]
+}
+)");
+
+  a0::Frame first_frame = tlk.alloc(10);
+  memcpy(first_frame.data, "0123456789", 10);
+  tlk.commit();
+
+  a0::Frame second_frame = tlk.alloc(40);
+  memcpy(second_frame.data, "0123456789012345678901234567890123456789", 40);
+
+  require_debugstr(*tlk.c, R"(
+{
+  "header": {
+    "arena_size": 4096,
+    "committed_state": {
+      "seq_low": 1,
+      "seq_high": 1,
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 194
+    },
+    "working_state": {
+      "seq_low": 1,
+      "seq_high": 2,
+      "off_head": 144,
+      "off_tail": 208,
+      "high_water_mark": 288
+    }
+  },
+  "data": [
+    {
+      "off": 144,
+      "seq": 1,
+      "prev_off": 0,
+      "next_off": 208,
+      "data_size": 10,
+      "data": "0123456789"
+    },
+    {
+      "committed": false,
+      "off": 208,
+      "seq": 2,
+      "prev_off": 144,
+      "next_off": 0,
+      "data_size": 40,
+      "data": "01234567890123456789012345678..."
+    }
+  ]
+}
+)");
+
+  tlk.commit();
+
+  require_debugstr(*tlk.c, R"(
+{
+  "header": {
+    "arena_size": 4096,
+    "committed_state": {
+      "seq_low": 1,
+      "seq_high": 2,
+      "off_head": 144,
+      "off_tail": 208,
+      "high_water_mark": 288
+    },
+    "working_state": {
+      "seq_low": 1,
+      "seq_high": 2,
+      "off_head": 144,
+      "off_tail": 208,
+      "high_water_mark": 288
+    }
+  },
+  "data": [
+    {
+      "off": 144,
+      "seq": 1,
+      "prev_off": 0,
+      "next_off": 208,
+      "data_size": 10,
+      "data": "0123456789"
+    },
+    {
+      "off": 208,
+      "seq": 2,
+      "prev_off": 144,
+      "next_off": 0,
+      "data_size": 40,
+      "data": "01234567890123456789012345678..."
+    }
+  ]
+}
+)");
+}
+
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] evicts") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, arena));
@@ -263,6 +416,19 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] evicts") {
   REQUIRE(a0_transport_alloc_evicts(lk, 4 * 1024, &evicts) == EOVERFLOW);
 
   REQUIRE_OK(a0_transport_unlock(lk));
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp evicts") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::LockedTransport tlk = transport.lock();
+
+  REQUIRE(!tlk.alloc_evicts(2 * 1024));
+  tlk.alloc(2 * 1024);
+  REQUIRE(tlk.alloc_evicts(2 * 1024));
+
+  REQUIRE_THROWS_WITH(
+      tlk.alloc_evicts(4 * 1024),
+      "Value too large for defined data type");
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
@@ -362,6 +528,76 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp iteration") {
+  // Create transport and close it.
+  {
+    a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+    auto tlk = transport.lock();
+
+    auto first_frame = tlk.alloc(1);
+    memcpy(first_frame.data, "A", 1);
+    tlk.commit();
+
+    auto second_frame = tlk.alloc(2);
+    memcpy(second_frame.data, "BB", 2);
+    tlk.commit();
+
+    auto third_frame = tlk.alloc(3);
+    memcpy(third_frame.data, "CCC", 3);
+    tlk.commit();
+  }
+
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  auto tlk = transport.lock();
+
+  REQUIRE(!tlk.empty());
+
+  tlk.jump_head();
+  auto frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(a0::test::str(frame) == "A");
+
+  REQUIRE(tlk.has_next());
+  REQUIRE(!tlk.has_prev());
+
+  tlk.step_next();
+  frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(a0::test::str(frame) == "BB");
+
+  REQUIRE(tlk.has_next());
+
+  tlk.step_next();
+  frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 3);
+  REQUIRE(a0::test::str(frame) == "CCC");
+
+  REQUIRE(!tlk.has_next());
+  REQUIRE(tlk.has_prev());
+
+  tlk.step_prev();
+  frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(a0::test::str(frame) == "BB");
+
+  tlk.step_prev();
+  frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(a0::test::str(frame) == "A");
+
+  REQUIRE(!tlk.has_prev());
+
+  tlk.jump_tail();
+  frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 3);
+  REQUIRE(a0::test::str(frame) == "CCC");
+
+  tlk.jump_head();
+  frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(a0::test::str(frame) == "A");
+}
+
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] empty jumps") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, arena));
@@ -383,6 +619,30 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] empty jumps") {
   REQUIRE(!has_prev);
 
   REQUIRE_OK(a0_transport_unlock(lk));
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp empty jumps") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::LockedTransport tlk = transport.lock();
+
+  REQUIRE_THROWS_WITH(
+      tlk.jump_head(),
+      "Resource temporarily unavailable");
+
+  REQUIRE_THROWS_WITH(
+      tlk.jump_tail(),
+      "Resource temporarily unavailable");
+
+  REQUIRE_THROWS_WITH(
+      tlk.step_prev(),
+      "Resource temporarily unavailable");
+
+  REQUIRE_THROWS_WITH(
+      tlk.step_next(),
+      "Resource temporarily unavailable");
+
+  REQUIRE(!tlk.has_next());
+  REQUIRE(!tlk.has_prev());
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] wrap around") {
@@ -452,6 +712,67 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] wrap around") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp wrap around") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::LockedTransport tlk = transport.lock();
+
+  std::string data(1 * 1024, 'a');  // 1kB string
+  for (int i = 0; i < 20; i++) {
+    auto frame = tlk.alloc(data.size());
+    memcpy(frame.data, data.c_str(), data.size());
+  }
+
+  tlk.commit();
+
+  require_debugstr(*tlk.c, R"(
+{
+  "header": {
+    "arena_size": 4096,
+    "committed_state": {
+      "seq_low": 18,
+      "seq_high": 20,
+      "off_head": 2288,
+      "off_tail": 1216,
+      "high_water_mark": 3352
+    },
+    "working_state": {
+      "seq_low": 18,
+      "seq_high": 20,
+      "off_head": 2288,
+      "off_tail": 1216,
+      "high_water_mark": 3352
+    }
+  },
+  "data": [
+    {
+      "off": 2288,
+      "seq": 18,
+      "prev_off": 1216,
+      "next_off": 144,
+      "data_size": 1024,
+      "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+    },
+    {
+      "off": 144,
+      "seq": 19,
+      "prev_off": 2288,
+      "next_off": 1216,
+      "data_size": 1024,
+      "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+    },
+    {
+      "off": 1216,
+      "seq": 20,
+      "prev_off": 144,
+      "next_off": 0,
+      "data_size": 1024,
+      "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+    }
+  ]
+}
+)");
+}
+
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] expired next") {
   a0_transport_t transport;
   a0_locked_transport_t lk;
@@ -510,6 +831,44 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] expired next") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp expired next") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::LockedTransport tlk = transport.lock();
+
+  std::string data(1 * 1024, 'a');  // 1kB string
+  auto frame = tlk.alloc(data.size());
+  memcpy(frame.data, data.c_str(), data.size());
+
+  tlk.jump_head();
+  frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 1);
+
+  tlk = {};
+
+  {
+    a0::Transport other(a0::cpp_wrap<a0::Arena>(arena));
+    auto other_tlk = transport.lock();
+
+    for (int i = 0; i < 20; i++) {
+      auto frame = other_tlk.alloc(data.size());
+      memcpy(frame.data, data.c_str(), data.size());
+    }
+  }
+
+  tlk = transport.lock();
+
+  REQUIRE(!tlk.ptr_valid());
+  REQUIRE(tlk.has_next());
+
+  tlk.step_next();
+  REQUIRE(tlk.ptr_valid());
+  frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 18);
+
+  REQUIRE(!tlk.has_prev());
+  REQUIRE(tlk.has_next());
+}
+
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] large alloc") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, arena));
@@ -558,6 +917,50 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] large alloc") {
 )");
 
   REQUIRE_OK(a0_transport_unlock(lk));
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp large alloc") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::LockedTransport tlk = transport.lock();
+
+  std::string long_str(3 * 1024, 'a');  // 3kB string
+  for (int i = 0; i < 5; i++) {
+    auto frame = tlk.alloc(long_str.size());
+    memcpy(frame.data, long_str.c_str(), long_str.size());
+    tlk.commit();
+  }
+
+  require_debugstr(*tlk.c, R"(
+{
+  "header": {
+    "arena_size": 4096,
+    "committed_state": {
+      "seq_low": 5,
+      "seq_high": 5,
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 3256
+    },
+    "working_state": {
+      "seq_low": 5,
+      "seq_high": 5,
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 3256
+    }
+  },
+  "data": [
+    {
+      "off": 144,
+      "seq": 5,
+      "prev_off": 0,
+      "next_off": 0,
+      "data_size": 3072,
+      "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+    }
+  ]
+}
+)");
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] resize") {
@@ -761,6 +1164,14 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] resize") {
   REQUIRE_OK(a0_transport_used_space(lk, &used_space));
   REQUIRE(used_space == (144 + 40 + 3264));
 
+  uint64_t seq_low;
+  REQUIRE_OK(a0_transport_seq_low(lk, &seq_low));
+  REQUIRE(seq_low == 7);
+
+  uint64_t seq_high;
+  REQUIRE_OK(a0_transport_seq_high(lk, &seq_high));
+  REQUIRE(seq_high == 7);
+
   // This forces an eviction of all existing data, reducing the high water mark.
   // We replace it with nothing.
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
@@ -770,7 +1181,229 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] resize") {
   REQUIRE_OK(a0_transport_used_space(lk, &used_space));
   REQUIRE(used_space == 144);
 
+  REQUIRE_OK(a0_transport_seq_low(lk, &seq_low));
+  REQUIRE(seq_low == 8);
+
+  REQUIRE_OK(a0_transport_seq_high(lk, &seq_high));
+  REQUIRE(seq_high == 7);
+
   REQUIRE_OK(a0_transport_unlock(lk));
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp resize") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::LockedTransport tlk = transport.lock();
+
+  REQUIRE(tlk.used_space() == 144);
+
+  std::string data(1024, 'a');
+  auto frame = tlk.alloc(data.size());
+  memcpy(frame.data, data.c_str(), data.size());
+  tlk.commit();
+
+  REQUIRE(tlk.used_space() == 1208);
+
+  REQUIRE_THROWS_WITH(
+      tlk.resize(0),
+      "Invalid argument");
+
+  REQUIRE_THROWS_WITH(
+      tlk.resize(1207),
+      "Invalid argument");
+
+  tlk.resize(1208);
+
+  data = std::string(1024 + 1, 'a');  // 1 byte larger than previous.
+
+  REQUIRE_THROWS_WITH(
+      tlk.resize(data.size()),
+      "Invalid argument");
+
+  REQUIRE_THROWS_WITH(
+      tlk.alloc(data.size()),
+      "Value too large for defined data type");
+
+  data = std::string(1024, 'b');  // same size as existing.
+  frame = tlk.alloc(data.size());
+  memcpy(frame.data, data.c_str(), data.size());
+  tlk.commit();
+
+  tlk.jump_tail();
+  frame = tlk.frame();
+  REQUIRE(frame.hdr.data_size == 1024);
+  REQUIRE(a0::test::str(frame) == data);
+  REQUIRE(arena.buf.ptr[1207] == 'b');
+  REQUIRE(arena.buf.ptr[1208] != 'b');
+
+  require_debugstr(*tlk.c, R"(
+{
+  "header": {
+    "arena_size": 1208,
+    "committed_state": {
+      "seq_low": 2,
+      "seq_high": 2,
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 1208
+    },
+    "working_state": {
+      "seq_low": 2,
+      "seq_high": 2,
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 1208
+    }
+  },
+  "data": [
+    {
+      "off": 144,
+      "seq": 2,
+      "prev_off": 0,
+      "next_off": 0,
+      "data_size": 1024,
+      "data": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbb..."
+    }
+  ]
+}
+)");
+
+  REQUIRE(tlk.used_space() == 1208);
+
+  tlk.resize(4096);
+
+  data = std::string(2 * 1024, 'c');
+  frame = tlk.alloc(data.size());
+  memcpy(frame.data, data.c_str(), data.size());
+  tlk.commit();
+
+  REQUIRE(tlk.used_space() == 3304);
+
+  require_debugstr(*tlk.c, R"(
+{
+  "header": {
+    "arena_size": 4096,
+    "committed_state": {
+      "seq_low": 2,
+      "seq_high": 3,
+      "off_head": 144,
+      "off_tail": 1216,
+      "high_water_mark": 3304
+    },
+    "working_state": {
+      "seq_low": 2,
+      "seq_high": 3,
+      "off_head": 144,
+      "off_tail": 1216,
+      "high_water_mark": 3304
+    }
+  },
+  "data": [
+    {
+      "off": 144,
+      "seq": 2,
+      "prev_off": 0,
+      "next_off": 1216,
+      "data_size": 1024,
+      "data": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbb..."
+    },
+    {
+      "off": 1216,
+      "seq": 3,
+      "prev_off": 144,
+      "next_off": 0,
+      "data_size": 2048,
+      "data": "ccccccccccccccccccccccccccccc..."
+    }
+  ]
+}
+)");
+
+  // This forces an eviction of some existing data, reducing the high water mark.
+  // We replace it with less data.
+  data = std::string(16, 'd');
+  frame = tlk.alloc(data.size());
+  memcpy(frame.data, data.c_str(), data.size());
+  tlk.commit();
+
+  REQUIRE(tlk.used_space() == 3368);
+
+  data = std::string(3 * 1024, 'e');
+  frame = tlk.alloc(data.size());
+  memcpy(frame.data, data.c_str(), data.size());
+  tlk.commit();
+
+  REQUIRE(tlk.used_space() == 3368);
+
+  data = std::string(16, 'f');
+  frame = tlk.alloc(data.size());
+  memcpy(frame.data, data.c_str(), data.size());
+  tlk.commit();
+
+  REQUIRE(tlk.used_space() == 3320);
+
+  require_debugstr(*tlk.c, R"(
+{
+  "header": {
+    "arena_size": 4096,
+    "committed_state": {
+      "seq_low": 5,
+      "seq_high": 6,
+      "off_head": 144,
+      "off_tail": 3264,
+      "high_water_mark": 3320
+    },
+    "working_state": {
+      "seq_low": 5,
+      "seq_high": 6,
+      "off_head": 144,
+      "off_tail": 3264,
+      "high_water_mark": 3320
+    }
+  },
+  "data": [
+    {
+      "off": 144,
+      "seq": 5,
+      "prev_off": 3312,
+      "next_off": 3264,
+      "data_size": 3072,
+      "data": "eeeeeeeeeeeeeeeeeeeeeeeeeeeee..."
+    },
+    {
+      "off": 3264,
+      "seq": 6,
+      "prev_off": 144,
+      "next_off": 0,
+      "data_size": 16,
+      "data": "ffffffffffffffff"
+    }
+  ]
+}
+)");
+
+  // This forces an eviction of all existing data, reducing the high water mark.
+  // We replace it with less data.
+  data = std::string(3264, 'e');
+  frame = tlk.alloc(data.size());
+  memcpy(frame.data, data.c_str(), data.size());
+  tlk.commit();
+
+  REQUIRE(tlk.used_space() == (144 + 40 + 3264));
+
+  REQUIRE(tlk.seq_low() == 7);
+  REQUIRE(tlk.seq_high() == 7);
+
+  // This forces an eviction of all existing data, reducing the high water mark.
+  // We replace it with nothing.
+  frame = tlk.alloc(data.size());
+
+  tlk = {};
+  tlk = transport.lock();
+
+  REQUIRE(tlk.used_space() == 144);
+
+  REQUIRE(tlk.seq_low() == 8);
+  REQUIRE(tlk.seq_high() == 7);
 }
 
 void fork_sleep_push(a0_transport_t* transport, const std::string& str) {
@@ -785,7 +1418,6 @@ void fork_sleep_push(a0_transport_t* transport, const std::string& str) {
     memcpy(frame.data, str.c_str(), str.size());
     REQUIRE_OK(a0_transport_commit(lk));
 
-    REQUIRE_OK(a0_transport_shutdown(lk));
     REQUIRE_OK(a0_transport_unlock(lk));
 
     exit(0);
@@ -824,6 +1456,33 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] disk await") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp disk await") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(disk.arena));
+
+  fork_sleep_push(&*transport.c, "ABC");
+
+  a0::LockedTransport tlk = transport.lock();
+
+  tlk.wait([&]() { return !tlk.empty(); });
+
+  tlk.jump_head();
+
+  auto frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(a0::test::str(frame) == "ABC");
+
+  tlk.wait([&]() { return !tlk.empty(); });
+
+  fork_sleep_push(&*transport.c, "DEF");
+
+  tlk.wait([&]() { return tlk.has_next(); });
+
+  tlk.step_next();
+  frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(a0::test::str(frame) == "DEF");
+}
+
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] shm await") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, shm.arena));
@@ -854,6 +1513,33 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] shm await") {
 
   REQUIRE_OK(a0_transport_shutdown(lk));
   REQUIRE_OK(a0_transport_unlock(lk));
+}
+
+TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp shm await") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(shm.arena));
+
+  fork_sleep_push(&*transport.c, "ABC");
+
+  a0::LockedTransport tlk = transport.lock();
+
+  tlk.wait([&]() { return !tlk.empty(); });
+
+  tlk.jump_head();
+
+  auto frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(a0::test::str(frame) == "ABC");
+
+  tlk.wait([&]() { return !tlk.empty(); });
+
+  fork_sleep_push(&*transport.c, "DEF");
+
+  tlk.wait([&]() { return tlk.has_next(); });
+
+  tlk.step_next();
+  frame = tlk.frame();
+  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(a0::test::str(frame) == "DEF");
 }
 
 TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {

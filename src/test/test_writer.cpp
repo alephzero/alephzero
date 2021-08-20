@@ -1,9 +1,11 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/middleware.h>
+#include <a0/middleware.hpp>
 #include <a0/packet.h>
 #include <a0/transport.h>
 #include <a0/writer.h>
+#include <a0/writer.hpp>
 
 #include <doctest.h>
 
@@ -16,6 +18,7 @@
 #include <vector>
 
 #include "src/test_util.hpp"
+#include "src/c_wrap.hpp"
 
 struct WriterFixture {
   std::vector<uint8_t> arena_data;
@@ -95,36 +98,24 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] basic") {
        }});
 }
 
-TEST_CASE_FIXTURE(WriterFixture, "writer] one middleware") {
-  a0_writer_t w_0;
-  REQUIRE_OK(a0_writer_init(&w_0, arena));
+TEST_CASE_FIXTURE(WriterFixture, "writer] cpp basic") {
+  a0::Writer w(a0::cpp_wrap<a0::Arena>(arena));
 
-  a0_writer_t w_1;
-  REQUIRE_OK(a0_writer_wrap(&w_0, a0_add_time_mono_header(), &w_1));
-
-  REQUIRE_OK(a0_writer_write(&w_0, a0::test::pkt({{"key", "val"}}, "msg #0")));
-  REQUIRE_OK(a0_writer_write(&w_1, a0::test::pkt({{"key", "val"}}, "msg #1")));
-
-  REQUIRE_OK(a0_writer_close(&w_1));
-  REQUIRE_OK(a0_writer_close(&w_0));
+  w.write(a0::Packet({{"key", "val"}}, "msg #0"));
+  w.write(a0::Packet({{"key", "val"}}, "msg #1"));
 
   require_transport_state(
       {{
-           {
-               {"key", "val"},
-           },
+           {{"key", "val"}},
            "msg #0",
        },
        {
-           {
-               {"a0_time_mono", "???"},
-               {"key", "val"},
-           },
+           {{"key", "val"}},
            "msg #1",
        }});
 }
 
-TEST_CASE_FIXTURE(WriterFixture, "writer] multiple middleware") {
+TEST_CASE_FIXTURE(WriterFixture, "writer] wrap middleware") {
   a0_writer_t w_0;
   REQUIRE_OK(a0_writer_init(&w_0, arena));
 
@@ -156,6 +147,76 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] multiple middleware") {
   REQUIRE_OK(a0_writer_close(&w_2));
   REQUIRE_OK(a0_writer_close(&w_1));
   REQUIRE_OK(a0_writer_close(&w_0));
+
+  require_transport_state(
+      {{
+           {
+               {"key", "val"},
+           },
+           "msg #0",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"key", "val"},
+           },
+           "msg #1",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"a0_time_wall", "???"},
+               {"key", "val"},
+           },
+           "msg #2",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"a0_time_wall", "???"},
+               {"a0_writer_id", "???"},
+               {"key", "val"},
+           },
+           "msg #3",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"a0_time_wall", "???"},
+               {"a0_writer_id", "???"},
+               {"a0_writer_seq", "0"},
+               {"key", "val"},
+           },
+           "msg #4",
+       },
+       {
+           {
+               {"a0_time_mono", "???"},
+               {"a0_transport_seq", "5"},
+               {"a0_time_wall", "???"},
+               {"a0_writer_id", "???"},
+               {"a0_writer_seq", "1"},
+               {"key", "val"},
+           },
+           "msg #5",
+       }});
+}
+
+TEST_CASE_FIXTURE(WriterFixture, "writer] cpp wrap middleware") {
+  a0::Writer w_0(a0::cpp_wrap<a0::Arena>(arena));
+
+  a0::Writer w_1 = w_0.wrap(a0::add_time_mono_header());
+  a0::Writer w_2 = w_1.wrap(a0::add_time_wall_header());
+  a0::Writer w_3 = w_2.wrap(a0::add_writer_id_header());
+  a0::Writer w_4 = w_3.wrap(a0::add_writer_seq_header());
+  a0::Writer w_5 = w_4.wrap(a0::add_transport_seq_header());
+
+  w_0.write(a0::Packet({{"key", "val"}}, "msg #0"));
+  w_1.write(a0::Packet({{"key", "val"}}, "msg #1"));
+  w_2.write(a0::Packet({{"key", "val"}}, "msg #2"));
+  w_3.write(a0::Packet({{"key", "val"}}, "msg #3"));
+  w_4.write(a0::Packet({{"key", "val"}}, "msg #4"));
+  w_5.write(a0::Packet({{"key", "val"}}, "msg #5"));
 
   require_transport_state(
       {{
@@ -256,12 +317,52 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] standard headers") {
        }});
 }
 
+TEST_CASE_FIXTURE(WriterFixture, "writer] cpp standard headers") {
+  a0::Writer w_0(a0::cpp_wrap<a0::Arena>(arena));
+
+  a0::Writer w_1 = w_0.wrap(a0::add_standard_headers());
+
+  w_0.write(a0::Packet({{"key", "val"}}, "msg #0"));
+  w_1.write(a0::Packet({{"key", "val"}}, "msg #1"));
+  w_1.write(a0::Packet({{"key", "val"}}, "msg #2"));
+
+  require_transport_state(
+      {{
+           {
+               {"key", "val"},
+           },
+           "msg #0",
+       },
+       {
+           {
+               {"a0_transport_seq", "1"},
+               {"a0_time_mono", "???"},
+               {"a0_writer_seq", "0"},
+               {"a0_writer_id", "???"},
+               {"a0_time_wall", "???"},
+               {"key", "val"},
+           },
+           "msg #1",
+       },
+       {
+           {
+               {"a0_transport_seq", "2"},
+               {"a0_time_mono", "???"},
+               {"a0_writer_seq", "1"},
+               {"a0_writer_id", "???"},
+               {"a0_time_wall", "???"},
+               {"key", "val"},
+           },
+           "msg #2",
+       }});
+}
+
 TEST_CASE_FIXTURE(WriterFixture, "writer] push middleware") {
   a0_writer_t w;
   REQUIRE_OK(a0_writer_init(&w, arena));
   REQUIRE_OK(a0_writer_push(&w, a0_add_writer_seq_header()));
   REQUIRE_OK(a0_writer_push(&w, a0_add_time_wall_header()));
-  REQUIRE_OK(a0_writer_write(&w, a0::test::pkt({{"key", "val"}}, "msg #1")));
+  REQUIRE_OK(a0_writer_write(&w, a0::test::pkt({{"key", "val"}}, "msg #0")));
   REQUIRE_OK(a0_writer_close(&w));
 
   require_transport_state(
@@ -271,8 +372,52 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] push middleware") {
               {"a0_time_wall", "???"},
               {"key", "val"},
           },
-          "msg #1",
+          "msg #0",
       }});
+}
+
+TEST_CASE_FIXTURE(WriterFixture, "writer] cpp push middleware") {
+  a0::Writer w(a0::cpp_wrap<a0::Arena>(arena));
+  w.push(a0::add_writer_seq_header());
+  w.push(a0::add_time_wall_header());
+
+  w.write(a0::Packet({{"key", "val"}}, "msg #0"));
+
+  require_transport_state(
+      {{
+          {
+              {"a0_writer_seq", "0"},
+              {"a0_time_wall", "???"},
+              {"key", "val"},
+          },
+          "msg #0",
+      }});
+}
+
+TEST_CASE_FIXTURE(WriterFixture, "writer] cpp") {
+  a0::Writer w(a0::cpp_wrap<a0::Arena>(arena));
+
+  w.write("msg #0");
+  std::string payload = "msg #1";
+  w.write(payload);
+  a0::string_view payload_view = payload;
+  w.write(payload_view);
+  w.write(a0::Packet({{"key", "val"}}, "msg #2"));
+
+  require_transport_state(
+      {{
+           {}, "msg #0",
+       },
+       {
+           {}, "msg #1",
+       },
+       {
+           {}, "msg #1",
+       },
+       {
+           {{"key", "val"}},
+           "msg #2",
+       }});
 }
 
 #ifdef DEBUG

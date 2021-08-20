@@ -309,14 +309,18 @@ errno_t a0_transport_timedwait_impl(a0_locked_transport_t lk, a0_predicate_t pre
   lk.transport->_wait_cnt++;
 
   while (!lk.transport->_shutdown) {
+    if (timeout) {
+      err = a0_cnd_timedwait(&hdr->cnd, &hdr->mtx, *timeout);
+      if (err == ETIMEDOUT) {
+        break;
+      }
+    } else {
+      a0_cnd_wait(&hdr->cnd, &hdr->mtx);
+    }
+
     err = a0_predicate_eval(pred, &sat);
     if (err | sat) {
       break;
-    }
-    if (timeout) {
-      a0_cnd_timedwait(&hdr->cnd, &hdr->mtx, *timeout);
-    } else {
-      a0_cnd_wait(&hdr->cnd, &hdr->mtx);
     }
   }
   if (!err && lk.transport->_shutdown) {
