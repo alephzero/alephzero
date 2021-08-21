@@ -89,7 +89,7 @@ CPP make_cpp(InitFn&& init, Closer&& closer) {
 template <typename CPP, typename Impl, typename InitFn>
 CPP make_cpp_impl(InitFn&& init) {
   using c_type = typename CPP::c_type;
-  return make_cpp_impl<CPP, Impl>(std::forward<InitFn>(init), [](c_type*) {});
+  return make_cpp_impl<CPP, Impl>(std::forward<InitFn>(init), [](c_type*, Impl*) {});
 }
 
 template <typename CPP, typename InitFn>

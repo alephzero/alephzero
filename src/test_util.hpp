@@ -134,7 +134,8 @@ inline a0_packet_t pkt(
 
 inline a0_packet_t unflatten(a0_flat_packet_t fpkt) {
   a0_packet_t out;
-  REQUIRE_OK(a0_packet_deserialize(fpkt, alloc(), &out));
+  a0_buf_t unused;
+  REQUIRE_OK(a0_packet_deserialize(fpkt, alloc(), &out, &unused));
   return out;
 }
 

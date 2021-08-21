@@ -177,7 +177,8 @@ A0_STATIC_INLINE
 void a0_reader_sync_next_impl(void* user_data, a0_locked_transport_t tlk, a0_flat_packet_t fpkt) {
   A0_MAYBE_UNUSED(tlk);
   a0_reader_sync_next_data_t* data = (a0_reader_sync_next_data_t*)user_data;
-  a0_packet_deserialize(fpkt, data->alloc, data->out_pkt);
+  a0_buf_t unused;
+  a0_packet_deserialize(fpkt, data->alloc, data->out_pkt, &unused);
 }
 
 errno_t a0_reader_sync_next(a0_reader_sync_t* reader_sync, a0_packet_t* pkt) {
@@ -344,11 +345,12 @@ A0_STATIC_INLINE
 void a0_reader_onpacket_wrapper(void* user_data, a0_locked_transport_t tlk, a0_flat_packet_t fpkt) {
   a0_reader_t* reader = (a0_reader_t*)user_data;
   a0_packet_t pkt;
-  a0_packet_deserialize(fpkt, reader->_alloc, &pkt);
+  a0_buf_t buf;
+  a0_packet_deserialize(fpkt, reader->_alloc, &pkt, &buf);
   a0_transport_unlock(tlk);
 
   a0_packet_callback_call(reader->_onpacket, pkt);
-  a0_packet_dealloc(pkt, reader->_alloc);
+  a0_dealloc(reader->_alloc, buf);
 
   a0_transport_lock(tlk.transport, &tlk);
 }

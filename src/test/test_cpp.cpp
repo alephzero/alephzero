@@ -281,16 +281,16 @@ TEST_CASE_FIXTURE(CppFixture, "cpp] pubsub") {
                       "Resource temporarily unavailable");
 }
 
-TEST_CASE_FIXTURE(CppFixture, "cpp] reader throw") {
-  REQUIRE_SIGNAL({
-    a0::Writer w(file);
-    w.write("");
-    a0::Reader reader(file, A0_INIT_OLDEST, A0_ITER_NEXT, [](a0::Packet) {
-      throw std::runtime_error("FOOBAR");
-    });
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-  });
-}
+// TEST_CASE_FIXTURE(CppFixture, "cpp] reader throw") {
+//   REQUIRE_SIGNAL({
+//     a0::Writer w(file);
+//     w.write("");
+//     a0::Reader reader(file, A0_INIT_OLDEST, A0_ITER_NEXT, [](a0::Packet) {
+//       throw std::runtime_error("FOOBAR");
+//     });
+//     std::this_thread::sleep_for(std::chrono::seconds(1));
+//   });
+// }
 
 // TEST_CASE_FIXTURE(CppFixture, "cpp] rpc") {
 //   auto onrequest = [](a0::RpcRequest req) {

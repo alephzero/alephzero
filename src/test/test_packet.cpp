@@ -117,7 +117,8 @@ TEST_CASE("packet] serialize deserialize") {
     REQUIRE(fpkt.size == 166);
 
     a0_packet_t pkt_after;
-    REQUIRE_OK(a0_packet_deserialize(fpkt, a0::test::alloc(), &pkt_after));
+    a0_buf_t unused;
+    REQUIRE_OK(a0_packet_deserialize(fpkt, a0::test::alloc(), &pkt_after, &unused));
 
     REQUIRE(std::string(pkt.id) == std::string(pkt_after.id));
     REQUIRE(a0::test::str(pkt.payload) == a0::test::str(pkt_after.payload));
@@ -129,63 +130,14 @@ TEST_CASE("packet] serialize deserialize") {
 TEST_CASE("packet] deep_copy") {
   with_standard_packet([](a0_packet_t pkt) {
     a0_packet_t pkt_after;
-    REQUIRE_OK(a0_packet_deep_copy(pkt, a0::test::alloc(), &pkt_after));
+    a0_buf_t unused;
+    REQUIRE_OK(a0_packet_deep_copy(pkt, a0::test::alloc(), &pkt_after, &unused));
 
     REQUIRE(std::string(pkt.id) == std::string(pkt_after.id));
     REQUIRE(a0::test::str(pkt.payload) == a0::test::str(pkt_after.payload));
 
     REQUIRE(map_from(pkt_after.headers_block) == standard_packet_hdrs());
   });
-}
-
-TEST_CASE("packet] dealloc") {
-  a0_packet_header_t grp_a[2] = {
-      {"a", "b"},
-      {"c", "d"},
-  };
-  a0_packet_headers_block_t blk_a = {grp_a, 2, nullptr};
-
-  a0_packet_t pkt_before;
-  REQUIRE_OK(a0_packet_init(&pkt_before));
-  pkt_before.headers_block = blk_a;
-  pkt_before.payload = a0::test::buf("Hello, World!");
-
-  struct data_t {
-    bool was_alloc_called;
-    bool was_dealloc_called;
-    a0_buf_t expected_buf;
-  } data{false, false, {}};
-
-  // clang-format off
-  a0_alloc_t alloc = {
-      .user_data = &data,
-      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-        out->size = size;
-        out->ptr = (uint8_t*)malloc(size);
-
-        ((data_t*)user_data)->was_alloc_called = true;
-        ((data_t*)user_data)->expected_buf = *out;
-
-        return A0_OK;
-      },
-      .dealloc = [](void* user_data, a0_buf_t buf) {
-        auto* data = (data_t*)user_data;
-        REQUIRE(data->was_alloc_called);
-        data->was_dealloc_called = true;
-        REQUIRE(buf.ptr == data->expected_buf.ptr);
-        REQUIRE(buf.size == data->expected_buf.size);
-        free(buf.ptr);
-        return A0_OK;
-      },
-  };
-  // clang-format on
-
-  a0_packet_t pkt_after;
-  REQUIRE_OK(a0_packet_deep_copy(pkt_before, alloc, &pkt_after));
-  REQUIRE(data.was_alloc_called);
-  REQUIRE(!data.was_dealloc_called);
-  REQUIRE_OK(a0_packet_dealloc(pkt_after, alloc));
-  REQUIRE(data.was_dealloc_called);
 }
 
 TEST_CASE("flat_packet] stats") {

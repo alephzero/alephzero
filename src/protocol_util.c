@@ -11,7 +11,7 @@
 
 #include "err_macro.h"
 
-errno_t a0_open_topic(const char* template,
+errno_t a0_open_topic(const char* tmpl,
                       const char* topic,
                       const a0_file_options_t* topic_opts,
                       a0_file_t* file) {
@@ -27,7 +27,7 @@ errno_t a0_open_topic(const char* template,
   uint8_t num_matches = 0;
 
   size_t len = 0;
-  const char* prev = template;
+  const char* prev = tmpl;
   const char* next;
   while ((next = strstr(prev, "{topic}")) && num_matches < MAX_MATCH_CNT) {
     segment_starts[num_matches] = prev;

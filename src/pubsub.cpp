@@ -83,7 +83,7 @@ namespace {
 
 struct SubscriberImpl {
   std::vector<uint8_t> data;
-  std::function<void(Packet)> cb;
+  std::function<void(Packet)> onpacket;
 };
 
 }  // namespace
@@ -92,11 +92,11 @@ Subscriber::Subscriber(
     PubSubTopic topic,
     ReaderInit init,
     ReaderIter iter,
-    std::function<void(Packet)> cb) {
+    std::function<void(Packet)> onpacket) {
   set_c_impl<SubscriberImpl>(
       &c,
       [&](a0_subscriber_t* c, SubscriberImpl* impl) {
-        impl->cb = cb;
+        impl->onpacket = std::move(onpacket);
 
         auto cfo = c_fileopts(topic.file_opts);
         a0_pubsub_topic_t c_topic{topic.name.c_str(), &cfo};
@@ -112,17 +112,17 @@ Subscriber::Subscriber(
             .dealloc = nullptr,
         };
 
-        a0_packet_callback_t c_cb = {
+        a0_packet_callback_t c_onpacket = {
             .user_data = impl,
             .fn = [](void* user_data, a0_packet_t pkt) {
                 auto* impl = (SubscriberImpl*)user_data;
                 auto data = std::make_shared<std::vector<uint8_t>>();
                 std::swap(*data, impl->data);
-                impl->cb(Packet(pkt, [data](a0_packet_t*) {}));
+                impl->onpacket(Packet(pkt, [data](a0_packet_t*) {}));
             }
         };
 
-        return a0_subscriber_init(c, c_topic, alloc, init, iter, c_cb);
+        return a0_subscriber_init(c, c_topic, alloc, init, iter, c_onpacket);
       },
       [](a0_subscriber_t* c, SubscriberImpl*) {
         a0_subscriber_close(c);

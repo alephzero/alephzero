@@ -366,6 +366,24 @@ TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] oldest-next") {
   REQUIRE_OK(a0_reader_sync_close(&rs));
 }
 
+TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] cpp oldest-next") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  a0::ReaderSync cpp_rs(a0::cpp_wrap<a0::Arena>(arena), A0_INIT_OLDEST, A0_ITER_NEXT);
+  REQUIRE(cpp_rs.has_next());
+  REQUIRE(cpp_rs.next().payload() == "pkt_0");
+  REQUIRE(cpp_rs.has_next());
+  REQUIRE(cpp_rs.next().payload() == "pkt_1");
+  REQUIRE(!cpp_rs.has_next());
+
+  push_pkt("pkt_2");
+
+  REQUIRE(cpp_rs.has_next());
+  REQUIRE(cpp_rs.next().payload() == "pkt_2");
+  REQUIRE(!cpp_rs.has_next());
+}
+
 TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] oldest-next, empty start") {
   REQUIRE_OK(a0_reader_sync_init(&rs, arena, a0::test::alloc(), A0_INIT_OLDEST, A0_ITER_NEXT));
   REQUIRE(!has_next());
@@ -581,6 +599,14 @@ struct ReaderZCFixture : ReaderBaseFixture {
     };
   }
 
+  std::function<void(a0::LockedTransport, a0::FlatPacket)> make_cpp_callback() {
+    return [&](a0::LockedTransport, a0::FlatPacket fpkt) {
+      std::unique_lock<std::mutex> lk{data.mu};
+      data.collected_payloads.push_back(std::string(fpkt.payload()));
+      data.cv.notify_all();
+    };
+  }
+
   void WAIT_AND_REQUIRE_PAYLOADS(std::vector<std::string> want_payloads) {
     std::unique_lock<std::mutex> lk{data.mu};
     data.cv.wait(lk, [&]() {
@@ -606,6 +632,21 @@ TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] oldest-next") {
   WAIT_AND_REQUIRE_PAYLOADS({"pkt_0", "pkt_1", "pkt_2"});
 
   REQUIRE_OK(a0_reader_zc_close(&rz));
+}
+
+TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] cpp oldest-next") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  a0::ReaderZeroCopy cpp_rz(
+      a0::cpp_wrap<a0::Arena>(arena),
+      A0_INIT_OLDEST,
+      A0_ITER_NEXT,
+      make_cpp_callback());
+
+  push_pkt("pkt_2");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_0", "pkt_1", "pkt_2"});
 }
 
 TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] oldest-next, empty start") {
@@ -705,6 +746,14 @@ struct ReaderFixture : ReaderBaseFixture {
     };
   }
 
+  std::function<void(a0::Packet)> make_cpp_callback() {
+    return [&](a0::Packet pkt) {
+      std::unique_lock<std::mutex> lk{data.mu};
+      data.collected_payloads.push_back(std::string(pkt.payload()));
+      data.cv.notify_all();
+    };
+  }
+
   void WAIT_AND_REQUIRE_PAYLOADS(std::vector<std::string> want_payloads) {
     std::unique_lock<std::mutex> lk{data.mu};
     data.cv.wait(lk, [&]() {
@@ -730,6 +779,21 @@ TEST_CASE_FIXTURE(ReaderFixture, "reader] oldest-next") {
   WAIT_AND_REQUIRE_PAYLOADS({"pkt_0", "pkt_1", "pkt_2"});
 
   REQUIRE_OK(a0_reader_close(&r));
+}
+
+TEST_CASE_FIXTURE(ReaderFixture, "reader] cpp oldest-next") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  a0::Reader cpp_r(
+      a0::cpp_wrap<a0::Arena>(arena),
+      A0_INIT_OLDEST,
+      A0_ITER_NEXT,
+      make_cpp_callback());
+
+  push_pkt("pkt_2");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_0", "pkt_1", "pkt_2"});
 }
 
 TEST_CASE_FIXTURE(ReaderFixture, "reader] oldest-next, empty start") {

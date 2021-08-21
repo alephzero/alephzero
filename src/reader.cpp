@@ -129,7 +129,7 @@ ReaderZeroCopy::ReaderZeroCopy(
   set_c_impl<ReaderZeroCopyImpl>(
       &c,
       [&](a0_reader_zc_t* c, ReaderZeroCopyImpl* impl) {
-        impl->cb = cb;
+        impl->cb = std::move(cb);
 
         a0_zero_copy_callback_t c_cb = {
             .user_data = impl,

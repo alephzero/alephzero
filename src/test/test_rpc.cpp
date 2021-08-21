@@ -1,6 +1,7 @@
 #include <a0/file.h>
 #include <a0/packet.h>
 #include <a0/rpc.h>
+#include <a0/rpc.hpp>
 #include <a0/uuid.h>
 
 #include <doctest.h>
@@ -96,6 +97,54 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
 
   REQUIRE_OK(a0_rpc_client_close(&client));
   REQUIRE_OK(a0_rpc_server_close(&server));
+}
+
+TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
+  struct data_t {
+    size_t reply_cnt;
+    size_t cancel_cnt;
+    std::mutex mu;
+    std::condition_variable cv;
+  } data{};
+
+  auto onrequest = [&](a0::RpcRequest req) {
+    if (req.pkt().payload() == "reply") {
+      req.reply("echo");
+    }
+  };
+
+  auto oncancel = [&](a0::string_view) {
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.cancel_cnt++;
+    data.cv.notify_all();
+  };
+
+  a0::RpcServer server("test", onrequest, oncancel);
+
+  a0::RpcClient client("test");
+
+  auto onreply = [&](a0::Packet) {
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.reply_cnt++;
+    data.cv.notify_all();
+  };
+
+  for (int i = 0; i < 5; i++) {
+    client.send("reply", onreply);
+  }
+
+  for (int i = 0; i < 5; i++) {
+    a0::Packet req("don't reply");
+    client.send("don't reply", onreply);
+    client.cancel(req.id());
+  }
+
+  {
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.cv.wait(lk, [&]() {
+      return data.reply_cnt >= 5 && data.cancel_cnt >= 5;
+    });
+  }
 }
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] empty oncancel onreply") {
