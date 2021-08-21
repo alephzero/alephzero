@@ -15,7 +15,6 @@ struct Arena : details::CppWrap<a0_arena_t> {
   a0_arena_mode_t mode() const;
 
   /// Implicit conversions.
-  operator const Buf() const;
   operator Buf();
 };
 

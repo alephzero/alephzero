@@ -1,8 +1,10 @@
 #include <a0/alloc.h>
 #include <a0/arena.h>
+#include <a0/arena.hpp>
 #include <a0/buf.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
+#include <a0/reader.hpp>
 #include <a0/transport.h>
 
 #include <doctest.h>
@@ -20,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "src/c_wrap.hpp"
 #include "src/test_util.hpp"
 
 struct ReaderBaseFixture {
@@ -76,6 +79,15 @@ struct ReaderSyncZCFixture : ReaderBaseFixture {
     REQUIRE_OK(a0_reader_sync_zc_next(&rsz, cb));
     REQUIRE(data.executed);
   };
+
+  void REQUIRE_NEXT_CPP(a0::ReaderSyncZeroCopy cpp_rsz, std::string want_payload) {
+    bool executed = false;
+    cpp_rsz.next([&](a0::LockedTransport, a0::FlatPacket fpkt) {
+      REQUIRE(fpkt.payload() == want_payload);
+      executed = true;
+    });
+    REQUIRE(executed);
+  }
 };
 
 TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] oldest-next") {
@@ -96,6 +108,24 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] oldest-next") {
   REQUIRE(!has_next());
 
   REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
+}
+
+TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] cpp oldest-next") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  a0::ReaderSyncZeroCopy cpp_rsz(a0::cpp_wrap<a0::Arena>(arena), A0_INIT_OLDEST, A0_ITER_NEXT);
+  REQUIRE(cpp_rsz.has_next());
+  REQUIRE_NEXT_CPP(cpp_rsz, "pkt_0");
+  REQUIRE(cpp_rsz.has_next());
+  REQUIRE_NEXT_CPP(cpp_rsz, "pkt_1");
+  REQUIRE(!cpp_rsz.has_next());
+
+  push_pkt("pkt_2");
+
+  REQUIRE(cpp_rsz.has_next());
+  REQUIRE_NEXT_CPP(cpp_rsz, "pkt_2");
+  REQUIRE(!cpp_rsz.has_next());
 }
 
 TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] oldest-next, empty start") {

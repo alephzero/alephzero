@@ -397,9 +397,6 @@ TEST_CASE("file] cpp") {
   REQUIRE(file.size() == file.stat().st_size);
   REQUIRE(file.fd() > 0);
 
-  const a0::File cfile = file;
-  REQUIRE(cfile.size() == ((const a0::Buf)cfile).size());
-
   a0::Arena arena;
   {
     a0::File file2(TEST_FILE);

@@ -40,10 +40,13 @@ struct File : details::CppWrap<a0_file_t> {
   File(string_view path, Options);
 
   /// Implicit conversions.
-  operator const Buf() const;
   operator Buf();
-  operator const Arena() const;
   operator Arena();
+
+  const Buf buf() const;
+  Buf buf();
+  const Arena arena() const;
+  Arena arena();
 
   /// File size.
   size_t size() const;

@@ -40,10 +40,6 @@ a0_arena_mode_t Arena::mode() const {
   return c->mode;
 }
 
-Arena::operator const Buf() const {
-  return buf();
-}
-
 Arena::operator Buf() {
   return buf();
 }
