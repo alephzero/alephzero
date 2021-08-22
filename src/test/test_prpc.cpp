@@ -1,6 +1,7 @@
 #include <a0/file.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
+#include <a0/prpc.hpp>
 #include <a0/uuid.h>
 
 #include <doctest.h>
@@ -82,6 +83,44 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] basic") {
 
   REQUIRE_OK(a0_prpc_client_close(&client));
   REQUIRE_OK(a0_prpc_server_close(&server));
+}
+
+TEST_CASE_FIXTURE(PrpcFixture, "prpc] cpp basic") {
+  struct data_t {
+    size_t msg_cnt;
+    size_t done_cnt;
+    std::mutex mu;
+    std::condition_variable cv;
+  } data{};
+
+  auto onconnect = [&](a0::PrpcConnection conn) {
+    REQUIRE(conn.pkt().payload() == "connect");
+    conn.send("progress", false);
+    conn.send("progress", false);
+    conn.send("progress", false);
+    conn.send("progress", false);
+    conn.send("progress", true);
+  };
+
+  a0::PrpcServer server("test", onconnect, {});
+
+  a0::PrpcClient client("test");
+
+  client.connect("connect", [&](a0::Packet, bool done) {
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.msg_cnt++;
+    if (done) {
+      data.done_cnt++;
+    }
+    data.cv.notify_all();
+  });
+
+  {
+    std::unique_lock<std::mutex> lk{data.mu};
+    data.cv.wait(lk, [&]() {
+      return data.msg_cnt >= 5 && data.done_cnt >= 1;
+    });
+  }
 }
 
 TEST_CASE_FIXTURE(PrpcFixture, "prpc] cancel") {

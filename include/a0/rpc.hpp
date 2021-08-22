@@ -5,6 +5,7 @@
 #include <a0/packet.hpp>
 #include <a0/pubsub.h>
 #include <a0/reader.hpp>
+#include <a0/rpc.h>
 
 #include <cstddef>
 #include <cstdint>

@@ -105,8 +105,8 @@ namespace {
 struct RpcClientImpl {
   std::vector<uint8_t> data;
 
-  std::unordered_map<std::string, std::function<void(Packet)>> user_callbacks;
-  std::mutex user_callbacks_mu;
+  std::unordered_map<std::string, std::function<void(Packet)>> user_onreply;
+  std::mutex user_onreply_mu;
 };
 
 }  // namespace
@@ -137,18 +137,18 @@ RpcClient::RpcClient(RpcTopic topic) {
       });
 }
 
-void RpcClient::send(Packet pkt, std::function<void(Packet)> cb) {
+void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply) {
   CHECK_C;
 
-  a0_packet_callback_t c_cb = A0_EMPTY;
-  if (cb) {
+  a0_packet_callback_t c_onreply = A0_EMPTY;
+  if (onreply) {
     auto* impl = c_impl<RpcClientImpl>(&c);
     {
-      std::unique_lock<std::mutex> lk{impl->user_callbacks_mu};
-      impl->user_callbacks[std::string(pkt.id())] = std::move(cb);
+      std::unique_lock<std::mutex> lk{impl->user_onreply_mu};
+      impl->user_onreply[std::string(pkt.id())] = std::move(onreply);
     }
 
-    c_cb = {
+    c_onreply = {
         .user_data = impl,
         .fn = [](void* user_data, a0_packet_t resp) {
             auto* impl = (RpcClientImpl*)user_data;
@@ -156,20 +156,20 @@ void RpcClient::send(Packet pkt, std::function<void(Packet)> cb) {
             const char* req_id;
             a0_find_header(resp, "a0_req_id", &req_id);
 
-            std::function<void(Packet)> cb;
+            std::function<void(Packet)> onreply;
             {
-              std::unique_lock<std::mutex> lk{impl->user_callbacks_mu};
-              auto iter = impl->user_callbacks.find(req_id);
-              cb = std::move(iter->second);
-              impl->user_callbacks.erase(iter);
+              std::unique_lock<std::mutex> lk{impl->user_onreply_mu};
+              auto iter = impl->user_onreply.find(req_id);
+              onreply = std::move(iter->second);
+              impl->user_onreply.erase(iter);
             }
 
-            cb(Packet(resp, nullptr));
+            onreply(Packet(resp, nullptr));
         },
     };
   }
 
-  check(a0_rpc_client_send(&*c, *pkt.c, c_cb));
+  check(a0_rpc_client_send(&*c, *pkt.c, c_onreply));
 }
 
 std::future<Packet> RpcClient::send(Packet pkt) {
