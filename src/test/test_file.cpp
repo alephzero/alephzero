@@ -1,16 +1,24 @@
 #include <a0/arena.h>
+#include <a0/arena.hpp>
 #include <a0/buf.h>
+#include <a0/buf.hpp>
+#include <a0/err.h>
 #include <a0/file.h>
 #include <a0/file.hpp>
+#include <a0/string_view.hpp>
 
 #include <doctest.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <cerrno>
 #include <cstring>
+#include <exception>
+#include <limits>
+#include <string>
 
 #include "src/test_util.hpp"
 

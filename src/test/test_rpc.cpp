@@ -1,7 +1,9 @@
 #include <a0/file.h>
 #include <a0/packet.h>
+#include <a0/packet.hpp>
 #include <a0/rpc.h>
 #include <a0/rpc.hpp>
+#include <a0/string_view.hpp>
 #include <a0/uuid.h>
 
 #include <doctest.h>
@@ -9,6 +11,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstring>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <thread>

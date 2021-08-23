@@ -3,9 +3,12 @@
 #include <a0/arena.hpp>
 #include <a0/buf.h>
 #include <a0/packet.h>
+#include <a0/packet.hpp>
 #include <a0/reader.h>
 #include <a0/reader.hpp>
+#include <a0/string_view.hpp>
 #include <a0/transport.h>
+#include <a0/transport.hpp>
 
 #include <doctest.h>
 #include <fcntl.h>
@@ -16,7 +19,9 @@
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <mutex>
+#include <ostream>
 #include <string>
 #include <thread>
 #include <utility>

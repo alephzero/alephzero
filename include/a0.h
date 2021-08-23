@@ -13,6 +13,7 @@
 #include <a0/inline.h>
 #include <a0/log.h>
 #include <a0/map.h>
+#include <a0/middleware.h>
 #include <a0/mtx.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
@@ -24,7 +25,6 @@
 #include <a0/unused.h>
 #include <a0/uuid.h>
 #include <a0/writer.h>
-#include <a0/writer_middleware.h>
 
 #ifdef __cplusplus
 #include <a0/alephzero.hpp>

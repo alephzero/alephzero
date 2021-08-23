@@ -3,7 +3,10 @@
 
 #include <doctest.h>
 
+#include <chrono>
 #include <ctime>
+#include <memory>
+#include <string>
 
 #include "src/test_util.hpp"
 

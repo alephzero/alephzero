@@ -1,8 +1,11 @@
 #include <a0/arena.h>
+#include <a0/arena.hpp>
 #include <a0/buf.h>
 #include <a0/middleware.h>
 #include <a0/middleware.hpp>
 #include <a0/packet.h>
+#include <a0/packet.hpp>
+#include <a0/string_view.hpp>
 #include <a0/transport.h>
 #include <a0/writer.h>
 #include <a0/writer.hpp>

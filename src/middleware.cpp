@@ -1,4 +1,3 @@
-#include <a0/err.h>
 #include <a0/middleware.h>
 #include <a0/middleware.hpp>
 

@@ -31,7 +31,6 @@
 #ifndef A0_MIDDLEWARE_H
 #define A0_MIDDLEWARE_H
 
-#include <a0/arena.h>
 #include <a0/err.h>
 #include <a0/inline.h>
 #include <a0/packet.h>

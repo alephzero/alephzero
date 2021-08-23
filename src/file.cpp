@@ -1,4 +1,16 @@
+#include <a0/arena.h>
+#include <a0/arena.hpp>
+#include <a0/buf.h>
+#include <a0/buf.hpp>
+#include <a0/err.h>
+#include <a0/file.h>
 #include <a0/file.hpp>
+#include <a0/string_view.hpp>
+
+#include <cerrno>
+#include <cstddef>
+#include <memory>
+#include <string>
 
 #include "c_wrap.hpp"
 #include "file_opts.hpp"

@@ -1,8 +1,8 @@
-#include <a0/alloc.h>
 #include <a0/buf.h>
 #include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
+#include <a0/string_view.hpp>
 #include <a0/uuid.h>
 
 #include <doctest.h>
@@ -10,11 +10,13 @@
 #include <cctype>
 #include <cerrno>
 #include <cstddef>
-#include <cstdint>
-#include <cstdlib>
 #include <functional>
 #include <map>
+#include <memory>
+#include <ostream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "src/test_util.hpp"
 

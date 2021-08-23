@@ -1,12 +1,20 @@
-#include <a0/arena.hpp>
-#include <a0/middleware.h>
-#include <a0/middleware.hpp>
+#include <a0/alloc.h>
+#include <a0/buf.h>
+#include <a0/err.h>
+#include <a0/packet.h>
 #include <a0/packet.hpp>
+#include <a0/pubsub.h>
 #include <a0/pubsub.hpp>
-#include <a0/writer.h>
-#include <a0/writer.hpp>
+#include <a0/reader.hpp>
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "c_wrap.hpp"
 #include "file_opts.hpp"

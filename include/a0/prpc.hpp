@@ -3,6 +3,7 @@
 #include <a0/c_wrap.hpp>
 #include <a0/file.hpp>
 #include <a0/packet.hpp>
+#include <a0/prpc.h>
 #include <a0/pubsub.h>
 #include <a0/reader.hpp>
 

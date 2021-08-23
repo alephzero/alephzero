@@ -1,6 +1,8 @@
 #pragma once
 
+#include <a0/file.h>
 #include <a0/file.hpp>
+#include <a0/inline.h>
 
 namespace a0 {
 namespace {

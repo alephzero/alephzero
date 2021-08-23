@@ -1,14 +1,18 @@
 #include <a0/file.h>
 #include <a0/packet.h>
+#include <a0/packet.hpp>
 #include <a0/prpc.h>
 #include <a0/prpc.hpp>
+#include <a0/string_view.hpp>
 #include <a0/uuid.h>
 
 #include <doctest.h>
 
 #include <condition_variable>
 #include <cstring>
+#include <functional>
 #include <mutex>
+#include <ostream>
 #include <string>
 
 #include "src/test_util.hpp"

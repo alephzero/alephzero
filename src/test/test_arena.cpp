@@ -1,6 +1,10 @@
+#include <a0/arena.h>
 #include <a0/arena.hpp>
+#include <a0/buf.hpp>
 
 #include <doctest.h>
+
+#include <cstdint>
 
 TEST_CASE("arena] cpp") {
   uint8_t data[4];
