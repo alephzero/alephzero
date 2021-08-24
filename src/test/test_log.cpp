@@ -1,5 +1,6 @@
 #include <a0/file.h>
 #include <a0/log.h>
+#include <a0/log.hpp>
 #include <a0/packet.h>
 
 #include <doctest.h>
@@ -84,4 +85,46 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
   }
 
   REQUIRE_OK(a0_log_listener_close(&log_list));
+}
+
+TEST_CASE_FIXTURE(LogFixture, "logger] cpp basic") {
+  std::map<std::string, size_t> cnt;
+  size_t total_cnt = 0;
+  std::mutex mu;
+  std::condition_variable cv;
+
+  a0::LogListener log_listener("topic", a0::LogLevel::INFO, [&](a0::Packet pkt) {
+    std::unique_lock<std::mutex> lk{mu};
+
+    for (const auto& hdr : pkt.headers()) {
+      if (hdr.first == "a0_level") {
+        cnt[hdr.second]++;
+        total_cnt++;
+      }
+    }
+
+    cv.notify_one();
+  });
+
+  a0::Logger logger("topic");
+
+  logger.crit("crit");
+  logger.err("err");
+  logger.warn("warn");
+  logger.info("info");
+  logger.dbg("dbg");
+
+  logger.log(a0::LogLevel::CRIT, "crit");
+  logger.log(a0::LogLevel::ERR, "err");
+  logger.log(a0::LogLevel::WARN, "warn");
+  logger.log(a0::LogLevel::INFO, "info");
+  logger.log(a0::LogLevel::DBG, "dbg");
+
+  {
+    std::unique_lock<std::mutex> lk{mu};
+    cv.wait(lk, [&]() {
+      return total_cnt == 8;
+    });
+    REQUIRE(cnt == std::map<std::string, size_t>{{"CRIT", 2}, {"ERR", 2}, {"WARN", 2}, {"INFO", 2}});
+  }
 }
