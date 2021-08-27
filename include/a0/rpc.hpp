@@ -33,7 +33,7 @@ struct RpcRequest : details::CppWrap<a0_rpc_request_t> {
   Packet pkt();
 
   void reply(Packet);
-  void reply(std::vector<std::pair<std::string, std::string>> headers,
+  void reply(std::unordered_multimap<std::string, std::string> headers,
              string_view payload) {
     reply(Packet(std::move(headers), payload, ref));
   }
@@ -55,7 +55,7 @@ struct RpcClient : details::CppWrap<a0_rpc_client_t> {
   RpcClient(RpcTopic);
 
   void send(Packet, std::function<void(Packet)>);
-  void send(std::vector<std::pair<std::string, std::string>> headers,
+  void send(std::unordered_multimap<std::string, std::string> headers,
             string_view payload,
             std::function<void(Packet)> callback) {
     send(Packet(std::move(headers), payload, ref), std::move(callback));
@@ -65,7 +65,7 @@ struct RpcClient : details::CppWrap<a0_rpc_client_t> {
   }
 
   std::future<Packet> send(Packet);
-  std::future<Packet> send(std::vector<std::pair<std::string, std::string>> headers,
+  std::future<Packet> send(std::unordered_multimap<std::string, std::string> headers,
                            string_view payload) {
     return send(Packet(std::move(headers), payload, ref));
   }

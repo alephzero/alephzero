@@ -1,5 +1,6 @@
 #include "ref_cnt.h"
 
+#include <a0/callback.h>
 #include <a0/compare.h>
 #include <a0/err.h>
 #include <a0/inline.h>
@@ -9,45 +10,41 @@
 #include <pthread.h>
 #include <stdbool.h>
 
-#include "atomic.h"
 #include "empty.h"
 #include "err_macro.h"
-
-typedef enum a0_init_status_e {
-  A0_INIT_NOT_STARTED,
-  A0_INIT_STARTED,
-  A0_INIT_DONE,
-} a0_init_status_t;
+#include "once.h"
 
 typedef struct a0_counters_s {
   a0_map_t map;
   pthread_mutex_t mu;
-  a0_init_status_t init_status;
+  pthread_once_t init_flag;
 } a0_counters_t;
 
 A0_STATIC_INLINE
-a0_counters_t* global_counters() {
+void _global_counters_init(void* user_data) {
+  a0_counters_t* cnts = (a0_counters_t*)user_data;
+  a0_map_init(
+      &cnts->map,
+      sizeof(void*),
+      sizeof(size_t),
+      A0_HASH_PTR,
+      A0_COMPARE_PTR);
+  pthread_mutex_init(&cnts->mu, NULL);
+}
+
+A0_STATIC_INLINE
+a0_counters_t* _global_counters() {
   static a0_counters_t counters = A0_EMPTY;
-
-  if (a0_cas(&counters.init_status, A0_INIT_NOT_STARTED, A0_INIT_STARTED)) {
-    a0_map_init(
-        &counters.map,
-        sizeof(void*),
-        sizeof(size_t),
-        A0_HASH_PTR,
-        A0_COMPARE_PTR);
-    pthread_mutex_init(&counters.mu, NULL);
-    a0_atomic_store(&counters.init_status, A0_INIT_DONE);
-  } else {
-    while (a0_atomic_load(&counters.init_status) != A0_INIT_DONE) {
-    }
-  }
-
+  a0_callback_t init_fn = {
+     .user_data = &counters,
+     .fn = _global_counters_init,
+  };
+  a0_once(&counters.init_flag, init_fn);
   return &counters;
 }
 
 A0_STATIC_INLINE
-errno_t a0_ref_cnt_inc_locked(a0_map_t* map, void* key, size_t* out_cnt) {
+errno_t _a0_ref_cnt_inc_locked(a0_map_t* map, void* key, size_t* out_cnt) {
   size_t unused_cnt;
   if (!out_cnt) {
     out_cnt = &unused_cnt;
@@ -67,15 +64,15 @@ errno_t a0_ref_cnt_inc_locked(a0_map_t* map, void* key, size_t* out_cnt) {
 }
 
 errno_t a0_ref_cnt_inc(void* key, size_t* out_cnt) {
-  a0_counters_t* cnts = global_counters();
+  a0_counters_t* cnts = _global_counters();
   pthread_mutex_lock(&cnts->mu);
-  errno_t err = a0_ref_cnt_inc_locked(&cnts->map, key, out_cnt);
+  errno_t err = _a0_ref_cnt_inc_locked(&cnts->map, key, out_cnt);
   pthread_mutex_unlock(&cnts->mu);
   return err;
 }
 
 A0_STATIC_INLINE
-errno_t a0_ref_cnt_dec_locked(a0_map_t* map, void* key, size_t* out_cnt) {
+errno_t _a0_ref_cnt_dec_locked(a0_map_t* map, void* key, size_t* out_cnt) {
   size_t unused_cnt;
   if (!out_cnt) {
     out_cnt = &unused_cnt;
@@ -99,15 +96,15 @@ errno_t a0_ref_cnt_dec_locked(a0_map_t* map, void* key, size_t* out_cnt) {
 }
 
 errno_t a0_ref_cnt_dec(void* key, size_t* out_cnt) {
-  a0_counters_t* cnts = global_counters();
+  a0_counters_t* cnts = _global_counters();
   pthread_mutex_lock(&cnts->mu);
-  errno_t err = a0_ref_cnt_dec_locked(&cnts->map, key, out_cnt);
+  errno_t err = _a0_ref_cnt_dec_locked(&cnts->map, key, out_cnt);
   pthread_mutex_unlock(&cnts->mu);
   return err;
 }
 
 A0_STATIC_INLINE
-errno_t a0_ref_cnt_get_locked(a0_map_t* map, void* key, size_t* out) {
+errno_t _a0_ref_cnt_get_locked(a0_map_t* map, void* key, size_t* out) {
   *out = 0;
 
   bool has_key;
@@ -122,9 +119,9 @@ errno_t a0_ref_cnt_get_locked(a0_map_t* map, void* key, size_t* out) {
 }
 
 errno_t a0_ref_cnt_get(void* key, size_t* out) {
-  a0_counters_t* cnts = global_counters();
+  a0_counters_t* cnts = _global_counters();
   pthread_mutex_lock(&cnts->mu);
-  errno_t err = a0_ref_cnt_get_locked(&cnts->map, key, out);
+  errno_t err = _a0_ref_cnt_get_locked(&cnts->map, key, out);
   pthread_mutex_unlock(&cnts->mu);
   return err;
 }

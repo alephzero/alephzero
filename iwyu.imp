@@ -1,5 +1,6 @@
 [
   { include: [ "<__stddef_max_align_t.h>", private, "<stddef.h>", public ] },
+  { include: [ "<bits/exception.h>", private, "<exception>", public ] },
   { include: [ "<bits/time.h>", private, "<time.h>", public ] },
   { include: [ "<bits/types/struct_tm.h>", private, "<time.h>", public ] },
   { include: ["<cxxabi.h>", "public", "<bitset>", "public"] },
@@ -8,6 +9,5 @@
   { include: ["<cxxabi.h>", "public", "<iomanip>", "public"] },
   { include: ["<cxxabi.h>", "public", "<istream>", "public"] },
   { include: ["<cxxabi.h>", "public", "<ostream>", "public"] },
-  { include: ["<cxxabi.h>", "public", "\"src/sync.hpp\"", "public"] },
   { symbol: ["NULL", "private", "<stddef.h>", "public"] },
 ]

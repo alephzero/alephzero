@@ -8,11 +8,6 @@
 #include <a0/string_view.hpp>
 #include <a0/uuid.h>
 
-#include "c_wrap.hpp"
-#include "empty.h"
-#include "file_opts.hpp"
-#include "protocol_util.h"
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -24,6 +19,11 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include "c_wrap.hpp"
+#include "empty.h"
+#include "file_opts.hpp"
+#include "topic.h"
 
 namespace a0 {
 
@@ -169,13 +169,18 @@ void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply) {
         .fn = [](void* user_data, a0_packet_t resp) {
             auto* impl = (RpcClientImpl*)user_data;
 
-            const char* req_id;
-            a0_find_header(resp, "a0_req_id", &req_id);
+            a0_packet_header_t req_id_hdr;
+
+            a0_packet_header_iterator_t hdr_iter;
+            a0_packet_header_iterator_init(&hdr_iter, &resp);
+            if (a0_packet_header_iterator_next_match(&hdr_iter, "a0_req_id", &req_id_hdr)) {
+              return;
+            }
 
             std::function<void(Packet)> onreply;
             {
               std::unique_lock<std::mutex> lk{impl->user_onreply_mu};
-              auto iter = impl->user_onreply.find(req_id);
+              auto iter = impl->user_onreply.find(req_id_hdr.val);
               onreply = std::move(iter->second);
               impl->user_onreply.erase(iter);
             }

@@ -1,15 +1,14 @@
 #ifndef A0_SRC_FTX_H
 #define A0_SRC_FTX_H
 
-#include <a0/buf.h>
-#include <a0/callback.h>
 #include <a0/err.h>
 #include <a0/inline.h>
 #include <a0/time.h>
 
 #include <limits.h>
 #include <linux/futex.h>
-#include <sys/syscall.h>
+#include <syscall.h>
+#include <stdint.h>
 #include <time.h>
 #include <unistd.h>
 

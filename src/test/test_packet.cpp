@@ -63,7 +63,7 @@ void with_standard_packet(std::function<void(a0_packet_t pkt)> fn) {
   fn(pkt);
 }
 
-std::map<std::string, std::string> standard_packet_hdrs() {
+std::unordered_multimap<std::string, std::string> standard_packet_hdrs() {
   return {
       {"a", "b"},
       {"c", "d"},
@@ -71,19 +71,6 @@ std::map<std::string, std::string> standard_packet_hdrs() {
       {"g", "h"},
       {"i", "j"},
   };
-}
-
-std::map<std::string, std::string> map_from(a0_packet_headers_block_t hdr_block) {
-  std::map<std::string, std::string> kv;
-
-  a0_packet_header_iterator_t iter;
-  a0_packet_header_iterator_init(&iter, &hdr_block);
-
-  a0_packet_header_t hdr;
-  while (a0_packet_header_iterator_next(&iter, &hdr) == A0_OK) {
-    kv[hdr.key] = hdr.val;
-  }
-  return kv;
 }
 
 TEST_CASE("packet] stats") {
@@ -113,10 +100,10 @@ TEST_CASE("packet] stats") {
 
 TEST_CASE("packet] serialize deserialize") {
   with_standard_packet([](a0_packet_t pkt) {
-    a0_buf_t fpkt;
+    a0_flat_packet_t fpkt;
     REQUIRE_OK(a0_packet_serialize(pkt, a0::test::alloc(), &fpkt));
 
-    REQUIRE(fpkt.size == 166);
+    REQUIRE(fpkt.buf.size == 166);
 
     a0_packet_t pkt_after;
     a0_buf_t unused;
@@ -125,7 +112,7 @@ TEST_CASE("packet] serialize deserialize") {
     REQUIRE(std::string(pkt.id) == std::string(pkt_after.id));
     REQUIRE(a0::test::str(pkt.payload) == a0::test::str(pkt_after.payload));
 
-    REQUIRE(map_from(pkt_after.headers_block) == standard_packet_hdrs());
+    REQUIRE(a0::test::hdr(pkt_after) == standard_packet_hdrs());
   });
 }
 
@@ -138,7 +125,7 @@ TEST_CASE("packet] deep_copy") {
     REQUIRE(std::string(pkt.id) == std::string(pkt_after.id));
     REQUIRE(a0::test::str(pkt.payload) == a0::test::str(pkt_after.payload));
 
-    REQUIRE(map_from(pkt_after.headers_block) == standard_packet_hdrs());
+    REQUIRE(a0::test::hdr(pkt_after) == standard_packet_hdrs());
   });
 }
 
@@ -201,26 +188,15 @@ TEST_CASE("flat_packet] header") {
     a0_flat_packet_t fpkt;
     REQUIRE_OK(a0_packet_serialize(pkt, a0::test::alloc(), &fpkt));
 
-    a0_packet_header_t flat_hdr;
-    std::map<std::string, std::string> found_hdrs;
-    for (size_t i = 0; i < 5; i++) {
-      REQUIRE_OK(a0_flat_packet_header(fpkt, i, &flat_hdr));
-      found_hdrs[flat_hdr.key] = flat_hdr.val;
-    }
-    REQUIRE(a0_flat_packet_header(fpkt, 5, &flat_hdr) == EINVAL);
-
-    REQUIRE(found_hdrs == standard_packet_hdrs());
+    REQUIRE(a0::test::hdr(fpkt) == standard_packet_hdrs());
   });
 }
 
 TEST_CASE("packet] cpp") {
   a0::Packet pkt1({{"hdr-key", "hdr-val"}}, "Hello, World!");
   REQUIRE(pkt1.payload() == "Hello, World!");
-  REQUIRE(pkt1.headers().size() == 1);
   REQUIRE(pkt1.id().size() == 36);
-
-  REQUIRE(pkt1.headers()[0].first == "hdr-key");
-  REQUIRE(pkt1.headers()[0].second == "hdr-val");
+  REQUIRE(pkt1.headers() == std::unordered_multimap<std::string, std::string>{{"hdr-key", "hdr-val"}});
 
   a0::Packet pkt2 = pkt1;
   REQUIRE(pkt2.id() == pkt1.id());

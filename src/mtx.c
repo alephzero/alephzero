@@ -12,10 +12,12 @@
 #include <stdint.h>
 #include <syscall.h>
 #include <time.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "atomic.h"
 #include "clock.h"
+#include "tid.h"
 #include "ftx.h"
 
 // TSAN is worth the pain of properly annotating our mutex.
@@ -74,53 +76,48 @@ A0_STATIC_INLINE void _u_ __tsan_mutex_post_divert(_u_ void* addr, _u_ unsigned 
 
 #endif
 
-// Cache the thread id.
-// This also acts as a proxy for whether thread constants have been initialized.
-_Thread_local uint32_t a0_tid_ = 0;
+thread_local bool _a0_robust_init = false;
 
 A0_STATIC_INLINE
-uint32_t tid_load() {
-  return syscall(SYS_gettid);
+void a0_robust_reset() {
+  _a0_robust_init = 0;
 }
 
 A0_STATIC_INLINE
-void tid_reset() {
-  a0_tid_ = 0;
+void a0_robust_reset_atfork() {
+  pthread_atfork(NULL, NULL, &a0_robust_reset);
 }
 
-A0_STATIC_INLINE
-void tid_reset_atfork() {
-  pthread_atfork(NULL, NULL, &tid_reset);
-}
-
-static pthread_once_t tid_reset_atfork_once;
+static pthread_once_t a0_robust_reset_atfork_once;
 
 typedef struct robust_list robust_list_t;
-_Thread_local struct robust_list_head a0_robust_head;
+typedef struct robust_list_head robust_list_head_t;
+
+thread_local robust_list_head_t _a0_robust_head;
 
 A0_STATIC_INLINE
 void robust_init() {
-  a0_robust_head.list.next = &a0_robust_head.list;
-  a0_robust_head.futex_offset = offsetof(a0_mtx_t, ftx);
-  a0_robust_head.list_op_pending = NULL;
-  syscall(SYS_set_robust_list, &a0_robust_head.list, sizeof(a0_robust_head));
+  _a0_robust_head.list.next = &_a0_robust_head.list;
+  _a0_robust_head.futex_offset = offsetof(a0_mtx_t, ftx);
+  _a0_robust_head.list_op_pending = NULL;
+  syscall(SYS_set_robust_list, &_a0_robust_head.list, sizeof(_a0_robust_head));
 }
 
 A0_STATIC_INLINE
 void init_thread() {
-  if (a0_tid_) {
+  if (_a0_robust_init) {
     return;
   }
 
-  a0_tid_ = tid_load();
-  pthread_once(&tid_reset_atfork_once, tid_reset_atfork);
+  pthread_once(&a0_robust_reset_atfork_once, a0_robust_reset_atfork);
   robust_init();
+  _a0_robust_init = true;
 }
 
 A0_STATIC_INLINE
 void robust_op_start(a0_mtx_t* mtx) {
   init_thread();
-  a0_robust_head.list_op_pending = (struct robust_list*)mtx;
+  _a0_robust_head.list_op_pending = (struct robust_list*)mtx;
   a0_barrier();
 }
 
@@ -128,24 +125,24 @@ A0_STATIC_INLINE
 void robust_op_end(a0_mtx_t* mtx) {
   (void)mtx;
   a0_barrier();
-  a0_robust_head.list_op_pending = NULL;
+  _a0_robust_head.list_op_pending = NULL;
 }
 
 A0_STATIC_INLINE
 bool robust_is_head(a0_mtx_t* mtx) {
-  return mtx == (a0_mtx_t*)&a0_robust_head;
+  return mtx == (a0_mtx_t*)&_a0_robust_head;
 }
 
 A0_STATIC_INLINE
 void robust_op_add(a0_mtx_t* mtx) {
-  a0_mtx_t* old_first = (a0_mtx_t*)a0_robust_head.list.next;
+  a0_mtx_t* old_first = (a0_mtx_t*)_a0_robust_head.list.next;
 
-  mtx->prev = (a0_mtx_t*)&a0_robust_head;
+  mtx->prev = (a0_mtx_t*)&_a0_robust_head;
   mtx->next = old_first;
 
   a0_barrier();
 
-  a0_robust_head.list.next = (robust_list_t*)mtx;
+  _a0_robust_head.list.next = (robust_list_t*)mtx;
   if (!robust_is_head(old_first)) {
     old_first->prev = mtx;
   }
@@ -159,12 +156,6 @@ void robust_op_del(a0_mtx_t* mtx) {
   if (!robust_is_head(next)) {
     next->prev = prev;
   }
-}
-
-A0_STATIC_INLINE
-uint32_t a0_tid() {
-  init_thread();
-  return a0_tid_;
 }
 
 A0_STATIC_INLINE
@@ -342,6 +333,7 @@ errno_t a0_mtx_unlock(a0_mtx_t* mtx) {
 }
 
 // TODO: Handle ENOTRECOVERABLE
+A0_STATIC_INLINE
 errno_t a0_cnd_timedwait_impl(a0_cnd_t* cnd, a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   const uint32_t init_cnd = a0_atomic_load(cnd);
 

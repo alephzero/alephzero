@@ -47,7 +47,7 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
             std::unique_lock<std::mutex> lk{data->mu};
 
             auto hdr = a0::test::hdr(pkt);
-            auto range = hdr.equal_range("a0_level");
+            auto range = hdr.equal_range("a0_log_level");
             for (auto it = range.first; it != range.second; ++it) {
               data->cnt[it->second]++;
               data->total_cnt++;
@@ -97,7 +97,7 @@ TEST_CASE_FIXTURE(LogFixture, "logger] cpp basic") {
     std::unique_lock<std::mutex> lk{mu};
 
     for (const auto& hdr : pkt.headers()) {
-      if (hdr.first == "a0_level") {
+      if (hdr.first == "a0_log_level") {
         cnt[hdr.second]++;
         total_cnt++;
       }

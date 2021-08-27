@@ -18,7 +18,7 @@
 #include <string.h>
 
 #include "err_macro.h"
-#include "protocol_util.h"
+#include "topic.h"
 
 static const char RPC_TYPE[] = "a0_rpc_type";
 static const char RPC_TYPE_REQUEST[] = "request";
@@ -28,12 +28,12 @@ static const char RPC_TYPE_CANCEL[] = "cancel";
 static const char REQUEST_ID[] = "a0_req_id";
 
 A0_STATIC_INLINE
-errno_t _a0_rpc_open_topic(a0_rpc_topic_t topic, a0_file_t* file) {
+errno_t _a0_rpc_topic_open(a0_rpc_topic_t topic, a0_file_t* file) {
   const char* template = getenv("A0_RPC_TOPIC_TEMPLATE");
   if (!template) {
     template = "alephzero/{topic}.rpc.a0";
   }
-  return a0_open_topic(template, topic.name, topic.file_opts, file);
+  return a0_topic_open(template, topic.name, topic.file_opts, file);
 }
 
 ////////////
@@ -44,13 +44,16 @@ A0_STATIC_INLINE
 void a0_rpc_server_onpacket(void* data, a0_packet_t pkt) {
   a0_rpc_server_t* server = (a0_rpc_server_t*)data;
 
-  const char* type;
-  if (a0_find_header(pkt, RPC_TYPE, &type)) {
+  a0_packet_header_t type_hdr;
+  a0_packet_header_iterator_t hdr_iter;
+  a0_packet_header_iterator_init(&hdr_iter, &pkt);
+  if (a0_packet_header_iterator_next_match(&hdr_iter, RPC_TYPE, &type_hdr)) {
     return;
   }
-  if (!strcmp(type, RPC_TYPE_REQUEST)) {
+
+  if (!strcmp(type_hdr.val, RPC_TYPE_REQUEST)) {
     server->_onrequest.fn(server->_onrequest.user_data, (a0_rpc_request_t){server, pkt});
-  } else if (!strcmp(type, RPC_TYPE_CANCEL)) {
+  } else if (!strcmp(type_hdr.val, RPC_TYPE_CANCEL)) {
     if (server->_oncancel.fn) {
       a0_uuid_t uuid;
       memcpy(uuid, pkt.payload.ptr, A0_UUID_SIZE);
@@ -69,7 +72,7 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
 
   // Response writer must be set up before the request reader to avoid a race condition.
 
-  A0_RETURN_ERR_ON_ERR(_a0_rpc_open_topic(topic, &server->_file));
+  A0_RETURN_ERR_ON_ERR(_a0_rpc_topic_open(topic, &server->_file));
 
   errno_t err = a0_writer_init(&server->_response_writer, server->_file.arena);
   if (err) {
@@ -136,14 +139,16 @@ A0_STATIC_INLINE
 void _a0_rpc_client_onpacket(void* user_data, a0_packet_t pkt) {
   a0_rpc_client_t* client = (a0_rpc_client_t*)user_data;
 
-  a0_uuid_t* req_id;
-  if (a0_find_header(pkt, REQUEST_ID, (const char**)&req_id)) {
+  a0_packet_header_t req_id_hdr;
+  a0_packet_header_iterator_t hdr_iter;
+  a0_packet_header_iterator_init(&hdr_iter, &pkt);
+  if (a0_packet_header_iterator_next_match(&hdr_iter, REQUEST_ID, &req_id_hdr)) {
     return;
   }
 
   a0_packet_callback_t cb;
   pthread_mutex_lock(&client->_outstanding_requests_mu);
-  errno_t err = a0_map_pop(&client->_outstanding_requests, req_id, &cb);
+  errno_t err = a0_map_pop(&client->_outstanding_requests, req_id_hdr.val, &cb);
   pthread_mutex_unlock(&client->_outstanding_requests_mu);
 
   if (!err) {
@@ -164,7 +169,7 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client,
       A0_COMPARE_UUID));
   pthread_mutex_init(&client->_outstanding_requests_mu, NULL);
 
-  errno_t err = _a0_rpc_open_topic(topic, &client->_file);
+  errno_t err = _a0_rpc_topic_open(topic, &client->_file);
   if (err) {
     a0_map_close(&client->_outstanding_requests);
     pthread_mutex_destroy(&client->_outstanding_requests_mu);

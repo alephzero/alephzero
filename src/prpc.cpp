@@ -11,7 +11,7 @@
 #include "c_wrap.hpp"
 #include "empty.h"
 #include "file_opts.hpp"
-#include "protocol_util.h"
+#include "topic.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -168,13 +168,18 @@ void PrpcClient::connect(Packet pkt, std::function<void(Packet, bool /* done */)
         .fn = [](void* user_data, a0_packet_t prog, bool done) {
             auto* impl = (PrpcClientImpl*)user_data;
 
-            const char* conn_id;
-            a0_find_header(prog, "a0_conn_id", &conn_id);
+            a0_packet_header_t conn_id_hdr;
+
+            a0_packet_header_iterator_t hdr_iter;
+            a0_packet_header_iterator_init(&hdr_iter, &prog);
+            if (a0_packet_header_iterator_next_match(&hdr_iter, "a0_conn_id", &conn_id_hdr)) {
+              return;
+            }
 
             std::function<void(Packet, bool)> onprogress;
             {
               std::unique_lock<std::mutex> lk{impl->user_onprogress_mu};
-              auto iter = impl->user_onprogress.find(conn_id);
+              auto iter = impl->user_onprogress.find(conn_id_hdr.val);
               onprogress = iter->second;
               if (done) {
                 impl->user_onprogress.erase(iter);

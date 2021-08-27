@@ -33,7 +33,7 @@ struct PrpcConnection : details::CppWrap<a0_prpc_connection_t> {
   Packet pkt();
 
   void send(Packet, bool done);
-  void send(std::vector<std::pair<std::string, std::string>> headers,
+  void send(std::unordered_multimap<std::string, std::string> headers,
             string_view payload,
             bool done) {
     send(Packet(std::move(headers), payload, ref), done);
@@ -56,7 +56,7 @@ struct PrpcClient : details::CppWrap<a0_prpc_client_t> {
   PrpcClient(PrpcTopic);
 
   void connect(Packet, std::function<void(Packet, bool /* done */)>);
-  void connect(std::vector<std::pair<std::string, std::string>> headers,
+  void connect(std::unordered_multimap<std::string, std::string> headers,
                string_view payload,
                std::function<void(Packet, bool /* done */)> onprogress) {
     connect(Packet(std::move(headers), payload, ref), std::move(onprogress));

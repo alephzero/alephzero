@@ -1,5 +1,5 @@
-#ifndef A0_SRC_RAND_H
-#define A0_SRC_RAND_H
+#ifndef A0_SRC_TID_H
+#define A0_SRC_TID_H
 
 #include <stdint.h>
 
@@ -7,10 +7,10 @@
 extern "C" {
 #endif
 
-uint32_t a0_mrand48();
+uint32_t a0_tid();
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // A0_SRC_RAND_H
+#endif  // A0_SRC_TID_H

@@ -12,18 +12,18 @@
 #include <string.h>
 
 #include "err_macro.h"
-#include "protocol_util.h"
+#include "topic.h"
 
 A0_STATIC_INLINE
-errno_t _a0_log_open_topic(a0_log_topic_t topic, a0_file_t* file) {
+errno_t _a0_log_topic_open(a0_log_topic_t topic, a0_file_t* file) {
   const char* template = getenv("A0_LOG_TOPIC_TEMPLATE");
   if (!template) {
     template = "alephzero/{topic}.log.a0";
   }
-  return a0_open_topic(template, topic.name, topic.file_opts, file);
+  return a0_topic_open(template, topic.name, topic.file_opts, file);
 }
 
-static const char LOG_LEVEL[] = "a0_level";
+static const char LOG_LEVEL[] = "a0_log_level";
 
 A0_STATIC_INLINE
 const char* _a0_log_level_name(a0_log_level_t level) {
@@ -67,7 +67,7 @@ a0_log_level_t _a0_log_level_from_name(const char* name) {
 }
 
 errno_t a0_logger_init(a0_logger_t* logger, a0_log_topic_t topic) {
-  A0_RETURN_ERR_ON_ERR(_a0_log_open_topic(topic, &logger->_file));
+  A0_RETURN_ERR_ON_ERR(_a0_log_topic_open(topic, &logger->_file));
 
   errno_t err = a0_writer_init(&logger->_writer, logger->_file.arena);
   if (err) {
@@ -130,11 +130,14 @@ errno_t a0_logger_dbg(a0_logger_t* logger, a0_packet_t pkt) {
 A0_STATIC_INLINE
 void _a0_log_listener_callback(void* data, a0_packet_t pkt) {
   a0_log_listener_t* log_list = (a0_log_listener_t*)data;
-  const char* level_str;
-  if (a0_find_header(pkt, LOG_LEVEL, &level_str)) {
+
+  a0_packet_header_iterator_t hdr_iter;
+  a0_packet_header_iterator_init(&hdr_iter, &pkt);
+  a0_packet_header_t lvl_hdr;
+  if (a0_packet_header_iterator_next_match(&hdr_iter, LOG_LEVEL, &lvl_hdr)) {
     return;
   }
-  a0_log_level_t level = _a0_log_level_from_name(level_str);
+  a0_log_level_t level = _a0_log_level_from_name(lvl_hdr.val);
   if (level <= log_list->_level) {
     a0_packet_callback_call(log_list->_onmsg, pkt);
   }
@@ -147,7 +150,7 @@ errno_t a0_log_listener_init(a0_log_listener_t* log_list,
                              a0_packet_callback_t onmsg) {
   log_list->_level = level;
   log_list->_onmsg = onmsg;
-  A0_RETURN_ERR_ON_ERR(_a0_log_open_topic(topic, &log_list->_file));
+  A0_RETURN_ERR_ON_ERR(_a0_log_topic_open(topic, &log_list->_file));
 
   errno_t err = a0_reader_init(
       &log_list->_reader,

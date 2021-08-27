@@ -166,7 +166,9 @@ typedef struct a0_packet_s {
 } a0_packet_t;
 
 /// A Flat Packet is a serialized Packet.
-typedef a0_buf_t a0_flat_packet_t;
+typedef struct a0_flat_packet_s {
+  a0_buf_t buf;
+} a0_flat_packet_t;
 
 // The following are special keys.
 // The returned buffers should not be cleaned up.
@@ -217,10 +219,13 @@ typedef struct a0_packet_header_iterator_s {
 } a0_packet_header_iterator_t;
 
 /// Initializes an iterator over all headers.
-errno_t a0_packet_header_iterator_init(a0_packet_header_iterator_t*, a0_packet_headers_block_t*);
+errno_t a0_packet_header_iterator_init(a0_packet_header_iterator_t*, a0_packet_t*);
 
 /// Emit the next header.
 errno_t a0_packet_header_iterator_next(a0_packet_header_iterator_t*, a0_packet_header_t* out);
+
+/// Emit the next header with the given key.
+errno_t a0_packet_header_iterator_next_match(a0_packet_header_iterator_t*, const char* key, a0_packet_header_t* out);
 
 /// Serializes the packet to the allocated location.
 ///
@@ -250,6 +255,20 @@ errno_t a0_flat_packet_payload(a0_flat_packet_t, a0_buf_t*);
 ///
 /// **Note**: the result points into the flat packet. It is not copied out.
 errno_t a0_flat_packet_header(a0_flat_packet_t, size_t idx, a0_packet_header_t*);
+
+typedef struct a0_flat_packet_header_iterator_s {
+  a0_flat_packet_t* _fpkt;
+  size_t _idx;
+} a0_flat_packet_header_iterator_t;
+
+/// Initializes an iterator over all headers.
+errno_t a0_flat_packet_header_iterator_init(a0_flat_packet_header_iterator_t*, a0_flat_packet_t*);
+
+/// Emit the next header.
+errno_t a0_flat_packet_header_iterator_next(a0_flat_packet_header_iterator_t*, a0_packet_header_t* out);
+
+/// Emit the next header with the given key.
+errno_t a0_flat_packet_header_iterator_next_match(a0_flat_packet_header_iterator_t*, const char* key, a0_packet_header_t* out);
 
 /** @}*/
 

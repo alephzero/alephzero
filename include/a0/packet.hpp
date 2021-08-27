@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -23,10 +24,10 @@ struct Packet : details::CppWrap<a0_packet_t> {
   /// ...
   Packet(string_view payload, tag_ref_t);
   /// Creates a new packet with the given headers and the given payload.
-  Packet(std::vector<std::pair<std::string, std::string>> headers,
+  Packet(std::unordered_multimap<std::string, std::string> headers,
          std::string payload);
   /// ...
-  Packet(std::vector<std::pair<std::string, std::string>> headers,
+  Packet(std::unordered_multimap<std::string, std::string> headers,
          string_view payload, tag_ref_t);
 
   Packet(a0_packet_t, std::function<void(a0_packet_t*)> deleter);
@@ -34,7 +35,7 @@ struct Packet : details::CppWrap<a0_packet_t> {
   /// Packet unique identifier.
   string_view id() const;
   /// Packet headers.
-  const std::vector<std::pair<std::string, std::string>>& headers() const;
+  const std::unordered_multimap<std::string, std::string>& headers() const;
   /// Packet payload.
   string_view payload() const;
 };

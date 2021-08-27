@@ -1,6 +1,7 @@
 #ifndef A0_SRC_TRANSPORT_DEBUG_H
 #define A0_SRC_TRANSPORT_DEBUG_H
 
+#include <a0/buf.h>
 #include <a0/transport.h>
 
 #ifdef __cplusplus

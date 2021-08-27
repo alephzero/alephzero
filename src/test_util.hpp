@@ -20,6 +20,7 @@
 #include <mutex>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -139,14 +140,28 @@ inline a0_packet_t unflatten(a0_flat_packet_t fpkt) {
   return out;
 }
 
-inline std::multimap<std::string, std::string> hdr(a0_packet_t pkt) {
-  std::multimap<std::string, std::string> result;
+inline std::unordered_multimap<std::string, std::string> hdr(a0_packet_t pkt) {
+  std::unordered_multimap<std::string, std::string> result;
 
   a0_packet_header_iterator_t iter;
   a0_packet_header_t hdr;
 
-  REQUIRE_OK(a0_packet_header_iterator_init(&iter, &pkt.headers_block));
+  REQUIRE_OK(a0_packet_header_iterator_init(&iter, &pkt));
   while (a0_packet_header_iterator_next(&iter, &hdr) == A0_OK) {
+    result.insert({std::string(hdr.key), std::string(hdr.val)});
+  }
+
+  return result;
+}
+
+inline std::unordered_multimap<std::string, std::string> hdr(a0_flat_packet_t fpkt) {
+  std::unordered_multimap<std::string, std::string> result;
+
+  a0_flat_packet_header_iterator_t iter;
+  a0_packet_header_t hdr;
+
+  REQUIRE_OK(a0_flat_packet_header_iterator_init(&iter, &fpkt));
+  while (a0_flat_packet_header_iterator_next(&iter, &hdr) == A0_OK) {
     result.insert({std::string(hdr.key), std::string(hdr.val)});
   }
 

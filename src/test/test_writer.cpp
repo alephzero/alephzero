@@ -53,7 +53,7 @@ struct WriterFixture {
       auto&& want_hdrs = want_pkts[i].first;
       auto&& want_payload = want_pkts[i].second;
       REQUIRE_OK(a0_transport_frame(lk, &frame));
-      a0_packet_t got_pkt = a0::test::unflatten(a0::test::buf(frame));
+      a0_packet_t got_pkt = a0::test::unflatten(a0_flat_packet_t{a0::test::buf(frame)});
       REQUIRE(got_pkt.headers_block.size == want_hdrs.size());
 
       for (size_t j = 0; j < got_pkt.headers_block.size; j++) {

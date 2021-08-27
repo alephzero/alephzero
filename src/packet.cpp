@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -22,13 +23,13 @@ namespace a0 {
 namespace {
 
 struct PacketImpl {
-  std::vector<std::pair<std::string, std::string>> cpp_hdrs;
+  std::unordered_multimap<std::string, std::string> cpp_hdrs;
   std::vector<a0_packet_header_t> c_hdrs;
 };
 
 std::shared_ptr<a0_packet_t> make_cpp_packet(
     string_view id,
-    std::vector<std::pair<std::string, std::string>> hdrs,
+    std::unordered_multimap<std::string, std::string> hdrs,
     string_view payload_view,
     std::function<void(a0_packet_t*)> deleter) {
   std::shared_ptr<a0_packet_t> c;
@@ -52,10 +53,10 @@ std::shared_ptr<a0_packet_t> make_cpp_packet(
 
         impl->cpp_hdrs = std::move(hdrs);
 
-        for (size_t i = 0; i < impl->cpp_hdrs.size(); i++) {
+        for (const auto& elem : impl->cpp_hdrs) {
           impl->c_hdrs.push_back(a0_packet_header_t{
-              .key = impl->cpp_hdrs[i].first.c_str(),
-              .val = impl->cpp_hdrs[i].second.c_str(),
+              .key = elem.first.c_str(),
+              .val = elem.second.c_str(),
           });
         }
 
@@ -87,7 +88,7 @@ Packet::Packet()
 Packet::Packet(std::string payload)
     : Packet({}, std::move(payload)) {}
 
-Packet::Packet(std::vector<std::pair<std::string, std::string>> headers,
+Packet::Packet(std::unordered_multimap<std::string, std::string> headers,
                std::string payload) {
   auto owned_payload = std::make_shared<std::string>(std::move(payload));
   c = make_cpp_packet(
@@ -100,7 +101,7 @@ Packet::Packet(std::vector<std::pair<std::string, std::string>> headers,
 Packet::Packet(string_view payload, tag_ref_t ref)
     : Packet({}, std::move(payload), ref) {}
 
-Packet::Packet(std::vector<std::pair<std::string, std::string>> headers,
+Packet::Packet(std::unordered_multimap<std::string, std::string> headers,
                string_view payload, tag_ref_t) {
   c = make_cpp_packet(
       std::string{},
@@ -110,13 +111,13 @@ Packet::Packet(std::vector<std::pair<std::string, std::string>> headers,
 }
 
 Packet::Packet(a0_packet_t pkt, std::function<void(a0_packet_t*)> deleter) {
-  std::vector<std::pair<std::string, std::string>> hdrs;
+  std::unordered_multimap<std::string, std::string> hdrs;
 
   a0_packet_header_iterator_t iter;
-  a0_packet_header_iterator_init(&iter, &pkt.headers_block);
+  a0_packet_header_iterator_init(&iter, &pkt);
   a0_packet_header_t hdr;
   while (!a0_packet_header_iterator_next(&iter, &hdr)) {
-    hdrs.push_back({hdr.key, hdr.val});
+    hdrs.insert({hdr.key, hdr.val});
   }
 
   c = make_cpp_packet(
@@ -131,7 +132,7 @@ string_view Packet::id() const {
   return c->id;
 }
 
-const std::vector<std::pair<std::string, std::string>>& Packet::headers() const {
+const std::unordered_multimap<std::string, std::string>& Packet::headers() const {
   CHECK_C;
   auto* impl = c_impl<PacketImpl>(&c);
   return impl->cpp_hdrs;

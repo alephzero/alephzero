@@ -155,6 +155,7 @@ a0_middleware_t a0_add_writer_seq_header() {
   return middleware;
 }
 
+A0_STATIC_INLINE
 errno_t a0_add_transport_seq_header_process_locked(void* data, a0_locked_transport_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
   A0_MAYBE_UNUSED(data);
 

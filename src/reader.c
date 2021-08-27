@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include "err_macro.h"
+#include "tid.h"
 
 #ifdef DEBUG
 #include "assert.h"
@@ -131,9 +132,11 @@ errno_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
   a0_transport_frame_t frame;
   a0_transport_frame(tlk, &frame);
 
-  a0_flat_packet_t flat_packet = (a0_buf_t){
-      .ptr = frame.data,
-      .size = frame.hdr.data_size,
+  a0_flat_packet_t flat_packet = {
+      .buf = {
+          .ptr = frame.data,
+          .size = frame.hdr.data_size,
+      },
   };
 
   cb.fn(cb.user_data, tlk, flat_packet);
@@ -204,9 +207,11 @@ void a0_reader_zc_thread_handle_pkt(a0_reader_zc_t* reader_zc, a0_locked_transpo
   a0_transport_frame_t frame;
   a0_transport_frame(tlk, &frame);
 
-  a0_flat_packet_t fpkt = (a0_buf_t){
-      .ptr = frame.data,
-      .size = frame.hdr.data_size,
+  a0_flat_packet_t fpkt = {
+      .buf = {
+        .ptr = frame.data,
+        .size = frame.hdr.data_size,
+      },
   };
 
   reader_zc->_onpacket.fn(reader_zc->_onpacket.user_data, tlk, fpkt);
@@ -259,7 +264,7 @@ A0_STATIC_INLINE
 void* a0_reader_zc_thread_main(void* data) {
   a0_reader_zc_t* reader_zc = (a0_reader_zc_t*)data;
   // Alert that the thread has started.
-  reader_zc->_thread_id = syscall(SYS_gettid);
+  reader_zc->_thread_id = a0_tid();
   a0_event_set(&reader_zc->_thread_start_event);
 
   // Lock until shutdown.
@@ -452,7 +457,7 @@ errno_t a0_reader_read_one(a0_arena_t arena,
                            a0_reader_init_t init,
                            int flags,
                            a0_packet_t* out) {
-  if (flags & O_NDELAY || flags & O_NONBLOCK) {
+  if (flags & O_NONBLOCK) {
     return a0_reader_read_one_nonblocking(arena, alloc, init, out);
   }
   return a0_reader_read_one_blocking(arena, alloc, init, out);

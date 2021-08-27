@@ -20,15 +20,15 @@
 #include "clock.h"
 #include "empty.h"
 #include "err_macro.h"
-#include "protocol_util.h"
+#include "topic.h"
 
 A0_STATIC_INLINE
-errno_t _a0_heartbeat_open_topic(a0_heartbeat_topic_t topic, a0_file_t* file) {
+errno_t _a0_heartbeat_topic_open(a0_heartbeat_topic_t topic, a0_file_t* file) {
   const char* template = getenv("A0_HEARTBEAT_TOPIC_TEMPLATE");
   if (!template) {
     template = "alephzero/{topic}.heartbeat.a0";
   }
-  return a0_open_topic(template, topic.name, topic.file_opts, file);
+  return a0_topic_open(template, topic.name, topic.file_opts, file);
 }
 
 const a0_heartbeat_options_t A0_HEARTBEAT_OPTIONS_DEFAULT = {
@@ -64,7 +64,7 @@ errno_t a0_heartbeat_init(a0_heartbeat_t* h,
     h->_opts = *opts;
   }
 
-  A0_RETURN_ERR_ON_ERR(_a0_heartbeat_open_topic(topic, &h->_file));
+  A0_RETURN_ERR_ON_ERR(_a0_heartbeat_topic_open(topic, &h->_file));
 
   errno_t err = a0_writer_init(&h->_simple_writer, h->_file.arena);
   if (err) {
@@ -172,8 +172,10 @@ void* a0_heartbeat_listener_thread_main(void* data) {
 
     // It's faster not to copy the packet out.
     a0_flat_packet_t fpkt = {
-        .ptr = frame.data,
-        .size = frame.hdr.data_size,
+        .buf = {
+            .ptr = frame.data,
+            .size = frame.hdr.data_size,
+        },
     };
 
     // TODO(lshamis): remove this system call from the critical section.
@@ -207,7 +209,7 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
   hl->ondetected = ondetected;
   hl->onmissed = onmissed;
 
-  A0_RETURN_ERR_ON_ERR(_a0_heartbeat_open_topic(topic, &hl->_file));
+  A0_RETURN_ERR_ON_ERR(_a0_heartbeat_topic_open(topic, &hl->_file));
 
   errno_t err = a0_transport_init(&hl->_transport, hl->_file.arena);
   if (err) {
