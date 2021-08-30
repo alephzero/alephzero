@@ -6,7 +6,6 @@
 #include <doctest.h>
 #include <stddef.h>
 
-#include <condition_variable>
 #include <map>
 #include <mutex>
 #include <string>
@@ -34,9 +33,8 @@ struct LogFixture {
 TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
   struct data_t {
     std::map<std::string, size_t> cnt;
-    size_t total_cnt;
     std::mutex mu;
-    std::condition_variable cv;
+    a0::test::Latch latch{8};
   } data{};
 
   a0_packet_callback_t onmsg = {
@@ -50,9 +48,8 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
             auto range = hdr.equal_range("a0_log_level");
             for (auto it = range.first; it != range.second; ++it) {
               data->cnt[it->second]++;
-              data->total_cnt++;
+              data->latch.count_down();
             }
-            data->cv.notify_all();
           },
   };
 
@@ -76,22 +73,16 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
 
   REQUIRE_OK(a0_logger_close(&logger));
 
-  {
-    std::unique_lock<std::mutex> lk{data.mu};
-    data.cv.wait(lk, [&]() {
-      return data.total_cnt == 8;
-    });
-    REQUIRE(data.cnt == std::map<std::string, size_t>{{"CRIT", 2}, {"ERR", 2}, {"WARN", 2}, {"INFO", 2}});
-  }
+  data.latch.wait();
+  REQUIRE(data.cnt == std::map<std::string, size_t>{{"CRIT", 2}, {"ERR", 2}, {"WARN", 2}, {"INFO", 2}});
 
   REQUIRE_OK(a0_log_listener_close(&log_list));
 }
 
 TEST_CASE_FIXTURE(LogFixture, "logger] cpp basic") {
   std::map<std::string, size_t> cnt;
-  size_t total_cnt = 0;
   std::mutex mu;
-  std::condition_variable cv;
+  a0::test::Latch latch{8};
 
   a0::LogListener log_listener("topic", a0::LogLevel::INFO, [&](a0::Packet pkt) {
     std::unique_lock<std::mutex> lk{mu};
@@ -99,11 +90,9 @@ TEST_CASE_FIXTURE(LogFixture, "logger] cpp basic") {
     for (const auto& hdr : pkt.headers()) {
       if (hdr.first == "a0_log_level") {
         cnt[hdr.second]++;
-        total_cnt++;
+        latch.count_down();
       }
     }
-
-    cv.notify_one();
   });
 
   a0::Logger logger("topic");
@@ -120,11 +109,6 @@ TEST_CASE_FIXTURE(LogFixture, "logger] cpp basic") {
   logger.log(a0::LogLevel::INFO, "info");
   logger.log(a0::LogLevel::DBG, "dbg");
 
-  {
-    std::unique_lock<std::mutex> lk{mu};
-    cv.wait(lk, [&]() {
-      return total_cnt == 8;
-    });
-    REQUIRE(cnt == std::map<std::string, size_t>{{"CRIT", 2}, {"ERR", 2}, {"WARN", 2}, {"INFO", 2}});
-  }
+  latch.wait();
+  REQUIRE(cnt == std::map<std::string, size_t>{{"CRIT", 2}, {"ERR", 2}, {"WARN", 2}, {"INFO", 2}});
 }

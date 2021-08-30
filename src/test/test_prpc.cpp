@@ -8,7 +8,6 @@
 
 #include <doctest.h>
 
-#include <condition_variable>
 #include <cstring>
 #include <functional>
 #include <mutex>
@@ -36,10 +35,8 @@ struct PrpcFixture {
 
 TEST_CASE_FIXTURE(PrpcFixture, "prpc] basic") {
   struct data_t {
-    size_t msg_cnt;
-    size_t done_cnt;
-    std::mutex mu;
-    std::condition_variable cv;
+    a0::test::Latch msg_latch{5};
+    a0::test::Latch done_latch{1};
   } data{};
 
   a0_prpc_connection_callback_t onconnect = {
@@ -67,23 +64,17 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] basic") {
       .fn =
           [](void* user_data, a0_packet_t, bool done) {
             auto* data = (data_t*)user_data;
-            std::unique_lock<std::mutex> lk{data->mu};
-            data->msg_cnt++;
+            data->msg_latch.count_down();
             if (done) {
-              data->done_cnt++;
+              data->done_latch.count_down();
             }
-            data->cv.notify_all();
           },
   };
 
   REQUIRE_OK(a0_prpc_client_connect(&client, a0::test::pkt("connect"), onmsg));
 
-  {
-    std::unique_lock<std::mutex> lk{data.mu};
-    data.cv.wait(lk, [&]() {
-      return data.msg_cnt >= 5 && data.done_cnt >= 1;
-    });
-  }
+  data.msg_latch.wait();
+  data.done_latch.wait();
 
   REQUIRE_OK(a0_prpc_client_close(&client));
   REQUIRE_OK(a0_prpc_server_close(&server));
@@ -91,10 +82,8 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] basic") {
 
 TEST_CASE_FIXTURE(PrpcFixture, "prpc] cpp basic") {
   struct data_t {
-    size_t msg_cnt;
-    size_t done_cnt;
-    std::mutex mu;
-    std::condition_variable cv;
+    a0::test::Latch msg_latch{5};
+    a0::test::Latch done_latch{1};
   } data{};
 
   auto onconnect = [&](a0::PrpcConnection conn) {
@@ -111,28 +100,20 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] cpp basic") {
   a0::PrpcClient client("test");
 
   client.connect("connect", [&](a0::Packet, bool done) {
-    std::unique_lock<std::mutex> lk{data.mu};
-    data.msg_cnt++;
+    data.msg_latch.count_down();
     if (done) {
-      data.done_cnt++;
+      data.done_latch.count_down();
     }
-    data.cv.notify_all();
   });
 
-  {
-    std::unique_lock<std::mutex> lk{data.mu};
-    data.cv.wait(lk, [&]() {
-      return data.msg_cnt >= 5 && data.done_cnt >= 1;
-    });
-  }
+  data.msg_latch.wait();
+  data.done_latch.wait();
 }
 
 TEST_CASE_FIXTURE(PrpcFixture, "prpc] cancel") {
   struct data_t {
-    size_t msg_cnt;
-    size_t cancel_cnt;
-    std::mutex mu;
-    std::condition_variable cv;
+    a0::test::Latch msg_latch{1};
+    a0::test::Latch cancel_latch{1};
   } data{};
 
   a0_prpc_connection_callback_t onconnect = {
@@ -150,9 +131,7 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] cancel") {
       .fn =
           [](void* user_data, a0_uuid_t) {
             auto* data = (data_t*)user_data;
-            std::unique_lock<std::mutex> lk{data->mu};
-            data->cancel_cnt++;
-            data->cv.notify_all();
+            data->cancel_latch.count_down();
           },
   };
 
@@ -167,30 +146,18 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] cancel") {
       .fn =
           [](void* user_data, a0_packet_t, bool) {
             auto* data = (data_t*)user_data;
-            std::unique_lock<std::mutex> lk{data->mu};
-            data->msg_cnt++;
-            data->cv.notify_all();
+            data->msg_latch.count_down();
           },
   };
 
   auto conn = a0::test::pkt("connect");
   REQUIRE_OK(a0_prpc_client_connect(&client, conn, onmsg));
 
-  {
-    std::unique_lock<std::mutex> lk{data.mu};
-    data.cv.wait(lk, [&]() {
-      return data.msg_cnt >= 1;
-    });
-  }
+  data.msg_latch.wait();
 
   a0_prpc_client_cancel(&client, conn.id);
 
-  {
-    std::unique_lock<std::mutex> lk{data.mu};
-    data.cv.wait(lk, [&]() {
-      return data.cancel_cnt >= 1;
-    });
-  }
+  data.cancel_latch.wait();
 
   REQUIRE_OK(a0_prpc_client_close(&client));
   REQUIRE_OK(a0_prpc_server_close(&server));

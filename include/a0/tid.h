@@ -1,5 +1,5 @@
-#ifndef A0_SRC_TID_H
-#define A0_SRC_TID_H
+#ifndef A0_TID_H
+#define A0_TID_H
 
 #include <stdint.h>
 
@@ -13,4 +13,4 @@ uint32_t a0_tid();
 }
 #endif
 
-#endif  // A0_SRC_TID_H
+#endif  // A0_TID_H

@@ -1,3 +1,4 @@
+#include <a0/event.h>
 #include <a0/time.h>
 
 #include <errno.h>
@@ -6,12 +7,6 @@
 #include <time.h>
 
 #include "clock.h"
-
-typedef struct a0_event_s {
-  pthread_mutex_t _mu;
-  pthread_cond_t _cv;
-  bool _is_set;
-} a0_event_t;
 
 void a0_event_init(a0_event_t* evt) {
   pthread_mutex_init(&evt->_mu, NULL);

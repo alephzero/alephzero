@@ -6,6 +6,7 @@
 #include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
+#include <a0/tid.h>
 #include <a0/transport.h>
 #include <a0/unused.h>
 
@@ -18,7 +19,6 @@
 #include <unistd.h>
 
 #include "err_macro.h"
-#include "tid.h"
 
 #ifdef DEBUG
 #include "assert.h"

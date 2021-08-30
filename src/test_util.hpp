@@ -10,6 +10,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <condition_variable>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
@@ -180,6 +181,61 @@ inline pkt_cmp_t pkt_cmp(a0_packet_t lhs, a0_packet_t rhs) {
   ret.full_match = ret.content_match && (memcmp(lhs.id, rhs.id, sizeof(a0_uuid_t)) == 0);
   return ret;
 }
+
+class Latch {
+  int32_t val;
+  std::mutex mu;
+  std::condition_variable cv;
+
+ public:
+  explicit Latch(int32_t init_val)
+      : val{init_val} {}
+
+  void count_down(int32_t update = 1) {
+    std::unique_lock<std::mutex> lk{mu};
+    val -= update;
+    if (val <= 0) {
+      cv.notify_all();
+    }
+  }
+
+  void wait() {
+    std::unique_lock<std::mutex> lk{mu};
+    cv.wait(lk, [&]() { return val <= 0; });
+  }
+
+  void arrive_and_wait(int32_t update = 1) {
+    std::unique_lock<std::mutex> lk{mu};
+    val -= update;
+    if (val <= 0) {
+      cv.notify_all();
+    }
+    cv.wait(lk, [&]() { return val <= 0; });
+  }
+};
+
+class Event {
+  bool val;
+  std::mutex mu;
+  std::condition_variable cv;
+
+ public:
+  bool is_set() {
+    std::unique_lock<std::mutex> lk{mu};
+    return val;
+  }
+
+  void set() {
+    std::unique_lock<std::mutex> lk{mu};
+    val = true;
+    cv.notify_all();
+  }
+
+  void wait() {
+    std::unique_lock<std::mutex> lk{mu};
+    cv.wait(lk, [&]() { return val; });
+  }
+};
 
 inline bool is_valgrind() {
 #ifdef RUNNING_ON_VALGRIND

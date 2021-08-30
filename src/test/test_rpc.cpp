@@ -9,7 +9,6 @@
 #include <doctest.h>
 
 #include <chrono>
-#include <condition_variable>
 #include <cstring>
 #include <functional>
 #include <mutex>
@@ -37,10 +36,8 @@ struct RpcFixture {
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
   struct data_t {
-    size_t reply_cnt;
-    size_t cancel_cnt;
-    std::mutex mu;
-    std::condition_variable cv;
+    a0::test::Latch reply_latch{5};
+    a0::test::Latch cancel_latch{5};
   } data{};
 
   a0_rpc_request_callback_t onrequest = {
@@ -58,9 +55,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
       .fn =
           [](void* user_data, a0_uuid_t) {
             auto* data = (data_t*)user_data;
-            std::unique_lock<std::mutex> lk{data->mu};
-            data->cancel_cnt++;
-            data->cv.notify_all();
+            data->cancel_latch.count_down();
           },
   };
 
@@ -75,9 +70,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
       .fn =
           [](void* user_data, a0_packet_t) {
             auto* data = (data_t*)user_data;
-            std::unique_lock<std::mutex> lk{data->mu};
-            data->reply_cnt++;
-            data->cv.notify_all();
+            data->reply_latch.count_down();
           },
   };
 
@@ -91,24 +84,16 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
     REQUIRE_OK(a0_rpc_client_cancel(&client, req.id));
   }
 
-  {
-    std::unique_lock<std::mutex> lk{data.mu};
-    data.cv.wait(lk, [&]() {
-      return data.reply_cnt >= 5 && data.cancel_cnt >= 5;
-    });
-  }
+  data.reply_latch.wait();
+  data.cancel_latch.wait();
 
   REQUIRE_OK(a0_rpc_client_close(&client));
   REQUIRE_OK(a0_rpc_server_close(&server));
 }
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
-  struct data_t {
-    size_t reply_cnt;
-    size_t cancel_cnt;
-    std::mutex mu;
-    std::condition_variable cv;
-  } data{};
+  a0::test::Latch reply_latch{5};
+  a0::test::Latch cancel_latch{5};
 
   auto onrequest = [&](a0::RpcRequest req) {
     if (req.pkt().payload() == "reply") {
@@ -117,9 +102,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
   };
 
   auto oncancel = [&](a0::string_view) {
-    std::unique_lock<std::mutex> lk{data.mu};
-    data.cancel_cnt++;
-    data.cv.notify_all();
+    cancel_latch.count_down();
   };
 
   a0::RpcServer server("test", onrequest, oncancel);
@@ -127,9 +110,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
   a0::RpcClient client("test");
 
   auto onreply = [&](a0::Packet) {
-    std::unique_lock<std::mutex> lk{data.mu};
-    data.reply_cnt++;
-    data.cv.notify_all();
+    reply_latch.count_down();
   };
 
   for (int i = 0; i < 5; i++) {
@@ -142,12 +123,8 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
     client.cancel(req.id());
   }
 
-  {
-    std::unique_lock<std::mutex> lk{data.mu};
-    data.cv.wait(lk, [&]() {
-      return data.reply_cnt >= 5 && data.cancel_cnt >= 5;
-    });
-  }
+  reply_latch.wait();
+  cancel_latch.wait();
 }
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] empty oncancel onreply") {

@@ -1,4 +1,5 @@
 #include <a0/inline.h>
+#include <a0/tid.h>
 
 #include <pthread.h>
 #include <stddef.h>
@@ -6,8 +7,6 @@
 #include <syscall.h>
 #include <threads.h>
 #include <unistd.h>
-
-#include "tid.h"
 
 thread_local uint32_t _a0_tid = 0;
 static pthread_once_t _a0_tid_reset_atfork_once;

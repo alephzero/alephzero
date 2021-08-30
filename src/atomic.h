@@ -9,7 +9,8 @@ extern "C" {
 
 A0_STATIC_INLINE
 void a0_barrier() {
-  __atomic_thread_fence(__ATOMIC_SEQ_CST);
+  // 'atomic_thread_fence' is not supported with ‘-fsanitize=thread’
+  __sync_synchronize();
 }
 
 #define a0_atomic_fetch_add(P, V) __atomic_fetch_add((P), (V), __ATOMIC_RELAXED)

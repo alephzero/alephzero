@@ -39,6 +39,12 @@ ifneq ($(DEBUG), 1)
 	DEBUG = $(if $(REQUIRE_DEBUG),1,0)
 endif
 
+A0_CXX_CONFIG_USE_NLOHMANN ?= 1
+ifeq ($(A0_CXX_CONFIG_USE_NLOHMANN), 1)
+	CXXFLAGS += -DA0_CXX_CONFIG_USE_NLOHMANN
+	CXXFLAGS += -Ithird_party/json/single_include
+endif
+
 cov: CXFLAGS += -fprofile-arcs -ftest-coverage --coverage
 cov: LDFLAGS += -lgcov
 
