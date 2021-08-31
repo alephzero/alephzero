@@ -1,7 +1,7 @@
 #pragma once
 
-#include <a0/c_wrap.hpp>
 #include <a0/arena.hpp>
+#include <a0/c_wrap.hpp>
 #include <a0/time.hpp>
 #include <a0/transport.h>
 

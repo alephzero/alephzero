@@ -16,8 +16,8 @@
 #include <a0/arena.h>
 #include <a0/err.h>
 #include <a0/inline.h>
-#include <a0/packet.h>
 #include <a0/middleware.h>
+#include <a0/packet.h>
 
 #ifdef __cplusplus
 extern "C" {

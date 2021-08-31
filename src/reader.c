@@ -207,8 +207,8 @@ void a0_reader_zc_thread_handle_pkt(a0_reader_zc_t* reader_zc, a0_transport_lock
 
   a0_flat_packet_t fpkt = {
       .buf = {
-        .ptr = frame.data,
-        .size = frame.hdr.data_size,
+          .ptr = frame.data,
+          .size = frame.hdr.data_size,
       },
   };
 

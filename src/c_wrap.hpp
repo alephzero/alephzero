@@ -44,9 +44,9 @@ void set_c_impl(std::shared_ptr<C>* c, InitFn&& init, Closer&& closer) {
   check(init(unique_c.get(), unique_impl.get()));
 
   *c = std::shared_ptr<C>(unique_c.release(), CDeleter<C, Impl>{
-      std::move(unique_impl),
-      [closer](C* c, Impl* impl) { closer(c, impl); },
-  });
+                                                  std::move(unique_impl),
+                                                  [closer](C* c, Impl* impl) { closer(c, impl); },
+                                              });
 }
 
 template <typename Impl, typename C, typename InitFn>
@@ -119,11 +119,11 @@ template <typename CPP>
 CPP cpp_wrap(typename CPP::c_type c) {
   using c_type = typename CPP::c_type;
   return make_cpp<CPP>(
-    [&](c_type* c_) {
-      *c_ = c;
-      return A0_OK;
-    },
-    [](c_type*) {});
+      [&](c_type* c_) {
+        *c_ = c;
+        return A0_OK;
+      },
+      [](c_type*) {});
 }
 
 template <typename T>
@@ -148,19 +148,19 @@ void check(const std::string& fn_name, const details::CppWrap<T>* cpp_obj) {
 
 template <typename T>
 const T& as_const(T& t) noexcept {
-    return t;
+  return t;
 }
 template <typename T>
 const T* as_const(T* t) noexcept {
-    return t;
+  return t;
 }
 template <typename T>
 T& as_mutable(const T& t) noexcept {
-    return const_cast<T&>(t);
+  return const_cast<T&>(t);
 }
-template<typename T>
+template <typename T>
 T* as_mutable(const T* t) noexcept {
-    return const_cast<T*>(t);
+  return const_cast<T*>(t);
 }
 
 template <typename T>

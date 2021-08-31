@@ -20,8 +20,8 @@
 #include <utility>
 #include <vector>
 
-#include "src/test_util.hpp"
 #include "src/c_wrap.hpp"
+#include "src/test_util.hpp"
 
 struct WriterFixture {
   std::vector<uint8_t> arena_data;
@@ -409,13 +409,16 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] cpp") {
 
   require_transport_state(
       {{
-           {}, "msg #0",
+           {},
+           "msg #0",
        },
        {
-           {}, "msg #1",
+           {},
+           "msg #1",
        },
        {
-           {}, "msg #1",
+           {},
+           "msg #1",
        },
        {
            {{"key", "val"}},

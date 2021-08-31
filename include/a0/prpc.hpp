@@ -21,9 +21,10 @@ struct PrpcTopic {
   PrpcTopic(
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
-    : name{std::move(name)}, file_opts{std::move(file_opts)} {}
+      : name{std::move(name)}, file_opts{std::move(file_opts)} {}
 
-  PrpcTopic(const char* name) : PrpcTopic(std::string(name)) {}
+  PrpcTopic(const char* name)
+      : PrpcTopic(std::string(name)) {}
 };
 
 struct PrpcServer;

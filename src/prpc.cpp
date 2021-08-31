@@ -8,10 +8,6 @@
 #include <a0/string_view.hpp>
 #include <a0/uuid.h>
 
-#include "c_wrap.hpp"
-#include "empty.h"
-#include "file_opts.hpp"
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -22,6 +18,10 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include "c_wrap.hpp"
+#include "empty.h"
+#include "file_opts.hpp"
 
 namespace a0 {
 
@@ -60,9 +60,9 @@ struct PrpcServerImpl {
 }  // namespace
 
 PrpcServer::PrpcServer(
-      PrpcTopic topic,
-      std::function<void(PrpcConnection)> onconnect,
-      std::function<void(string_view /* id */)> oncancel) {
+    PrpcTopic topic,
+    std::function<void(PrpcConnection)> onconnect,
+    std::function<void(string_view /* id */)> oncancel) {
   set_c_impl<PrpcServerImpl>(
       &c,
       [&](a0_prpc_server_t* c, PrpcServerImpl* impl) {
@@ -86,26 +86,24 @@ PrpcServer::PrpcServer(
         a0_prpc_connection_callback_t c_onconnect = {
             .user_data = impl,
             .fn = [](void* user_data, a0_prpc_connection_t conn) {
-                auto* impl = (PrpcServerImpl*)user_data;
+              auto* impl = (PrpcServerImpl*)user_data;
 
-                PrpcConnection cpp_conn = make_cpp_impl<PrpcConnection, PrpcServerRequestImpl>(
-                    [&](a0_prpc_connection_t* c_conn, PrpcServerRequestImpl* conn_impl) {
-                      std::swap(impl->data, conn_impl->data);
-                      *c_conn = conn;
-                      return A0_OK;
-                    });
+              PrpcConnection cpp_conn = make_cpp_impl<PrpcConnection, PrpcServerRequestImpl>(
+                  [&](a0_prpc_connection_t* c_conn, PrpcServerRequestImpl* conn_impl) {
+                    std::swap(impl->data, conn_impl->data);
+                    *c_conn = conn;
+                    return A0_OK;
+                  });
 
-                impl->onconnect(cpp_conn);
-            }
-        };
+              impl->onconnect(cpp_conn);
+            }};
 
         a0_packet_id_callback_t c_oncancel = {
             .user_data = impl,
             .fn = [](void* user_data, a0_uuid_t id) {
-                auto* impl = (PrpcServerImpl*)user_data;
-                impl->oncancel(id);
-            }
-        };
+              auto* impl = (PrpcServerImpl*)user_data;
+              impl->oncancel(id);
+            }};
 
         return a0_prpc_server_init(c, c_topic, alloc, c_onconnect, c_oncancel);
       },
@@ -126,7 +124,6 @@ struct PrpcClientImpl {
 }  // namespace
 
 PrpcClient::PrpcClient(PrpcTopic topic) {
-
   set_c_impl<PrpcClientImpl>(
       &c,
       [&](a0_prpc_client_t* c, PrpcClientImpl* impl) {
@@ -136,10 +133,10 @@ PrpcClient::PrpcClient(PrpcTopic topic) {
         a0_alloc_t alloc = {
             .user_data = impl,
             .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-                auto* impl = (PrpcClientImpl*)user_data;
-                impl->data.resize(size);
-                *out = {impl->data.data(), size};
-                return A0_OK;
+              auto* impl = (PrpcClientImpl*)user_data;
+              impl->data.resize(size);
+              *out = {impl->data.data(), size};
+              return A0_OK;
             },
             .dealloc = nullptr,
         };
@@ -165,27 +162,27 @@ void PrpcClient::connect(Packet pkt, std::function<void(Packet, bool /* done */)
     c_onprogress = {
         .user_data = impl,
         .fn = [](void* user_data, a0_packet_t prog, bool done) {
-            auto* impl = (PrpcClientImpl*)user_data;
+          auto* impl = (PrpcClientImpl*)user_data;
 
-            a0_packet_header_t conn_id_hdr;
+          a0_packet_header_t conn_id_hdr;
 
-            a0_packet_header_iterator_t hdr_iter;
-            a0_packet_header_iterator_init(&hdr_iter, &prog);
-            if (a0_packet_header_iterator_next_match(&hdr_iter, "a0_conn_id", &conn_id_hdr)) {
-              return;
+          a0_packet_header_iterator_t hdr_iter;
+          a0_packet_header_iterator_init(&hdr_iter, &prog);
+          if (a0_packet_header_iterator_next_match(&hdr_iter, "a0_conn_id", &conn_id_hdr)) {
+            return;
+          }
+
+          std::function<void(Packet, bool)> onprogress;
+          {
+            std::unique_lock<std::mutex> lk{impl->user_onprogress_mu};
+            auto iter = impl->user_onprogress.find(conn_id_hdr.val);
+            onprogress = iter->second;
+            if (done) {
+              impl->user_onprogress.erase(iter);
             }
+          }
 
-            std::function<void(Packet, bool)> onprogress;
-            {
-              std::unique_lock<std::mutex> lk{impl->user_onprogress_mu};
-              auto iter = impl->user_onprogress.find(conn_id_hdr.val);
-              onprogress = iter->second;
-              if (done) {
-                impl->user_onprogress.erase(iter);
-              }
-            }
-
-            onprogress(Packet(prog, nullptr), done);
+          onprogress(Packet(prog, nullptr), done);
         },
     };
   }

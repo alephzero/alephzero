@@ -21,9 +21,10 @@ struct RpcTopic {
   RpcTopic(
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
-    : name{std::move(name)}, file_opts{std::move(file_opts)} {}
+      : name{std::move(name)}, file_opts{std::move(file_opts)} {}
 
-  RpcTopic(const char* name) : RpcTopic(std::string(name)) {}
+  RpcTopic(const char* name)
+      : RpcTopic(std::string(name)) {}
 };
 
 struct RpcServer;

@@ -31,9 +31,10 @@ struct ConfigTopic {
   ConfigTopic(
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
-    : name{std::move(name)}, file_opts{std::move(file_opts)} {}
+      : name{std::move(name)}, file_opts{std::move(file_opts)} {}
 
-  ConfigTopic(const char* name) : ConfigTopic(std::string(name)) {}
+  ConfigTopic(const char* name)
+      : ConfigTopic(std::string(name)) {}
 };
 
 struct ConfigListener : details::CppWrap<a0_onconfig_t> {
@@ -89,7 +90,6 @@ void register_cfg(std::weak_ptr<cfg_cache>);
 
 }  // namespace details
 
-
 // Variable wrapper that gets values from alephzero configuration.
 //
 // cfg uses json pointers (https://tools.ietf.org/html/rfc6901) to
@@ -119,16 +119,15 @@ class cfg {
 
  public:
   cfg(ConfigTopic topic, std::string jptr)
-    : topic{std::move(topic)},
-      jptr(nlohmann::json::json_pointer(jptr)),
-      cache{std::make_shared<details::cfg_cache>()} {
+      : topic{std::move(topic)},
+        jptr(nlohmann::json::json_pointer(jptr)),
+        cache{std::make_shared<details::cfg_cache>()} {
     details::register_cfg(cache);
   }
 
   const T& operator*() const {
     std::unique_lock<std::mutex> lk{cache->mu};
     if (!cache->valid[a0_tid()]) {
-
       auto json_cfg = nlohmann::json::parse(config(topic).payload());
       json_cfg[jptr].get_to(value[a0_tid()]);
       cache->valid[a0_tid()] = true;

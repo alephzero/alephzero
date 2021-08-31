@@ -102,7 +102,8 @@ Packet::Packet(string_view payload, tag_ref_t ref)
     : Packet({}, std::move(payload), ref) {}
 
 Packet::Packet(std::unordered_multimap<std::string, std::string> headers,
-               string_view payload, tag_ref_t) {
+               string_view payload,
+               tag_ref_t) {
   c = make_cpp_packet(
       std::string{},
       std::move(headers),

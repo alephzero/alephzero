@@ -7,8 +7,8 @@
 
 #include <limits.h>
 #include <linux/futex.h>
-#include <syscall.h>
 #include <stdint.h>
+#include <syscall.h>
 #include <time.h>
 #include <unistd.h>
 

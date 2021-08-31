@@ -9,11 +9,10 @@
 #include <a0/transport.h>
 #include <a0/transport.hpp>
 
-#include <cstddef>
-#include <functional>
-
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -135,8 +134,8 @@ ReaderZeroCopy::ReaderZeroCopy(
         a0_zero_copy_callback_t c_cb = {
             .user_data = impl,
             .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
-                auto* impl = (ReaderZeroCopyImpl*)user_data;
-                impl->cb(cpp_wrap<TransportLocked>(tlk), cpp_wrap<FlatPacket>(fpkt));
+              auto* impl = (ReaderZeroCopyImpl*)user_data;
+              impl->cb(cpp_wrap<TransportLocked>(tlk), cpp_wrap<FlatPacket>(fpkt));
             },
         };
 
@@ -182,12 +181,11 @@ Reader::Reader(
         a0_packet_callback_t c_cb = {
             .user_data = impl,
             .fn = [](void* user_data, a0_packet_t pkt) {
-                auto* impl = (ReaderImpl*)user_data;
-                auto data = std::make_shared<std::vector<uint8_t>>();
-                std::swap(*data, impl->data);
-                impl->cb(Packet(pkt, [data](a0_packet_t*) {}));
-            }
-        };
+              auto* impl = (ReaderImpl*)user_data;
+              auto data = std::make_shared<std::vector<uint8_t>>();
+              std::swap(*data, impl->data);
+              impl->cb(Packet(pkt, [data](a0_packet_t*) {}));
+            }};
 
         return a0_reader_init(c, *arena.c, alloc, init, iter, c_cb);
       },

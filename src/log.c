@@ -2,8 +2,8 @@
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
-#include <a0/middleware.h>
 #include <a0/log.h>
+#include <a0/middleware.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
 #include <a0/writer.h>

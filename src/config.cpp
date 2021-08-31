@@ -72,12 +72,11 @@ ConfigListener::ConfigListener(
         a0_packet_callback_t c_onpacket = {
             .user_data = impl,
             .fn = [](void* user_data, a0_packet_t pkt) {
-                auto* impl = (ConfigListenerImpl*)user_data;
-                auto data = std::make_shared<std::vector<uint8_t>>();
-                std::swap(*data, impl->data);
-                impl->onpacket(Packet(pkt, [data](a0_packet_t*) {}));
-            }
-        };
+              auto* impl = (ConfigListenerImpl*)user_data;
+              auto data = std::make_shared<std::vector<uint8_t>>();
+              std::swap(*data, impl->data);
+              impl->onpacket(Packet(pkt, [data](a0_packet_t*) {}));
+            }};
 
         return a0_onconfig_init(c, c_topic, alloc, c_onpacket);
       },
@@ -86,13 +85,12 @@ ConfigListener::ConfigListener(
       });
 }
 
-
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
 
 ConfigListener::ConfigListener(
     ConfigTopic topic,
     std::function<void(nlohmann::json)> onjson)
-  : ConfigListener(std::move(topic), "/", std::move(onjson)) {}
+    : ConfigListener(std::move(topic), "/", std::move(onjson)) {}
 
 ConfigListener::ConfigListener(
     ConfigTopic topic,
@@ -121,14 +119,11 @@ ConfigListener::ConfigListener(
         a0_packet_callback_t c_onpacket = {
             .user_data = impl,
             .fn = [](void* user_data, a0_packet_t pkt) {
-                auto* impl = (ConfigListenerImpl*)user_data;
-                auto json = nlohmann::json::parse(
-                    // (const char*)pkt.payload.ptr
-                    string_view((const char*)pkt.payload.ptr, pkt.payload.size)
-                    );
-                impl->onjson(json[impl->jptr]);
-            }
-        };
+              auto* impl = (ConfigListenerImpl*)user_data;
+              auto json = nlohmann::json::parse(
+                  string_view((const char*)pkt.payload.ptr, pkt.payload.size));
+              impl->onjson(json[impl->jptr]);
+            }};
 
         return a0_onconfig_init(c, c_topic, alloc, c_onpacket);
       },

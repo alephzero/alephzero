@@ -123,12 +123,11 @@ Subscriber::Subscriber(
         a0_packet_callback_t c_onpacket = {
             .user_data = impl,
             .fn = [](void* user_data, a0_packet_t pkt) {
-                auto* impl = (SubscriberImpl*)user_data;
-                auto data = std::make_shared<std::vector<uint8_t>>();
-                std::swap(*data, impl->data);
-                impl->onpacket(Packet(pkt, [data](a0_packet_t*) {}));
-            }
-        };
+              auto* impl = (SubscriberImpl*)user_data;
+              auto data = std::make_shared<std::vector<uint8_t>>();
+              std::swap(*data, impl->data);
+              impl->onpacket(Packet(pkt, [data](a0_packet_t*) {}));
+            }};
 
         return a0_subscriber_init(c, c_topic, alloc, init, iter, c_onpacket);
       },

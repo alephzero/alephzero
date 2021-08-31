@@ -12,8 +12,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <syscall.h>
-#include <time.h>
 #include <threads.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "atomic.h"

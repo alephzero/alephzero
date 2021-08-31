@@ -21,5 +21,5 @@ a0_file_options_t c_fileopts(File::Options opts) {
   };
 }
 
-}
+}  // namespace
 }  // namespace a0

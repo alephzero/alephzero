@@ -1,8 +1,8 @@
 #pragma once
 
-#include <a0/log.h>
 #include <a0/c_wrap.hpp>
 #include <a0/file.hpp>
+#include <a0/log.h>
 #include <a0/packet.hpp>
 
 #include <string>
@@ -16,9 +16,10 @@ struct LogTopic {
   LogTopic(
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
-    : name{std::move(name)}, file_opts{std::move(file_opts)} {}
+      : name{std::move(name)}, file_opts{std::move(file_opts)} {}
 
-  LogTopic(const char* name) : LogTopic(std::string(name)) {}
+  LogTopic(const char* name)
+      : LogTopic(std::string(name)) {}
 };
 
 enum class LogLevel {

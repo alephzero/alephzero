@@ -1,10 +1,10 @@
 #include <a0/alloc.h>
 #include <a0/buf.h>
 #include <a0/err.h>
-#include <a0/packet.h>
-#include <a0/packet.hpp>
 #include <a0/log.h>
 #include <a0/log.hpp>
+#include <a0/packet.h>
+#include <a0/packet.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -96,12 +96,11 @@ LogListener::LogListener(
         a0_packet_callback_t c_onpacket = {
             .user_data = impl,
             .fn = [](void* user_data, a0_packet_t pkt) {
-                auto* impl = (LogListenerImpl*)user_data;
-                auto data = std::make_shared<std::vector<uint8_t>>();
-                std::swap(*data, impl->data);
-                impl->onpacket(Packet(pkt, [data](a0_packet_t*) {}));
-            }
-        };
+              auto* impl = (LogListenerImpl*)user_data;
+              auto data = std::make_shared<std::vector<uint8_t>>();
+              std::swap(*data, impl->data);
+              impl->onpacket(Packet(pkt, [data](a0_packet_t*) {}));
+            }};
 
         return a0_log_listener_init(c, c_topic, alloc, (a0_log_level_t)lvl, c_onpacket);
       },

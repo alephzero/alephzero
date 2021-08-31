@@ -13,7 +13,8 @@
 
 namespace a0 {
 
-static const struct tag_ref_t {} ref{};
+static const struct tag_ref_t {
+} ref{};
 
 /// Packet is immutable.
 struct Packet : details::CppWrap<a0_packet_t> {
@@ -28,7 +29,8 @@ struct Packet : details::CppWrap<a0_packet_t> {
          std::string payload);
   /// ...
   Packet(std::unordered_multimap<std::string, std::string> headers,
-         string_view payload, tag_ref_t);
+         string_view payload,
+         tag_ref_t);
 
   Packet(a0_packet_t, std::function<void(a0_packet_t*)> deleter);
 

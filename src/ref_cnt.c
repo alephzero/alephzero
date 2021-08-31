@@ -36,8 +36,8 @@ A0_STATIC_INLINE
 a0_counters_t* _global_counters() {
   static a0_counters_t counters = A0_EMPTY;
   a0_callback_t init_fn = {
-     .user_data = &counters,
-     .fn = _global_counters_init,
+      .user_data = &counters,
+      .fn = _global_counters_init,
   };
   a0_once(&counters.init_flag, init_fn);
   return &counters;

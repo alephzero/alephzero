@@ -61,9 +61,9 @@ struct RpcServerImpl {
 }  // namespace
 
 RpcServer::RpcServer(
-      RpcTopic topic,
-      std::function<void(RpcRequest)> onrequest,
-      std::function<void(string_view /* id */)> oncancel) {
+    RpcTopic topic,
+    std::function<void(RpcRequest)> onrequest,
+    std::function<void(string_view /* id */)> oncancel) {
   set_c_impl<RpcServerImpl>(
       &c,
       [&](a0_rpc_server_t* c, RpcServerImpl* impl) {
@@ -87,26 +87,24 @@ RpcServer::RpcServer(
         a0_rpc_request_callback_t c_onrequest = {
             .user_data = impl,
             .fn = [](void* user_data, a0_rpc_request_t req) {
-                auto* impl = (RpcServerImpl*)user_data;
+              auto* impl = (RpcServerImpl*)user_data;
 
-                RpcRequest cpp_req = make_cpp_impl<RpcRequest, RpcServerRequestImpl>(
-                    [&](a0_rpc_request_t* c_req, RpcServerRequestImpl* req_impl) {
-                      std::swap(impl->data, req_impl->data);
-                      *c_req = req;
-                      return A0_OK;
-                    });
+              RpcRequest cpp_req = make_cpp_impl<RpcRequest, RpcServerRequestImpl>(
+                  [&](a0_rpc_request_t* c_req, RpcServerRequestImpl* req_impl) {
+                    std::swap(impl->data, req_impl->data);
+                    *c_req = req;
+                    return A0_OK;
+                  });
 
-                impl->onrequest(cpp_req);
-            }
-        };
+              impl->onrequest(cpp_req);
+            }};
 
         a0_packet_id_callback_t c_oncancel = {
             .user_data = impl,
             .fn = [](void* user_data, a0_uuid_t id) {
-                auto* impl = (RpcServerImpl*)user_data;
-                impl->oncancel(id);
-            }
-        };
+              auto* impl = (RpcServerImpl*)user_data;
+              impl->oncancel(id);
+            }};
 
         return a0_rpc_server_init(c, c_topic, alloc, c_onrequest, c_oncancel);
       },
@@ -127,7 +125,6 @@ struct RpcClientImpl {
 }  // namespace
 
 RpcClient::RpcClient(RpcTopic topic) {
-
   set_c_impl<RpcClientImpl>(
       &c,
       [&](a0_rpc_client_t* c, RpcClientImpl* impl) {
@@ -137,10 +134,10 @@ RpcClient::RpcClient(RpcTopic topic) {
         a0_alloc_t alloc = {
             .user_data = impl,
             .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-                auto* impl = (RpcClientImpl*)user_data;
-                impl->data.resize(size);
-                *out = {impl->data.data(), size};
-                return A0_OK;
+              auto* impl = (RpcClientImpl*)user_data;
+              impl->data.resize(size);
+              *out = {impl->data.data(), size};
+              return A0_OK;
             },
             .dealloc = nullptr,
         };
@@ -166,25 +163,25 @@ void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply) {
     c_onreply = {
         .user_data = impl,
         .fn = [](void* user_data, a0_packet_t resp) {
-            auto* impl = (RpcClientImpl*)user_data;
+          auto* impl = (RpcClientImpl*)user_data;
 
-            a0_packet_header_t req_id_hdr;
+          a0_packet_header_t req_id_hdr;
 
-            a0_packet_header_iterator_t hdr_iter;
-            a0_packet_header_iterator_init(&hdr_iter, &resp);
-            if (a0_packet_header_iterator_next_match(&hdr_iter, "a0_req_id", &req_id_hdr)) {
-              return;
-            }
+          a0_packet_header_iterator_t hdr_iter;
+          a0_packet_header_iterator_init(&hdr_iter, &resp);
+          if (a0_packet_header_iterator_next_match(&hdr_iter, "a0_req_id", &req_id_hdr)) {
+            return;
+          }
 
-            std::function<void(Packet)> onreply;
-            {
-              std::unique_lock<std::mutex> lk{impl->user_onreply_mu};
-              auto iter = impl->user_onreply.find(req_id_hdr.val);
-              onreply = std::move(iter->second);
-              impl->user_onreply.erase(iter);
-            }
+          std::function<void(Packet)> onreply;
+          {
+            std::unique_lock<std::mutex> lk{impl->user_onreply_mu};
+            auto iter = impl->user_onreply.find(req_id_hdr.val);
+            onreply = std::move(iter->second);
+            impl->user_onreply.erase(iter);
+          }
 
-            onreply(Packet(resp, nullptr));
+          onreply(Packet(resp, nullptr));
         },
     };
   }

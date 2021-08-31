@@ -13,15 +13,15 @@ using string_view = std::string_view;
 #include <a0/inline.h>
 #include <a0/unused.h>
 
-#include <cstring>
 #include <algorithm>
-#include <string>
-#include <ostream>
 #include <cstddef>
-#include <memory>
-#include <stdexcept>
-#include <iterator>
+#include <cstring>
 #include <ios>
+#include <iterator>
+#include <memory>
+#include <ostream>
+#include <stdexcept>
+#include <string>
 
 namespace a0 {
 
@@ -30,17 +30,17 @@ class string_view {
   size_t size_;
 
  public:
-  using char_type   = char;
+  using char_type = char;
   using traits_type = std::char_traits<char>;
-  using size_type   = size_t;
+  using size_type = size_t;
 
-  using value_type      = char;
-  using reference       = char&;
+  using value_type = char;
+  using reference = char&;
   using const_reference = const char&;
-  using pointer         = char*;
-  using const_pointer   = const char*;
+  using pointer = char*;
+  using const_pointer = const char*;
 
-  using iterator       = const char*;
+  using iterator = const char*;
   using const_iterator = const char*;
   using reverse_iterator = std::reverse_iterator<const char*>;
   using const_reverse_iterator = std::reverse_iterator<const char*>;
@@ -49,12 +49,16 @@ class string_view {
 
   explicit operator std::string() const { return std::string(ptr_, size_); }
 
-  string_view() noexcept : ptr_{nullptr}, size_{0} {}
+  string_view() noexcept
+      : ptr_{nullptr}, size_{0} {}
   string_view(const string_view& other) noexcept = default;
-  string_view(const char* s, size_t count) noexcept : ptr_{s}, size_{count} {}
-  string_view(const char* s) noexcept : string_view(s, strlen(s)) {}
-  string_view(const std::string& str) noexcept : ptr_{str.c_str()}, size_{str.size()} {}
-  
+  string_view(const char* s, size_t count) noexcept
+      : ptr_{s}, size_{count} {}
+  string_view(const char* s) noexcept
+      : string_view(s, strlen(s)) {}
+  string_view(const std::string& str) noexcept
+      : ptr_{str.c_str()}, size_{str.size()} {}
+
   string_view& operator=(const string_view& view) = default;
 
   const_iterator begin() const noexcept { return ptr_; }
@@ -93,7 +97,7 @@ class string_view {
   }
 
   size_type copy(char_type* dest, size_type count, size_type pos = 0) const {
-    if(pos >= size_) {
+    if (pos >= size_) {
       throw std::out_of_range("string_view::copy out of range");
     }
     size_t rcount = std::min(size_ - pos, count + 1);
@@ -101,7 +105,7 @@ class string_view {
     return rcount;
   }
   string_view substr(size_type pos = 0, size_type len = npos) const {
-    if(pos >= size_) {
+    if (pos >= size_) {
       throw std::out_of_range("string_view::substr out of range");
     }
     return string_view(ptr_ + pos, std::min(len, size_ - pos));
@@ -170,9 +174,9 @@ class string_view {
     A0_MAYBE_UNUSED(pos);
     throw std::logic_error("a0::string_view::find_last_not_of not implemented yet");
   }
-  size_type find_last_not_of(char_type c, size_type pos = npos) const { return find_last_not_of(string_view(&c, 1), pos);}
-  size_type find_last_not_of(const char_type* s, size_type pos, size_type count) const { return find_last_not_of(string_view(s, count), pos);}
-  size_type find_last_not_of(const char_type* s, size_type pos = npos) const { return find_last_not_of(string_view(s), pos);}
+  size_type find_last_not_of(char_type c, size_type pos = npos) const { return find_last_not_of(string_view(&c, 1), pos); }
+  size_type find_last_not_of(const char_type* s, size_type pos, size_type count) const { return find_last_not_of(string_view(s, count), pos); }
+  size_type find_last_not_of(const char_type* s, size_type pos = npos) const { return find_last_not_of(string_view(s), pos); }
 };
 
 A0_STATIC_INLINE
@@ -180,13 +184,25 @@ std::ostream& operator<<(std::ostream& os, const string_view& v) {
   return os.write(v.data(), v.size());
 }
 
-A0_STATIC_INLINE bool operator==(const string_view& lhs, const string_view& rhs) noexcept { return lhs.compare(rhs) == 0; }
-A0_STATIC_INLINE bool operator!=(const string_view& lhs, const string_view& rhs) noexcept { return lhs.compare(rhs) != 0; }
-A0_STATIC_INLINE bool operator<(const string_view& lhs, const string_view& rhs) noexcept { return lhs.compare(rhs) < 0; }
-A0_STATIC_INLINE bool operator>(const string_view& lhs, const string_view& rhs) noexcept { return lhs.compare(rhs) > 0; }
-A0_STATIC_INLINE bool operator<=(const string_view& lhs, const string_view& rhs) noexcept { return lhs.compare(rhs) <= 0; }
-A0_STATIC_INLINE bool operator>=(const string_view& lhs, const string_view& rhs) noexcept { return lhs.compare(rhs) >= 0; }
+A0_STATIC_INLINE bool operator==(const string_view& lhs, const string_view& rhs) noexcept {
+  return lhs.compare(rhs) == 0;
+}
+A0_STATIC_INLINE bool operator!=(const string_view& lhs, const string_view& rhs) noexcept {
+  return lhs.compare(rhs) != 0;
+}
+A0_STATIC_INLINE bool operator<(const string_view& lhs, const string_view& rhs) noexcept {
+  return lhs.compare(rhs) < 0;
+}
+A0_STATIC_INLINE bool operator>(const string_view& lhs, const string_view& rhs) noexcept {
+  return lhs.compare(rhs) > 0;
+}
+A0_STATIC_INLINE bool operator<=(const string_view& lhs, const string_view& rhs) noexcept {
+  return lhs.compare(rhs) <= 0;
+}
+A0_STATIC_INLINE bool operator>=(const string_view& lhs, const string_view& rhs) noexcept {
+  return lhs.compare(rhs) >= 0;
+}
 
-} // namespace a0
+}  // namespace a0
 
 #endif

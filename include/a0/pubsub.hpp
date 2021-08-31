@@ -18,9 +18,10 @@ struct PubSubTopic {
   PubSubTopic(
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
-    : name{std::move(name)}, file_opts{std::move(file_opts)} {}
+      : name{std::move(name)}, file_opts{std::move(file_opts)} {}
 
-  PubSubTopic(const char* name) : PubSubTopic(std::string(name)) {}
+  PubSubTopic(const char* name)
+      : PubSubTopic(std::string(name)) {}
 };
 
 struct Publisher : details::CppWrap<a0_publisher_t> {
