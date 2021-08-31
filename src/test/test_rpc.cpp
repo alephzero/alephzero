@@ -9,9 +9,7 @@
 #include <doctest.h>
 
 #include <chrono>
-#include <cstring>
 #include <functional>
-#include <mutex>
 #include <string>
 #include <thread>
 

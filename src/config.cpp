@@ -1,8 +1,33 @@
+#include <a0/alloc.h>
+#include <a0/buf.h>
+#include <a0/config.h>
 #include <a0/config.hpp>
+#include <a0/err.h>
+#include <a0/packet.h>
+#include <a0/packet.hpp>
 #include <a0/string_view.hpp>
+#include <a0/tid.h>
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <initializer_list>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "c_wrap.hpp"
 #include "file_opts.hpp"
+
+#ifdef A0_CXX_CONFIG_USE_NLOHMANN
+
+#include <nlohmann/json.hpp>
+
+#endif  // A0_CXX_CONFIG_USE_NLOHMANN
 
 namespace a0 {
 
@@ -13,8 +38,10 @@ struct ConfigListenerImpl {
   std::function<void(Packet)> onpacket;
 
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
+
   std::function<void(nlohmann::json)> onjson;
   nlohmann::json::json_pointer jptr;
+
 #endif  // A0_CXX_CONFIG_USE_NLOHMANN
 };
 

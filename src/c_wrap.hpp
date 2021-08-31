@@ -1,12 +1,19 @@
 #pragma once
 
 #include <a0/buf.h>
+#include <a0/c_wrap.hpp>
 #include <a0/err.h>
 
 #include <chrono>
+#include <cstdint>
+#include <cstdio>
 #include <functional>
+#include <memory>
+#include <stdexcept>
+#include <string>
 #include <system_error>
 #include <thread>
+#include <utility>
 
 namespace a0 {
 namespace {
@@ -120,14 +127,14 @@ CPP cpp_wrap(typename CPP::c_type c) {
 }
 
 template <typename T>
-void check(const std::string& fn_name, const details::CppWrap<T>* cpp_wrap) {
-  if (!cpp_wrap || !cpp_wrap->c) {
+void check(const std::string& fn_name, const details::CppWrap<T>* cpp_obj) {
+  if (!cpp_obj || !cpp_obj->c) {
     auto msg = std::string("AlephZero method called with NULL object: ") + fn_name;
     fprintf(stderr, "%s\n", msg.c_str());
     throw std::runtime_error(msg);
   }
 
-  if (cpp_wrap->magic_number != 0xA0A0A0A0) {
+  if (cpp_obj->magic_number != 0xA0A0A0A0) {
     auto msg = std::string("AlephZero method called with corrupt object: ") + fn_name;
     fprintf(stderr, "%s\n", msg.c_str());
     // This error is often the result of a throw in another thread. Let that propagate first.

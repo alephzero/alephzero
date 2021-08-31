@@ -11,7 +11,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
-#include <mutex>
 #include <ostream>
 #include <set>
 #include <string>

@@ -23,7 +23,6 @@
 #include "c_wrap.hpp"
 #include "empty.h"
 #include "file_opts.hpp"
-#include "topic.h"
 
 namespace a0 {
 

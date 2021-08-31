@@ -1,6 +1,8 @@
 #pragma once
 
 #include <a0/c_wrap.hpp>
+#include <a0/arena.hpp>
+#include <a0/time.hpp>
 #include <a0/transport.h>
 
 #include <chrono>
@@ -9,9 +11,6 @@
 #include <functional>
 
 namespace a0 {
-
-struct Arena;
-struct TimeMono;
 
 using Frame = a0_transport_frame_t;
 

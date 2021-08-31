@@ -1,5 +1,4 @@
 #include <a0/buf.h>
-#include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/string_view.hpp>
@@ -7,16 +6,13 @@
 
 #include <doctest.h>
 
+#include <algorithm>
 #include <cctype>
-#include <cerrno>
 #include <cstddef>
 #include <functional>
-#include <map>
-#include <memory>
 #include <ostream>
 #include <string>
-#include <utility>
-#include <vector>
+#include <unordered_map>
 
 #include "src/test_util.hpp"
 

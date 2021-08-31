@@ -1,7 +1,5 @@
 #include "rand.h"
 
-#include <a0/inline.h>
-
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdint.h>

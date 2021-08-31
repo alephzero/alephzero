@@ -1,20 +1,33 @@
-#include <a0/file.h>
 #include <a0/config.h>
 #include <a0/config.hpp>
+#include <a0/file.h>
 #include <a0/packet.h>
+#include <a0/packet.hpp>
+#include <a0/string_view.hpp>
 
 #include <doctest.h>
-#include <stddef.h>
 #include <fcntl.h>
 
+#include <algorithm>
 #include <atomic>
-#include <map>
+#include <cerrno>
+#include <chrono>
+#include <cstdlib>
+#include <functional>
+#include <memory>
 #include <mutex>
+#include <ostream>
 #include <string>
 #include <thread>
-#include <utility>
+#include <vector>
 
 #include "src/test_util.hpp"
+
+#ifdef A0_CXX_CONFIG_USE_NLOHMANN
+
+#include <nlohmann/json.hpp>
+
+#endif  // A0_CXX_CONFIG_USE_NLOHMANN
 
 struct ConfigFixture {
   a0_config_topic_t topic = {"test", nullptr};
@@ -171,7 +184,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann per threads") {
     REQUIRE(*x == 1);
     latches[2]->arrive_and_wait();
     a0::update_configs();
-    latches[3]->arrive_and_wait();                                                                
+    latches[3]->arrive_and_wait();
     REQUIRE(*x == 3);
     latches[4]->arrive_and_wait();
     latches[5]->arrive_and_wait();

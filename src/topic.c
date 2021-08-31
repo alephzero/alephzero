@@ -1,8 +1,9 @@
 #include "topic.h"
 
+#include <a0/buf.h>
 #include <a0/err.h>
 #include <a0/file.h>
-#include <a0/packet.h>
+#include <a0/inline.h>
 
 #include <alloca.h>
 #include <errno.h>

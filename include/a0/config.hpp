@@ -1,13 +1,20 @@
 #pragma once
 
+#include <a0/c_wrap.hpp>
 #include <a0/config.h>
 #include <a0/file.hpp>
-#include <a0/tid.h>
+#include <a0/inline.h>
 #include <a0/packet.hpp>
+#include <a0/string_view.hpp>
+#include <a0/tid.h>
 
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <unordered_map>
+#include <utility>
 
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
 

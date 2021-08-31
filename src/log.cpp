@@ -5,7 +5,6 @@
 #include <a0/packet.hpp>
 #include <a0/log.h>
 #include <a0/log.hpp>
-#include <a0/reader.hpp>
 
 #include <algorithm>
 #include <cstddef>

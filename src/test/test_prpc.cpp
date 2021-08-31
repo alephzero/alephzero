@@ -8,9 +8,7 @@
 
 #include <doctest.h>
 
-#include <cstring>
 #include <functional>
-#include <mutex>
 #include <ostream>
 #include <string>
 

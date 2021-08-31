@@ -23,7 +23,7 @@ TEST_OBJ := $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cpp=$(OBJ_DIR)/test/%_cpp.o)
 
 TEST_CXXFLAGS += -I. -Itest -Ithird_party/doctest/doctest
 
-IWYU_FLAGS += -Xiwyu --mapping_file=./iwyu.imp
+IWYU_FLAGS += -Xiwyu --no_fwd_decls -Xiwyu --mapping_file=./iwyu.imp
 
 BENCH_SRC_C := $(wildcard $(SRC_DIR)/bench/*.c)
 BENCH_SRC_CXX := $(wildcard $(SRC_DIR)/bench/*.cpp)

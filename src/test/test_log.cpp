@@ -2,13 +2,16 @@
 #include <a0/log.h>
 #include <a0/log.hpp>
 #include <a0/packet.h>
+#include <a0/packet.hpp>
 
 #include <doctest.h>
 #include <stddef.h>
 
+#include <functional>
 #include <map>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 #include "src/test_util.hpp"

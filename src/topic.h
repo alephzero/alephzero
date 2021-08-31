@@ -3,7 +3,6 @@
 
 #include <a0/err.h>
 #include <a0/file.h>
-#include <a0/packet.h>
 
 #ifdef __cplusplus
 extern "C" {
