@@ -40,15 +40,15 @@ bool ReaderSyncZeroCopy::has_next() {
   return ret;
 }
 
-void ReaderSyncZeroCopy::next(std::function<void(LockedTransport, FlatPacket)> fn) {
+void ReaderSyncZeroCopy::next(std::function<void(TransportLocked, FlatPacket)> fn) {
   CHECK_C;
 
   a0_zero_copy_callback_t cb = {
       .user_data = &fn,
-      .fn = [](void* user_data, a0_locked_transport_t tlk, a0_flat_packet_t fpkt) {
-        auto* fn = (std::function<void(LockedTransport, FlatPacket)>*)user_data;
-        auto cpp_tlk = make_cpp<LockedTransport>(
-            [&](a0_locked_transport_t* c_cpp_tlk) {
+      .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
+        auto* fn = (std::function<void(TransportLocked, FlatPacket)>*)user_data;
+        auto cpp_tlk = make_cpp<TransportLocked>(
+            [&](a0_transport_locked_t* c_cpp_tlk) {
               *c_cpp_tlk = tlk;
               return A0_OK;
             });
@@ -117,7 +117,7 @@ Packet ReaderSync::next() {
 namespace {
 
 struct ReaderZeroCopyImpl {
-  std::function<void(LockedTransport, FlatPacket)> cb;
+  std::function<void(TransportLocked, FlatPacket)> cb;
 };
 
 }  // namespace
@@ -126,7 +126,7 @@ ReaderZeroCopy::ReaderZeroCopy(
     Arena arena,
     ReaderInit init,
     ReaderIter iter,
-    std::function<void(LockedTransport, FlatPacket)> cb) {
+    std::function<void(TransportLocked, FlatPacket)> cb) {
   set_c_impl<ReaderZeroCopyImpl>(
       &c,
       [&](a0_reader_zc_t* c, ReaderZeroCopyImpl* impl) {
@@ -134,9 +134,9 @@ ReaderZeroCopy::ReaderZeroCopy(
 
         a0_zero_copy_callback_t c_cb = {
             .user_data = impl,
-            .fn = [](void* user_data, a0_locked_transport_t tlk, a0_flat_packet_t fpkt) {
+            .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
                 auto* impl = (ReaderZeroCopyImpl*)user_data;
-                impl->cb(cpp_wrap<LockedTransport>(tlk), cpp_wrap<FlatPacket>(fpkt));
+                impl->cb(cpp_wrap<TransportLocked>(tlk), cpp_wrap<FlatPacket>(fpkt));
             },
         };
 

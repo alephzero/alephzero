@@ -15,7 +15,7 @@ struct TimeMono;
 
 using Frame = a0_transport_frame_t;
 
-struct LockedTransport : details::CppWrap<a0_locked_transport_t> {
+struct TransportLocked : details::CppWrap<a0_transport_locked_t> {
   bool empty() const;
   uint64_t seq_low() const;
   uint64_t seq_high() const;
@@ -48,7 +48,7 @@ struct Transport : details::CppWrap<a0_transport_t> {
   Transport() = default;
   Transport(Arena);
 
-  LockedTransport lock();
+  TransportLocked lock();
 };
 
 }  // namespace a0

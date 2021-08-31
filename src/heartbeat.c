@@ -132,7 +132,7 @@ void* a0_heartbeat_listener_thread_main(void* data) {
 
   const uint64_t sleep_ns = NS_PER_SEC / hl->_opts.min_freq;
 
-  a0_locked_transport_t tlk;
+  a0_transport_locked_t tlk;
   a0_transport_lock(&hl->_transport, &tlk);
   a0_transport_wait(tlk, a0_transport_has_next_pred(&tlk));
 
@@ -216,7 +216,7 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
     a0_file_close(&hl->_file);
     return err;
   }
-  a0_locked_transport_t tlk;
+  a0_transport_locked_t tlk;
   a0_transport_lock(&hl->_transport, &tlk);
   a0_transport_jump_tail(tlk);
   a0_transport_unlock(tlk);
@@ -231,7 +231,7 @@ errno_t a0_heartbeat_listener_init(a0_heartbeat_listener_t* hl,
 }
 
 errno_t a0_heartbeat_listener_close(a0_heartbeat_listener_t* hl) {
-  a0_locked_transport_t tlk;
+  a0_transport_locked_t tlk;
   a0_transport_lock(&hl->_transport, &tlk);
   a0_transport_shutdown(tlk);
   a0_transport_unlock(tlk);

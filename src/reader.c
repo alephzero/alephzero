@@ -36,7 +36,7 @@ errno_t a0_reader_sync_zc_init(a0_reader_sync_zc_t* reader_sync_zc,
   reader_sync_zc->_first_read_done = false;
   A0_RETURN_ERR_ON_ERR(a0_transport_init(&reader_sync_zc->_transport, arena));
 
-  a0_locked_transport_t tlk;
+  a0_transport_locked_t tlk;
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(&reader_sync_zc->_transport, &tlk));
 
   if (init == A0_INIT_OLDEST) {
@@ -73,7 +73,7 @@ errno_t a0_reader_sync_zc_has_next(a0_reader_sync_zc_t* reader_sync_zc, bool* ha
 #endif
 
   errno_t err;
-  a0_locked_transport_t tlk;
+  a0_transport_locked_t tlk;
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(&reader_sync_zc->_transport, &tlk));
 
   if (reader_sync_zc->_first_read_done || reader_sync_zc->_init == A0_INIT_AWAIT_NEW) {
@@ -92,7 +92,7 @@ errno_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
   A0_ASSERT(reader_sync_zc, "Cannot read from null reader (sync+zc).");
 #endif
 
-  a0_locked_transport_t tlk;
+  a0_transport_locked_t tlk;
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(&reader_sync_zc->_transport, &tlk));
 
   bool empty;
@@ -177,7 +177,7 @@ typedef struct a0_reader_sync_next_data_s {
 } a0_reader_sync_next_data_t;
 
 A0_STATIC_INLINE
-void a0_reader_sync_next_impl(void* user_data, a0_locked_transport_t tlk, a0_flat_packet_t fpkt) {
+void a0_reader_sync_next_impl(void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
   A0_MAYBE_UNUSED(tlk);
   a0_reader_sync_next_data_t* data = (a0_reader_sync_next_data_t*)user_data;
   a0_buf_t unused;
@@ -203,7 +203,7 @@ errno_t a0_reader_sync_next(a0_reader_sync_t* reader_sync, a0_packet_t* pkt) {
 // Threaded zero-copy version.
 
 A0_STATIC_INLINE
-void a0_reader_zc_thread_handle_pkt(a0_reader_zc_t* reader_zc, a0_locked_transport_t tlk) {
+void a0_reader_zc_thread_handle_pkt(a0_reader_zc_t* reader_zc, a0_transport_locked_t tlk) {
   a0_transport_frame_t frame;
   a0_transport_frame(tlk, &frame);
 
@@ -218,7 +218,7 @@ void a0_reader_zc_thread_handle_pkt(a0_reader_zc_t* reader_zc, a0_locked_transpo
 }
 
 A0_STATIC_INLINE
-bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_t* reader_zc, a0_locked_transport_t tlk) {
+bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_t* reader_zc, a0_transport_locked_t tlk) {
   if (a0_transport_wait(tlk, a0_transport_nonempty_pred(&tlk)) == A0_OK) {
     bool reset = false;
     if (reader_zc->_started_empty) {
@@ -244,7 +244,7 @@ bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_t* reader_zc, a0_locked_t
 }
 
 A0_STATIC_INLINE
-bool a0_reader_zc_thread_handle_next_pkt(a0_reader_zc_t* reader_zc, a0_locked_transport_t tlk) {
+bool a0_reader_zc_thread_handle_next_pkt(a0_reader_zc_t* reader_zc, a0_transport_locked_t tlk) {
   if (a0_transport_wait(tlk, a0_transport_has_next_pred(&tlk)) == A0_OK) {
     if (reader_zc->_iter == A0_ITER_NEXT) {
       a0_transport_step_next(tlk);
@@ -269,7 +269,7 @@ void* a0_reader_zc_thread_main(void* data) {
 
   // Lock until shutdown.
   // Lock will release lock while awaiting packets.
-  a0_locked_transport_t tlk;
+  a0_transport_locked_t tlk;
   a0_transport_lock(&reader_zc->_transport, &tlk);
 
   // Loop until shutdown is triggered.
@@ -299,7 +299,7 @@ errno_t a0_reader_zc_init(a0_reader_zc_t* reader_zc,
   a0_ref_cnt_inc(arena.buf.ptr, NULL);
 #endif
 
-  a0_locked_transport_t tlk;
+  a0_transport_locked_t tlk;
   a0_transport_lock(&reader_zc->_transport, &tlk);
 
   a0_transport_empty(tlk, &reader_zc->_started_empty);
@@ -333,7 +333,7 @@ errno_t a0_reader_zc_close(a0_reader_zc_t* reader_zc) {
   a0_ref_cnt_dec(reader_zc->_transport._arena.buf.ptr, NULL);
 #endif
 
-  a0_locked_transport_t tlk;
+  a0_transport_locked_t tlk;
   a0_transport_lock(&reader_zc->_transport, &tlk);
   a0_transport_shutdown(tlk);
   a0_transport_unlock(tlk);
@@ -347,7 +347,7 @@ errno_t a0_reader_zc_close(a0_reader_zc_t* reader_zc) {
 // Threaded version.
 
 A0_STATIC_INLINE
-void a0_reader_onpacket_wrapper(void* user_data, a0_locked_transport_t tlk, a0_flat_packet_t fpkt) {
+void a0_reader_onpacket_wrapper(void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
   a0_reader_t* reader = (a0_reader_t*)user_data;
   a0_packet_t pkt;
   a0_buf_t buf;

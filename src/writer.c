@@ -79,7 +79,7 @@ errno_t a0_write_action_close(void* user_data) {
 A0_STATIC_INLINE
 errno_t a0_write_action_process(void* user_data, a0_packet_t* pkt, a0_middleware_chain_t chain) {
   a0_transport_t* transport = (a0_transport_t*)user_data;
-  a0_locked_transport_t tlk;
+  a0_transport_locked_t tlk;
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, &tlk));
 
   a0_middleware_chain_node_t next_node = {
@@ -92,7 +92,7 @@ errno_t a0_write_action_process(void* user_data, a0_packet_t* pkt, a0_middleware
 }
 
 A0_STATIC_INLINE
-errno_t a0_write_action_process_locked(void* user_data, a0_locked_transport_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
+errno_t a0_write_action_process_locked(void* user_data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
   A0_MAYBE_UNUSED(user_data);
   A0_MAYBE_UNUSED(chain);
 
@@ -224,7 +224,7 @@ errno_t a0_compose_process(void* user_data, a0_packet_t* pkt, a0_middleware_chai
 }
 
 A0_STATIC_INLINE
-errno_t a0_compose_process_locked(void* user_data, a0_locked_transport_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
+errno_t a0_compose_process_locked(void* user_data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
   A0_MAYBE_UNUSED(tlk);
   return a0_compose_process(user_data, pkt, chain);
 }

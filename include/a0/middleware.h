@@ -59,7 +59,7 @@ typedef struct a0_writer_s a0_writer_t;
 typedef struct a0_middleware_chain_node_s {
   a0_writer_t* _curr;
   a0_writer_t* _head;
-  a0_locked_transport_t _tlk;
+  a0_transport_locked_t _tlk;
 } a0_middleware_chain_node_t;
 
 typedef struct a0_middleware_chain_s {
@@ -94,7 +94,7 @@ typedef struct a0_middleware_s {
   /// Processes a packet before forwarding it on to the next middleware in the chain.
   errno_t (*process)(void* user_data, a0_packet_t*, a0_middleware_chain_t);
   /// ...
-  errno_t (*process_locked)(void* user_data, a0_locked_transport_t, a0_packet_t*, a0_middleware_chain_t);
+  errno_t (*process_locked)(void* user_data, a0_transport_locked_t, a0_packet_t*, a0_middleware_chain_t);
 } a0_middleware_t;
 
 /**

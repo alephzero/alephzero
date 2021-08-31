@@ -34,7 +34,7 @@ static const char COPY_DISK[] = "/tmp/copy.a0";
 static const char COPY_SHM[] = "copy.a0";
 static const char COPY_SHM_ABS[] = "/dev/shm/copy.a0";
 
-struct StreamTestFixture {
+struct TransportFixture {
   std::vector<uint8_t> stack_arena_data;
   a0_arena_t arena;
 
@@ -44,7 +44,7 @@ struct StreamTestFixture {
   a0_file_options_t shmopt;
   a0_file_t shm;
 
-  StreamTestFixture() {
+  TransportFixture() {
     stack_arena_data.resize(4096);
     arena = a0_arena_t{
         .buf = {
@@ -65,7 +65,7 @@ struct StreamTestFixture {
     a0_file_open(TEST_SHM, &shmopt, &shm);
   }
 
-  ~StreamTestFixture() {
+  ~TransportFixture() {
     a0_file_close(&disk);
     a0_file_remove(TEST_DISK);
 
@@ -73,7 +73,7 @@ struct StreamTestFixture {
     a0_file_remove(TEST_SHM);
   }
 
-  void require_debugstr(a0_locked_transport_t lk, const std::string& expected) {
+  void require_debugstr(a0_transport_locked_t lk, const std::string& expected) {
     a0_buf_t debugstr;
     a0_transport_debugstr(lk, &debugstr);
     REQUIRE(a0::test::str(debugstr) == expected);
@@ -81,12 +81,12 @@ struct StreamTestFixture {
   }
 };
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] construct") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] construct") {
   a0_transport_t transport;
 
   REQUIRE_OK(a0_transport_init(&transport, arena));
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   require_debugstr(lk, R"(
@@ -116,9 +116,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] construct") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp construct") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp construct") {
   a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
-  a0::LockedTransport tlk = transport.lock();
+  a0::TransportLocked tlk = transport.lock();
 
   require_debugstr(*tlk.c, R"(
 {
@@ -145,11 +145,11 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp construct") {
 )");
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] alloc/commit") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, arena));
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   bool is_empty;
@@ -275,9 +275,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] alloc/commit") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp alloc/commit") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp alloc/commit") {
   a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
-  a0::LockedTransport tlk = transport.lock();
+  a0::TransportLocked tlk = transport.lock();
 
   REQUIRE(tlk.empty());
 
@@ -396,11 +396,11 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp alloc/commit") {
 )");
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] evicts") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] evicts") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, arena));
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   bool evicts;
@@ -419,9 +419,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] evicts") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp evicts") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp evicts") {
   a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
-  a0::LockedTransport tlk = transport.lock();
+  a0::TransportLocked tlk = transport.lock();
 
   REQUIRE(!tlk.alloc_evicts(2 * 1024));
   tlk.alloc(2 * 1024);
@@ -432,13 +432,13 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp evicts") {
       "Value too large for defined data type");
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
   // Create transport and close it.
   {
     a0_transport_t transport;
     REQUIRE_OK(a0_transport_init(&transport, arena));
 
-    a0_locked_transport_t lk;
+    a0_transport_locked_t lk;
     REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
     a0_transport_frame_t first_frame;
@@ -461,7 +461,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, arena));
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   bool is_empty;
@@ -529,7 +529,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp iteration") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
   // Create transport and close it.
   {
     a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
@@ -599,11 +599,11 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp iteration") {
   REQUIRE(a0::test::str(frame) == "A");
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] empty jumps") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] empty jumps") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, arena));
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   REQUIRE(a0_transport_jump_head(lk) == EAGAIN);
@@ -622,9 +622,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] empty jumps") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp empty jumps") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp empty jumps") {
   a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
-  a0::LockedTransport tlk = transport.lock();
+  a0::TransportLocked tlk = transport.lock();
 
   REQUIRE_THROWS_WITH(
       tlk.jump_head(),
@@ -646,11 +646,11 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp empty jumps") {
   REQUIRE(!tlk.has_prev());
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] wrap around") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] wrap around") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, arena));
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   std::string data(1 * 1024, 'a');  // 1kB string
@@ -713,9 +713,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] wrap around") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp wrap around") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp wrap around") {
   a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
-  a0::LockedTransport tlk = transport.lock();
+  a0::TransportLocked tlk = transport.lock();
 
   std::string data(1 * 1024, 'a');  // 1kB string
   for (int i = 0; i < 20; i++) {
@@ -774,9 +774,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp wrap around") {
 )");
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] expired next") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] expired next") {
   a0_transport_t transport;
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   a0_transport_frame_t frame;
   std::string data(1 * 1024, 'a');  // 1kB string
 
@@ -832,9 +832,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] expired next") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp expired next") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp expired next") {
   a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
-  a0::LockedTransport tlk = transport.lock();
+  a0::TransportLocked tlk = transport.lock();
 
   std::string data(1 * 1024, 'a');  // 1kB string
   auto frame = tlk.alloc(data.size());
@@ -870,11 +870,11 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp expired next") {
   REQUIRE(tlk.has_next());
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] large alloc") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] large alloc") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, arena));
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   std::string long_str(3 * 1024, 'a');  // 3kB string
@@ -920,9 +920,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] large alloc") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp large alloc") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp large alloc") {
   a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
-  a0::LockedTransport tlk = transport.lock();
+  a0::TransportLocked tlk = transport.lock();
 
   std::string long_str(3 * 1024, 'a');  // 3kB string
   for (int i = 0; i < 5; i++) {
@@ -964,11 +964,11 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp large alloc") {
 )");
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] resize") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, arena));
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   size_t used_space;
@@ -1191,9 +1191,9 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] resize") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp resize") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
   a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
-  a0::LockedTransport tlk = transport.lock();
+  a0::TransportLocked tlk = transport.lock();
 
   REQUIRE(tlk.used_space() == 144);
 
@@ -1411,7 +1411,7 @@ void fork_sleep_push(a0_transport_t* transport, const std::string& str) {
   if (!fork()) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-    a0_locked_transport_t lk;
+    a0_transport_locked_t lk;
     REQUIRE_OK(a0_transport_lock(transport, &lk));
 
     a0_transport_frame_t frame;
@@ -1425,13 +1425,13 @@ void fork_sleep_push(a0_transport_t* transport, const std::string& str) {
   }
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] disk await") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] disk await") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, disk.arena));
 
   fork_sleep_push(&transport, "ABC");
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   REQUIRE_OK(a0_transport_wait(lk, a0_transport_nonempty_pred(&lk)));
@@ -1457,12 +1457,12 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] disk await") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp disk await") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp disk await") {
   a0::Transport transport(a0::cpp_wrap<a0::Arena>(disk.arena));
 
   fork_sleep_push(&*transport.c, "ABC");
 
-  a0::LockedTransport tlk = transport.lock();
+  a0::TransportLocked tlk = transport.lock();
 
   tlk.wait([&]() { return !tlk.empty(); });
 
@@ -1484,13 +1484,13 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp disk await") {
   REQUIRE(a0::test::str(frame) == "DEF");
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] shm await") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] shm await") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, shm.arena));
 
   fork_sleep_push(&transport, "ABC");
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   REQUIRE_OK(a0_transport_wait(lk, a0_transport_nonempty_pred(&lk)));
@@ -1516,12 +1516,12 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] shm await") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp shm await") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp shm await") {
   a0::Transport transport(a0::cpp_wrap<a0::Arena>(shm.arena));
 
   fork_sleep_push(&*transport.c, "ABC");
 
-  a0::LockedTransport tlk = transport.lock();
+  a0::TransportLocked tlk = transport.lock();
 
   tlk.wait([&]() { return !tlk.empty(); });
 
@@ -1543,7 +1543,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] cpp shm await") {
   REQUIRE(a0::test::str(frame) == "DEF");
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] robust") {
   int child_pid = fork();
   if (!child_pid) {
     a0_transport_t transport;
@@ -1551,7 +1551,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
 
     // Write one frame successfully.
     {
-      a0_locked_transport_t lk;
+      a0_transport_locked_t lk;
       REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
       a0_transport_frame_t frame;
@@ -1564,7 +1564,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
 
     // Write one frame unsuccessfully.
     {
-      a0_locked_transport_t lk;
+      a0_transport_locked_t lk;
       REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
       a0_transport_frame_t frame;
@@ -1623,7 +1623,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, shm.arena));
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   require_debugstr(lk, R"(
@@ -1676,14 +1676,14 @@ std::string random_string(size_t length) {
   return str;
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust fuzz") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] robust fuzz") {
   int child_pid = fork();
   if (!child_pid) {
     a0_transport_t transport;
     REQUIRE_OK(a0_transport_init(&transport, shm.arena));
 
     while (true) {
-      a0_locked_transport_t lk;
+      a0_transport_locked_t lk;
       REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
       auto str = random_string(rand() % 1024);
@@ -1713,7 +1713,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust fuzz") {
 
   // Make sure the transport is still functinal.
   // We can still grab the lock, write, and read from the transport.
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
   {
     a0_transport_frame_t frame;
@@ -1737,7 +1737,7 @@ void copy_file(const std::string& from, const std::string& to) {
   dst << src.rdbuf();
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy shm->disk->shm") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] robust copy shm->disk->shm") {
   a0_file_remove(COPY_DISK);
   a0_file_remove(COPY_SHM);
 
@@ -1748,7 +1748,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy shm->disk->shm") {
     a0_transport_t transport;
     REQUIRE_OK(a0_transport_init(&transport, shm.arena));
 
-    a0_locked_transport_t lk;
+    a0_transport_locked_t lk;
     REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
     a0_transport_frame_t frame;
@@ -1779,7 +1779,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy shm->disk->shm") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, copied_shm.arena));
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   a0_transport_jump_head(lk);
@@ -1794,7 +1794,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy shm->disk->shm") {
   a0_file_remove(COPY_SHM);
 }
 
-TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy disk->shm->disk") {
+TEST_CASE_FIXTURE(TransportFixture, "transport] robust copy disk->shm->disk") {
   a0_file_remove(COPY_DISK);
   a0_file_remove(COPY_SHM);
 
@@ -1805,7 +1805,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy disk->shm->disk") {
     a0_transport_t transport;
     REQUIRE_OK(a0_transport_init(&transport, disk.arena));
 
-    a0_locked_transport_t lk;
+    a0_transport_locked_t lk;
     REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
     a0_transport_frame_t frame;
@@ -1836,7 +1836,7 @@ TEST_CASE_FIXTURE(StreamTestFixture, "transport] robust copy disk->shm->disk") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, copied_disk.arena));
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   a0_transport_jump_head(lk);

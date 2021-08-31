@@ -13,106 +13,106 @@
 
 namespace a0 {
 
-bool LockedTransport::empty() const {
+bool TransportLocked::empty() const {
   CHECK_C;
   bool ret;
   check(a0_transport_empty(*c, &ret));
   return ret;
 }
 
-uint64_t LockedTransport::seq_low() const {
+uint64_t TransportLocked::seq_low() const {
   CHECK_C;
   uint64_t ret;
   check(a0_transport_seq_low(*c, &ret));
   return ret;
 }
 
-uint64_t LockedTransport::seq_high() const {
+uint64_t TransportLocked::seq_high() const {
   CHECK_C;
   uint64_t ret;
   check(a0_transport_seq_high(*c, &ret));
   return ret;
 }
 
-size_t LockedTransport::used_space() const {
+size_t TransportLocked::used_space() const {
   CHECK_C;
   size_t ret;
   check(a0_transport_used_space(*c, &ret));
   return ret;
 }
 
-void LockedTransport::resize(size_t size) {
+void TransportLocked::resize(size_t size) {
   CHECK_C;
   check(a0_transport_resize(*c, size));
 }
 
-bool LockedTransport::ptr_valid() const {
+bool TransportLocked::ptr_valid() const {
   CHECK_C;
   bool ret;
   check(a0_transport_ptr_valid(*c, &ret));
   return ret;
 }
 
-const Frame LockedTransport::frame() const {
+const Frame TransportLocked::frame() const {
   CHECK_C;
   Frame ret;
   check(a0_transport_frame(*c, &ret));
   return ret;
 }
 
-Frame LockedTransport::frame() {
+Frame TransportLocked::frame() {
   return as_mutable(as_const(this)->frame());
 }
 
-void LockedTransport::jump_head() {
+void TransportLocked::jump_head() {
   CHECK_C;
   check(a0_transport_jump_head(*c));
 }
 
-void LockedTransport::jump_tail() {
+void TransportLocked::jump_tail() {
   CHECK_C;
   check(a0_transport_jump_tail(*c));
 }
 
-bool LockedTransport::has_next() const {
+bool TransportLocked::has_next() const {
   CHECK_C;
   bool ret;
   check(a0_transport_has_next(*c, &ret));
   return ret;
 }
 
-void LockedTransport::step_next() {
+void TransportLocked::step_next() {
   CHECK_C;
   check(a0_transport_step_next(*c));
 }
 
-bool LockedTransport::has_prev() const {
+bool TransportLocked::has_prev() const {
   CHECK_C;
   bool ret;
   check(a0_transport_has_prev(*c, &ret));
   return ret;
 }
 
-void LockedTransport::step_prev() {
+void TransportLocked::step_prev() {
   CHECK_C;
   check(a0_transport_step_prev(*c));
 }
 
-Frame LockedTransport::alloc(size_t size) {
+Frame TransportLocked::alloc(size_t size) {
   CHECK_C;
   Frame ret;
   check(a0_transport_alloc(*c, size, &ret));
   return ret;
 }
 
-bool LockedTransport::alloc_evicts(size_t size) const {
+bool TransportLocked::alloc_evicts(size_t size) const {
   CHECK_C;
   bool ret;
   check(a0_transport_alloc_evicts(*c, size, &ret));
   return ret;
 }
 
-void LockedTransport::commit() {
+void TransportLocked::commit() {
   CHECK_C;
   check(a0_transport_commit(*c));
 }
@@ -135,16 +135,16 @@ a0_predicate_t pred(std::function<bool()>* fn) {
 
 }  // namespace
 
-void LockedTransport::wait(std::function<bool()> fn) {
+void TransportLocked::wait(std::function<bool()> fn) {
   CHECK_C;
   check(a0_transport_wait(*c, pred(&fn)));
 }
 
-void LockedTransport::wait_for(std::function<bool()> fn, std::chrono::nanoseconds dur) {
+void TransportLocked::wait_for(std::function<bool()> fn, std::chrono::nanoseconds dur) {
   wait_until(fn, TimeMono::now().add(dur));
 }
 
-void LockedTransport::wait_until(std::function<bool()> fn, TimeMono tm) {
+void TransportLocked::wait_until(std::function<bool()> fn, TimeMono tm) {
   CHECK_C;
   check(a0_transport_timedwait(*c, pred(&fn), *tm.c));
 }
@@ -158,14 +158,14 @@ Transport::Transport(Arena arena) {
       [arena](a0_transport_t*) {});
 }
 
-LockedTransport Transport::lock() {
+TransportLocked Transport::lock() {
   CHECK_C;
   auto save = c;
-  return make_cpp<LockedTransport>(
-      [&](a0_locked_transport_t* lk) {
+  return make_cpp<TransportLocked>(
+      [&](a0_transport_locked_t* lk) {
         return a0_transport_lock(&*c, lk);
       },
-      [save](a0_locked_transport_t* lk) {
+      [save](a0_transport_locked_t* lk) {
         a0_transport_unlock(*lk);
       });
 }

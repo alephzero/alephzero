@@ -38,7 +38,7 @@ struct WriterFixture {
     a0_transport_t transport;
     REQUIRE_OK(a0_transport_init(&transport, arena));
 
-    a0_locked_transport_t lk;
+    a0_transport_locked_t lk;
     REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
     bool empty;

@@ -145,7 +145,7 @@ bench_fn_t bench_a0_alloc(int msg_size) {
     BenchFixture fixture;
     (void)fixture;
 
-    a0_locked_transport_t lk;
+    a0_transport_locked_t lk;
     a0_transport_lock(&fixture.transport, &lk);
     for (auto&& _ : s) {
       use(_);
@@ -163,7 +163,7 @@ bench_fn_t bench_a0_alloc_memcpy(int msg_size) {
 
     std::string src(msg_size, 0);
 
-    a0_locked_transport_t lk;
+    a0_transport_locked_t lk;
     a0_transport_lock(&fixture.transport, &lk);
     for (auto&& _ : s) {
       use(_);

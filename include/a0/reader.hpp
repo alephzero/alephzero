@@ -18,7 +18,7 @@ struct ReaderSyncZeroCopy : details::CppWrap<a0_reader_sync_zc_t> {
   ReaderSyncZeroCopy(Arena, ReaderInit, ReaderIter);
 
   bool has_next();
-  void next(std::function<void(LockedTransport, FlatPacket)>);
+  void next(std::function<void(TransportLocked, FlatPacket)>);
 };
 
 struct ReaderSync : details::CppWrap<a0_reader_sync_t> {
@@ -31,7 +31,7 @@ struct ReaderSync : details::CppWrap<a0_reader_sync_t> {
 
 struct ReaderZeroCopy : details::CppWrap<a0_reader_zc_t> {
   ReaderZeroCopy() = default;
-  ReaderZeroCopy(Arena, ReaderInit, ReaderIter, std::function<void(LockedTransport, FlatPacket)>);
+  ReaderZeroCopy(Arena, ReaderInit, ReaderIter, std::function<void(TransportLocked, FlatPacket)>);
 };
 
 struct Reader : details::CppWrap<a0_reader_t> {

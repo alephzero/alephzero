@@ -52,13 +52,13 @@ typedef struct a0_transport_hdr_s {
 _Static_assert(sizeof(a0_transport_hdr_t) == 144, "Unexpected transport binary representation.");
 
 A0_STATIC_INLINE
-a0_transport_state_t* a0_transport_committed_page(a0_locked_transport_t lk) {
+a0_transport_state_t* a0_transport_committed_page(a0_transport_locked_t lk) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   return &hdr->state_pages[hdr->committed_page_idx];
 }
 
 A0_STATIC_INLINE
-a0_transport_state_t* a0_transport_working_page(a0_locked_transport_t lk) {
+a0_transport_state_t* a0_transport_working_page(a0_transport_locked_t lk) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   return &hdr->state_pages[!hdr->committed_page_idx];
 }
@@ -134,7 +134,7 @@ errno_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
     memset(&hdr->mtx, 0, sizeof(hdr->mtx));
   }
 
-  a0_locked_transport_t lk;
+  a0_transport_locked_t lk;
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, &lk));
 
   if (!hdr->initialized) {
@@ -155,7 +155,7 @@ errno_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
   return A0_OK;
 }
 
-errno_t a0_transport_shutdown(a0_locked_transport_t lk) {
+errno_t a0_transport_shutdown(a0_transport_locked_t lk) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   lk.transport->_shutdown = true;
@@ -167,12 +167,12 @@ errno_t a0_transport_shutdown(a0_locked_transport_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_shutdown_requested(a0_locked_transport_t lk, bool* out) {
+errno_t a0_transport_shutdown_requested(a0_transport_locked_t lk, bool* out) {
   *out = lk.transport->_shutdown;
   return A0_OK;
 }
 
-errno_t a0_transport_lock(a0_transport_t* transport, a0_locked_transport_t* lk_out) {
+errno_t a0_transport_lock(a0_transport_t* transport, a0_transport_locked_t* lk_out) {
   lk_out->transport = transport;
 
   if (transport->_arena.mode != A0_ARENA_MODE_SHARED) {
@@ -193,7 +193,7 @@ errno_t a0_transport_lock(a0_transport_t* transport, a0_locked_transport_t* lk_o
   return lock_status;
 }
 
-errno_t a0_transport_unlock(a0_locked_transport_t lk) {
+errno_t a0_transport_unlock(a0_transport_locked_t lk) {
   if (lk.transport->_arena.mode != A0_ARENA_MODE_SHARED) {
     return A0_OK;
   }
@@ -204,26 +204,26 @@ errno_t a0_transport_unlock(a0_locked_transport_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_empty(a0_locked_transport_t lk, bool* out) {
+errno_t a0_transport_empty(a0_transport_locked_t lk, bool* out) {
   a0_transport_state_t* working_page = a0_transport_working_page(lk);
   *out = !working_page->seq_high | (working_page->seq_low > working_page->seq_high);
   return A0_OK;
 }
 
-errno_t a0_transport_nonempty(a0_locked_transport_t lk, bool* out) {
+errno_t a0_transport_nonempty(a0_transport_locked_t lk, bool* out) {
   errno_t err = a0_transport_empty(lk, out);
   *out = !*out;
   return err;
 }
 
-errno_t a0_transport_ptr_valid(a0_locked_transport_t lk, bool* out) {
+errno_t a0_transport_ptr_valid(a0_transport_locked_t lk, bool* out) {
   a0_transport_state_t* working_page = a0_transport_working_page(lk);
   *out = (working_page->seq_low <= lk.transport->_seq) &&
          (lk.transport->_seq <= working_page->seq_high);
   return A0_OK;
 }
 
-errno_t a0_transport_jump_head(a0_locked_transport_t lk) {
+errno_t a0_transport_jump_head(a0_transport_locked_t lk) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool empty;
@@ -237,7 +237,7 @@ errno_t a0_transport_jump_head(a0_locked_transport_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_jump_tail(a0_locked_transport_t lk) {
+errno_t a0_transport_jump_tail(a0_transport_locked_t lk) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool empty;
@@ -251,7 +251,7 @@ errno_t a0_transport_jump_tail(a0_locked_transport_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_has_next(a0_locked_transport_t lk, bool* out) {
+errno_t a0_transport_has_next(a0_transport_locked_t lk, bool* out) {
   bool empty;
   A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
 
@@ -260,7 +260,7 @@ errno_t a0_transport_has_next(a0_locked_transport_t lk, bool* out) {
   return A0_OK;
 }
 
-errno_t a0_transport_step_next(a0_locked_transport_t lk) {
+errno_t a0_transport_step_next(a0_transport_locked_t lk) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool has_next;
@@ -287,7 +287,7 @@ errno_t a0_transport_step_next(a0_locked_transport_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_has_prev(a0_locked_transport_t lk, bool* out) {
+errno_t a0_transport_has_prev(a0_transport_locked_t lk, bool* out) {
   bool empty;
   A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
 
@@ -296,7 +296,7 @@ errno_t a0_transport_has_prev(a0_locked_transport_t lk, bool* out) {
   return A0_OK;
 }
 
-errno_t a0_transport_step_prev(a0_locked_transport_t lk) {
+errno_t a0_transport_step_prev(a0_transport_locked_t lk) {
   bool has_prev;
   A0_RETURN_ERR_ON_ERR(a0_transport_has_prev(lk, &has_prev));
   if (!has_prev) {
@@ -338,7 +338,7 @@ errno_t a0_transport_timedwait_predicate(void* data_, bool* out) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_transport_timedwait_impl(a0_locked_transport_t lk, a0_predicate_t pred, const a0_time_mono_t* timeout) {
+errno_t a0_transport_timedwait_impl(a0_transport_locked_t lk, a0_predicate_t pred, const a0_time_mono_t* timeout) {
   if (lk.transport->_shutdown) {
     return ESHUTDOWN;
   }
@@ -380,7 +380,7 @@ errno_t a0_transport_timedwait_impl(a0_locked_transport_t lk, a0_predicate_t pre
   return err;
 }
 
-errno_t a0_transport_timedwait(a0_locked_transport_t lk, a0_predicate_t pred, a0_time_mono_t timeout) {
+errno_t a0_transport_timedwait(a0_transport_locked_t lk, a0_predicate_t pred, a0_time_mono_t timeout) {
   a0_transport_timedwait_data_t data = (a0_transport_timedwait_data_t){
       .user_pred = pred,
       .timeout = timeout,
@@ -393,16 +393,16 @@ errno_t a0_transport_timedwait(a0_locked_transport_t lk, a0_predicate_t pred, a0
   return a0_transport_timedwait_impl(lk, full_pred, &timeout);
 }
 
-errno_t a0_transport_wait(a0_locked_transport_t lk, a0_predicate_t pred) {
+errno_t a0_transport_wait(a0_transport_locked_t lk, a0_predicate_t pred) {
   return a0_transport_timedwait_impl(lk, pred, NULL);
 }
 
 A0_STATIC_INLINE
 errno_t a0_transport_empty_pred_fn(void* user_data, bool* out) {
-  return a0_transport_empty(*(a0_locked_transport_t*)user_data, out);
+  return a0_transport_empty(*(a0_transport_locked_t*)user_data, out);
 }
 
-a0_predicate_t a0_transport_empty_pred(a0_locked_transport_t* lk) {
+a0_predicate_t a0_transport_empty_pred(a0_transport_locked_t* lk) {
   return (a0_predicate_t){
       .user_data = lk,
       .fn = a0_transport_empty_pred_fn,
@@ -411,10 +411,10 @@ a0_predicate_t a0_transport_empty_pred(a0_locked_transport_t* lk) {
 
 A0_STATIC_INLINE
 errno_t a0_transport_nonempty_pred_fn(void* user_data, bool* out) {
-  return a0_transport_nonempty(*(a0_locked_transport_t*)user_data, out);
+  return a0_transport_nonempty(*(a0_transport_locked_t*)user_data, out);
 }
 
-a0_predicate_t a0_transport_nonempty_pred(a0_locked_transport_t* lk) {
+a0_predicate_t a0_transport_nonempty_pred(a0_transport_locked_t* lk) {
   return (a0_predicate_t){
       .user_data = lk,
       .fn = a0_transport_nonempty_pred_fn,
@@ -423,29 +423,29 @@ a0_predicate_t a0_transport_nonempty_pred(a0_locked_transport_t* lk) {
 
 A0_STATIC_INLINE
 errno_t a0_transport_has_next_pred_fn(void* user_data, bool* out) {
-  return a0_transport_has_next(*(a0_locked_transport_t*)user_data, out);
+  return a0_transport_has_next(*(a0_transport_locked_t*)user_data, out);
 }
 
-a0_predicate_t a0_transport_has_next_pred(a0_locked_transport_t* lk) {
+a0_predicate_t a0_transport_has_next_pred(a0_transport_locked_t* lk) {
   return (a0_predicate_t){
       .user_data = lk,
       .fn = a0_transport_has_next_pred_fn,
   };
 }
 
-errno_t a0_transport_seq_low(a0_locked_transport_t lk, uint64_t* out) {
+errno_t a0_transport_seq_low(a0_transport_locked_t lk, uint64_t* out) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
   *out = state->seq_low;
   return A0_OK;
 }
 
-errno_t a0_transport_seq_high(a0_locked_transport_t lk, uint64_t* out) {
+errno_t a0_transport_seq_high(a0_transport_locked_t lk, uint64_t* out) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
   *out = state->seq_high;
   return A0_OK;
 }
 
-errno_t a0_transport_frame(a0_locked_transport_t lk, a0_transport_frame_t* frame_out) {
+errno_t a0_transport_frame(a0_transport_locked_t lk, a0_transport_frame_t* frame_out) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
@@ -478,7 +478,7 @@ bool a0_transport_frame_intersects(size_t frame1_start,
 }
 
 A0_STATIC_INLINE
-bool a0_transport_head_interval(a0_locked_transport_t lk,
+bool a0_transport_head_interval(a0_transport_locked_t lk,
                                 a0_transport_state_t* state,
                                 size_t* head_off,
                                 size_t* head_size) {
@@ -497,7 +497,7 @@ bool a0_transport_head_interval(a0_locked_transport_t lk,
 }
 
 A0_STATIC_INLINE
-void a0_transport_remove_head(a0_locked_transport_t lk, a0_transport_state_t* state) {
+void a0_transport_remove_head(a0_transport_locked_t lk, a0_transport_state_t* state) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   if (state->off_head == state->off_tail) {
@@ -521,7 +521,7 @@ void a0_transport_remove_head(a0_locked_transport_t lk, a0_transport_state_t* st
 }
 
 A0_STATIC_INLINE
-errno_t a0_transport_find_slot(a0_locked_transport_t lk, size_t frame_size, size_t* off) {
+errno_t a0_transport_find_slot(a0_transport_locked_t lk, size_t frame_size, size_t* off) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
@@ -545,7 +545,7 @@ errno_t a0_transport_find_slot(a0_locked_transport_t lk, size_t frame_size, size
 }
 
 A0_STATIC_INLINE
-void a0_transport_evict(a0_locked_transport_t lk, size_t off, size_t frame_size) {
+void a0_transport_evict(a0_transport_locked_t lk, size_t off, size_t frame_size) {
   size_t head_off;
   size_t head_size;
   a0_transport_state_t* state = a0_transport_working_page(lk);
@@ -603,7 +603,7 @@ void a0_transport_update_high_water_mark(a0_transport_hdr_t* hdr,
   }
 }
 
-errno_t a0_transport_alloc_evicts(a0_locked_transport_t lk, size_t size, bool* out) {
+errno_t a0_transport_alloc_evicts(a0_transport_locked_t lk, size_t size, bool* out) {
   size_t frame_size = sizeof(a0_transport_frame_hdr_t) + size;
 
   size_t off;
@@ -618,7 +618,7 @@ errno_t a0_transport_alloc_evicts(a0_locked_transport_t lk, size_t size, bool* o
   return A0_OK;
 }
 
-errno_t a0_transport_alloc(a0_locked_transport_t lk, size_t size, a0_transport_frame_t* frame_out) {
+errno_t a0_transport_alloc(a0_transport_locked_t lk, size_t size, a0_transport_frame_t* frame_out) {
   if (lk.transport->_arena.mode == A0_ARENA_MODE_READONLY) {
     return EPERM;
   }
@@ -650,20 +650,20 @@ errno_t a0_transport_alloc(a0_locked_transport_t lk, size_t size, a0_transport_f
 A0_STATIC_INLINE
 errno_t a0_transport_allocator_impl(void* user_data, size_t size, a0_buf_t* buf_out) {
   a0_transport_frame_t frame;
-  A0_RETURN_ERR_ON_ERR(a0_transport_alloc(*(a0_locked_transport_t*)user_data, size, &frame));
+  A0_RETURN_ERR_ON_ERR(a0_transport_alloc(*(a0_transport_locked_t*)user_data, size, &frame));
   buf_out->ptr = frame.data;
   buf_out->size = frame.hdr.data_size;
   return A0_OK;
 }
 
-errno_t a0_transport_allocator(a0_locked_transport_t* lk, a0_alloc_t* alloc_out) {
+errno_t a0_transport_allocator(a0_transport_locked_t* lk, a0_alloc_t* alloc_out) {
   alloc_out->user_data = lk;
   alloc_out->alloc = a0_transport_allocator_impl;
   alloc_out->dealloc = NULL;
   return A0_OK;
 }
 
-errno_t a0_transport_commit(a0_locked_transport_t lk) {
+errno_t a0_transport_commit(a0_transport_locked_t lk) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   // Assume page A was the previously committed page and page B is the working
   // page that is ready to be committed. Both represent a valid state for the
@@ -678,13 +678,13 @@ errno_t a0_transport_commit(a0_locked_transport_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_used_space(a0_locked_transport_t lk, size_t* out) {
+errno_t a0_transport_used_space(a0_transport_locked_t lk, size_t* out) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
   *out = state->high_water_mark;
   return A0_OK;
 }
 
-errno_t a0_transport_resize(a0_locked_transport_t lk, size_t arena_size) {
+errno_t a0_transport_resize(a0_transport_locked_t lk, size_t arena_size) {
   size_t used_space;
   A0_RETURN_ERR_ON_ERR(a0_transport_used_space(lk, &used_space));
   if (arena_size < used_space) {
@@ -710,7 +710,7 @@ void write_limited(FILE* f, a0_buf_t str) {
   }
 }
 
-void a0_transport_debugstr(a0_locked_transport_t lk, a0_buf_t* out) {
+void a0_transport_debugstr(a0_transport_locked_t lk, a0_buf_t* out) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   a0_transport_state_t* committed_state = a0_transport_committed_page(lk);

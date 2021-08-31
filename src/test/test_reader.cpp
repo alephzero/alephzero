@@ -45,7 +45,7 @@ struct ReaderBaseFixture {
     a0_transport_t transport;
     REQUIRE_OK(a0_transport_init(&transport, arena));
 
-    a0_locked_transport_t lk;
+    a0_transport_locked_t lk;
     REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
     a0_alloc_t alloc;
@@ -74,7 +74,7 @@ struct ReaderSyncZCFixture : ReaderBaseFixture {
 
     a0_zero_copy_callback_t cb = {
         .user_data = &data,
-        .fn = [](void* user_data, a0_locked_transport_t, a0_flat_packet_t fpkt) {
+        .fn = [](void* user_data, a0_transport_locked_t, a0_flat_packet_t fpkt) {
           auto* want = (data_t*)user_data;
           REQUIRE(a0::test::pkt_cmp(want->pkt, a0::test::unflatten(fpkt)).content_match);
           want->executed = true;
@@ -87,7 +87,7 @@ struct ReaderSyncZCFixture : ReaderBaseFixture {
 
   void REQUIRE_NEXT_CPP(a0::ReaderSyncZeroCopy cpp_rsz, std::string want_payload) {
     bool executed = false;
-    cpp_rsz.next([&](a0::LockedTransport, a0::FlatPacket fpkt) {
+    cpp_rsz.next([&](a0::TransportLocked, a0::FlatPacket fpkt) {
       REQUIRE(fpkt.payload() == want_payload);
       executed = true;
     });
@@ -324,7 +324,7 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] next without has_next") 
 
   a0_zero_copy_callback_t cb = {
       .user_data = &data,
-      .fn = [](void* user_data, a0_locked_transport_t, a0_flat_packet_t) {
+      .fn = [](void* user_data, a0_transport_locked_t, a0_flat_packet_t) {
         ((data_t*)user_data)->executed = true;
       },
   };
@@ -592,7 +592,7 @@ struct ReaderZCFixture : ReaderBaseFixture {
   a0_zero_copy_callback_t make_callback() {
     return a0_zero_copy_callback_t{
         .user_data = &data,
-        .fn = [](void* user_data, a0_locked_transport_t, a0_flat_packet_t fpkt) {
+        .fn = [](void* user_data, a0_transport_locked_t, a0_flat_packet_t fpkt) {
           auto* data = (data_t*)user_data;
           a0_buf_t payload;
           a0_flat_packet_payload(fpkt, &payload);
@@ -604,8 +604,8 @@ struct ReaderZCFixture : ReaderBaseFixture {
     };
   }
 
-  std::function<void(a0::LockedTransport, a0::FlatPacket)> make_cpp_callback() {
-    return [&](a0::LockedTransport, a0::FlatPacket fpkt) {
+  std::function<void(a0::TransportLocked, a0::FlatPacket)> make_cpp_callback() {
+    return [&](a0::TransportLocked, a0::FlatPacket fpkt) {
       std::unique_lock<std::mutex> lk{data.mu};
       data.collected_payloads.push_back(std::string(fpkt.payload()));
       data.cv.notify_all();
