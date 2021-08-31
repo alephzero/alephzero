@@ -10,7 +10,6 @@ TODO...
    transport
    arena
    packet
-   heartbeat
    time
    ref_c
    ref_cpp
