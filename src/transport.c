@@ -73,7 +73,54 @@ size_t a0_transport_workspace_off() {
   return a0_max_align(sizeof(a0_transport_hdr_t));
 }
 
+// Converts a 0.2 transport into a 0.3 transport.
+// Note: This does not allow 0.2 and 0.3 to run simultaniously.
+//       0.2 transport will no longer work after this.
+A0_STATIC_INLINE
+void a0_backward_compatiblility_update_from_0_2(a0_arena_t arena) {
+  if (*(uint16_t*)arena.buf.ptr != 0x0101) {
+    // Not 0.2 format.
+    return;
+  }
+
+  uint32_t committed_page_idx = *(uint32_t*)(&arena.buf.ptr[120]);
+
+  uint32_t page_offset = committed_page_idx ? 88 : 56;
+  uint8_t* ptr = &arena.buf.ptr[page_offset];
+
+  uint64_t seq_low = *(uint64_t*)ptr;
+  ptr += sizeof(uint64_t);
+
+  uint64_t seq_high = *(uint64_t*)ptr;
+  ptr += sizeof(uint64_t);
+
+  uintptr_t off_head = *(uintptr_t*)ptr;
+  ptr += sizeof(uintptr_t);
+
+  uintptr_t off_tail = *(uintptr_t*)ptr;
+  ptr += sizeof(uintptr_t);
+
+  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)arena.buf.ptr;
+  memset(hdr, 0, sizeof(a0_transport_hdr_t));
+
+  memcpy(hdr->magic, "ALEPHZERO", 9);
+  hdr->version.major = 0;
+  hdr->version.minor = 3;
+  hdr->version.patch = 0;
+
+  hdr->arena_size = arena.buf.size;
+  hdr->state_pages[0].seq_low = seq_low;
+  hdr->state_pages[0].seq_high = seq_high;
+  hdr->state_pages[0].off_head = off_head;
+  hdr->state_pages[0].off_tail = off_tail;
+  hdr->state_pages[0].high_water_mark = hdr->arena_size;
+
+  hdr->state_pages[1] = hdr->state_pages[0];
+  hdr->initialized = true;
+}
+
 errno_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
+  a0_backward_compatiblility_update_from_0_2(arena);
   // The arena is expected to be either:
   // 1) all null bytes.
   //    this is guaranteed by ftruncate, as is used in a0/file.h
