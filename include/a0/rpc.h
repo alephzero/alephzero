@@ -45,15 +45,15 @@ struct a0_rpc_server_s {
   a0_packet_id_callback_t _oncancel;
 };
 
-errno_t a0_rpc_server_init(a0_rpc_server_t*,
-                           a0_rpc_topic_t,
-                           a0_alloc_t,
-                           a0_rpc_request_callback_t onrequest,
-                           a0_packet_id_callback_t oncancel);
-errno_t a0_rpc_server_close(a0_rpc_server_t*);
+a0_err_t a0_rpc_server_init(a0_rpc_server_t*,
+                            a0_rpc_topic_t,
+                            a0_alloc_t,
+                            a0_rpc_request_callback_t onrequest,
+                            a0_packet_id_callback_t oncancel);
+a0_err_t a0_rpc_server_close(a0_rpc_server_t*);
 
 // Note: do NOT respond with the request packet. The ids MUST be unique!
-errno_t a0_rpc_server_reply(a0_rpc_request_t, a0_packet_t response);
+a0_err_t a0_rpc_server_reply(a0_rpc_request_t, a0_packet_t response);
 
 ////////////
 // Client //
@@ -68,13 +68,13 @@ typedef struct a0_rpc_client_s {
   pthread_mutex_t _outstanding_requests_mu;
 } a0_rpc_client_t;
 
-errno_t a0_rpc_client_init(a0_rpc_client_t*, a0_rpc_topic_t, a0_alloc_t);
-errno_t a0_rpc_client_close(a0_rpc_client_t*);
+a0_err_t a0_rpc_client_init(a0_rpc_client_t*, a0_rpc_topic_t, a0_alloc_t);
+a0_err_t a0_rpc_client_close(a0_rpc_client_t*);
 
-errno_t a0_rpc_client_send(a0_rpc_client_t*, a0_packet_t, a0_packet_callback_t);
+a0_err_t a0_rpc_client_send(a0_rpc_client_t*, a0_packet_t, a0_packet_callback_t);
 
 // Note: use the id from the packet used in a0_rpc_client_send.
-errno_t a0_rpc_client_cancel(a0_rpc_client_t*, const a0_uuid_t);
+a0_err_t a0_rpc_client_cancel(a0_rpc_client_t*, const a0_uuid_t);
 
 #ifdef __cplusplus
 }

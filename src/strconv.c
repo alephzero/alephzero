@@ -17,11 +17,11 @@ static const char DECIMAL_DIGITS[] =
     "80818283848586878889"
     "90919293949596979899";
 
-errno_t a0_u32_to_str(uint32_t val, char* buf_start, char* buf_end, char** start_ptr) {
+a0_err_t a0_u32_to_str(uint32_t val, char* buf_start, char* buf_end, char** start_ptr) {
   return a0_u64_to_str(val, buf_start, buf_end, start_ptr);
 }
 
-errno_t a0_u64_to_str(uint64_t val, char* buf_start, char* buf_end, char** start_ptr) {
+a0_err_t a0_u64_to_str(uint64_t val, char* buf_start, char* buf_end, char** start_ptr) {
   uint64_t orig_val = val;
   char* ptr = buf_end;
   while (val >= 10) {
@@ -40,11 +40,11 @@ errno_t a0_u64_to_str(uint64_t val, char* buf_start, char* buf_end, char** start
   return A0_OK;
 }
 
-errno_t a0_str_to_u32(const char* start, const char* end, uint32_t* out) {
+a0_err_t a0_str_to_u32(const char* start, const char* end, uint32_t* out) {
   *out = 0;
   for (const char* ptr = start; ptr < end; ptr++) {
     if (*ptr < '0' || *ptr > '9') {
-      return EINVAL;
+      return A0_ERRCODE_INVALID_ARG;
     }
     *out *= 10;
     *out += *ptr - '0';
@@ -52,11 +52,11 @@ errno_t a0_str_to_u32(const char* start, const char* end, uint32_t* out) {
   return A0_OK;
 }
 
-errno_t a0_str_to_u64(const char* start, const char* end, uint64_t* out) {
+a0_err_t a0_str_to_u64(const char* start, const char* end, uint64_t* out) {
   *out = 0;
   for (const char* ptr = start; ptr < end; ptr++) {
     if (*ptr < '0' || *ptr > '9') {
-      return EINVAL;
+      return A0_ERRCODE_INVALID_ARG;
     }
     *out *= 10;
     *out += *ptr - '0';

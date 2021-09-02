@@ -64,7 +64,7 @@ typedef struct a0_middleware_chain_node_s {
 
 typedef struct a0_middleware_chain_s {
   a0_middleware_chain_node_t _node;
-  errno_t (*_chain_fn)(a0_middleware_chain_node_t, a0_packet_t*);
+  a0_err_t (*_chain_fn)(a0_middleware_chain_node_t, a0_packet_t*);
 } a0_middleware_chain_t;
 
 /**
@@ -73,7 +73,7 @@ typedef struct a0_middleware_chain_s {
  * This is intended to be the last line in the middleware implementation.
  */
 A0_STATIC_INLINE
-errno_t a0_middleware_chain(a0_middleware_chain_t chain, a0_packet_t* pkt) {
+a0_err_t a0_middleware_chain(a0_middleware_chain_t chain, a0_packet_t* pkt) {
   return chain._chain_fn(chain._node, pkt);
 }
 
@@ -90,11 +90,11 @@ typedef struct a0_middleware_s {
   /// User data to be passed as context to other a0_middleware_t methods.
   void* user_data;
   /// Closes and frees all state associated with this middleware.
-  errno_t (*close)(void* user_data);
+  a0_err_t (*close)(void* user_data);
   /// Processes a packet before forwarding it on to the next middleware in the chain.
-  errno_t (*process)(void* user_data, a0_packet_t*, a0_middleware_chain_t);
+  a0_err_t (*process)(void* user_data, a0_packet_t*, a0_middleware_chain_t);
   /// ...
-  errno_t (*process_locked)(void* user_data, a0_transport_locked_t, a0_packet_t*, a0_middleware_chain_t);
+  a0_err_t (*process_locked)(void* user_data, a0_transport_locked_t, a0_packet_t*, a0_middleware_chain_t);
 } a0_middleware_t;
 
 /**
@@ -104,7 +104,7 @@ typedef struct a0_middleware_s {
  * They cannot be reused.
  * They will be closed when the new middleware is closed.
  */
-errno_t a0_middleware_compose(a0_middleware_t, a0_middleware_t, a0_middleware_t* out);
+a0_err_t a0_middleware_compose(a0_middleware_t, a0_middleware_t, a0_middleware_t* out);
 
 /** @}*/
 

@@ -21,6 +21,7 @@
 #include <thread>
 #include <vector>
 
+#include "src/err_macro.h"
 #include "src/test_util.hpp"
 
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
@@ -48,7 +49,7 @@ struct ConfigFixture {
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] basic") {
   a0_packet_t cfg;
-  REQUIRE(a0_config(topic, a0::test::alloc(), O_NONBLOCK, &cfg) == EAGAIN);
+  REQUIRE(A0_SYSERR(a0_config(topic, a0::test::alloc(), O_NONBLOCK, &cfg)) == EAGAIN);
 
   REQUIRE_OK(a0_write_config(topic, a0::test::pkt("cfg")));
   REQUIRE_OK(a0_config(topic, a0::test::alloc(), O_NONBLOCK, &cfg));

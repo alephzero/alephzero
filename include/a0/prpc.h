@@ -47,14 +47,14 @@ struct a0_prpc_server_s {
   a0_packet_id_callback_t _oncancel;
 };
 
-errno_t a0_prpc_server_init(a0_prpc_server_t*,
-                            a0_prpc_topic_t,
-                            a0_alloc_t,
-                            a0_prpc_connection_callback_t onconnect,
-                            a0_packet_id_callback_t oncancel);
-errno_t a0_prpc_server_close(a0_prpc_server_t*);
+a0_err_t a0_prpc_server_init(a0_prpc_server_t*,
+                             a0_prpc_topic_t,
+                             a0_alloc_t,
+                             a0_prpc_connection_callback_t onconnect,
+                             a0_packet_id_callback_t oncancel);
+a0_err_t a0_prpc_server_close(a0_prpc_server_t*);
 // Note: do NOT respond with the request packet. The ids MUST be unique!
-errno_t a0_prpc_server_send(a0_prpc_connection_t, a0_packet_t, bool done);
+a0_err_t a0_prpc_server_send(a0_prpc_connection_t, a0_packet_t, bool done);
 
 ////////////
 // Client //
@@ -74,11 +74,11 @@ typedef struct a0_prpc_client_s {
   pthread_mutex_t _outstanding_connections_mu;
 } a0_prpc_client_t;
 
-errno_t a0_prpc_client_init(a0_prpc_client_t*, a0_prpc_topic_t, a0_alloc_t);
-errno_t a0_prpc_client_close(a0_prpc_client_t*);
-errno_t a0_prpc_client_connect(a0_prpc_client_t*, a0_packet_t, a0_prpc_progress_callback_t);
+a0_err_t a0_prpc_client_init(a0_prpc_client_t*, a0_prpc_topic_t, a0_alloc_t);
+a0_err_t a0_prpc_client_close(a0_prpc_client_t*);
+a0_err_t a0_prpc_client_connect(a0_prpc_client_t*, a0_packet_t, a0_prpc_progress_callback_t);
 // Note: use the same packet that was provided to a0_prpc_connect.
-errno_t a0_prpc_client_cancel(a0_prpc_client_t*, const a0_uuid_t);
+a0_err_t a0_prpc_client_cancel(a0_prpc_client_t*, const a0_uuid_t);
 
 #ifdef __cplusplus
 }

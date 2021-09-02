@@ -29,7 +29,7 @@
 #define REQUIRE(...)
 #endif
 
-#define REQUIRE_OK(err) REQUIRE((err) == A0_OK);
+#define REQUIRE_OK(err) REQUIRE((err) == A0_OK)
 
 namespace a0 {
 namespace test {

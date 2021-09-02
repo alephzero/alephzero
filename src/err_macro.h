@@ -2,18 +2,34 @@
 #define A0_SRC_ERR_MACRO_H
 
 #include <errno.h>
+#include <stdbool.h>
 
-#define A0_RETURN_ERR_ON_MINUS_ONE(X) \
-  do {                                \
-    if ((X) == -1) {                  \
-      return errno;                   \
-    }                                 \
+A0_STATIC_INLINE
+a0_err_t A0_MAKE_SYSERR(int syserr) {
+  if (syserr) {
+    a0_err_syscode = syserr;
+    return A0_ERRCODE_SYSERR;
+  }
+  return A0_OK;
+}
+
+A0_STATIC_INLINE
+int A0_SYSERR(a0_err_t err) {
+  return err == A0_ERRCODE_SYSERR ? a0_err_syscode : 0;
+}
+
+#define A0_RETURN_SYSERR_ON_MINUS_ONE(X) \
+  do {                                   \
+    if ((X) == -1) {                     \
+      a0_err_syscode = errno;            \
+      return A0_ERRCODE_SYSERR;          \
+    }                                    \
   } while (0)
 
 #define A0_RETURN_ERR_ON_ERR(X) \
   do {                          \
-    errno_t _err = (X);         \
-    if (_err != A0_OK) {        \
+    a0_err_t _err = (X);        \
+    if (_err) {                 \
       return _err;              \
     }                           \
   } while (0)

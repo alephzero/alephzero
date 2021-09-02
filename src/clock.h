@@ -16,13 +16,13 @@ static const int64_t NS_PER_SEC = 1e9;
 typedef struct timespec timespec_t;
 
 A0_STATIC_INLINE
-errno_t a0_clock_now(clockid_t clk, timespec_t* out) {
-  A0_RETURN_ERR_ON_MINUS_ONE(clock_gettime(clk, out));
+a0_err_t a0_clock_now(clockid_t clk, timespec_t* out) {
+  A0_RETURN_SYSERR_ON_MINUS_ONE(clock_gettime(clk, out));
   return A0_OK;
 }
 
 A0_STATIC_INLINE
-errno_t a0_clock_add(timespec_t ts, int64_t add_nsec, timespec_t* out) {
+a0_err_t a0_clock_add(timespec_t ts, int64_t add_nsec, timespec_t* out) {
   out->tv_sec = ts.tv_sec + add_nsec / NS_PER_SEC;
   out->tv_nsec = ts.tv_nsec + add_nsec % NS_PER_SEC;
   if (out->tv_nsec >= NS_PER_SEC) {
@@ -37,7 +37,7 @@ errno_t a0_clock_add(timespec_t ts, int64_t add_nsec, timespec_t* out) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_clock_convert(
+a0_err_t a0_clock_convert(
     clockid_t orig_clk,
     timespec_t orig_ts,
     clockid_t target_clk,

@@ -10,7 +10,6 @@
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/log.h>
-#include <a0/map.h>
 #include <a0/middleware.h>
 #include <a0/mtx.h>
 #include <a0/node.h>

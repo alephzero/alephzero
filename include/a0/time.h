@@ -54,16 +54,16 @@ typedef struct a0_time_mono_s {
 } a0_time_mono_t;
 
 /// Get the current mono timestamps.
-errno_t a0_time_mono_now(a0_time_mono_t*);
+a0_err_t a0_time_mono_now(a0_time_mono_t*);
 
 /// Stringify a given mono timestamps.
-errno_t a0_time_mono_str(a0_time_mono_t, char mono_str[20]);
+a0_err_t a0_time_mono_str(a0_time_mono_t, char mono_str[20]);
 
 /// Parse a stringified mono timestamps.
-errno_t a0_time_mono_parse(const char mono_str[20], a0_time_mono_t*);
+a0_err_t a0_time_mono_parse(const char mono_str[20], a0_time_mono_t*);
 
 /// Add a duration in nanoseconds to a mono timestamp.
-errno_t a0_time_mono_add(a0_time_mono_t, int64_t add_nsec, a0_time_mono_t*);
+a0_err_t a0_time_mono_add(a0_time_mono_t, int64_t add_nsec, a0_time_mono_t*);
 
 /** @}*/
 
@@ -80,13 +80,13 @@ typedef struct a0_time_wall_s {
 } a0_time_wall_t;
 
 /// Get the current wall timestamps.
-errno_t a0_time_wall_now(a0_time_wall_t*);
+a0_err_t a0_time_wall_now(a0_time_wall_t*);
 
 /// Stringify a given wall timestamps.
-errno_t a0_time_wall_str(a0_time_wall_t, char wall_str[36]);
+a0_err_t a0_time_wall_str(a0_time_wall_t, char wall_str[36]);
 
 /// Parse a stringified wall timestamps.
-errno_t a0_time_wall_parse(const char wall_str[36], a0_time_wall_t*);
+a0_err_t a0_time_wall_parse(const char wall_str[36], a0_time_wall_t*);
 
 /** @}*/
 

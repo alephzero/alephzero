@@ -16,8 +16,8 @@ void a0_once_do() {
   a0_callback_call(_a0_pthread_once_ctx);
 }
 
-errno_t a0_once(pthread_once_t* flag, a0_callback_t callback) {
+a0_err_t a0_once(pthread_once_t* flag, a0_callback_t callback) {
   _a0_pthread_once_ctx = callback;
-  A0_RETURN_ERR_ON_MINUS_ONE(pthread_once(flag, a0_once_do));
+  A0_RETURN_SYSERR_ON_MINUS_ONE(pthread_once(flag, a0_once_do));
   return A0_OK;
 }

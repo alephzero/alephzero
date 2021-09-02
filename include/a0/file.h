@@ -115,13 +115,13 @@ typedef struct a0_file_s {
 /// ::A0_FILE_OPTIONS_DEFAULT is used if opt is NULL.
 ///
 /// The file is zero-ed out when created.
-errno_t a0_file_open(
+a0_err_t a0_file_open(
     const char* path,
     const a0_file_options_t* opt,
     a0_file_t* out);
 
 /// Closes a file. The file still exists.
-errno_t a0_file_close(a0_file_t*);
+a0_err_t a0_file_close(a0_file_t*);
 
 typedef struct a0_file_iter_s {
   char _path[PATH_MAX + 1];
@@ -135,14 +135,14 @@ typedef struct a0_file_iter_entry_s {
   int d_type;
 } a0_file_iter_entry_t;
 
-errno_t a0_file_iter_init(a0_file_iter_t*, const char* path);
-errno_t a0_file_iter_next(a0_file_iter_t*, a0_file_iter_entry_t*);
-errno_t a0_file_iter_close(a0_file_iter_t*);
+a0_err_t a0_file_iter_init(a0_file_iter_t*, const char* path);
+a0_err_t a0_file_iter_next(a0_file_iter_t*, a0_file_iter_entry_t*);
+a0_err_t a0_file_iter_close(a0_file_iter_t*);
 
 /// Removes the specified file.
-errno_t a0_file_remove(const char* path);
+a0_err_t a0_file_remove(const char* path);
 /// Removes the specified file or directory, including all subdirectories.
-errno_t a0_file_remove_all(const char* path);
+a0_err_t a0_file_remove_all(const char* path);
 
 /** @}*/
 

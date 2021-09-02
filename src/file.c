@@ -26,24 +26,24 @@
 #endif
 
 A0_STATIC_INLINE
-errno_t a0_mkdir(const char* path, mode_t mode) {
+a0_err_t a0_mkdir(const char* path, mode_t mode) {
   stat_t st;
   if (stat(path, &st)) {
     if (mkdir(path, mode) && errno != EEXIST) {
-      return errno;
+      return A0_MAKE_SYSERR(errno);
     }
   } else if (!S_ISDIR(st.st_mode)) {
-    return ENOTDIR;
+    return A0_MAKE_SYSERR(ENOTDIR);
   }
 
   return A0_OK;
 }
 
 A0_STATIC_INLINE
-errno_t a0_mkpath(const char* path, mode_t mode) {
+a0_err_t a0_mkpath(const char* path, mode_t mode) {
   char* path_copy = strdup(path);
 
-  errno_t err = A0_OK;
+  a0_err_t err = A0_OK;
   char* scan_start = path_copy;
   char* scan_found;
   while (!err && (scan_found = strchr(scan_start, '/'))) {
@@ -60,12 +60,12 @@ errno_t a0_mkpath(const char* path, mode_t mode) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_joinpath(const char* dir, const char* fil, char** out) {
+a0_err_t a0_joinpath(const char* dir, const char* fil, char** out) {
   size_t dir_size = strlen(dir);
   size_t fil_size = strlen(fil);
 
   if (!dir_size || !fil_size) {
-    return ENOENT;
+    return A0_MAKE_SYSERR(ENOENT);
   }
 
   *out = (char*)malloc(dir_size + 1 + fil_size + 1);
@@ -78,9 +78,9 @@ errno_t a0_joinpath(const char* dir, const char* fil, char** out) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_abspath(const char* rel, char** out) {
+a0_err_t a0_abspath(const char* rel, char** out) {
   if (!rel || !*rel) {
-    return ENOENT;
+    return A0_MAKE_SYSERR(ENOENT);
   }
 
   if (rel[0] == '/') {
@@ -93,18 +93,18 @@ errno_t a0_abspath(const char* rel, char** out) {
     root = "/dev/shm";
   }
   if (!*root) {
-    return ENOENT;
+    return A0_MAKE_SYSERR(ENOENT);
   }
 
   if (root[0] != '/') {
-    return ENOENT;
+    return A0_MAKE_SYSERR(ENOENT);
   }
 
   return a0_joinpath(root, rel, out);
 }
 
 A0_STATIC_INLINE
-errno_t a0_open(const char* path, a0_file_open_options_t opts, a0_file_t* file) {
+a0_err_t a0_open(const char* path, a0_file_open_options_t opts, a0_file_t* file) {
   int flags = O_RDWR;
   if (opts.arena_mode == A0_ARENA_MODE_READONLY) {
     flags = O_RDONLY;
@@ -112,10 +112,10 @@ errno_t a0_open(const char* path, a0_file_open_options_t opts, a0_file_t* file) 
 
   file->path = path;
   file->fd = open(path, flags);
-  A0_RETURN_ERR_ON_MINUS_ONE(file->fd);
-  errno_t err = A0_OK;
+  A0_RETURN_SYSERR_ON_MINUS_ONE(file->fd);
+  a0_err_t err = A0_OK;
   if (fstat(file->fd, &file->stat) == -1) {
-    err = errno;
+    err = A0_MAKE_SYSERR(errno);
     close(file->fd);
     file->fd = -1;
   }
@@ -123,18 +123,18 @@ errno_t a0_open(const char* path, a0_file_open_options_t opts, a0_file_t* file) 
 }
 
 A0_STATIC_INLINE
-errno_t a0_mktmp(const char* dir, a0_file_create_options_t opts, a0_file_t* file) {
+a0_err_t a0_mktmp(const char* dir, a0_file_create_options_t opts, a0_file_t* file) {
   char* path;
   A0_RETURN_ERR_ON_ERR(a0_joinpath(dir, ".alephzero_mkstemp.XXXXXX", &path));
 
   file->fd = mkstemp(path);
-  A0_RETURN_ERR_ON_MINUS_ONE(file->fd);
+  A0_RETURN_SYSERR_ON_MINUS_ONE(file->fd);
   file->path = path;
 
   if (fchmod(file->fd, opts.mode) == -1 ||
       ftruncate(file->fd, opts.size) == -1 ||
       fstat(file->fd, &file->stat) == -1) {
-    errno_t err = errno;
+    a0_err_t err = A0_MAKE_SYSERR(errno);
 
     close(file->fd);
     file->fd = -1;
@@ -149,10 +149,10 @@ errno_t a0_mktmp(const char* dir, a0_file_create_options_t opts, a0_file_t* file
 }
 
 A0_STATIC_INLINE
-errno_t a0_tmp_move(a0_file_t* file, const char* path) {
-  errno_t err = A0_OK;
+a0_err_t a0_tmp_move(a0_file_t* file, const char* path) {
+  a0_err_t err = A0_OK;
   if (link(file->path, path) == -1) {
-    err = errno;
+    err = A0_MAKE_SYSERR(errno);
   }
   unlink(file->path);
   free((char*)file->path);
@@ -161,7 +161,7 @@ errno_t a0_tmp_move(a0_file_t* file, const char* path) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_mmap(a0_file_t* file, const a0_file_open_options_t* open_options) {
+a0_err_t a0_mmap(a0_file_t* file, const a0_file_open_options_t* open_options) {
   file->arena.mode = open_options->arena_mode;
   file->arena.buf.size = file->stat.st_size;
 
@@ -180,19 +180,19 @@ errno_t a0_mmap(a0_file_t* file, const a0_file_open_options_t* open_options) {
   if ((intptr_t)file->arena.buf.ptr == -1) {
     file->arena.buf.ptr = NULL;
     file->arena.buf.size = 0;
-    return errno;
+    return A0_MAKE_SYSERR(errno);
   }
 
   return A0_OK;
 }
 
 A0_STATIC_INLINE
-errno_t a0_munmap(a0_file_t* file) {
+a0_err_t a0_munmap(a0_file_t* file) {
   if (!file->arena.buf.ptr) {
-    return EBADF;
+    return A0_MAKE_SYSERR(EBADF);
   }
 
-  A0_RETURN_ERR_ON_MINUS_ONE(munmap(file->arena.buf.ptr, file->arena.buf.size));
+  A0_RETURN_SYSERR_ON_MINUS_ONE(munmap(file->arena.buf.ptr, file->arena.buf.size));
   file->arena.buf.ptr = NULL;
   file->arena.buf.size = 0;
 
@@ -214,14 +214,14 @@ const a0_file_options_t A0_FILE_OPTIONS_DEFAULT = {
 };
 
 A0_STATIC_INLINE
-errno_t a0_do_open(
+a0_err_t a0_do_open(
     a0_file_t* file,
     const char* path,
     const a0_file_options_t* opts) {
   char* path_copy = NULL;
   char* dir = NULL;
 
-  errno_t err;
+  a0_err_t err;
   while (true) {
     err = a0_open(path, opts->open_options, file);
     if (!err) {
@@ -237,7 +237,7 @@ errno_t a0_do_open(
         }
       }
       break;
-    } else if (err != ENOENT) {
+    } else if (A0_SYSERR(err) != ENOENT) {
       break;
     }
 
@@ -277,7 +277,7 @@ errno_t a0_do_open(
       }
       file->path = NULL;
     }
-    if (err != EEXIST) {
+    if (A0_SYSERR(err) != EEXIST) {
       break;
     }
   }
@@ -289,7 +289,7 @@ errno_t a0_do_open(
   return err;
 }
 
-errno_t a0_file_open(
+a0_err_t a0_file_open(
     const char* path,
     const a0_file_options_t* opts_,
     a0_file_t* out) {
@@ -300,7 +300,7 @@ errno_t a0_file_open(
 
   char* filepath;
   A0_RETURN_ERR_ON_ERR(a0_abspath(path, &filepath));
-  errno_t err = a0_mkpath(filepath, opts->create_options.dir_mode);
+  a0_err_t err = a0_mkpath(filepath, opts->create_options.dir_mode);
   if (err) {
     free(filepath);
     return err;
@@ -319,9 +319,9 @@ errno_t a0_file_open(
   return A0_OK;
 }
 
-errno_t a0_file_close(a0_file_t* file) {
+a0_err_t a0_file_close(a0_file_t* file) {
   if (!file->path || !file->arena.buf.ptr) {
-    return EBADF;
+    return A0_MAKE_SYSERR(EBADF);
   }
 
 #ifdef DEBUG
@@ -347,14 +347,14 @@ errno_t a0_file_close(a0_file_t* file) {
   return a0_munmap(file);
 }
 
-errno_t a0_file_iter_init(a0_file_iter_t* iter, const char* path) {
+a0_err_t a0_file_iter_init(a0_file_iter_t* iter, const char* path) {
   char* abspath;
   A0_RETURN_ERR_ON_ERR(a0_abspath(path, &abspath));
 
   iter->_path_len = strlen(abspath);
   if (iter->_path_len > PATH_MAX) {
     free(abspath);
-    return ENAMETOOLONG;
+    return A0_MAKE_SYSERR(ENAMETOOLONG);
   }
 
   memcpy(iter->_path, abspath, iter->_path_len + 1);
@@ -366,25 +366,25 @@ errno_t a0_file_iter_init(a0_file_iter_t* iter, const char* path) {
   }
 
   stat_t stat;
-  A0_RETURN_ERR_ON_MINUS_ONE(lstat(path, &stat));
+  A0_RETURN_SYSERR_ON_MINUS_ONE(lstat(path, &stat));
 
   if (!S_ISDIR(stat.st_mode)) {
-    return ENOTDIR;
+    return A0_MAKE_SYSERR(ENOTDIR);
   }
 
   iter->_dir = opendir(path);
   if (!iter->_dir) {
-    return errno;
+    return A0_MAKE_SYSERR(errno);
   }
   return A0_OK;
 }
 
-errno_t a0_file_iter_next(a0_file_iter_t* iter, a0_file_iter_entry_t* entry) {
+a0_err_t a0_file_iter_next(a0_file_iter_t* iter, a0_file_iter_entry_t* entry) {
   struct dirent* dir_entity;
   while ((dir_entity = readdir(iter->_dir)) && (!memcmp(dir_entity->d_name, ".", 2) || !memcmp(dir_entity->d_name, "..", 3))) {
   }
   if (!dir_entity) {
-    return EINVAL;
+    return A0_ERRCODE_DONE_ITER;
   }
 
   size_t len = strlen(dir_entity->d_name);
@@ -398,24 +398,24 @@ errno_t a0_file_iter_next(a0_file_iter_t* iter, a0_file_iter_entry_t* entry) {
   return A0_OK;
 }
 
-errno_t a0_file_iter_close(a0_file_iter_t* iter) {
+a0_err_t a0_file_iter_close(a0_file_iter_t* iter) {
   closedir(iter->_dir);
   return A0_OK;
 }
 
-errno_t a0_file_remove(const char* path) {
+a0_err_t a0_file_remove(const char* path) {
   char* abspath;
   A0_RETURN_ERR_ON_ERR(a0_abspath(path, &abspath));
 
-  errno_t err = A0_OK;
+  a0_err_t err = A0_OK;
   if (remove(abspath) == -1) {
-    err = errno;
+    err = A0_MAKE_SYSERR(errno);
   }
   free(abspath);
   return err;
 }
 
-errno_t a0_file_remove_all(const char* path) {
+a0_err_t a0_file_remove_all(const char* path) {
   a0_file_iter_t iter;
   A0_RETURN_ERR_ON_ERR(a0_file_iter_init(&iter, path));
 
@@ -427,7 +427,7 @@ errno_t a0_file_remove_all(const char* path) {
     a0_file_remove(entry.fullpath);
   }
 
-  errno_t err = a0_file_remove(path);
+  a0_err_t err = a0_file_remove(path);
   a0_file_iter_close(&iter);
   return err;
 }

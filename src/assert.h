@@ -20,19 +20,19 @@
     }                                                    \
   } while (0)
 
-#define A0_ASSERT_OK(ERR, MSG, ...)                             \
-  do {                                                          \
-    errno_t _err = (ERR);                                       \
-    if (_err) {                                                 \
-      fprintf(stderr, "AlephZero Assertion Failed!\n");         \
-      fprintf(stderr, "File: %s\n", __FILE__);                  \
-      fprintf(stderr, "Line: %d\n", __LINE__);                  \
-      fprintf(stderr, "Func: %s\n", __func__);                  \
-      fprintf(stderr, "Expr: %s\n", #ERR);                      \
-      fprintf(stderr, "Err:  [%d] %s\n", _err, strerror(_err)); \
-      fprintf(stderr, "Msg:  " MSG "\n", ##__VA_ARGS__);        \
-      abort();                                                  \
-    }                                                           \
+#define A0_ASSERT_OK(ERR, MSG, ...)                                \
+  do {                                                             \
+    a0_err_t _err = (ERR);                                         \
+    if (_err) {                                                    \
+      fprintf(stderr, "AlephZero Assertion Failed!\n");            \
+      fprintf(stderr, "File: %s\n", __FILE__);                     \
+      fprintf(stderr, "Line: %d\n", __LINE__);                     \
+      fprintf(stderr, "Func: %s\n", __func__);                     \
+      fprintf(stderr, "Expr: %s\n", #ERR);                         \
+      fprintf(stderr, "Err:  [%d] %s\n", _err, a0_strerror(_err)); \
+      fprintf(stderr, "Msg:  " MSG "\n", ##__VA_ARGS__);           \
+      abort();                                                     \
+    }                                                              \
   } while (0)
 
 #else

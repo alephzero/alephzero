@@ -29,11 +29,11 @@ size_t a0_max_align(size_t off) {
   return ((off + alignof(max_align_t) - 1) & ~(alignof(max_align_t) - 1));
 }
 
-errno_t a0_map_init(a0_map_t* map,
-                    size_t key_size,
-                    size_t val_size,
-                    a0_hash_t key_hash,
-                    a0_compare_t key_compare) {
+a0_err_t a0_map_init(a0_map_t* map,
+                     size_t key_size,
+                     size_t val_size,
+                     a0_hash_t key_hash,
+                     a0_compare_t key_compare) {
   memset(map, 0, sizeof(a0_map_t));
   map->_key_size = key_size;
   map->_val_size = val_size;
@@ -45,7 +45,7 @@ errno_t a0_map_init(a0_map_t* map,
   return A0_OK;
 }
 
-errno_t a0_map_close(a0_map_t* map) {
+a0_err_t a0_map_close(a0_map_t* map) {
   if (map->_data) {
     free(map->_data);
   }
@@ -53,18 +53,18 @@ errno_t a0_map_close(a0_map_t* map) {
   return A0_OK;
 }
 
-errno_t a0_map_empty(a0_map_t* map, bool* is_empty) {
+a0_err_t a0_map_empty(a0_map_t* map, bool* is_empty) {
   *is_empty = (map->_size == 0);
   return A0_OK;
 }
 
-errno_t a0_map_size(a0_map_t* map, size_t* size) {
+a0_err_t a0_map_size(a0_map_t* map, size_t* size) {
   *size = map->_size;
   return A0_OK;
 }
 
 A0_STATIC_INLINE
-errno_t _a0_map_bucket(a0_map_t* map, size_t idx, _a0_map_bucket_t* bkt) {
+a0_err_t _a0_map_bucket(a0_map_t* map, size_t idx, _a0_map_bucket_t* bkt) {
   bkt->ptr = map->_data + idx * map->_bucket_size;
   bkt->idx = idx;
   bkt->off = (size_t*)bkt->ptr;
@@ -74,9 +74,9 @@ errno_t _a0_map_bucket(a0_map_t* map, size_t idx, _a0_map_bucket_t* bkt) {
 }
 
 A0_STATIC_INLINE
-errno_t _a0_map_find(a0_map_t* map, const void* key, _a0_map_bucket_t* bkt) {
+a0_err_t _a0_map_find(a0_map_t* map, const void* key, _a0_map_bucket_t* bkt) {
   if (!map->_size) {
-    return EINVAL;
+    return A0_ERRCODE_NOT_FOUND;
   }
 
   size_t hash;
@@ -98,17 +98,17 @@ errno_t _a0_map_find(a0_map_t* map, const void* key, _a0_map_bucket_t* bkt) {
     off++;
   }
 
-  return EINVAL;
+  return A0_ERRCODE_NOT_FOUND;
 }
 
-errno_t a0_map_has(a0_map_t* map, const void* key, bool* contains) {
+a0_err_t a0_map_has(a0_map_t* map, const void* key, bool* contains) {
   _a0_map_bucket_t bkt;
   *contains = (_a0_map_find(map, key, &bkt) == A0_OK);
   return A0_OK;
 }
 
 A0_STATIC_INLINE
-errno_t _a0_map_grow(a0_map_t* map) {
+a0_err_t _a0_map_grow(a0_map_t* map) {
   a0_map_t new_map = *map;
   new_map._size = 0;
   new_map._cap = new_map._cap ? (new_map._cap * 2) : 4;
@@ -128,7 +128,7 @@ errno_t _a0_map_grow(a0_map_t* map) {
   return A0_OK;
 }
 
-errno_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
+a0_err_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
   if (map->_size * 2 >= map->_cap) {
     A0_RETURN_ERR_ON_ERR(_a0_map_grow(map));
   }
@@ -177,7 +177,7 @@ errno_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
 }
 
 A0_STATIC_INLINE
-errno_t _a0_map_del_bucket(a0_map_t* map, _a0_map_bucket_t bkt) {
+a0_err_t _a0_map_del_bucket(a0_map_t* map, _a0_map_bucket_t bkt) {
   *bkt.off = 0;
 
   map->_size--;
@@ -201,31 +201,27 @@ errno_t _a0_map_del_bucket(a0_map_t* map, _a0_map_bucket_t bkt) {
   return A0_OK;
 }
 
-errno_t a0_map_del(a0_map_t* map, const void* key) {
-  if (!map->_size) {
-    return EINVAL;
-  }
-
+a0_err_t a0_map_del(a0_map_t* map, const void* key) {
   _a0_map_bucket_t bkt;
   A0_RETURN_ERR_ON_ERR(_a0_map_find(map, key, &bkt));
   return _a0_map_del_bucket(map, bkt);
 }
 
-errno_t a0_map_get(a0_map_t* map, const void* key, void** val) {
+a0_err_t a0_map_get(a0_map_t* map, const void* key, void** val) {
   _a0_map_bucket_t bkt;
   A0_RETURN_ERR_ON_ERR(_a0_map_find(map, key, &bkt));
   *val = bkt.val;
   return A0_OK;
 }
 
-errno_t a0_map_pop(a0_map_t* map, const void* key, void* val) {
+a0_err_t a0_map_pop(a0_map_t* map, const void* key, void* val) {
   _a0_map_bucket_t bkt;
   A0_RETURN_ERR_ON_ERR(_a0_map_find(map, key, &bkt));
   memcpy(val, bkt.val, map->_val_size);
   return _a0_map_del_bucket(map, bkt);
 }
 
-errno_t a0_map_iterator_init(a0_map_iterator_t* iter, a0_map_t* map) {
+a0_err_t a0_map_iterator_init(a0_map_iterator_t* iter, a0_map_t* map) {
   *iter = (a0_map_iterator_t){
       ._map = map,
       ._idx = 0,
@@ -233,9 +229,9 @@ errno_t a0_map_iterator_init(a0_map_iterator_t* iter, a0_map_t* map) {
   return A0_OK;
 }
 
-errno_t a0_map_iterator_next(a0_map_iterator_t* iter, const void** key, void** val) {
+a0_err_t a0_map_iterator_next(a0_map_iterator_t* iter, const void** key, void** val) {
   if (iter->_idx >= iter->_map->_cap) {
-    return EINVAL;
+    return A0_ERRCODE_DONE_ITER;
   }
 
   _a0_map_bucket_t bkt;
@@ -244,7 +240,7 @@ errno_t a0_map_iterator_next(a0_map_iterator_t* iter, const void** key, void** v
   } while (iter->_idx <= iter->_map->_cap && !*bkt.off);
 
   if (iter->_idx > iter->_map->_cap) {
-    return EINVAL;
+    return A0_ERRCODE_DONE_ITER;
   }
 
   *key = bkt.key;

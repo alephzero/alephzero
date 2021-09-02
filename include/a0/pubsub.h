@@ -28,9 +28,9 @@ typedef struct a0_publisher_s {
   a0_writer_t _writer;
 } a0_publisher_t;
 
-errno_t a0_publisher_init(a0_publisher_t*, a0_pubsub_topic_t);
-errno_t a0_publisher_close(a0_publisher_t*);
-errno_t a0_publisher_pub(a0_publisher_t*, a0_packet_t);
+a0_err_t a0_publisher_init(a0_publisher_t*, a0_pubsub_topic_t);
+a0_err_t a0_publisher_close(a0_publisher_t*);
+a0_err_t a0_publisher_pub(a0_publisher_t*, a0_packet_t);
 
 ////////////////
 // Subscriber //
@@ -43,16 +43,16 @@ typedef struct a0_subscriber_sync_s {
   a0_reader_sync_t _reader_sync;
 } a0_subscriber_sync_t;
 
-errno_t a0_subscriber_sync_init(a0_subscriber_sync_t*,
-                                a0_pubsub_topic_t,
-                                a0_alloc_t,
-                                a0_reader_init_t,
-                                a0_reader_iter_t);
+a0_err_t a0_subscriber_sync_init(a0_subscriber_sync_t*,
+                                 a0_pubsub_topic_t,
+                                 a0_alloc_t,
+                                 a0_reader_init_t,
+                                 a0_reader_iter_t);
 
-errno_t a0_subscriber_sync_close(a0_subscriber_sync_t*);
+a0_err_t a0_subscriber_sync_close(a0_subscriber_sync_t*);
 
-errno_t a0_subscriber_sync_has_next(a0_subscriber_sync_t*, bool*);
-errno_t a0_subscriber_sync_next(a0_subscriber_sync_t*, a0_packet_t*);
+a0_err_t a0_subscriber_sync_has_next(a0_subscriber_sync_t*, bool*);
+a0_err_t a0_subscriber_sync_next(a0_subscriber_sync_t*, a0_packet_t*);
 
 // Threaded allocated version.
 
@@ -61,14 +61,14 @@ typedef struct a0_subscriber_s {
   a0_reader_t _reader;
 } a0_subscriber_t;
 
-errno_t a0_subscriber_init(a0_subscriber_t*,
-                           a0_pubsub_topic_t,
-                           a0_alloc_t,
-                           a0_reader_init_t,
-                           a0_reader_iter_t,
-                           a0_packet_callback_t);
+a0_err_t a0_subscriber_init(a0_subscriber_t*,
+                            a0_pubsub_topic_t,
+                            a0_alloc_t,
+                            a0_reader_init_t,
+                            a0_reader_iter_t,
+                            a0_packet_callback_t);
 
-errno_t a0_subscriber_close(a0_subscriber_t*);
+a0_err_t a0_subscriber_close(a0_subscriber_t*);
 
 // One-off reader.
 
@@ -76,11 +76,11 @@ errno_t a0_subscriber_close(a0_subscriber_t*);
 // Pass O_NDELAY or O_NONBLOCK to flags to run non-blocking.
 // If non-blocking and transport is empty, returns EAGAIN.
 
-errno_t a0_subscriber_read_one(a0_pubsub_topic_t,
-                               a0_alloc_t,
-                               a0_reader_init_t,
-                               int flags,
-                               a0_packet_t*);
+a0_err_t a0_subscriber_read_one(a0_pubsub_topic_t,
+                                a0_alloc_t,
+                                a0_reader_init_t,
+                                int flags,
+                                a0_packet_t*);
 
 #ifdef __cplusplus
 }

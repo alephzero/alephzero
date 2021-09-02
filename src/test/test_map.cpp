@@ -82,7 +82,7 @@ TEST_CASE_FIXTURE(MapFixture, "map] basic") {
   key = 3;
   REQUIRE_OK(a0_map_has(&map, &key, &found));
   REQUIRE(!found);
-  REQUIRE(a0_map_get(&map, &key, (void**)&val_ptr) == EINVAL);
+  REQUIRE(a0_map_get(&map, &key, (void**)&val_ptr) == A0_ERRCODE_NOT_FOUND);
 
   key = 2;
   REQUIRE_OK(a0_map_del(&map, &key));

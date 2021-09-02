@@ -13,7 +13,7 @@
 //////////////////////
 
 // https://stackoverflow.com/questions/20953390/what-is-the-fastest-hash-function-for-pointers
-errno_t a0_hash_ptr_fn(void* user_data, const void* data, size_t* out) {
+a0_err_t a0_hash_ptr_fn(void* user_data, const void* data, size_t* out) {
   A0_MAYBE_UNUSED(user_data);
   const size_t shift = (size_t)log2(1 + sizeof(uintptr_t));
   *out = (*(uintptr_t*)data) >> shift;
@@ -25,7 +25,7 @@ const a0_hash_t A0_HASH_PTR = {
     .fn = a0_hash_ptr_fn,
 };
 
-errno_t a0_compare_ptr_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
+a0_err_t a0_compare_ptr_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
   A0_MAYBE_UNUSED(user_data);
   *out = (*(uintptr_t*)lhs - *(uintptr_t*)rhs);
   return A0_OK;
@@ -54,7 +54,7 @@ static const uint8_t UNHEX_VALUES[] = {
 // clang-format on
 
 A0_STATIC_INLINE
-errno_t a0_hash_uuid_fn(void* user_data, const void* data, size_t* out) {
+a0_err_t a0_hash_uuid_fn(void* user_data, const void* data, size_t* out) {
   A0_MAYBE_UNUSED(user_data);
   // UUID is 16 bytes stretched to 37 bytes.
   // The hash is computed by recovering some of the random bytes from the uuid.
@@ -87,7 +87,7 @@ const a0_hash_t A0_HASH_UUID = {
     .fn = a0_hash_uuid_fn,
 };
 
-errno_t a0_compare_uuid_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
+a0_err_t a0_compare_uuid_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
   A0_MAYBE_UNUSED(user_data);
   *out = memcmp(lhs, rhs, A0_UUID_SIZE);
   return A0_OK;

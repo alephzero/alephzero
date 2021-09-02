@@ -1,6 +1,7 @@
 #include "topic.h"
 
 #include <a0/buf.h>
+#include <a0/empty.h>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
@@ -11,7 +12,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "empty.h"
 #include "err_macro.h"
 
 enum { A0_TOPIC_TMPL_MAX_MATCH_CNT = 4 };
@@ -24,11 +24,11 @@ typedef struct a0_topic_template_match_info_s {
 } a0_topic_template_match_info_t;
 
 A0_STATIC_INLINE
-errno_t a0_topic_match_info(const char* tmpl,
-                            const char* topic,
-                            a0_topic_template_match_info_t* info) {
-  if (topic[0] == '\0' || topic[0] == '/') {
-    return EINVAL;
+a0_err_t a0_topic_match_info(const char* tmpl,
+                             const char* topic,
+                             a0_topic_template_match_info_t* info) {
+  if (!tmpl || !*tmpl || !topic || !*topic || topic[0] == '/') {
+    return A0_ERRCODE_BAD_TOPIC;
   }
 
   info->topic_len = strlen(topic);
@@ -53,9 +53,9 @@ errno_t a0_topic_match_info(const char* tmpl,
 }
 
 A0_STATIC_INLINE
-errno_t a0_topic_write_path(const char* topic,
-                            a0_topic_template_match_info_t info,
-                            char* write_ptr) {
+a0_err_t a0_topic_write_path(const char* topic,
+                             a0_topic_template_match_info_t info,
+                             char* write_ptr) {
   memcpy(write_ptr, info.segments[0].ptr, info.segments[0].size);
   write_ptr += info.segments[0].size;
   for (size_t i = 1; i < info.num_segments; i++) {
@@ -69,14 +69,14 @@ errno_t a0_topic_write_path(const char* topic,
   return A0_OK;
 }
 
-errno_t a0_topic_path(const char* tmpl,
-                      const char* topic,
-                      const char** path) {
+a0_err_t a0_topic_path(const char* tmpl,
+                       const char* topic,
+                       const char** path) {
   a0_topic_template_match_info_t info = A0_EMPTY;
   A0_RETURN_ERR_ON_ERR(a0_topic_match_info(tmpl, topic, &info));
 
   char* path_mut = (char*)malloc(info.path_len + 1);
-  errno_t err = a0_topic_write_path(topic, info, path_mut);
+  a0_err_t err = a0_topic_write_path(topic, info, path_mut);
   if (err) {
     free(path_mut);
     return err;
@@ -85,10 +85,10 @@ errno_t a0_topic_path(const char* tmpl,
   return A0_OK;
 }
 
-errno_t a0_topic_open(const char* tmpl,
-                      const char* topic,
-                      const a0_file_options_t* topic_opts,
-                      a0_file_t* file) {
+a0_err_t a0_topic_open(const char* tmpl,
+                       const char* topic,
+                       const a0_file_options_t* topic_opts,
+                       a0_file_t* file) {
   a0_topic_template_match_info_t info = A0_EMPTY;
   A0_RETURN_ERR_ON_ERR(a0_topic_match_info(tmpl, topic, &info));
 

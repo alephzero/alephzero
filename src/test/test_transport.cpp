@@ -414,7 +414,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] evicts") {
   REQUIRE_OK(a0_transport_alloc_evicts(lk, 2 * 1024, &evicts));
   REQUIRE(evicts);
 
-  REQUIRE(a0_transport_alloc_evicts(lk, 4 * 1024, &evicts) == EOVERFLOW);
+  REQUIRE(a0_transport_alloc_evicts(lk, 4 * 1024, &evicts) == A0_ERRCODE_TRANSPORT_FRAME_GT_ARENA);
 
   REQUIRE_OK(a0_transport_unlock(lk));
 }
@@ -429,7 +429,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp evicts") {
 
   REQUIRE_THROWS_WITH(
       tlk.alloc_evicts(4 * 1024),
-      "Value too large for defined data type");
+      "Transport cannot allocate frame larger than arena");
 }
 
 TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
@@ -606,10 +606,10 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] empty jumps") {
   a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
-  REQUIRE(a0_transport_jump_head(lk) == EAGAIN);
-  REQUIRE(a0_transport_jump_tail(lk) == EAGAIN);
-  REQUIRE(a0_transport_step_next(lk) == EAGAIN);
-  REQUIRE(a0_transport_step_prev(lk) == EAGAIN);
+  REQUIRE(a0_transport_jump_head(lk) == A0_ERRCODE_TRANSPORT_CANNOT_MOVE_POINTER);
+  REQUIRE(a0_transport_jump_tail(lk) == A0_ERRCODE_TRANSPORT_CANNOT_MOVE_POINTER);
+  REQUIRE(a0_transport_step_next(lk) == A0_ERRCODE_TRANSPORT_CANNOT_MOVE_POINTER);
+  REQUIRE(a0_transport_step_prev(lk) == A0_ERRCODE_TRANSPORT_CANNOT_MOVE_POINTER);
 
   bool has_next;
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
@@ -628,19 +628,19 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp empty jumps") {
 
   REQUIRE_THROWS_WITH(
       tlk.jump_head(),
-      "Resource temporarily unavailable");
+      "Transport cannot move pointer");
 
   REQUIRE_THROWS_WITH(
       tlk.jump_tail(),
-      "Resource temporarily unavailable");
+      "Transport cannot move pointer");
 
   REQUIRE_THROWS_WITH(
       tlk.step_prev(),
-      "Resource temporarily unavailable");
+      "Transport cannot move pointer");
 
   REQUIRE_THROWS_WITH(
       tlk.step_next(),
-      "Resource temporarily unavailable");
+      "Transport cannot move pointer");
 
   REQUIRE(!tlk.has_next());
   REQUIRE(!tlk.has_prev());
@@ -985,12 +985,12 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   REQUIRE_OK(a0_transport_used_space(lk, &used_space));
   REQUIRE(used_space == 1208);
 
-  REQUIRE(a0_transport_resize(lk, 0) == EINVAL);
-  REQUIRE(a0_transport_resize(lk, 1207) == EINVAL);
+  REQUIRE(a0_transport_resize(lk, 0) == A0_ERRCODE_INVALID_ARG);
+  REQUIRE(a0_transport_resize(lk, 1207) == A0_ERRCODE_INVALID_ARG);
   REQUIRE_OK(a0_transport_resize(lk, 1208));
 
   data = std::string(1024 + 1, 'a');  // 1 byte larger than previous.
-  REQUIRE(a0_transport_alloc(lk, data.size(), &frame) == EOVERFLOW);
+  REQUIRE(a0_transport_alloc(lk, data.size(), &frame) == A0_ERRCODE_TRANSPORT_FRAME_GT_ARENA);
 
   data = std::string(1024, 'b');  // same size as existing.
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
@@ -1222,7 +1222,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
 
   REQUIRE_THROWS_WITH(
       tlk.alloc(data.size()),
-      "Value too large for defined data type");
+      "Transport cannot allocate frame larger than arena");
 
   data = std::string(1024, 'b');  // same size as existing.
   frame = tlk.alloc(data.size());

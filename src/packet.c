@@ -13,13 +13,13 @@
 
 const char* A0_PACKET_DEP_KEY = "a0_dep";
 
-errno_t a0_packet_init(a0_packet_t* pkt) {
+a0_err_t a0_packet_init(a0_packet_t* pkt) {
   memset(pkt, 0, sizeof(a0_packet_t));
   a0_uuidv4(pkt->id);
   return A0_OK;
 }
 
-errno_t a0_packet_stats(a0_packet_t pkt, a0_packet_stats_t* stats) {
+a0_err_t a0_packet_stats(a0_packet_t pkt, a0_packet_stats_t* stats) {
   stats->num_hdrs = 0;
   for (a0_packet_headers_block_t* block = &pkt.headers_block;
        block;
@@ -48,35 +48,35 @@ errno_t a0_packet_stats(a0_packet_t pkt, a0_packet_stats_t* stats) {
   return A0_OK;
 }
 
-errno_t a0_packet_header_iterator_init(a0_packet_header_iterator_t* iter, a0_packet_t* pkt) {
+a0_err_t a0_packet_header_iterator_init(a0_packet_header_iterator_t* iter, a0_packet_t* pkt) {
   *iter = (a0_packet_header_iterator_t){&pkt->headers_block, 0};
   return A0_OK;
 }
 
-errno_t a0_packet_header_iterator_next(a0_packet_header_iterator_t* iter,
-                                       a0_packet_header_t* out) {
+a0_err_t a0_packet_header_iterator_next(a0_packet_header_iterator_t* iter,
+                                        a0_packet_header_t* out) {
   while (iter->_block && iter->_idx >= iter->_block->size) {
     *iter = (a0_packet_header_iterator_t){iter->_block->next_block, 0};
   }
 
   if (!iter->_block) {
-    return EINVAL;
+    return A0_ERRCODE_DONE_ITER;
   }
 
   *out = iter->_block->headers[iter->_idx++];
   return A0_OK;
 }
 
-errno_t a0_packet_header_iterator_next_match(a0_packet_header_iterator_t* iter,
-                                             const char* key,
-                                             a0_packet_header_t* out) {
+a0_err_t a0_packet_header_iterator_next_match(a0_packet_header_iterator_t* iter,
+                                              const char* key,
+                                              a0_packet_header_t* out) {
   do {
     A0_RETURN_ERR_ON_ERR(a0_packet_header_iterator_next(iter, out));
   } while (strcmp(key, out->key));
   return A0_OK;
 }
 
-errno_t a0_packet_serialize(a0_packet_t pkt, a0_alloc_t alloc, a0_flat_packet_t* out_fpkt) {
+a0_err_t a0_packet_serialize(a0_packet_t pkt, a0_alloc_t alloc, a0_flat_packet_t* out_fpkt) {
   a0_buf_t unused_out;
   a0_buf_t* out = &unused_out;
   if (out_fpkt) {
@@ -141,7 +141,7 @@ errno_t a0_packet_serialize(a0_packet_t pkt, a0_alloc_t alloc, a0_flat_packet_t*
   return A0_OK;
 }
 
-errno_t a0_packet_deserialize(a0_flat_packet_t fpkt, a0_alloc_t alloc, a0_packet_t* out_pkt, a0_buf_t* out_buf) {
+a0_err_t a0_packet_deserialize(a0_flat_packet_t fpkt, a0_alloc_t alloc, a0_packet_t* out_pkt, a0_buf_t* out_buf) {
   a0_buf_t in = fpkt.buf;
   memcpy(out_pkt->id, in.ptr, sizeof(a0_uuid_t));
 
@@ -189,7 +189,7 @@ errno_t a0_packet_deserialize(a0_flat_packet_t fpkt, a0_alloc_t alloc, a0_packet
   return A0_OK;
 }
 
-errno_t a0_packet_deep_copy(a0_packet_t in, a0_alloc_t alloc, a0_packet_t* out_pkt, a0_buf_t* out_buf) {
+a0_err_t a0_packet_deep_copy(a0_packet_t in, a0_alloc_t alloc, a0_packet_t* out_pkt, a0_buf_t* out_buf) {
   memcpy(out_pkt->id, in.id, sizeof(a0_uuid_t));
 
   a0_packet_stats_t stats;
@@ -234,7 +234,7 @@ errno_t a0_packet_deep_copy(a0_packet_t in, a0_alloc_t alloc, a0_packet_t* out_p
   return A0_OK;
 }
 
-errno_t a0_flat_packet_stats(a0_flat_packet_t fpkt, a0_packet_stats_t* stats) {
+a0_err_t a0_flat_packet_stats(a0_flat_packet_t fpkt, a0_packet_stats_t* stats) {
   stats->serial_size = fpkt.buf.size;
   stats->num_hdrs = *(size_t*)(fpkt.buf.ptr + sizeof(a0_uuid_t));
 
@@ -253,12 +253,12 @@ errno_t a0_flat_packet_stats(a0_flat_packet_t fpkt, a0_packet_stats_t* stats) {
   return A0_OK;
 }
 
-errno_t a0_flat_packet_id(a0_flat_packet_t fpkt, a0_uuid_t** out) {
+a0_err_t a0_flat_packet_id(a0_flat_packet_t fpkt, a0_uuid_t** out) {
   *out = (a0_uuid_t*)fpkt.buf.ptr;
   return A0_OK;
 }
 
-errno_t a0_flat_packet_payload(a0_flat_packet_t fpkt, a0_buf_t* out) {
+a0_err_t a0_flat_packet_payload(a0_flat_packet_t fpkt, a0_buf_t* out) {
   size_t num_hdrs = *(size_t*)(fpkt.buf.ptr + sizeof(a0_uuid_t));
 
   size_t payload_off;
@@ -280,10 +280,10 @@ errno_t a0_flat_packet_payload(a0_flat_packet_t fpkt, a0_buf_t* out) {
   return A0_OK;
 }
 
-errno_t a0_flat_packet_header(a0_flat_packet_t fpkt, size_t idx, a0_packet_header_t* out) {
+a0_err_t a0_flat_packet_header(a0_flat_packet_t fpkt, size_t idx, a0_packet_header_t* out) {
   size_t num_hdrs = *(size_t*)(fpkt.buf.ptr + sizeof(a0_uuid_t));
   if (idx >= num_hdrs) {
-    return EINVAL;
+    return A0_ERRCODE_NOT_FOUND;
   }
 
   size_t* hdr_idx_ptr = (size_t*)(fpkt.buf.ptr + sizeof(a0_uuid_t) + sizeof(size_t));
@@ -301,16 +301,16 @@ errno_t a0_flat_packet_header(a0_flat_packet_t fpkt, size_t idx, a0_packet_heade
   return A0_OK;
 }
 
-errno_t a0_flat_packet_header_iterator_init(a0_flat_packet_header_iterator_t* iter, a0_flat_packet_t* fpkt) {
+a0_err_t a0_flat_packet_header_iterator_init(a0_flat_packet_header_iterator_t* iter, a0_flat_packet_t* fpkt) {
   *iter = (a0_flat_packet_header_iterator_t){fpkt, 0};
   return A0_OK;
 }
 
-errno_t a0_flat_packet_header_iterator_next(a0_flat_packet_header_iterator_t* iter, a0_packet_header_t* out) {
+a0_err_t a0_flat_packet_header_iterator_next(a0_flat_packet_header_iterator_t* iter, a0_packet_header_t* out) {
   return a0_flat_packet_header(*iter->_fpkt, iter->_idx++, out);
 }
 
-errno_t a0_flat_packet_header_iterator_next_match(a0_flat_packet_header_iterator_t* iter, const char* key, a0_packet_header_t* out) {
+a0_err_t a0_flat_packet_header_iterator_next_match(a0_flat_packet_header_iterator_t* iter, const char* key, a0_packet_header_t* out) {
   do {
     A0_RETURN_ERR_ON_ERR(a0_flat_packet_header_iterator_next(iter, out));
   } while (strcmp(key, out->key));

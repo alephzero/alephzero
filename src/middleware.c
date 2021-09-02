@@ -14,7 +14,7 @@
 #include "strconv.h"
 
 A0_STATIC_INLINE
-errno_t a0_add_time_mono_header_process_locked(void* data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
+a0_err_t a0_add_time_mono_header_process_locked(void* data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
   A0_MAYBE_UNUSED(data);
   A0_MAYBE_UNUSED(tlk);
 
@@ -46,7 +46,7 @@ a0_middleware_t a0_add_time_mono_header() {
 }
 
 A0_STATIC_INLINE
-errno_t a0_add_time_wall_header_process(void* data, a0_packet_t* pkt, a0_middleware_chain_t chain) {
+a0_err_t a0_add_time_wall_header_process(void* data, a0_packet_t* pkt, a0_middleware_chain_t chain) {
   A0_MAYBE_UNUSED(data);
 
   a0_time_wall_t time_wall;
@@ -84,13 +84,13 @@ void a0_add_writer_id_header_init(void** data) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_add_writer_id_header_close(void* data) {
+a0_err_t a0_add_writer_id_header_close(void* data) {
   free(data);
   return A0_OK;
 }
 
 A0_STATIC_INLINE
-errno_t a0_add_writer_id_header_process(void* data, a0_packet_t* pkt, a0_middleware_chain_t chain) {
+a0_err_t a0_add_writer_id_header_process(void* data, a0_packet_t* pkt, a0_middleware_chain_t chain) {
   a0_packet_header_t hdr = {"a0_writer_id", (const char*)data};
   a0_packet_headers_block_t prev_hdrs_blk = pkt->headers_block;
 
@@ -120,13 +120,13 @@ void a0_add_writer_seq_header_init(void** data) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_add_writer_seq_header_close(void* data) {
+a0_err_t a0_add_writer_seq_header_close(void* data) {
   free(data);
   return A0_OK;
 }
 
 A0_STATIC_INLINE
-errno_t a0_add_writer_seq_header_process(void* data, a0_packet_t* pkt, a0_middleware_chain_t chain) {
+a0_err_t a0_add_writer_seq_header_process(void* data, a0_packet_t* pkt, a0_middleware_chain_t chain) {
   uint64_t seq = a0_atomic_fetch_add((uint64_t*)data, 1);
 
   char seq_buf[20];
@@ -156,7 +156,7 @@ a0_middleware_t a0_add_writer_seq_header() {
 }
 
 A0_STATIC_INLINE
-errno_t a0_add_transport_seq_header_process_locked(void* data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
+a0_err_t a0_add_transport_seq_header_process_locked(void* data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
   A0_MAYBE_UNUSED(data);
 
   uint64_t seq;

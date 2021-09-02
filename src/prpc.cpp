@@ -1,5 +1,6 @@
 #include <a0/alloc.h>
 #include <a0/buf.h>
+#include <a0/empty.h>
 #include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
@@ -20,7 +21,6 @@
 #include <vector>
 
 #include "c_wrap.hpp"
-#include "empty.h"
 #include "file_opts.hpp"
 
 namespace a0 {

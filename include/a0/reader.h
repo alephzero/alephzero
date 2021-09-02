@@ -66,19 +66,19 @@ typedef struct a0_reader_sync_zc_s {
 } a0_reader_sync_zc_t;
 
 /// ...
-errno_t a0_reader_sync_zc_init(a0_reader_sync_zc_t*,
-                               a0_arena_t,
-                               a0_reader_init_t,
-                               a0_reader_iter_t);
+a0_err_t a0_reader_sync_zc_init(a0_reader_sync_zc_t*,
+                                a0_arena_t,
+                                a0_reader_init_t,
+                                a0_reader_iter_t);
 
 /// ...
-errno_t a0_reader_sync_zc_close(a0_reader_sync_zc_t*);
+a0_err_t a0_reader_sync_zc_close(a0_reader_sync_zc_t*);
 
 /// ...
-errno_t a0_reader_sync_zc_has_next(a0_reader_sync_zc_t*, bool*);
+a0_err_t a0_reader_sync_zc_has_next(a0_reader_sync_zc_t*, bool*);
 
 /// ...
-errno_t a0_reader_sync_zc_next(a0_reader_sync_zc_t*, a0_zero_copy_callback_t);
+a0_err_t a0_reader_sync_zc_next(a0_reader_sync_zc_t*, a0_zero_copy_callback_t);
 
 /** @}*/
 
@@ -92,20 +92,20 @@ typedef struct a0_reader_sync_s {
 } a0_reader_sync_t;
 
 /// ...
-errno_t a0_reader_sync_init(a0_reader_sync_t*,
-                            a0_arena_t,
-                            a0_alloc_t,
-                            a0_reader_init_t,
-                            a0_reader_iter_t);
+a0_err_t a0_reader_sync_init(a0_reader_sync_t*,
+                             a0_arena_t,
+                             a0_alloc_t,
+                             a0_reader_init_t,
+                             a0_reader_iter_t);
 
 /// ...
-errno_t a0_reader_sync_close(a0_reader_sync_t*);
+a0_err_t a0_reader_sync_close(a0_reader_sync_t*);
 
 /// ...
-errno_t a0_reader_sync_has_next(a0_reader_sync_t*, bool*);
+a0_err_t a0_reader_sync_has_next(a0_reader_sync_t*, bool*);
 
 /// ...
-errno_t a0_reader_sync_next(a0_reader_sync_t*, a0_packet_t*);
+a0_err_t a0_reader_sync_next(a0_reader_sync_t*, a0_packet_t*);
 
 /** @}*/
 
@@ -128,14 +128,14 @@ typedef struct a0_reader_zc_s {
 } a0_reader_zc_t;
 
 /// ...
-errno_t a0_reader_zc_init(a0_reader_zc_t*,
-                          a0_arena_t,
-                          a0_reader_init_t,
-                          a0_reader_iter_t,
-                          a0_zero_copy_callback_t);
+a0_err_t a0_reader_zc_init(a0_reader_zc_t*,
+                           a0_arena_t,
+                           a0_reader_init_t,
+                           a0_reader_iter_t,
+                           a0_zero_copy_callback_t);
 
 /// May not be called from within a callback.
-errno_t a0_reader_zc_close(a0_reader_zc_t*);
+a0_err_t a0_reader_zc_close(a0_reader_zc_t*);
 
 /** @}*/
 
@@ -150,15 +150,15 @@ typedef struct a0_reader_s {
 } a0_reader_t;
 
 /// ...
-errno_t a0_reader_init(a0_reader_t*,
-                       a0_arena_t,
-                       a0_alloc_t,
-                       a0_reader_init_t,
-                       a0_reader_iter_t,
-                       a0_packet_callback_t);
+a0_err_t a0_reader_init(a0_reader_t*,
+                        a0_arena_t,
+                        a0_alloc_t,
+                        a0_reader_init_t,
+                        a0_reader_iter_t,
+                        a0_packet_callback_t);
 
 /// ...
-errno_t a0_reader_close(a0_reader_t*);
+a0_err_t a0_reader_close(a0_reader_t*);
 
 /** @}*/
 
@@ -171,11 +171,11 @@ errno_t a0_reader_close(a0_reader_t*);
 // Pass O_NDELAY or O_NONBLOCK to flags to run non-blocking.
 // If non-blocking and transport is empty, returns EAGAIN.
 
-errno_t a0_reader_read_one(a0_arena_t,
-                           a0_alloc_t,
-                           a0_reader_init_t,
-                           int flags,
-                           a0_packet_t*);
+a0_err_t a0_reader_read_one(a0_arena_t,
+                            a0_alloc_t,
+                            a0_reader_init_t,
+                            int flags,
+                            a0_packet_t*);
 
 /** @}*/
 

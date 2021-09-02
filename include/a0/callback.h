@@ -27,11 +27,11 @@ void a0_callback_call(a0_callback_t callback) {
 
 typedef struct a0_predicate_s {
   void* user_data;
-  errno_t (*fn)(void* user_data, bool*);
+  a0_err_t (*fn)(void* user_data, bool*);
 } a0_predicate_t;
 
 A0_STATIC_INLINE
-errno_t a0_predicate_eval(a0_predicate_t pred, bool* out) {
+a0_err_t a0_predicate_eval(a0_predicate_t pred, bool* out) {
   return pred.fn(pred.user_data, out);
 }
 

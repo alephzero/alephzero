@@ -45,8 +45,7 @@ std::shared_ptr<a0_packet_t> make_cpp_packet(
           memcpy(c->id, id.data(), A0_UUID_SIZE - 1);
           c->id[A0_UUID_SIZE - 1] = '\0';
         } else {
-          // TODO(lshamis): Handle corrupt ids.
-          return EINVAL;
+          return A0_ERRCODE_INVALID_ARG;
         }
 
         // Handle headers.

@@ -28,7 +28,7 @@ static const char RPC_TYPE_CANCEL[] = "cancel";
 static const char REQUEST_ID[] = "a0_req_id";
 
 A0_STATIC_INLINE
-errno_t _a0_rpc_topic_open(a0_rpc_topic_t topic, a0_file_t* file) {
+a0_err_t _a0_rpc_topic_open(a0_rpc_topic_t topic, a0_file_t* file) {
   const char* template = getenv("A0_RPC_TOPIC_TEMPLATE");
   if (!template) {
     template = "alephzero/{topic}.rpc.a0";
@@ -62,11 +62,11 @@ void a0_rpc_server_onpacket(void* data, a0_packet_t pkt) {
   }
 }
 
-errno_t a0_rpc_server_init(a0_rpc_server_t* server,
-                           a0_rpc_topic_t topic,
-                           a0_alloc_t alloc,
-                           a0_rpc_request_callback_t onrequest,
-                           a0_packet_id_callback_t oncancel) {
+a0_err_t a0_rpc_server_init(a0_rpc_server_t* server,
+                            a0_rpc_topic_t topic,
+                            a0_alloc_t alloc,
+                            a0_rpc_request_callback_t onrequest,
+                            a0_packet_id_callback_t oncancel) {
   server->_onrequest = onrequest;
   server->_oncancel = oncancel;
 
@@ -74,7 +74,7 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
 
   A0_RETURN_ERR_ON_ERR(_a0_rpc_topic_open(topic, &server->_file));
 
-  errno_t err = a0_writer_init(&server->_response_writer, server->_file.arena);
+  a0_err_t err = a0_writer_init(&server->_response_writer, server->_file.arena);
   if (err) {
     a0_file_close(&server->_file);
     return err;
@@ -106,14 +106,14 @@ errno_t a0_rpc_server_init(a0_rpc_server_t* server,
   return A0_OK;
 }
 
-errno_t a0_rpc_server_close(a0_rpc_server_t* server) {
+a0_err_t a0_rpc_server_close(a0_rpc_server_t* server) {
   a0_reader_close(&server->_request_reader);
   a0_writer_close(&server->_response_writer);
   a0_file_close(&server->_file);
   return A0_OK;
 }
 
-errno_t a0_rpc_server_reply(a0_rpc_request_t req, a0_packet_t resp) {
+a0_err_t a0_rpc_server_reply(a0_rpc_request_t req, a0_packet_t resp) {
   const size_t num_extra_headers = 3;
   a0_packet_header_t extra_headers[] = {
       {RPC_TYPE, RPC_TYPE_RESPONSE},
@@ -148,7 +148,7 @@ void _a0_rpc_client_onpacket(void* user_data, a0_packet_t pkt) {
 
   a0_packet_callback_t cb;
   pthread_mutex_lock(&client->_outstanding_requests_mu);
-  errno_t err = a0_map_pop(&client->_outstanding_requests, req_id_hdr.val, &cb);
+  a0_err_t err = a0_map_pop(&client->_outstanding_requests, req_id_hdr.val, &cb);
   pthread_mutex_unlock(&client->_outstanding_requests_mu);
 
   if (!err) {
@@ -156,9 +156,9 @@ void _a0_rpc_client_onpacket(void* user_data, a0_packet_t pkt) {
   }
 }
 
-errno_t a0_rpc_client_init(a0_rpc_client_t* client,
-                           a0_rpc_topic_t topic,
-                           a0_alloc_t alloc) {
+a0_err_t a0_rpc_client_init(a0_rpc_client_t* client,
+                            a0_rpc_topic_t topic,
+                            a0_alloc_t alloc) {
   // Outstanding requests must be initialized before the response reader is opened to avoid a race condition.
 
   A0_RETURN_ERR_ON_ERR(a0_map_init(
@@ -169,7 +169,7 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client,
       A0_COMPARE_UUID));
   pthread_mutex_init(&client->_outstanding_requests_mu, NULL);
 
-  errno_t err = _a0_rpc_topic_open(topic, &client->_file);
+  a0_err_t err = _a0_rpc_topic_open(topic, &client->_file);
   if (err) {
     a0_map_close(&client->_outstanding_requests);
     pthread_mutex_destroy(&client->_outstanding_requests_mu);
@@ -214,7 +214,7 @@ errno_t a0_rpc_client_init(a0_rpc_client_t* client,
   return A0_OK;
 }
 
-errno_t a0_rpc_client_close(a0_rpc_client_t* client) {
+a0_err_t a0_rpc_client_close(a0_rpc_client_t* client) {
   a0_reader_close(&client->_response_reader);
   a0_writer_close(&client->_request_writer);
   a0_file_close(&client->_file);
@@ -223,9 +223,9 @@ errno_t a0_rpc_client_close(a0_rpc_client_t* client) {
   return A0_OK;
 }
 
-errno_t a0_rpc_client_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback_t onresponse) {
+a0_err_t a0_rpc_client_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback_t onresponse) {
   pthread_mutex_lock(&client->_outstanding_requests_mu);
-  errno_t err = a0_map_put(&client->_outstanding_requests, pkt.id, &onresponse);
+  a0_err_t err = a0_map_put(&client->_outstanding_requests, pkt.id, &onresponse);
   pthread_mutex_unlock(&client->_outstanding_requests_mu);
   A0_RETURN_ERR_ON_ERR(err);
 
@@ -244,7 +244,7 @@ errno_t a0_rpc_client_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_c
   return a0_writer_write(&client->_request_writer, full_pkt);
 }
 
-errno_t a0_rpc_client_cancel(a0_rpc_client_t* client, const a0_uuid_t uuid) {
+a0_err_t a0_rpc_client_cancel(a0_rpc_client_t* client, const a0_uuid_t uuid) {
   pthread_mutex_lock(&client->_outstanding_requests_mu);
   a0_map_del(&client->_outstanding_requests, uuid);
   pthread_mutex_unlock(&client->_outstanding_requests_mu);

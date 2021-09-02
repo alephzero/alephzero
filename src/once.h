@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-errno_t a0_once(pthread_once_t*, a0_callback_t);
+a0_err_t a0_once(pthread_once_t*, a0_callback_t);
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,6 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
+#include <a0/empty.h>
 #include <a0/file.h>
 #include <a0/mtx.h>
 #include <a0/time.h>
@@ -19,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-#include "src/empty.h"
+#include "src/err_macro.h"
 #include "src/test_util.hpp"
 
 struct MtxTestFixture {
@@ -119,14 +120,14 @@ class event_t {
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, trylock") {
   a0_mtx_t mtx = A0_EMPTY;
   REQUIRE_OK(a0_mtx_lock(&mtx));
-  REQUIRE(a0_mtx_trylock(&mtx) == EBUSY);
+  REQUIRE(A0_SYSERR(a0_mtx_trylock(&mtx)) == EBUSY);
   REQUIRE_OK(a0_mtx_unlock(&mtx));
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] (lock)*") {
   a0_mtx_t mtx = A0_EMPTY;
   REQUIRE_OK(a0_mtx_lock(&mtx));
-  REQUIRE(a0_mtx_lock(&mtx) == EDEADLK);
+  REQUIRE(A0_SYSERR(a0_mtx_lock(&mtx)) == EDEADLK);
   REQUIRE_OK(a0_mtx_unlock(&mtx));
 }
 
@@ -140,19 +141,19 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] (lock, unlock)*") {
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] unlock") {
   a0_mtx_t mtx = A0_EMPTY;
-  REQUIRE(a0_mtx_unlock(&mtx) == EPERM);
+  REQUIRE(A0_SYSERR(a0_mtx_unlock(&mtx)) == EPERM);
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, (unlock)*") {
   a0_mtx_t mtx = A0_EMPTY;
   REQUIRE_OK(a0_mtx_lock(&mtx));
   REQUIRE_OK(a0_mtx_unlock(&mtx));
-  REQUIRE(a0_mtx_unlock(&mtx) == EPERM);
+  REQUIRE(A0_SYSERR(a0_mtx_unlock(&mtx)) == EPERM);
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] consistent") {
   a0_mtx_t mtx = A0_EMPTY;
-  REQUIRE(a0_mtx_consistent(&mtx) == EINVAL);
+  REQUIRE(A0_SYSERR(a0_mtx_consistent(&mtx)) == EINVAL);
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, lock2, unlock2, unlock") {
@@ -186,7 +187,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] unlock in wrong thread") {
     event_1.wait();
   });
   event_0.wait();
-  REQUIRE(a0_mtx_unlock(&mtx) == EPERM);
+  REQUIRE(A0_SYSERR(a0_mtx_unlock(&mtx)) == EPERM);
   event_1.set();
 
   t.join();
@@ -204,7 +205,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] trylock in different thread") {
     REQUIRE_OK(a0_mtx_unlock(mtx));
   });
   event_0.wait();
-  REQUIRE(a0_mtx_trylock(mtx) == EBUSY);
+  REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == EBUSY);
   event_1.set();
 
   t.join();
@@ -217,7 +218,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] timedlock") {
   REQUIRE_OK(a0_mtx_lock(&mtx));
   std::thread t([&]() {
     auto wake_time = delay(1e9);
-    REQUIRE(a0_mtx_timedlock(&mtx, wake_time) == ETIMEDOUT);
+    REQUIRE(A0_SYSERR(a0_mtx_timedlock(&mtx, wake_time)) == ETIMEDOUT);
   });
   t.join();
   REQUIRE_OK(a0_mtx_unlock(&mtx));
@@ -235,14 +236,14 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] consistent call must be from owner") {
   event_t event_0;
   event_t event_1;
   std::thread t([&]() {
-    REQUIRE(a0_mtx_lock(mtx) == EOWNERDEAD);
+    REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == EOWNERDEAD);
     event_0.set();
     event_1.wait();
     REQUIRE_OK(a0_mtx_consistent(mtx));
     REQUIRE_OK(a0_mtx_unlock(mtx));
   });
   event_0.wait();
-  REQUIRE(a0_mtx_consistent(mtx) == EPERM);
+  REQUIRE(A0_SYSERR(a0_mtx_consistent(mtx)) == EPERM);
   event_1.set();
   t.join();
 }
@@ -258,9 +259,9 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] robust chain") {
     REQUIRE_OK(a0_mtx_lock(mtx3));
   });
 
-  REQUIRE(a0_mtx_lock(mtx1) == EOWNERDEAD);
-  REQUIRE(a0_mtx_lock(mtx2) == EOWNERDEAD);
-  REQUIRE(a0_mtx_lock(mtx3) == EOWNERDEAD);
+  REQUIRE(A0_SYSERR(a0_mtx_lock(mtx1)) == EOWNERDEAD);
+  REQUIRE(A0_SYSERR(a0_mtx_lock(mtx2)) == EOWNERDEAD);
+  REQUIRE(A0_SYSERR(a0_mtx_lock(mtx3)) == EOWNERDEAD);
 
   REQUIRE_OK(a0_mtx_consistent(mtx1));
   REQUIRE_OK(a0_mtx_consistent(mtx2));
@@ -297,9 +298,9 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, not consistent, lo
 
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
-  REQUIRE(a0_mtx_lock(mtx) == EOWNERDEAD);
+  REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == EOWNERDEAD);
   REQUIRE_OK(a0_mtx_unlock(mtx));
-  REQUIRE(a0_mtx_lock(mtx) == ENOTRECOVERABLE);
+  REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == ENOTRECOVERABLE);
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, lock") {
@@ -307,7 +308,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, lock")
 
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
-  REQUIRE(a0_mtx_lock(mtx) == EOWNERDEAD);
+  REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == EOWNERDEAD);
   REQUIRE_OK(a0_mtx_consistent(mtx));
   REQUIRE_OK(a0_mtx_unlock(mtx));
   REQUIRE_OK(a0_mtx_lock(mtx));
@@ -319,9 +320,9 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, not consistent, tr
 
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
-  REQUIRE(a0_mtx_trylock(mtx) == EOWNERDEAD);
+  REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == EOWNERDEAD);
   REQUIRE_OK(a0_mtx_unlock(mtx));
-  REQUIRE(a0_mtx_trylock(mtx) == ENOTRECOVERABLE);
+  REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == ENOTRECOVERABLE);
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, trylock") {
@@ -329,7 +330,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, tryloc
 
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
-  REQUIRE(a0_mtx_trylock(mtx) == EOWNERDEAD);
+  REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == EOWNERDEAD);
   REQUIRE_OK(a0_mtx_consistent(mtx));
   REQUIRE_OK(a0_mtx_unlock(mtx));
   REQUIRE_OK(a0_mtx_trylock(mtx));
@@ -341,7 +342,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] fuzz (lock, unlock)") {
 
   auto body = [&]() {
     auto err = a0_mtx_lock(mtx);
-    if (err == EOWNERDEAD) {
+    if (A0_SYSERR(err) == EOWNERDEAD) {
       REQUIRE_OK(a0_mtx_consistent(mtx));
     }
     REQUIRE_OK(a0_mtx_unlock(mtx));
@@ -368,7 +369,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] fuzz (trylock, unlock)") {
 
   auto body = [&]() {
     auto err = a0_mtx_trylock(mtx);
-    if (err != EBUSY) {
+    if (A0_SYSERR(err) != EBUSY) {
       REQUIRE_OK(a0_mtx_unlock(mtx));
     }
   };
@@ -414,13 +415,13 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout fail") {
   REQUIRE_OK(a0_mtx_lock(&mtx));
 
   auto wake_time = delay(0);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == ETIMEDOUT);
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == ETIMEDOUT);
 
   wake_time = delay(0.1 * 1e9);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == ETIMEDOUT);
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == ETIMEDOUT);
 
   wake_time = delay(-0.1 * 1e9);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == ETIMEDOUT);
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == ETIMEDOUT);
 
   REQUIRE_OK(a0_mtx_unlock(&mtx));
 }
@@ -568,14 +569,14 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] wait must lock") {
 
   auto wake_time = delay(0.1 * 1e9);
 
-  REQUIRE(a0_cnd_wait(&cnd, &mtx) == EPERM);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == EPERM);
+  REQUIRE(A0_SYSERR(a0_cnd_wait(&cnd, &mtx)) == EPERM);
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == EPERM);
 
   REQUIRE_OK(a0_mtx_lock(&mtx));
 
   std::thread t([&]() {
-    REQUIRE(a0_cnd_wait(&cnd, &mtx) == EPERM);
-    REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == EPERM);
+    REQUIRE(A0_SYSERR(a0_cnd_wait(&cnd, &mtx)) == EPERM);
+    REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == EPERM);
   });
   t.join();
 
@@ -590,16 +591,16 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout") {
   REQUIRE_OK(a0_mtx_lock(&mtx));
 
   a0_time_mono_t wake_time = A0_EMPTY;
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == EINVAL);
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == EINVAL);
 
   wake_time = delay(0);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == ETIMEDOUT);
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == ETIMEDOUT);
 
   wake_time = delay(-1e9);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == ETIMEDOUT);
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == ETIMEDOUT);
 
   wake_time = delay(1e9);
-  REQUIRE(a0_cnd_timedwait(&cnd, &mtx, wake_time) == ETIMEDOUT);
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == ETIMEDOUT);
 
   REQUIRE_OK(a0_mtx_unlock(&mtx));
   auto end = std::chrono::steady_clock::now();
@@ -629,7 +630,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] robust") {
   REQUIRE_SUBPROC_SIGNALED(child);
 
   auto wake_time = delay(0);
-  REQUIRE(a0_cnd_timedwait(cnd, mtx, wake_time) == ETIMEDOUT);
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(cnd, mtx, wake_time)) == ETIMEDOUT);
 
   REQUIRE_OK(a0_mtx_unlock(mtx));
 }

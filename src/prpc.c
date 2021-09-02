@@ -30,7 +30,7 @@ static const char PRPC_TYPE_CANCEL[] = "cancel";
 static const char CONN_ID[] = "a0_conn_id";
 
 A0_STATIC_INLINE
-errno_t _a0_prpc_topic_open(a0_prpc_topic_t topic, a0_file_t* file) {
+a0_err_t _a0_prpc_topic_open(a0_prpc_topic_t topic, a0_file_t* file) {
   const char* template = getenv("A0_PRPC_TOPIC_TEMPLATE");
   if (!template) {
     template = "alephzero/{topic}.prpc.a0";
@@ -64,11 +64,11 @@ void a0_prpc_server_onpacket(void* data, a0_packet_t pkt) {
   }
 }
 
-errno_t a0_prpc_server_init(a0_prpc_server_t* server,
-                            a0_prpc_topic_t topic,
-                            a0_alloc_t alloc,
-                            a0_prpc_connection_callback_t onconnect,
-                            a0_packet_id_callback_t oncancel) {
+a0_err_t a0_prpc_server_init(a0_prpc_server_t* server,
+                             a0_prpc_topic_t topic,
+                             a0_alloc_t alloc,
+                             a0_prpc_connection_callback_t onconnect,
+                             a0_packet_id_callback_t oncancel) {
   server->_onconnect = onconnect;
   server->_oncancel = oncancel;
 
@@ -76,7 +76,7 @@ errno_t a0_prpc_server_init(a0_prpc_server_t* server,
 
   A0_RETURN_ERR_ON_ERR(_a0_prpc_topic_open(topic, &server->_file));
 
-  errno_t err = a0_writer_init(&server->_progress_writer, server->_file.arena);
+  a0_err_t err = a0_writer_init(&server->_progress_writer, server->_file.arena);
   if (err) {
     a0_file_close(&server->_file);
     return err;
@@ -108,14 +108,14 @@ errno_t a0_prpc_server_init(a0_prpc_server_t* server,
   return A0_OK;
 }
 
-errno_t a0_prpc_server_close(a0_prpc_server_t* server) {
+a0_err_t a0_prpc_server_close(a0_prpc_server_t* server) {
   a0_reader_close(&server->_connection_reader);
   a0_writer_close(&server->_progress_writer);
   a0_file_close(&server->_file);
   return A0_OK;
 }
 
-errno_t a0_prpc_server_send(a0_prpc_connection_t conn, a0_packet_t resp, bool done) {
+a0_err_t a0_prpc_server_send(a0_prpc_connection_t conn, a0_packet_t resp, bool done) {
   const size_t num_extra_headers = 3;
   a0_packet_header_t extra_headers[] = {
       {PRPC_TYPE, done ? PRPC_TYPE_COMPLETE : PRPC_TYPE_PROGRESS},
@@ -157,7 +157,7 @@ void _a0_prpc_client_onpacket(void* user_data, a0_packet_t pkt) {
 
   bool is_complete = !strcmp(type_hdr.val, PRPC_TYPE_COMPLETE);
 
-  errno_t err;
+  a0_err_t err;
   a0_prpc_progress_callback_t cb;
   pthread_mutex_lock(&client->_outstanding_connections_mu);
   if (is_complete) {
@@ -176,9 +176,9 @@ void _a0_prpc_client_onpacket(void* user_data, a0_packet_t pkt) {
   }
 }
 
-errno_t a0_prpc_client_init(a0_prpc_client_t* client,
-                            a0_prpc_topic_t topic,
-                            a0_alloc_t alloc) {
+a0_err_t a0_prpc_client_init(a0_prpc_client_t* client,
+                             a0_prpc_topic_t topic,
+                             a0_alloc_t alloc) {
   // Outstanding connections must be initialized before the response reader to avoid a race condition.
 
   A0_RETURN_ERR_ON_ERR(a0_map_init(
@@ -189,7 +189,7 @@ errno_t a0_prpc_client_init(a0_prpc_client_t* client,
       A0_COMPARE_UUID));
   pthread_mutex_init(&client->_outstanding_connections_mu, NULL);
 
-  errno_t err = _a0_prpc_topic_open(topic, &client->_file);
+  a0_err_t err = _a0_prpc_topic_open(topic, &client->_file);
   if (err) {
     a0_map_close(&client->_outstanding_connections);
     pthread_mutex_destroy(&client->_outstanding_connections_mu);
@@ -234,7 +234,7 @@ errno_t a0_prpc_client_init(a0_prpc_client_t* client,
   return A0_OK;
 }
 
-errno_t a0_prpc_client_close(a0_prpc_client_t* client) {
+a0_err_t a0_prpc_client_close(a0_prpc_client_t* client) {
   a0_reader_close(&client->_progress_reader);
   a0_writer_close(&client->_connection_writer);
   a0_file_close(&client->_file);
@@ -243,9 +243,9 @@ errno_t a0_prpc_client_close(a0_prpc_client_t* client) {
   return A0_OK;
 }
 
-errno_t a0_prpc_client_connect(a0_prpc_client_t* client, a0_packet_t pkt, a0_prpc_progress_callback_t onprogress) {
+a0_err_t a0_prpc_client_connect(a0_prpc_client_t* client, a0_packet_t pkt, a0_prpc_progress_callback_t onprogress) {
   pthread_mutex_lock(&client->_outstanding_connections_mu);
-  errno_t err = a0_map_put(&client->_outstanding_connections, pkt.id, &onprogress);
+  a0_err_t err = a0_map_put(&client->_outstanding_connections, pkt.id, &onprogress);
   pthread_mutex_unlock(&client->_outstanding_connections_mu);
   A0_RETURN_ERR_ON_ERR(err);
 
@@ -264,7 +264,7 @@ errno_t a0_prpc_client_connect(a0_prpc_client_t* client, a0_packet_t pkt, a0_prp
   return a0_writer_write(&client->_connection_writer, full_pkt);
 }
 
-errno_t a0_prpc_client_cancel(a0_prpc_client_t* client, const a0_uuid_t uuid) {
+a0_err_t a0_prpc_client_cancel(a0_prpc_client_t* client, const a0_uuid_t uuid) {
   pthread_mutex_lock(&client->_outstanding_connections_mu);
   a0_map_del(&client->_outstanding_connections, uuid);
   pthread_mutex_unlock(&client->_outstanding_connections_mu);

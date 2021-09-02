@@ -31,18 +31,18 @@ extern "C" {
 typedef uint32_t a0_ftx_t;
 
 A0_STATIC_INLINE
-errno_t a0_futex(a0_ftx_t* uaddr,
-                 int futex_op,
-                 int val,
-                 uintptr_t timeout_or_val2,
-                 a0_ftx_t* uaddr2,
-                 int val3) {
-  A0_RETURN_ERR_ON_MINUS_ONE(syscall(SYS_futex, uaddr, futex_op, val, timeout_or_val2, uaddr2, val3));
+a0_err_t a0_futex(a0_ftx_t* uaddr,
+                  int futex_op,
+                  int val,
+                  uintptr_t timeout_or_val2,
+                  a0_ftx_t* uaddr2,
+                  int val3) {
+  A0_RETURN_SYSERR_ON_MINUS_ONE(syscall(SYS_futex, uaddr, futex_op, val, timeout_or_val2, uaddr2, val3));
   return A0_OK;
 }
 
 A0_STATIC_INLINE
-errno_t a0_ftx_wait(a0_ftx_t* ftx, int confirm_val, const a0_time_mono_t* time_mono) {
+a0_err_t a0_ftx_wait(a0_ftx_t* ftx, int confirm_val, const a0_time_mono_t* time_mono) {
   if (!time_mono) {
     return a0_futex(ftx, FUTEX_WAIT, confirm_val, 0, NULL, 0);
   }
@@ -53,22 +53,22 @@ errno_t a0_ftx_wait(a0_ftx_t* ftx, int confirm_val, const a0_time_mono_t* time_m
 }
 
 A0_STATIC_INLINE
-errno_t a0_ftx_wake(a0_ftx_t* ftx, int cnt) {
+a0_err_t a0_ftx_wake(a0_ftx_t* ftx, int cnt) {
   return a0_futex(ftx, FUTEX_WAKE, cnt, 0, NULL, 0);
 }
 
 A0_STATIC_INLINE
-errno_t a0_ftx_signal(a0_ftx_t* ftx) {
+a0_err_t a0_ftx_signal(a0_ftx_t* ftx) {
   return a0_ftx_wake(ftx, 1);
 }
 
 A0_STATIC_INLINE
-errno_t a0_ftx_broadcast(a0_ftx_t* ftx) {
+a0_err_t a0_ftx_broadcast(a0_ftx_t* ftx) {
   return a0_ftx_wake(ftx, INT_MAX);
 }
 
 A0_STATIC_INLINE
-errno_t a0_ftx_lock_pi(a0_ftx_t* ftx, const a0_time_mono_t* time_mono) {
+a0_err_t a0_ftx_lock_pi(a0_ftx_t* ftx, const a0_time_mono_t* time_mono) {
   if (!time_mono) {
     return a0_futex(ftx, FUTEX_LOCK_PI, 0, 0, NULL, 0);
   }
@@ -79,22 +79,22 @@ errno_t a0_ftx_lock_pi(a0_ftx_t* ftx, const a0_time_mono_t* time_mono) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_ftx_trylock_pi(a0_ftx_t* ftx) {
+a0_err_t a0_ftx_trylock_pi(a0_ftx_t* ftx) {
   return a0_futex(ftx, FUTEX_TRYLOCK_PI, 0, 0, NULL, 0);
 }
 
 A0_STATIC_INLINE
-errno_t a0_ftx_unlock_pi(a0_ftx_t* ftx) {
+a0_err_t a0_ftx_unlock_pi(a0_ftx_t* ftx) {
   return a0_futex(ftx, FUTEX_UNLOCK_PI, 0, 0, NULL, 0);
 }
 
 A0_STATIC_INLINE
-errno_t a0_ftx_cmp_requeue_pi(a0_ftx_t* ftx, int confirm_val, a0_ftx_t* requeue_ftx, int max_requeue) {
+a0_err_t a0_ftx_cmp_requeue_pi(a0_ftx_t* ftx, int confirm_val, a0_ftx_t* requeue_ftx, int max_requeue) {
   return a0_futex(ftx, FUTEX_CMP_REQUEUE_PI, 1, max_requeue, requeue_ftx, confirm_val);
 }
 
 A0_STATIC_INLINE
-errno_t a0_ftx_wait_requeue_pi(a0_ftx_t* ftx, int confirm_val, const a0_time_mono_t* time_mono, a0_ftx_t* requeue_ftx) {
+a0_err_t a0_ftx_wait_requeue_pi(a0_ftx_t* ftx, int confirm_val, const a0_time_mono_t* time_mono, a0_ftx_t* requeue_ftx) {
   if (!time_mono) {
     return a0_futex(ftx, FUTEX_WAIT_REQUEUE_PI, confirm_val, 0, requeue_ftx, 0);
   }

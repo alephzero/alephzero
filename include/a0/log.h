@@ -34,15 +34,15 @@ typedef struct a0_logger_s {
   a0_writer_t _writer;
 } a0_logger_t;
 
-errno_t a0_logger_init(a0_logger_t*, a0_log_topic_t);
-errno_t a0_logger_close(a0_logger_t*);
+a0_err_t a0_logger_init(a0_logger_t*, a0_log_topic_t);
+a0_err_t a0_logger_close(a0_logger_t*);
 
-errno_t a0_logger_log(a0_logger_t*, a0_log_level_t, a0_packet_t);
-errno_t a0_logger_crit(a0_logger_t*, a0_packet_t);
-errno_t a0_logger_err(a0_logger_t*, a0_packet_t);
-errno_t a0_logger_warn(a0_logger_t*, a0_packet_t);
-errno_t a0_logger_info(a0_logger_t*, a0_packet_t);
-errno_t a0_logger_dbg(a0_logger_t*, a0_packet_t);
+a0_err_t a0_logger_log(a0_logger_t*, a0_log_level_t, a0_packet_t);
+a0_err_t a0_logger_crit(a0_logger_t*, a0_packet_t);
+a0_err_t a0_logger_err(a0_logger_t*, a0_packet_t);
+a0_err_t a0_logger_warn(a0_logger_t*, a0_packet_t);
+a0_err_t a0_logger_info(a0_logger_t*, a0_packet_t);
+a0_err_t a0_logger_dbg(a0_logger_t*, a0_packet_t);
 
 typedef struct a0_log_listener_s {
   a0_file_t _file;
@@ -51,12 +51,12 @@ typedef struct a0_log_listener_s {
   a0_packet_callback_t _onmsg;
 } a0_log_listener_t;
 
-errno_t a0_log_listener_init(a0_log_listener_t*,
-                             a0_log_topic_t,
-                             a0_alloc_t,
-                             a0_log_level_t,
-                             a0_packet_callback_t);
-errno_t a0_log_listener_close(a0_log_listener_t*);
+a0_err_t a0_log_listener_init(a0_log_listener_t*,
+                              a0_log_topic_t,
+                              a0_alloc_t,
+                              a0_log_level_t,
+                              a0_packet_callback_t);
+a0_err_t a0_log_listener_close(a0_log_listener_t*);
 
 #ifdef __cplusplus
 }

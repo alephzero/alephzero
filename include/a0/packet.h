@@ -198,7 +198,7 @@ typedef struct a0_packet_id_callback_s {
 } a0_packet_id_callback_t;
 
 /// Initializes a packet. This includes setting the id.
-errno_t a0_packet_init(a0_packet_t*);
+a0_err_t a0_packet_init(a0_packet_t*);
 
 /// Various computed stats of a given packet.
 typedef struct a0_packet_stats_s {
@@ -211,7 +211,7 @@ typedef struct a0_packet_stats_s {
 } a0_packet_stats_t;
 
 /// Compute packet statistics.
-errno_t a0_packet_stats(a0_packet_t, a0_packet_stats_t*);
+a0_err_t a0_packet_stats(a0_packet_t, a0_packet_stats_t*);
 
 typedef struct a0_packet_header_iterator_s {
   a0_packet_headers_block_t* _block;
@@ -219,42 +219,42 @@ typedef struct a0_packet_header_iterator_s {
 } a0_packet_header_iterator_t;
 
 /// Initializes an iterator over all headers.
-errno_t a0_packet_header_iterator_init(a0_packet_header_iterator_t*, a0_packet_t*);
+a0_err_t a0_packet_header_iterator_init(a0_packet_header_iterator_t*, a0_packet_t*);
 
 /// Emit the next header.
-errno_t a0_packet_header_iterator_next(a0_packet_header_iterator_t*, a0_packet_header_t* out);
+a0_err_t a0_packet_header_iterator_next(a0_packet_header_iterator_t*, a0_packet_header_t* out);
 
 /// Emit the next header with the given key.
-errno_t a0_packet_header_iterator_next_match(a0_packet_header_iterator_t*, const char* key, a0_packet_header_t* out);
+a0_err_t a0_packet_header_iterator_next_match(a0_packet_header_iterator_t*, const char* key, a0_packet_header_t* out);
 
 /// Serializes the packet to the allocated location.
 ///
 /// **Note**: the header order will NOT be retained.
-errno_t a0_packet_serialize(a0_packet_t, a0_alloc_t, a0_flat_packet_t* out);
+a0_err_t a0_packet_serialize(a0_packet_t, a0_alloc_t, a0_flat_packet_t* out);
 
 /// Deserializes the flat packet into a normal packet.
-errno_t a0_packet_deserialize(a0_flat_packet_t, a0_alloc_t, a0_packet_t* out_pkt, a0_buf_t* out_buf);
+a0_err_t a0_packet_deserialize(a0_flat_packet_t, a0_alloc_t, a0_packet_t* out_pkt, a0_buf_t* out_buf);
 
 /// Deep copies the packet contents.
-errno_t a0_packet_deep_copy(a0_packet_t, a0_alloc_t, a0_packet_t* out_pkt, a0_buf_t* out_buf);
+a0_err_t a0_packet_deep_copy(a0_packet_t, a0_alloc_t, a0_packet_t* out_pkt, a0_buf_t* out_buf);
 
 /// Compute packet statistics, for serialized packets.
-errno_t a0_flat_packet_stats(a0_flat_packet_t, a0_packet_stats_t*);
+a0_err_t a0_flat_packet_stats(a0_flat_packet_t, a0_packet_stats_t*);
 
 /// Retrieve the uuid within the flat packet.
 ///
 /// **Note**: the result points into the flat packet. It is not copied out.
-errno_t a0_flat_packet_id(a0_flat_packet_t, a0_uuid_t**);
+a0_err_t a0_flat_packet_id(a0_flat_packet_t, a0_uuid_t**);
 
 /// Retrieve the payload within the flat packet.
 ///
 /// **Note**: the result points into the flat packet. It is not copied out.
-errno_t a0_flat_packet_payload(a0_flat_packet_t, a0_buf_t*);
+a0_err_t a0_flat_packet_payload(a0_flat_packet_t, a0_buf_t*);
 
 /// Retrieve the i-th header within the flat packet.
 ///
 /// **Note**: the result points into the flat packet. It is not copied out.
-errno_t a0_flat_packet_header(a0_flat_packet_t, size_t idx, a0_packet_header_t*);
+a0_err_t a0_flat_packet_header(a0_flat_packet_t, size_t idx, a0_packet_header_t*);
 
 typedef struct a0_flat_packet_header_iterator_s {
   a0_flat_packet_t* _fpkt;
@@ -262,13 +262,13 @@ typedef struct a0_flat_packet_header_iterator_s {
 } a0_flat_packet_header_iterator_t;
 
 /// Initializes an iterator over all headers.
-errno_t a0_flat_packet_header_iterator_init(a0_flat_packet_header_iterator_t*, a0_flat_packet_t*);
+a0_err_t a0_flat_packet_header_iterator_init(a0_flat_packet_header_iterator_t*, a0_flat_packet_t*);
 
 /// Emit the next header.
-errno_t a0_flat_packet_header_iterator_next(a0_flat_packet_header_iterator_t*, a0_packet_header_t* out);
+a0_err_t a0_flat_packet_header_iterator_next(a0_flat_packet_header_iterator_t*, a0_packet_header_t* out);
 
 /// Emit the next header with the given key.
-errno_t a0_flat_packet_header_iterator_next_match(a0_flat_packet_header_iterator_t*, const char* key, a0_packet_header_t* out);
+a0_err_t a0_flat_packet_header_iterator_next_match(a0_flat_packet_header_iterator_t*, const char* key, a0_packet_header_t* out);
 
 /** @}*/
 

@@ -20,6 +20,7 @@
 #include <limits>
 #include <string>
 
+#include "src/err_macro.h"
 #include "src/test_util.hpp"
 
 static const int REGULAR_FILE_MASK = 0x8000;
@@ -75,13 +76,14 @@ TEST_CASE("file] bad size") {
 
   // Too big.
   opt.create_options.size = std::numeric_limits<off_t>::max();
-  errno_t err = a0_file_open(TEST_FILE, &opt, &file);
-  REQUIRE((err == ENOMEM || err == EINVAL || err == EFBIG));
+  a0_err_t err = a0_file_open(TEST_FILE, &opt, &file);
+  int syserr = A0_SYSERR(err);
+  REQUIRE((syserr == ENOMEM || syserr == EINVAL || syserr == EFBIG));
   REQUIRE(!file_exists(TEST_FILE));
 
   // Too small.
   opt.create_options.size = -1;
-  REQUIRE(a0_file_open(TEST_FILE, &opt, &file) == EINVAL);
+  REQUIRE(A0_SYSERR(a0_file_open(TEST_FILE, &opt, &file)) == EINVAL);
   REQUIRE(!file_exists(TEST_FILE));
 
   // Just right.
@@ -100,7 +102,7 @@ TEST_CASE("file] double close") {
   a0_file_t file;
   REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
   REQUIRE_OK(a0_file_close(&file));
-  REQUIRE(a0_file_close(&file) == EBADF);
+  REQUIRE(A0_SYSERR(a0_file_close(&file)) == EBADF);
 }
 
 TEST_CASE("file] make dir recursive") {
@@ -364,7 +366,7 @@ TEST_CASE("file] readonly") {
   // Note: the root user can open a read-only file with write permissions.
   if (getuid()) {
     a0_file_t file;
-    REQUIRE(a0_file_open(TEST_FILE, nullptr, &file) == EACCES);
+    REQUIRE(A0_SYSERR(a0_file_open(TEST_FILE, nullptr, &file)) == EACCES);
   }
 
   {

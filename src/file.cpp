@@ -13,6 +13,7 @@
 #include <string>
 
 #include "c_wrap.hpp"
+#include "err_macro.h"
 #include "file_opts.hpp"
 
 namespace a0 {
@@ -95,7 +96,7 @@ stat_t File::stat() const {
 void File::remove(string_view path) {
   auto err = a0_file_remove(path.data());
   // Ignore "No such file or directory" errors.
-  if (err == ENOENT) {
+  if (A0_SYSERR(err) == ENOENT) {
     return;
   }
   check(err);

@@ -125,8 +125,10 @@ a0_predicate_t pred(std::function<bool()>* fn) {
       .fn = [](void* user_data, bool* out) {
         try {
           *out = (*(std::function<bool()>*)user_data)();
-        } catch (...) {
-          return EINVAL;
+        } catch (const std::exception& e) {
+          size_t len = std::min(1024ul, strnlen(e.what(), 1024));
+          memcpy(a0_err_msg, e.what(), len);
+          return A0_ERRCODE_CUSTOM_MSG;
         }
         return A0_OK;
       },

@@ -119,7 +119,7 @@ void a0_backward_compatiblility_update_from_0_2(a0_arena_t arena) {
   hdr->initialized = true;
 }
 
-errno_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
+a0_err_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
   a0_backward_compatiblility_update_from_0_2(arena);
   // The arena is expected to be either:
   // 1) all null bytes.
@@ -155,7 +155,7 @@ errno_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
   return A0_OK;
 }
 
-errno_t a0_transport_shutdown(a0_transport_locked_t lk) {
+a0_err_t a0_transport_shutdown(a0_transport_locked_t lk) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   lk.transport->_shutdown = true;
@@ -167,12 +167,12 @@ errno_t a0_transport_shutdown(a0_transport_locked_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_shutdown_requested(a0_transport_locked_t lk, bool* out) {
+a0_err_t a0_transport_shutdown_requested(a0_transport_locked_t lk, bool* out) {
   *out = lk.transport->_shutdown;
   return A0_OK;
 }
 
-errno_t a0_transport_lock(a0_transport_t* transport, a0_transport_locked_t* lk_out) {
+a0_err_t a0_transport_lock(a0_transport_t* transport, a0_transport_locked_t* lk_out) {
   lk_out->transport = transport;
 
   if (transport->_arena.mode != A0_ARENA_MODE_SHARED) {
@@ -181,8 +181,8 @@ errno_t a0_transport_lock(a0_transport_t* transport, a0_transport_locked_t* lk_o
 
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)transport->_arena.buf.ptr;
 
-  errno_t lock_status = a0_mtx_lock(&hdr->mtx);
-  if (lock_status == EOWNERDEAD) {
+  a0_err_t lock_status = a0_mtx_lock(&hdr->mtx);
+  if (A0_SYSERR(lock_status) == EOWNERDEAD) {
     // The data is always consistent by design.
     lock_status = a0_mtx_consistent(&hdr->mtx);
   }
@@ -193,7 +193,7 @@ errno_t a0_transport_lock(a0_transport_t* transport, a0_transport_locked_t* lk_o
   return lock_status;
 }
 
-errno_t a0_transport_unlock(a0_transport_locked_t lk) {
+a0_err_t a0_transport_unlock(a0_transport_locked_t lk) {
   if (lk.transport->_arena.mode != A0_ARENA_MODE_SHARED) {
     return A0_OK;
   }
@@ -204,32 +204,32 @@ errno_t a0_transport_unlock(a0_transport_locked_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_empty(a0_transport_locked_t lk, bool* out) {
+a0_err_t a0_transport_empty(a0_transport_locked_t lk, bool* out) {
   a0_transport_state_t* working_page = a0_transport_working_page(lk);
   *out = !working_page->seq_high | (working_page->seq_low > working_page->seq_high);
   return A0_OK;
 }
 
-errno_t a0_transport_nonempty(a0_transport_locked_t lk, bool* out) {
-  errno_t err = a0_transport_empty(lk, out);
+a0_err_t a0_transport_nonempty(a0_transport_locked_t lk, bool* out) {
+  a0_err_t err = a0_transport_empty(lk, out);
   *out = !*out;
   return err;
 }
 
-errno_t a0_transport_ptr_valid(a0_transport_locked_t lk, bool* out) {
+a0_err_t a0_transport_ptr_valid(a0_transport_locked_t lk, bool* out) {
   a0_transport_state_t* working_page = a0_transport_working_page(lk);
   *out = (working_page->seq_low <= lk.transport->_seq) &&
          (lk.transport->_seq <= working_page->seq_high);
   return A0_OK;
 }
 
-errno_t a0_transport_jump_head(a0_transport_locked_t lk) {
+a0_err_t a0_transport_jump_head(a0_transport_locked_t lk) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool empty;
   A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
   if (empty) {
-    return EAGAIN;
+    return A0_ERRCODE_TRANSPORT_CANNOT_MOVE_POINTER;
   }
 
   lk.transport->_seq = state->seq_low;
@@ -237,13 +237,13 @@ errno_t a0_transport_jump_head(a0_transport_locked_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_jump_tail(a0_transport_locked_t lk) {
+a0_err_t a0_transport_jump_tail(a0_transport_locked_t lk) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool empty;
   A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
   if (empty) {
-    return EAGAIN;
+    return A0_ERRCODE_TRANSPORT_CANNOT_MOVE_POINTER;
   }
 
   lk.transport->_seq = state->seq_high;
@@ -251,7 +251,7 @@ errno_t a0_transport_jump_tail(a0_transport_locked_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_has_next(a0_transport_locked_t lk, bool* out) {
+a0_err_t a0_transport_has_next(a0_transport_locked_t lk, bool* out) {
   bool empty;
   A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
 
@@ -260,13 +260,13 @@ errno_t a0_transport_has_next(a0_transport_locked_t lk, bool* out) {
   return A0_OK;
 }
 
-errno_t a0_transport_step_next(a0_transport_locked_t lk) {
+a0_err_t a0_transport_step_next(a0_transport_locked_t lk) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool has_next;
   A0_RETURN_ERR_ON_ERR(a0_transport_has_next(lk, &has_next));
   if (!has_next) {
-    return EAGAIN;
+    return A0_ERRCODE_TRANSPORT_CANNOT_MOVE_POINTER;
   }
 
   if (lk.transport->_seq < state->seq_low) {
@@ -287,7 +287,7 @@ errno_t a0_transport_step_next(a0_transport_locked_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_has_prev(a0_transport_locked_t lk, bool* out) {
+a0_err_t a0_transport_has_prev(a0_transport_locked_t lk, bool* out) {
   bool empty;
   A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
 
@@ -296,11 +296,11 @@ errno_t a0_transport_has_prev(a0_transport_locked_t lk, bool* out) {
   return A0_OK;
 }
 
-errno_t a0_transport_step_prev(a0_transport_locked_t lk) {
+a0_err_t a0_transport_step_prev(a0_transport_locked_t lk) {
   bool has_prev;
   A0_RETURN_ERR_ON_ERR(a0_transport_has_prev(lk, &has_prev));
   if (!has_prev) {
-    return EAGAIN;
+    return A0_ERRCODE_TRANSPORT_CANNOT_MOVE_POINTER;
   }
 
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
@@ -321,7 +321,7 @@ typedef struct a0_transport_timedwait_data_s {
 } a0_transport_timedwait_data_t;
 
 A0_STATIC_INLINE
-errno_t a0_transport_timedwait_predicate(void* data_, bool* out) {
+a0_err_t a0_transport_timedwait_predicate(void* data_, bool* out) {
   a0_transport_timedwait_data_t* data = (a0_transport_timedwait_data_t*)data_;
 
   a0_time_mono_t now;
@@ -338,17 +338,17 @@ errno_t a0_transport_timedwait_predicate(void* data_, bool* out) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_transport_timedwait_impl(a0_transport_locked_t lk, a0_predicate_t pred, const a0_time_mono_t* timeout) {
+a0_err_t a0_transport_timedwait_impl(a0_transport_locked_t lk, a0_predicate_t pred, const a0_time_mono_t* timeout) {
   if (lk.transport->_shutdown) {
-    return ESHUTDOWN;
+    return A0_MAKE_SYSERR(ESHUTDOWN);
   }
   if (lk.transport->_arena.mode != A0_ARENA_MODE_SHARED) {
-    return EPERM;
+    return A0_MAKE_SYSERR(EPERM);
   }
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
 
   bool sat = false;
-  errno_t err = a0_predicate_eval(pred, &sat);
+  a0_err_t err = a0_predicate_eval(pred, &sat);
   if (err | sat) {
     return err;
   }
@@ -358,7 +358,7 @@ errno_t a0_transport_timedwait_impl(a0_transport_locked_t lk, a0_predicate_t pre
   while (!lk.transport->_shutdown) {
     if (timeout) {
       err = a0_cnd_timedwait(&hdr->cnd, &hdr->mtx, *timeout);
-      if (err == ETIMEDOUT) {
+      if (A0_SYSERR(err) == ETIMEDOUT) {
         break;
       }
     } else {
@@ -371,7 +371,7 @@ errno_t a0_transport_timedwait_impl(a0_transport_locked_t lk, a0_predicate_t pre
     }
   }
   if (!err && lk.transport->_shutdown) {
-    err = ESHUTDOWN;
+    err = A0_MAKE_SYSERR(ESHUTDOWN);
   }
 
   lk.transport->_wait_cnt--;
@@ -380,7 +380,7 @@ errno_t a0_transport_timedwait_impl(a0_transport_locked_t lk, a0_predicate_t pre
   return err;
 }
 
-errno_t a0_transport_timedwait(a0_transport_locked_t lk, a0_predicate_t pred, a0_time_mono_t timeout) {
+a0_err_t a0_transport_timedwait(a0_transport_locked_t lk, a0_predicate_t pred, a0_time_mono_t timeout) {
   a0_transport_timedwait_data_t data = (a0_transport_timedwait_data_t){
       .user_pred = pred,
       .timeout = timeout,
@@ -393,12 +393,12 @@ errno_t a0_transport_timedwait(a0_transport_locked_t lk, a0_predicate_t pred, a0
   return a0_transport_timedwait_impl(lk, full_pred, &timeout);
 }
 
-errno_t a0_transport_wait(a0_transport_locked_t lk, a0_predicate_t pred) {
+a0_err_t a0_transport_wait(a0_transport_locked_t lk, a0_predicate_t pred) {
   return a0_transport_timedwait_impl(lk, pred, NULL);
 }
 
 A0_STATIC_INLINE
-errno_t a0_transport_empty_pred_fn(void* user_data, bool* out) {
+a0_err_t a0_transport_empty_pred_fn(void* user_data, bool* out) {
   return a0_transport_empty(*(a0_transport_locked_t*)user_data, out);
 }
 
@@ -410,7 +410,7 @@ a0_predicate_t a0_transport_empty_pred(a0_transport_locked_t* lk) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_transport_nonempty_pred_fn(void* user_data, bool* out) {
+a0_err_t a0_transport_nonempty_pred_fn(void* user_data, bool* out) {
   return a0_transport_nonempty(*(a0_transport_locked_t*)user_data, out);
 }
 
@@ -422,7 +422,7 @@ a0_predicate_t a0_transport_nonempty_pred(a0_transport_locked_t* lk) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_transport_has_next_pred_fn(void* user_data, bool* out) {
+a0_err_t a0_transport_has_next_pred_fn(void* user_data, bool* out) {
   return a0_transport_has_next(*(a0_transport_locked_t*)user_data, out);
 }
 
@@ -433,24 +433,24 @@ a0_predicate_t a0_transport_has_next_pred(a0_transport_locked_t* lk) {
   };
 }
 
-errno_t a0_transport_seq_low(a0_transport_locked_t lk, uint64_t* out) {
+a0_err_t a0_transport_seq_low(a0_transport_locked_t lk, uint64_t* out) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
   *out = state->seq_low;
   return A0_OK;
 }
 
-errno_t a0_transport_seq_high(a0_transport_locked_t lk, uint64_t* out) {
+a0_err_t a0_transport_seq_high(a0_transport_locked_t lk, uint64_t* out) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
   *out = state->seq_high;
   return A0_OK;
 }
 
-errno_t a0_transport_frame(a0_transport_locked_t lk, a0_transport_frame_t* frame_out) {
+a0_err_t a0_transport_frame(a0_transport_locked_t lk, a0_transport_frame_t* frame_out) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   if (lk.transport->_seq < state->seq_low) {
-    return ESPIPE;
+    return A0_MAKE_SYSERR(ESPIPE);
   }
 
   a0_transport_frame_hdr_t* frame_hdr =
@@ -521,7 +521,7 @@ void a0_transport_remove_head(a0_transport_locked_t lk, a0_transport_state_t* st
 }
 
 A0_STATIC_INLINE
-errno_t a0_transport_find_slot(a0_transport_locked_t lk, size_t frame_size, size_t* off) {
+a0_err_t a0_transport_find_slot(a0_transport_locked_t lk, size_t frame_size, size_t* off) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
@@ -538,7 +538,7 @@ errno_t a0_transport_find_slot(a0_transport_locked_t lk, size_t frame_size, size
   }
 
   if (*off + frame_size > hdr->arena_size) {
-    return EOVERFLOW;
+    return A0_ERRCODE_TRANSPORT_FRAME_GT_ARENA;
   }
 
   return A0_OK;
@@ -603,7 +603,7 @@ void a0_transport_update_high_water_mark(a0_transport_hdr_t* hdr,
   }
 }
 
-errno_t a0_transport_alloc_evicts(a0_transport_locked_t lk, size_t size, bool* out) {
+a0_err_t a0_transport_alloc_evicts(a0_transport_locked_t lk, size_t size, bool* out) {
   size_t frame_size = sizeof(a0_transport_frame_hdr_t) + size;
 
   size_t off;
@@ -618,9 +618,9 @@ errno_t a0_transport_alloc_evicts(a0_transport_locked_t lk, size_t size, bool* o
   return A0_OK;
 }
 
-errno_t a0_transport_alloc(a0_transport_locked_t lk, size_t size, a0_transport_frame_t* frame_out) {
+a0_err_t a0_transport_alloc(a0_transport_locked_t lk, size_t size, a0_transport_frame_t* frame_out) {
   if (lk.transport->_arena.mode == A0_ARENA_MODE_READONLY) {
-    return EPERM;
+    return A0_MAKE_SYSERR(EPERM);
   }
   size_t frame_size = sizeof(a0_transport_frame_hdr_t) + size;
 
@@ -648,7 +648,7 @@ errno_t a0_transport_alloc(a0_transport_locked_t lk, size_t size, a0_transport_f
 }
 
 A0_STATIC_INLINE
-errno_t a0_transport_allocator_impl(void* user_data, size_t size, a0_buf_t* buf_out) {
+a0_err_t a0_transport_allocator_impl(void* user_data, size_t size, a0_buf_t* buf_out) {
   a0_transport_frame_t frame;
   A0_RETURN_ERR_ON_ERR(a0_transport_alloc(*(a0_transport_locked_t*)user_data, size, &frame));
   buf_out->ptr = frame.data;
@@ -656,14 +656,14 @@ errno_t a0_transport_allocator_impl(void* user_data, size_t size, a0_buf_t* buf_
   return A0_OK;
 }
 
-errno_t a0_transport_allocator(a0_transport_locked_t* lk, a0_alloc_t* alloc_out) {
+a0_err_t a0_transport_allocator(a0_transport_locked_t* lk, a0_alloc_t* alloc_out) {
   alloc_out->user_data = lk;
   alloc_out->alloc = a0_transport_allocator_impl;
   alloc_out->dealloc = NULL;
   return A0_OK;
 }
 
-errno_t a0_transport_commit(a0_transport_locked_t lk) {
+a0_err_t a0_transport_commit(a0_transport_locked_t lk) {
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
   // Assume page A was the previously committed page and page B is the working
   // page that is ready to be committed. Both represent a valid state for the
@@ -678,17 +678,17 @@ errno_t a0_transport_commit(a0_transport_locked_t lk) {
   return A0_OK;
 }
 
-errno_t a0_transport_used_space(a0_transport_locked_t lk, size_t* out) {
+a0_err_t a0_transport_used_space(a0_transport_locked_t lk, size_t* out) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
   *out = state->high_water_mark;
   return A0_OK;
 }
 
-errno_t a0_transport_resize(a0_transport_locked_t lk, size_t arena_size) {
+a0_err_t a0_transport_resize(a0_transport_locked_t lk, size_t arena_size) {
   size_t used_space;
   A0_RETURN_ERR_ON_ERR(a0_transport_used_space(lk, &used_space));
   if (arena_size < used_space) {
-    return EINVAL;
+    return A0_ERRCODE_INVALID_ARG;
   }
 
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;

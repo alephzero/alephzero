@@ -25,10 +25,10 @@
 
 // Synchronous zero-copy version.
 
-errno_t a0_reader_sync_zc_init(a0_reader_sync_zc_t* reader_sync_zc,
-                               a0_arena_t arena,
-                               a0_reader_init_t init,
-                               a0_reader_iter_t iter) {
+a0_err_t a0_reader_sync_zc_init(a0_reader_sync_zc_t* reader_sync_zc,
+                                a0_arena_t arena,
+                                a0_reader_init_t init,
+                                a0_reader_iter_t iter) {
   reader_sync_zc->_init = init;
   reader_sync_zc->_iter = iter;
   reader_sync_zc->_first_read_done = false;
@@ -52,7 +52,7 @@ errno_t a0_reader_sync_zc_init(a0_reader_sync_zc_t* reader_sync_zc,
   return A0_OK;
 }
 
-errno_t a0_reader_sync_zc_close(a0_reader_sync_zc_t* reader_sync_zc) {
+a0_err_t a0_reader_sync_zc_close(a0_reader_sync_zc_t* reader_sync_zc) {
   A0_MAYBE_UNUSED(reader_sync_zc);
 #ifdef DEBUG
   A0_ASSERT(reader_sync_zc, "Cannot close null reader (sync+zc).");
@@ -65,12 +65,12 @@ errno_t a0_reader_sync_zc_close(a0_reader_sync_zc_t* reader_sync_zc) {
   return A0_OK;
 }
 
-errno_t a0_reader_sync_zc_has_next(a0_reader_sync_zc_t* reader_sync_zc, bool* has_next) {
+a0_err_t a0_reader_sync_zc_has_next(a0_reader_sync_zc_t* reader_sync_zc, bool* has_next) {
 #ifdef DEBUG
   A0_ASSERT(reader_sync_zc, "Cannot read from null reader (sync+zc).");
 #endif
 
-  errno_t err;
+  a0_err_t err;
   a0_transport_locked_t tlk;
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(&reader_sync_zc->_transport, &tlk));
 
@@ -84,8 +84,8 @@ errno_t a0_reader_sync_zc_has_next(a0_reader_sync_zc_t* reader_sync_zc, bool* ha
   return err;
 }
 
-errno_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
-                               a0_zero_copy_callback_t cb) {
+a0_err_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
+                                a0_zero_copy_callback_t cb) {
 #ifdef DEBUG
   A0_ASSERT(reader_sync_zc, "Cannot read from null reader (sync+zc).");
 #endif
@@ -97,7 +97,7 @@ errno_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
   a0_transport_empty(tlk, &empty);
   if (empty) {
     a0_transport_unlock(tlk);
-    return EAGAIN;
+    return A0_MAKE_SYSERR(EAGAIN);
   }
 
 #ifdef DEBUG
@@ -107,7 +107,7 @@ errno_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
   }
   if (!has_next) {
     a0_transport_unlock(tlk);
-    return EAGAIN;
+    return A0_MAKE_SYSERR(EAGAIN);
   }
 #endif
 
@@ -144,16 +144,16 @@ errno_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
 
 // Synchronous version.
 
-errno_t a0_reader_sync_init(a0_reader_sync_t* reader_sync,
-                            a0_arena_t arena,
-                            a0_alloc_t alloc,
-                            a0_reader_init_t init,
-                            a0_reader_iter_t iter) {
+a0_err_t a0_reader_sync_init(a0_reader_sync_t* reader_sync,
+                             a0_arena_t arena,
+                             a0_alloc_t alloc,
+                             a0_reader_init_t init,
+                             a0_reader_iter_t iter) {
   reader_sync->_alloc = alloc;
   return a0_reader_sync_zc_init(&reader_sync->_reader_sync_zc, arena, init, iter);
 }
 
-errno_t a0_reader_sync_close(a0_reader_sync_t* reader_sync) {
+a0_err_t a0_reader_sync_close(a0_reader_sync_t* reader_sync) {
 #ifdef DEBUG
   A0_ASSERT(reader_sync, "Cannot close from null reader (sync).");
 #endif
@@ -161,7 +161,7 @@ errno_t a0_reader_sync_close(a0_reader_sync_t* reader_sync) {
   return a0_reader_sync_zc_close(&reader_sync->_reader_sync_zc);
 }
 
-errno_t a0_reader_sync_has_next(a0_reader_sync_t* reader_sync, bool* has_next) {
+a0_err_t a0_reader_sync_has_next(a0_reader_sync_t* reader_sync, bool* has_next) {
 #ifdef DEBUG
   A0_ASSERT(reader_sync, "Cannot read from null reader (sync).");
 #endif
@@ -182,7 +182,7 @@ void a0_reader_sync_next_impl(void* user_data, a0_transport_locked_t tlk, a0_fla
   a0_packet_deserialize(fpkt, data->alloc, data->out_pkt, &unused);
 }
 
-errno_t a0_reader_sync_next(a0_reader_sync_t* reader_sync, a0_packet_t* pkt) {
+a0_err_t a0_reader_sync_next(a0_reader_sync_t* reader_sync, a0_packet_t* pkt) {
 #ifdef DEBUG
   A0_ASSERT(reader_sync, "Cannot read from null reader (sync).");
 #endif
@@ -282,11 +282,11 @@ void* a0_reader_zc_thread_main(void* data) {
   return NULL;
 }
 
-errno_t a0_reader_zc_init(a0_reader_zc_t* reader_zc,
-                          a0_arena_t arena,
-                          a0_reader_init_t init,
-                          a0_reader_iter_t iter,
-                          a0_zero_copy_callback_t onpacket) {
+a0_err_t a0_reader_zc_init(a0_reader_zc_t* reader_zc,
+                           a0_arena_t arena,
+                           a0_reader_init_t init,
+                           a0_reader_iter_t iter,
+                           a0_zero_copy_callback_t onpacket) {
   reader_zc->_init = init;
   reader_zc->_iter = iter;
   reader_zc->_onpacket = onpacket;
@@ -322,10 +322,10 @@ errno_t a0_reader_zc_init(a0_reader_zc_t* reader_zc,
   return A0_OK;
 }
 
-errno_t a0_reader_zc_close(a0_reader_zc_t* reader_zc) {
+a0_err_t a0_reader_zc_close(a0_reader_zc_t* reader_zc) {
   a0_event_wait(&reader_zc->_thread_start_event);
   if (pthread_equal(pthread_self(), reader_zc->_thread_id)) {
-    return EDEADLK;
+    return A0_MAKE_SYSERR(EDEADLK);
   }
 #ifdef DEBUG
   a0_ref_cnt_dec(reader_zc->_transport._arena.buf.ptr, NULL);
@@ -358,12 +358,12 @@ void a0_reader_onpacket_wrapper(void* user_data, a0_transport_locked_t tlk, a0_f
   a0_transport_lock(tlk.transport, &tlk);
 }
 
-errno_t a0_reader_init(a0_reader_t* reader,
-                       a0_arena_t arena,
-                       a0_alloc_t alloc,
-                       a0_reader_init_t init,
-                       a0_reader_iter_t iter,
-                       a0_packet_callback_t onpacket) {
+a0_err_t a0_reader_init(a0_reader_t* reader,
+                        a0_arena_t arena,
+                        a0_alloc_t alloc,
+                        a0_reader_init_t init,
+                        a0_reader_iter_t iter,
+                        a0_packet_callback_t onpacket) {
   reader->_alloc = alloc;
   reader->_onpacket = onpacket;
 
@@ -375,7 +375,7 @@ errno_t a0_reader_init(a0_reader_t* reader,
   return a0_reader_zc_init(&reader->_reader_zc, arena, init, iter, onpacket_wrapper);
 }
 
-errno_t a0_reader_close(a0_reader_t* reader) {
+a0_err_t a0_reader_close(a0_reader_t* reader) {
   return a0_reader_zc_close(&reader->_reader_zc);
 }
 
@@ -397,10 +397,10 @@ void a0_reader_read_one_callback(void* user_data, a0_packet_t pkt) {
 }
 
 A0_STATIC_INLINE
-errno_t a0_reader_read_one_blocking(a0_arena_t arena,
-                                    a0_alloc_t alloc,
-                                    a0_reader_init_t init,
-                                    a0_packet_t* out) {
+a0_err_t a0_reader_read_one_blocking(a0_arena_t arena,
+                                     a0_alloc_t alloc,
+                                     a0_reader_init_t init,
+                                     a0_packet_t* out) {
   a0_reader_read_one_data_t data;
   data.pkt = out;
   a0_event_init(&data.done_event);
@@ -411,7 +411,7 @@ errno_t a0_reader_read_one_blocking(a0_arena_t arena,
   };
 
   a0_reader_t reader;
-  errno_t err = a0_reader_init(&reader, arena, alloc, init, A0_ITER_NEXT, onpacket);
+  a0_err_t err = a0_reader_init(&reader, arena, alloc, init, A0_ITER_NEXT, onpacket);
   if (err) {
     a0_event_close(&data.done_event);
     return err;
@@ -426,35 +426,35 @@ errno_t a0_reader_read_one_blocking(a0_arena_t arena,
 }
 
 A0_STATIC_INLINE
-errno_t a0_reader_read_one_nonblocking(a0_arena_t arena,
-                                       a0_alloc_t alloc,
-                                       a0_reader_init_t init,
-                                       a0_packet_t* out) {
+a0_err_t a0_reader_read_one_nonblocking(a0_arena_t arena,
+                                        a0_alloc_t alloc,
+                                        a0_reader_init_t init,
+                                        a0_packet_t* out) {
   if (init == A0_INIT_AWAIT_NEW) {
-    return EAGAIN;
+    return A0_MAKE_SYSERR(EAGAIN);
   }
 
   a0_reader_sync_t reader_sync;
   A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, arena, alloc, init, A0_ITER_NEXT));
 
   bool has_next;
-  errno_t err = a0_reader_sync_has_next(&reader_sync, &has_next);
+  a0_err_t err = a0_reader_sync_has_next(&reader_sync, &has_next);
   if (!err) {
     if (has_next) {
       a0_reader_sync_next(&reader_sync, out);
     } else {
-      err = EAGAIN;
+      err = A0_MAKE_SYSERR(EAGAIN);
     }
   }
   a0_reader_sync_close(&reader_sync);
   return err;
 }
 
-errno_t a0_reader_read_one(a0_arena_t arena,
-                           a0_alloc_t alloc,
-                           a0_reader_init_t init,
-                           int flags,
-                           a0_packet_t* out) {
+a0_err_t a0_reader_read_one(a0_arena_t arena,
+                            a0_alloc_t alloc,
+                            a0_reader_init_t init,
+                            int flags,
+                            a0_packet_t* out) {
   if (flags & O_NONBLOCK) {
     return a0_reader_read_one_nonblocking(arena, alloc, init, out);
   }
