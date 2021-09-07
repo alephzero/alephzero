@@ -2,6 +2,8 @@
 #define A0_SRC_ERR_MACRO_H
 
 #include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdbool.h>
 
 A0_STATIC_INLINE
@@ -16,6 +18,19 @@ a0_err_t A0_MAKE_SYSERR(int syserr) {
 A0_STATIC_INLINE
 int A0_SYSERR(a0_err_t err) {
   return err == A0_ERRCODE_SYSERR ? a0_err_syscode : 0;
+}
+
+A0_STATIC_INLINE_RECURSIVE
+a0_err_t A0_MAKE_MSGERR(const char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  if (fmt) {
+    vsnprintf(a0_err_msg, sizeof(a0_err_msg), fmt, args);
+    va_end(args);
+    return A0_ERRCODE_CUSTOM_MSG;
+  }
+  va_end(args);
+  return A0_OK;
 }
 
 #define A0_RETURN_SYSERR_ON_MINUS_ONE(X) \

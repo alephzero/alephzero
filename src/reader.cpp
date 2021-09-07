@@ -46,17 +46,9 @@ void ReaderSyncZeroCopy::next(std::function<void(TransportLocked, FlatPacket)> f
       .user_data = &fn,
       .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
         auto* fn = (std::function<void(TransportLocked, FlatPacket)>*)user_data;
-        auto cpp_tlk = make_cpp<TransportLocked>(
-            [&](a0_transport_locked_t* c_cpp_tlk) {
-              *c_cpp_tlk = tlk;
-              return A0_OK;
-            });
-        auto cpp_fpkt = make_cpp<FlatPacket>(
-            [&](a0_flat_packet_t* c_cpp_fpkt) {
-              *c_cpp_fpkt = fpkt;
-              return A0_OK;
-            });
-        (*fn)(cpp_tlk, cpp_fpkt);
+        (*fn)(
+            cpp_wrap<TransportLocked>(tlk),
+            cpp_wrap<FlatPacket>(fpkt));
       },
   };
 

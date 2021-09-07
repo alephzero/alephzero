@@ -39,6 +39,19 @@ ifneq ($(DEBUG), 1)
 	DEBUG = $(if $(REQUIRE_DEBUG),1,0)
 endif
 
+A0_C_CONFIG_USE_YYJSON ?= 1
+ifeq ($(A0_C_CONFIG_USE_YYJSON), 1)
+	CXFLAGS += -DA0_C_CONFIG_USE_YYJSON
+	CXFLAGS += -Ithird_party/yyjson/src
+	YYJSON_SRC := third_party/yyjson/src/yyjson.c
+	YYJSON_OBJ := obj/third_party/yyjson/src/yyjson.o
+	OBJ += $(YYJSON_OBJ)
+
+$(YYJSON_OBJ): $(YYJSON_SRC)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(CXFLAGS) -MMD -c $< -o $@
+endif
+
 A0_CXX_CONFIG_USE_NLOHMANN ?= 1
 ifeq ($(A0_CXX_CONFIG_USE_NLOHMANN), 1)
 	CXXFLAGS += -DA0_CXX_CONFIG_USE_NLOHMANN

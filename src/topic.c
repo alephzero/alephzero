@@ -45,10 +45,12 @@ a0_err_t a0_topic_match_info(const char* tmpl,
     info->path_len += next - prev + info->topic_len;
     prev = next + strlen("{topic}");
   }
+  size_t last_len = strlen(prev);
   info->segments[info->num_segments++] = (a0_buf_t){
       .ptr = (uint8_t*)prev,
-      .size = strlen(prev),
+      .size = last_len,
   };
+  info->path_len += last_len;
   return A0_OK;
 }
 

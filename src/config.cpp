@@ -7,6 +7,8 @@
 #include <a0/packet.hpp>
 #include <a0/string_view.hpp>
 #include <a0/tid.h>
+#include <a0/transport.hpp>
+#include <a0/writer.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -21,6 +23,7 @@
 #include <vector>
 
 #include "c_wrap.hpp"
+#include "config_common.h"
 #include "file_opts.hpp"
 
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
@@ -134,7 +137,7 @@ ConfigListener::ConfigListener(
 
 #endif  // A0_CXX_CONFIG_USE_NLOHMANN
 
-Packet config(ConfigTopic topic, int flags) {
+Packet read_config(ConfigTopic topic, int flags) {
   auto cfo = c_fileopts(topic.file_opts);
   a0_config_topic_t c_topic{topic.name.c_str(), &cfo};
 
@@ -152,7 +155,7 @@ Packet config(ConfigTopic topic, int flags) {
   };
 
   a0_packet_t pkt;
-  check(a0_config(c_topic, alloc, flags, &pkt));
+  check(a0_read_config(c_topic, alloc, flags, &pkt));
 
   return Packet(pkt, [data](a0_packet_t*) {});
 }
@@ -165,6 +168,51 @@ void write_config(ConfigTopic topic, Packet pkt) {
 }
 
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
+
+void mergepatch_config(ConfigTopic topic, nlohmann::json update) {
+  auto cfo = c_fileopts(topic.file_opts);
+  a0_config_topic_t c_topic{topic.name.c_str(), &cfo};
+
+  a0_file_t file;
+  check(_a0_config_topic_open(c_topic, &file));
+
+  Writer w(cpp_wrap<File>(file));
+
+  a0_middleware_t mergepatch_middleware = {
+      .user_data = &update,
+      .close = NULL,
+      .process = NULL,
+      .process_locked = [](
+          void* user_data,
+          a0_transport_locked_t tlk,
+          a0_packet_t* pkt,
+          a0_middleware_chain_t chain) mutable {
+        auto* update = (nlohmann::json*)user_data;
+        auto cpp_tlk = cpp_wrap<TransportLocked>(tlk);
+
+        std::string serial;
+
+        if (cpp_tlk.empty()) {
+          serial = update->dump();
+        } else {
+          cpp_tlk.jump_tail();
+          auto frame = cpp_tlk.frame();
+          auto flat_packet = cpp_wrap<FlatPacket>({frame.data, frame.hdr.data_size});
+          auto doc = nlohmann::json::parse(flat_packet.payload());
+          doc.merge_patch(*update);
+          serial = doc.dump();
+        }
+
+        pkt->payload = (a0_buf_t){(uint8_t*)serial.data(), serial.size()};
+        return a0_middleware_chain(chain, pkt);
+      },
+  };
+
+  w.push(cpp_wrap<Middleware>(mergepatch_middleware));
+  w.push(add_standard_headers());
+
+  w.write("");
+}
 
 namespace details {
 
