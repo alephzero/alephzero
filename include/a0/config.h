@@ -4,6 +4,7 @@
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/reader.h>
+#include <a0/writer.h>
 
 #ifdef A0_C_CONFIG_USE_YYJSON
 
@@ -20,9 +21,28 @@ typedef struct a0_config_topic_s {
   const a0_file_options_t* file_opts;
 } a0_config_topic_t;
 
-a0_err_t a0_config_read(a0_config_topic_t, a0_alloc_t, int flags, a0_packet_t* out);
+typedef struct a0_config_s {
+  a0_file_t _file;
+  a0_writer_t _writer;
+} a0_config_t;
 
-a0_err_t a0_config_write(a0_config_topic_t, a0_packet_t);
+a0_err_t a0_config_init(a0_config_t*, a0_config_topic_t);
+
+a0_err_t a0_config_close(a0_config_t*);
+
+a0_err_t a0_config_read(a0_config_t*, a0_alloc_t, int flags, a0_packet_t* out);
+
+a0_err_t a0_config_write(a0_config_t*, a0_packet_t);
+
+#ifdef A0_C_CONFIG_USE_YYJSON
+
+a0_err_t a0_config_read_yyjson(a0_config_t*, a0_alloc_t, int flags, yyjson_doc* out);
+
+a0_err_t a0_config_write_yyjson(a0_config_t*, yyjson_doc);
+
+a0_err_t a0_config_mergepatch_yyjson(a0_config_t*, yyjson_doc mergepatch);
+
+#endif  // A0_C_CONFIG_USE_YYJSON
 
 typedef struct a0_onconfig_s {
   a0_file_t _file;
@@ -32,17 +52,6 @@ typedef struct a0_onconfig_s {
 a0_err_t a0_onconfig_init(a0_onconfig_t*, a0_config_topic_t, a0_alloc_t, a0_packet_callback_t);
 
 a0_err_t a0_onconfig_close(a0_onconfig_t*);
-
-
-#ifdef A0_C_CONFIG_USE_YYJSON
-
-a0_err_t a0_config_read_yyjson(a0_config_topic_t, a0_alloc_t, int flags, yyjson_doc* out);
-
-a0_err_t a0_config_write_yyjson(a0_config_topic_t, yyjson_doc);
-
-a0_err_t a0_config_mergepatch_yyjson(a0_config_topic_t, yyjson_doc mergepatch);
-
-#endif  // A0_C_CONFIG_USE_YYJSON
 
 #ifdef __cplusplus
 }

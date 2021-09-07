@@ -12,77 +12,44 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "config_common.h"
 #include "err_macro.h"
 #include "topic.h"
 
-a0_err_t a0_config_read(a0_config_topic_t topic,
+A0_STATIC_INLINE
+a0_err_t a0_config_topic_open(a0_config_topic_t topic, a0_file_t* out) {
+  const char* tmpl = getenv("A0_CONFIG_TOPIC_TEMPLATE");
+  if (!tmpl) {
+    tmpl = "alephzero/{topic}.cfg.a0";
+  }
+  return a0_topic_open(tmpl, topic.name, topic.file_opts, out);
+}
+
+a0_err_t a0_config_init(a0_config_t* config, a0_config_topic_t topic) {
+  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &config->_file));
+  a0_err_t err = a0_writer_init(&config->_writer, config->_file.arena);
+  if (err) {
+    a0_file_close(&config->_file);
+  }
+  return err;
+}
+
+a0_err_t a0_config_close(a0_config_t* config) {
+  return a0_file_close(&config->_file);
+}
+
+a0_err_t a0_config_read(a0_config_t* config,
                         a0_alloc_t alloc,
                         int flags,
                         a0_packet_t* out) {
-  a0_file_t file;
-  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &file));
-
-  a0_err_t err = a0_reader_read_one(file.arena,
-                                    alloc,
-                                    A0_INIT_MOST_RECENT,
-                                    flags,
-                                    out);
-
-  a0_file_close(&file);
-  return err;
+  return a0_reader_read_one(config->_file.arena,
+                            alloc,
+                            A0_INIT_MOST_RECENT,
+                            flags,
+                            out);
 }
 
-a0_err_t a0_config_write(a0_config_topic_t topic, a0_packet_t pkt) {
-  a0_file_t file;
-  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &file));
-
-  a0_writer_t writer;
-  a0_err_t err = a0_writer_init(&writer, file.arena);
-  if (err) {
-    a0_file_close(&file);
-    return err;
-  }
-
-  err = a0_writer_push(&writer, a0_add_standard_headers());
-  if (err) {
-    a0_writer_close(&writer);
-    a0_file_close(&file);
-    return err;
-  }
-
-  err = a0_writer_write(&writer, pkt);
-
-  a0_writer_close(&writer);
-  a0_file_close(&file);
-  return err;
-}
-
-a0_err_t a0_onconfig_init(a0_onconfig_t* cfg,
-                          a0_config_topic_t topic,
-                          a0_alloc_t alloc,
-                          a0_packet_callback_t onpacket) {
-  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &cfg->_file));
-
-  a0_err_t err = a0_reader_init(
-      &cfg->_reader,
-      cfg->_file.arena,
-      alloc,
-      A0_INIT_MOST_RECENT,
-      A0_ITER_NEWEST,
-      onpacket);
-  if (err) {
-    a0_file_close(&cfg->_file);
-    return err;
-  }
-
-  return A0_OK;
-}
-
-a0_err_t a0_onconfig_close(a0_onconfig_t* cfg) {
-  a0_reader_close(&cfg->_reader);
-  a0_file_close(&cfg->_file);
-  return A0_OK;
+a0_err_t a0_config_write(a0_config_t* config, a0_packet_t pkt) {
+  return a0_writer_write(&config->_writer, pkt);
 }
 
 #ifdef A0_C_CONFIG_USE_YYJSON
@@ -113,7 +80,7 @@ a0_err_t yyjson_alloc_wrapper(void* user_data, size_t size, a0_buf_t* out) {
   return err;
 }
 
-a0_err_t a0_config_read_yyjson(a0_config_topic_t topic,
+a0_err_t a0_config_read_yyjson(a0_config_t* config,
                                a0_alloc_t alloc,
                                int flags,
                                yyjson_doc* out) {
@@ -125,19 +92,13 @@ a0_err_t a0_config_read_yyjson(a0_config_topic_t topic,
       .dealloc = alloc.dealloc,
   };
 
-  a0_file_t file;
-  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &file));
-
   a0_packet_t pkt;
-  a0_err_t err = a0_reader_read_one(file.arena,
-                                    alloc_wrapper,
-                                    A0_INIT_MOST_RECENT,
-                                    flags,
-                                    &pkt);
-
-  a0_file_close(&file);
-
-  A0_RETURN_ERR_ON_ERR(err);
+  A0_RETURN_ERR_ON_ERR(a0_reader_read_one(
+      config->_file.arena,
+      alloc_wrapper,
+      A0_INIT_MOST_RECENT,
+      flags,
+      &pkt));
 
   yyjson_alc alc;
   yyjson_alc_pool_init(
@@ -159,7 +120,7 @@ a0_err_t a0_config_read_yyjson(a0_config_topic_t topic,
   return A0_OK;
 }
 
-a0_err_t a0_config_write_yyjson(a0_config_topic_t topic, yyjson_doc doc) {
+a0_err_t a0_config_write_yyjson(a0_config_t* config, yyjson_doc doc) {
   yyjson_write_err write_err;
   size_t size;
   char* data = yyjson_write_opts(
@@ -177,7 +138,7 @@ a0_err_t a0_config_write_yyjson(a0_config_topic_t topic, yyjson_doc doc) {
   a0_packet_init(&pkt);
   pkt.payload = (a0_buf_t){(uint8_t*)data, size};
 
-  a0_err_t err = a0_config_write(topic, pkt);
+  a0_err_t err = a0_config_write(config, pkt);
   free(data);
   return err;
 }
@@ -193,11 +154,11 @@ a0_err_t a0_mergepatch_process_locked_empty(
   yyjson_write_err write_err;
   size_t size;
   char* data = yyjson_write_opts(
-        mergepatch,
-        a0_yyjson_write_flags,
-        NULL,  // TODO: Maybe provide an allocator?
-        &size,
-        &write_err);
+      mergepatch,
+      a0_yyjson_write_flags,
+      NULL,  // TODO: Maybe provide an allocator?
+      &size,
+      &write_err);
 
   if (write_err.code) {
     free(data);
@@ -262,11 +223,11 @@ a0_err_t a0_mergepatch_process_locked_nonempty(
   yyjson_write_err write_err;
   size_t size;
   char* data = yyjson_mut_write_opts(
-        merged_doc,
-        a0_yyjson_write_flags,
-        NULL,  // TODO: Maybe provide an allocator?
-        &size,
-        &write_err);
+      merged_doc,
+      a0_yyjson_write_flags,
+      NULL,  // TODO: Maybe provide an allocator?
+      &size,
+      &write_err);
 
   if (write_err.code) {
     yyjson_mut_doc_free(merged_doc);
@@ -299,13 +260,7 @@ a0_err_t a0_mergepatch_process_locked(
   return a0_mergepatch_process_locked_nonempty(mergepatch, tlk, pkt, chain);
 }
 
-a0_err_t a0_config_mergepatch_yyjson(a0_config_topic_t topic, yyjson_doc mergepatch) {
-  a0_file_t file;
-  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &file));
-
-  a0_writer_t w;
-  a0_writer_init(&w, file.arena);
-
+a0_err_t a0_config_mergepatch_yyjson(a0_config_t* config, yyjson_doc mergepatch) {
   a0_middleware_t mergepatch_middleware = {
       .user_data = &mergepatch,
       .close = NULL,
@@ -313,16 +268,45 @@ a0_err_t a0_config_mergepatch_yyjson(a0_config_topic_t topic, yyjson_doc mergepa
       .process_locked = a0_mergepatch_process_locked,
   };
 
-  a0_writer_push(&w, mergepatch_middleware);
-  a0_writer_push(&w, a0_add_standard_headers());
+  a0_writer_t mergepatch_writer;
+  a0_writer_wrap(
+      &config->_writer,
+      mergepatch_middleware,
+      &mergepatch_writer);
 
   a0_packet_t pkt;
   a0_packet_init(&pkt);
-  a0_err_t err = a0_writer_write(&w, pkt);
+  a0_err_t err = a0_writer_write(&mergepatch_writer, pkt);
 
-  a0_writer_close(&w);
-  a0_file_close(&file);
+  a0_writer_close(&mergepatch_writer);
   return err;
 }
 
 #endif  // A0_C_CONFIG_USE_YYJSON
+
+a0_err_t a0_onconfig_init(a0_onconfig_t* cfg,
+                          a0_config_topic_t topic,
+                          a0_alloc_t alloc,
+                          a0_packet_callback_t onpacket) {
+  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &cfg->_file));
+
+  a0_err_t err = a0_reader_init(
+      &cfg->_reader,
+      cfg->_file.arena,
+      alloc,
+      A0_INIT_MOST_RECENT,
+      A0_ITER_NEWEST,
+      onpacket);
+  if (err) {
+    a0_file_close(&cfg->_file);
+    return err;
+  }
+
+  return A0_OK;
+}
+
+a0_err_t a0_onconfig_close(a0_onconfig_t* cfg) {
+  a0_reader_close(&cfg->_reader);
+  a0_file_close(&cfg->_file);
+  return A0_OK;
+}

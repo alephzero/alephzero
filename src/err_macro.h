@@ -3,8 +3,8 @@
 
 #include <errno.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 A0_STATIC_INLINE
 a0_err_t A0_MAKE_SYSERR(int syserr) {
