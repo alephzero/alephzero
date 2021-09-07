@@ -16,7 +16,7 @@
 #include "err_macro.h"
 #include "topic.h"
 
-a0_err_t a0_read_config(a0_config_topic_t topic,
+a0_err_t a0_config_read(a0_config_topic_t topic,
                         a0_alloc_t alloc,
                         int flags,
                         a0_packet_t* out) {
@@ -33,7 +33,7 @@ a0_err_t a0_read_config(a0_config_topic_t topic,
   return err;
 }
 
-a0_err_t a0_write_config(a0_config_topic_t topic, a0_packet_t pkt) {
+a0_err_t a0_config_write(a0_config_topic_t topic, a0_packet_t pkt) {
   a0_file_t file;
   A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &file));
 
@@ -113,7 +113,7 @@ a0_err_t yyjson_alloc_wrapper(void* user_data, size_t size, a0_buf_t* out) {
   return err;
 }
 
-a0_err_t a0_read_config_yyjson(a0_config_topic_t topic,
+a0_err_t a0_config_read_yyjson(a0_config_topic_t topic,
                                a0_alloc_t alloc,
                                int flags,
                                yyjson_doc* out) {
@@ -159,7 +159,7 @@ a0_err_t a0_read_config_yyjson(a0_config_topic_t topic,
   return A0_OK;
 }
 
-a0_err_t a0_write_config_yyjson(a0_config_topic_t topic, yyjson_doc doc) {
+a0_err_t a0_config_write_yyjson(a0_config_topic_t topic, yyjson_doc doc) {
   yyjson_write_err write_err;
   size_t size;
   char* data = yyjson_write_opts(
@@ -177,7 +177,7 @@ a0_err_t a0_write_config_yyjson(a0_config_topic_t topic, yyjson_doc doc) {
   a0_packet_init(&pkt);
   pkt.payload = (a0_buf_t){(uint8_t*)data, size};
 
-  a0_err_t err = a0_write_config(topic, pkt);
+  a0_err_t err = a0_config_write(topic, pkt);
   free(data);
   return err;
 }
@@ -299,7 +299,7 @@ a0_err_t a0_mergepatch_process_locked(
   return a0_mergepatch_process_locked_nonempty(mergepatch, tlk, pkt, chain);
 }
 
-a0_err_t a0_mergepatch_config_yyjson(a0_config_topic_t topic, yyjson_doc mergepatch) {
+a0_err_t a0_config_mergepatch_yyjson(a0_config_topic_t topic, yyjson_doc mergepatch) {
   a0_file_t file;
   A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &file));
 

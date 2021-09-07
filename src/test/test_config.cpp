@@ -49,45 +49,45 @@ struct ConfigFixture {
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] basic") {
   a0_packet_t cfg;
-  REQUIRE(A0_SYSERR(a0_read_config(topic, a0::test::alloc(), O_NONBLOCK, &cfg)) == EAGAIN);
+  REQUIRE(A0_SYSERR(a0_config_read(topic, a0::test::alloc(), O_NONBLOCK, &cfg)) == EAGAIN);
 
-  REQUIRE_OK(a0_write_config(topic, a0::test::pkt("cfg")));
-  REQUIRE_OK(a0_read_config(topic, a0::test::alloc(), O_NONBLOCK, &cfg));
+  REQUIRE_OK(a0_config_write(topic, a0::test::pkt("cfg")));
+  REQUIRE_OK(a0_config_read(topic, a0::test::alloc(), O_NONBLOCK, &cfg));
   REQUIRE(a0::test::str(cfg.payload) == "cfg");
 
-  REQUIRE_OK(a0_read_config(topic, a0::test::alloc(), 0, &cfg));
+  REQUIRE_OK(a0_config_read(topic, a0::test::alloc(), 0, &cfg));
   REQUIRE(a0::test::str(cfg.payload) == "cfg");
 }
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] cpp basic") {
   REQUIRE_THROWS_WITH(
-      [&]() { a0::read_config("test", O_NONBLOCK); }(),
+      [&]() { a0::config_read("test", O_NONBLOCK); }(),
       "Resource temporarily unavailable");
 
-  a0::write_config("test", "cfg");
-  REQUIRE(a0::read_config("test").payload() == "cfg");
-  REQUIRE(a0::read_config("test", O_NONBLOCK).payload() == "cfg");
+  a0::config_write("test", "cfg");
+  REQUIRE(a0::config_read("test").payload() == "cfg");
+  REQUIRE(a0::config_read("test", O_NONBLOCK).payload() == "cfg");
 }
 
 #ifdef A0_C_CONFIG_USE_YYJSON
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson read empty nonblock") {
   yyjson_doc doc;
-  REQUIRE(A0_SYSERR(a0_read_config_yyjson(topic, a0::test::alloc(), O_NONBLOCK, &doc)) == EAGAIN);
+  REQUIRE(A0_SYSERR(a0_config_read_yyjson(topic, a0::test::alloc(), O_NONBLOCK, &doc)) == EAGAIN);
 }
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson read nonjson") {
-  REQUIRE_OK(a0_write_config(topic, a0::test::pkt("cfg")));
+  REQUIRE_OK(a0_config_write(topic, a0::test::pkt("cfg")));
   yyjson_doc doc;
-  a0_err_t err = a0_read_config_yyjson(topic, a0::test::alloc(), 0, &doc);
+  a0_err_t err = a0_config_read_yyjson(topic, a0::test::alloc(), 0, &doc);
   REQUIRE(err == A0_ERRCODE_CUSTOM_MSG);
   REQUIRE(std::string(a0_err_msg) == "Failed to parse config: unexpected character");
 }
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson read valid") {
-  REQUIRE_OK(a0_write_config(topic, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
+  REQUIRE_OK(a0_config_write(topic, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
   yyjson_doc doc;
-  REQUIRE_OK(a0_read_config_yyjson(topic, a0::test::alloc(), 0, &doc));
+  REQUIRE_OK(a0_config_read_yyjson(topic, a0::test::alloc(), 0, &doc));
   REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "foo")) == 1);
   REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "bar")) == 2);
 }
@@ -95,27 +95,27 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson read valid") {
 TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson write") {
   std::string json_str = R"([1, "2", "three"])";
   yyjson_doc* doc = yyjson_read(json_str.c_str(), json_str.size(), 0);
-  REQUIRE_OK(a0_write_config_yyjson(topic, *doc));
+  REQUIRE_OK(a0_config_write_yyjson(topic, *doc));
   yyjson_doc_free(doc);
 
   a0_packet_t cfg;
-  REQUIRE_OK(a0_read_config(topic, a0::test::alloc(), 0, &cfg));
+  REQUIRE_OK(a0_config_read(topic, a0::test::alloc(), 0, &cfg));
   REQUIRE(a0::test::str(cfg.payload) == R"([1,"2","three"])");
 }
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson mergepatch") {
   std::string mp_str = R"({"foo": 1,"bar": 2})";
   yyjson_doc* doc = yyjson_read(mp_str.c_str(), mp_str.size(), 0);
-  REQUIRE_OK(a0_mergepatch_config_yyjson(topic, *doc));
+  REQUIRE_OK(a0_config_mergepatch_yyjson(topic, *doc));
   yyjson_doc_free(doc);
 
   mp_str = R"({"foo": null, "bar": {"baz": 3}})";
   doc = yyjson_read(mp_str.c_str(), mp_str.size(), 0);
-  REQUIRE_OK(a0_mergepatch_config_yyjson(topic, *doc));
+  REQUIRE_OK(a0_config_mergepatch_yyjson(topic, *doc));
   yyjson_doc_free(doc);
 
   a0_packet_t cfg;
-  REQUIRE_OK(a0_read_config(topic, a0::test::alloc(), 0, &cfg));
+  REQUIRE_OK(a0_config_read(topic, a0::test::alloc(), 0, &cfg));
   REQUIRE(a0::test::str(cfg.payload) == R"({"bar":{"baz":3}})");
 }
 
@@ -134,7 +134,7 @@ void from_json(const nlohmann::json& j, MyStruct& my) {
 }
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann") {
-  a0::write_config("test", R"({"foo": 1, "bar": 2})");
+  a0::config_write("test", R"({"foo": 1, "bar": 2})");
 
   a0::cfg<MyStruct> my("test", "");
   a0::cfg<int> foo("test", "/foo");
@@ -143,7 +143,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann") {
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 1);
 
-  a0::write_config("test", R"({"foo": 3, "bar": 2})");
+  a0::config_write("test", R"({"foo": 3, "bar": 2})");
   REQUIRE(my->foo == 1);
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 1);
@@ -153,13 +153,13 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann") {
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 3);
 
-  a0::mergepatch_config("test", {{"foo", 4}});
+  a0::config_mergepatch("test", {{"foo", 4}});
   a0::update_configs();
   REQUIRE(my->foo == 4);
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 4);
 
-  a0::write_config("test", "cfg");
+  a0::config_write("test", "cfg");
   a0::update_configs();
 
   REQUIRE_THROWS_WITH(
@@ -178,7 +178,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann") {
 }
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann split threads") {
-  a0::write_config("test", R"({"foo": 1, "bar": 2})");
+  a0::config_write("test", R"({"foo": 1, "bar": 2})");
   a0::cfg<int> x("test", "/foo");
 
   std::vector<std::thread> threads;
@@ -191,7 +191,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann split threads") {
   threads.emplace_back([&]() {
     REQUIRE(*x == 1);
     latches[0]->arrive_and_wait();
-    a0::write_config("test", R"({"foo": 3})");
+    a0::config_write("test", R"({"foo": 3})");
     latches[1]->arrive_and_wait();
     REQUIRE(*x == 1);
     latches[2]->arrive_and_wait();
@@ -205,7 +205,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann split threads") {
   threads.emplace_back([&]() {
     REQUIRE(*x == 1);
     latches[0]->arrive_and_wait();
-    // other thread write_config
+    // other thread config_write
     latches[1]->arrive_and_wait();
     REQUIRE(*x == 1);
     latches[2]->arrive_and_wait();
@@ -224,7 +224,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann split threads") {
 }
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann per threads") {
-  a0::write_config("test", R"({"foo": 1, "bar": 2})");
+  a0::config_write("test", R"({"foo": 1, "bar": 2})");
 
   std::vector<std::thread> threads;
 
@@ -238,7 +238,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann per threads") {
 
     REQUIRE(*x == 1);
     latches[0]->arrive_and_wait();
-    a0::write_config("test", R"({"foo": 3})");
+    a0::config_write("test", R"({"foo": 3})");
     latches[1]->arrive_and_wait();
     REQUIRE(*x == 1);
     latches[2]->arrive_and_wait();
@@ -254,7 +254,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann per threads") {
 
     REQUIRE(*x == 1);
     latches[0]->arrive_and_wait();
-    // other thread write_config
+    // other thread config_write
     latches[1]->arrive_and_wait();
     REQUIRE(*x == 1);
     latches[2]->arrive_and_wait();
@@ -273,7 +273,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann per threads") {
 }
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann fuzz") {
-  a0::write_config("test", R"({"foo": 1})");
+  a0::config_write("test", R"({"foo": 1})");
 
   a0::cfg<int> x("test", "/foo");
   int real_x = *x;
@@ -294,7 +294,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann fuzz") {
         // Change global/external value.
         std::unique_lock<std::mutex> lk{mu};
         real_x = rand();
-        a0::write_config("test", nlohmann::json{{"foo", real_x}}.dump());
+        a0::config_write("test", nlohmann::json{{"foo", real_x}}.dump());
       },
       [&](int* local_x) { REQUIRE(*x == *local_x); },
   };

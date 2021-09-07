@@ -137,7 +137,7 @@ ConfigListener::ConfigListener(
 
 #endif  // A0_CXX_CONFIG_USE_NLOHMANN
 
-Packet read_config(ConfigTopic topic, int flags) {
+Packet config_read(ConfigTopic topic, int flags) {
   auto cfo = c_fileopts(topic.file_opts);
   a0_config_topic_t c_topic{topic.name.c_str(), &cfo};
 
@@ -155,21 +155,21 @@ Packet read_config(ConfigTopic topic, int flags) {
   };
 
   a0_packet_t pkt;
-  check(a0_read_config(c_topic, alloc, flags, &pkt));
+  check(a0_config_read(c_topic, alloc, flags, &pkt));
 
   return Packet(pkt, [data](a0_packet_t*) {});
 }
 
-void write_config(ConfigTopic topic, Packet pkt) {
+void config_write(ConfigTopic topic, Packet pkt) {
   auto cfo = c_fileopts(topic.file_opts);
   a0_config_topic_t c_topic{topic.name.c_str(), &cfo};
 
-  check(a0_write_config(c_topic, *pkt.c));
+  check(a0_config_write(c_topic, *pkt.c));
 }
 
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
 
-void mergepatch_config(ConfigTopic topic, nlohmann::json update) {
+void config_mergepatch(ConfigTopic topic, nlohmann::json update) {
   auto cfo = c_fileopts(topic.file_opts);
   a0_config_topic_t c_topic{topic.name.c_str(), &cfo};
 

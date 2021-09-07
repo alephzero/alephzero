@@ -68,18 +68,18 @@ ConfigListener onconfig(ConfigTopic topic, std::string jptr, std::function<void(
 
 #endif  // A0_CXX_CONFIG_USE_NLOHMANN
 
-Packet read_config(ConfigTopic, int flags = 0);
+Packet config_read(ConfigTopic, int flags = 0);
 
-void write_config(ConfigTopic, Packet);
+void config_write(ConfigTopic, Packet);
 
 A0_STATIC_INLINE
-void write_config(ConfigTopic topic, string_view sv) {
-  write_config(topic, Packet(sv, ref));
+void config_write(ConfigTopic topic, string_view sv) {
+  config_write(topic, Packet(sv, ref));
 }
 
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
 
-void mergepatch_config(ConfigTopic, nlohmann::json);
+void config_mergepatch(ConfigTopic, nlohmann::json);
 
 namespace details {
 
@@ -130,7 +130,7 @@ class cfg {
   const T& operator*() const {
     std::unique_lock<std::mutex> lk{cache->mu};
     if (!cache->valid[a0_tid()]) {
-      auto json_cfg = nlohmann::json::parse(read_config(topic).payload());
+      auto json_cfg = nlohmann::json::parse(config_read(topic).payload());
       json_cfg[jptr].get_to(value[a0_tid()]);
       cache->valid[a0_tid()] = true;
     }
