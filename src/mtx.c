@@ -77,11 +77,11 @@ A0_STATIC_INLINE void _u_ __tsan_mutex_post_divert(_u_ void* addr, _u_ unsigned 
 
 #endif
 
-thread_local bool _a0_robust_init = false;
+thread_local bool a0_robust_init = false;
 
 A0_STATIC_INLINE
 void a0_robust_reset() {
-  _a0_robust_init = 0;
+  a0_robust_init = 0;
 }
 
 A0_STATIC_INLINE
@@ -94,31 +94,31 @@ static pthread_once_t a0_robust_reset_atfork_once;
 typedef struct robust_list robust_list_t;
 typedef struct robust_list_head robust_list_head_t;
 
-thread_local robust_list_head_t _a0_robust_head;
+thread_local robust_list_head_t a0_robust_head;
 
 A0_STATIC_INLINE
 void robust_init() {
-  _a0_robust_head.list.next = &_a0_robust_head.list;
-  _a0_robust_head.futex_offset = offsetof(a0_mtx_t, ftx);
-  _a0_robust_head.list_op_pending = NULL;
-  syscall(SYS_set_robust_list, &_a0_robust_head.list, sizeof(_a0_robust_head));
+  a0_robust_head.list.next = &a0_robust_head.list;
+  a0_robust_head.futex_offset = offsetof(a0_mtx_t, ftx);
+  a0_robust_head.list_op_pending = NULL;
+  syscall(SYS_set_robust_list, &a0_robust_head.list, sizeof(a0_robust_head));
 }
 
 A0_STATIC_INLINE
 void init_thread() {
-  if (_a0_robust_init) {
+  if (a0_robust_init) {
     return;
   }
 
   pthread_once(&a0_robust_reset_atfork_once, a0_robust_reset_atfork);
   robust_init();
-  _a0_robust_init = true;
+  a0_robust_init = true;
 }
 
 A0_STATIC_INLINE
 void robust_op_start(a0_mtx_t* mtx) {
   init_thread();
-  _a0_robust_head.list_op_pending = (struct robust_list*)mtx;
+  a0_robust_head.list_op_pending = (struct robust_list*)mtx;
   a0_barrier();
 }
 
@@ -126,24 +126,24 @@ A0_STATIC_INLINE
 void robust_op_end(a0_mtx_t* mtx) {
   (void)mtx;
   a0_barrier();
-  _a0_robust_head.list_op_pending = NULL;
+  a0_robust_head.list_op_pending = NULL;
 }
 
 A0_STATIC_INLINE
 bool robust_is_head(a0_mtx_t* mtx) {
-  return mtx == (a0_mtx_t*)&_a0_robust_head;
+  return mtx == (a0_mtx_t*)&a0_robust_head;
 }
 
 A0_STATIC_INLINE
 void robust_op_add(a0_mtx_t* mtx) {
-  a0_mtx_t* old_first = (a0_mtx_t*)_a0_robust_head.list.next;
+  a0_mtx_t* old_first = (a0_mtx_t*)a0_robust_head.list.next;
 
-  mtx->prev = (a0_mtx_t*)&_a0_robust_head;
+  mtx->prev = (a0_mtx_t*)&a0_robust_head;
   mtx->next = old_first;
 
   a0_barrier();
 
-  _a0_robust_head.list.next = (robust_list_t*)mtx;
+  a0_robust_head.list.next = (robust_list_t*)mtx;
   if (!robust_is_head(old_first)) {
     old_first->prev = mtx;
   }

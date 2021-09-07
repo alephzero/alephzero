@@ -15,7 +15,7 @@
 #include "topic.h"
 
 A0_STATIC_INLINE
-a0_err_t _a0_log_topic_open(a0_log_topic_t topic, a0_file_t* file) {
+a0_err_t a0_log_topic_open(a0_log_topic_t topic, a0_file_t* file) {
   const char* template = getenv("A0_LOG_TOPIC_TEMPLATE");
   if (!template) {
     template = "alephzero/{topic}.log.a0";
@@ -26,7 +26,7 @@ a0_err_t _a0_log_topic_open(a0_log_topic_t topic, a0_file_t* file) {
 static const char LOG_LEVEL[] = "a0_log_level";
 
 A0_STATIC_INLINE
-const char* _a0_log_level_name(a0_log_level_t level) {
+const char* a0_log_level_name(a0_log_level_t level) {
   switch (level) {
     case A0_LOG_LEVEL_CRIT: {
       return "CRIT";
@@ -50,7 +50,7 @@ const char* _a0_log_level_name(a0_log_level_t level) {
 }
 
 A0_STATIC_INLINE
-a0_log_level_t _a0_log_level_from_name(const char* name) {
+a0_log_level_t a0_log_level_from_name(const char* name) {
   if (!strcmp(name, "CRIT")) {
     return A0_LOG_LEVEL_CRIT;
   } else if (!strcmp(name, "ERR")) {
@@ -67,7 +67,7 @@ a0_log_level_t _a0_log_level_from_name(const char* name) {
 }
 
 a0_err_t a0_logger_init(a0_logger_t* logger, a0_log_topic_t topic) {
-  A0_RETURN_ERR_ON_ERR(_a0_log_topic_open(topic, &logger->_file));
+  A0_RETURN_ERR_ON_ERR(a0_log_topic_open(topic, &logger->_file));
 
   a0_err_t err = a0_writer_init(&logger->_writer, logger->_file.arena);
   if (err) {
@@ -94,7 +94,7 @@ a0_err_t a0_logger_close(a0_logger_t* logger) {
 a0_err_t a0_logger_log(a0_logger_t* logger, a0_log_level_t level, a0_packet_t pkt) {
   const size_t num_extra_headers = 1;
   a0_packet_header_t extra_headers[] = {
-      {LOG_LEVEL, _a0_log_level_name(level)},
+      {LOG_LEVEL, a0_log_level_name(level)},
   };
 
   a0_packet_t full_pkt = pkt;
@@ -128,7 +128,7 @@ a0_err_t a0_logger_dbg(a0_logger_t* logger, a0_packet_t pkt) {
 }
 
 A0_STATIC_INLINE
-void _a0_log_listener_callback(void* data, a0_packet_t pkt) {
+void a0_log_listener_callback(void* data, a0_packet_t pkt) {
   a0_log_listener_t* log_list = (a0_log_listener_t*)data;
 
   a0_packet_header_iterator_t hdr_iter;
@@ -137,7 +137,7 @@ void _a0_log_listener_callback(void* data, a0_packet_t pkt) {
   if (a0_packet_header_iterator_next_match(&hdr_iter, LOG_LEVEL, &lvl_hdr)) {
     return;
   }
-  a0_log_level_t level = _a0_log_level_from_name(lvl_hdr.val);
+  a0_log_level_t level = a0_log_level_from_name(lvl_hdr.val);
   if (level <= log_list->_level) {
     a0_packet_callback_call(log_list->_onmsg, pkt);
   }
@@ -150,7 +150,7 @@ a0_err_t a0_log_listener_init(a0_log_listener_t* log_list,
                               a0_packet_callback_t onmsg) {
   log_list->_level = level;
   log_list->_onmsg = onmsg;
-  A0_RETURN_ERR_ON_ERR(_a0_log_topic_open(topic, &log_list->_file));
+  A0_RETURN_ERR_ON_ERR(a0_log_topic_open(topic, &log_list->_file));
 
   a0_err_t err = a0_reader_init(
       &log_list->_reader,
@@ -158,7 +158,7 @@ a0_err_t a0_log_listener_init(a0_log_listener_t* log_list,
       alloc,
       A0_INIT_AWAIT_NEW,
       A0_ITER_NEXT,
-      (a0_packet_callback_t){log_list, _a0_log_listener_callback});
+      (a0_packet_callback_t){log_list, a0_log_listener_callback});
   if (err) {
     a0_file_close(&log_list->_file);
     return err;

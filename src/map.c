@@ -14,7 +14,7 @@
 
 #include "err_macro.h"
 
-typedef struct _a0_map_bucket_s {
+typedef struct a0_map_bucket_s {
   void* ptr;
   size_t idx;
   // Zero indicates empty bucket.
@@ -22,7 +22,7 @@ typedef struct _a0_map_bucket_s {
   size_t* off;
   void* key;
   void* val;
-} _a0_map_bucket_t;
+} a0_map_bucket_t;
 
 A0_STATIC_INLINE
 size_t a0_max_align(size_t off) {
@@ -64,7 +64,7 @@ a0_err_t a0_map_size(a0_map_t* map, size_t* size) {
 }
 
 A0_STATIC_INLINE
-a0_err_t _a0_map_bucket(a0_map_t* map, size_t idx, _a0_map_bucket_t* bkt) {
+a0_err_t a0_map_bucket(a0_map_t* map, size_t idx, a0_map_bucket_t* bkt) {
   bkt->ptr = map->_data + idx * map->_bucket_size;
   bkt->idx = idx;
   bkt->off = (size_t*)bkt->ptr;
@@ -74,7 +74,7 @@ a0_err_t _a0_map_bucket(a0_map_t* map, size_t idx, _a0_map_bucket_t* bkt) {
 }
 
 A0_STATIC_INLINE
-a0_err_t _a0_map_find(a0_map_t* map, const void* key, _a0_map_bucket_t* bkt) {
+a0_err_t a0_map_find(a0_map_t* map, const void* key, a0_map_bucket_t* bkt) {
   if (!map->_size) {
     return A0_ERRCODE_NOT_FOUND;
   }
@@ -84,7 +84,7 @@ a0_err_t _a0_map_find(a0_map_t* map, const void* key, _a0_map_bucket_t* bkt) {
   size_t idx = hash & map->_hash2idx;
 
   size_t off = 1;
-  A0_RETURN_ERR_ON_ERR(_a0_map_bucket(map, idx, bkt));
+  A0_RETURN_ERR_ON_ERR(a0_map_bucket(map, idx, bkt));
 
   while (off <= *bkt->off) {
     int cmp;
@@ -94,7 +94,7 @@ a0_err_t _a0_map_find(a0_map_t* map, const void* key, _a0_map_bucket_t* bkt) {
     }
 
     idx = (idx + 1) & map->_hash2idx;
-    A0_RETURN_ERR_ON_ERR(_a0_map_bucket(map, idx, bkt));
+    A0_RETURN_ERR_ON_ERR(a0_map_bucket(map, idx, bkt));
     off++;
   }
 
@@ -102,13 +102,13 @@ a0_err_t _a0_map_find(a0_map_t* map, const void* key, _a0_map_bucket_t* bkt) {
 }
 
 a0_err_t a0_map_has(a0_map_t* map, const void* key, bool* contains) {
-  _a0_map_bucket_t bkt;
-  *contains = (_a0_map_find(map, key, &bkt) == A0_OK);
+  a0_map_bucket_t bkt;
+  *contains = (a0_map_find(map, key, &bkt) == A0_OK);
   return A0_OK;
 }
 
 A0_STATIC_INLINE
-a0_err_t _a0_map_grow(a0_map_t* map) {
+a0_err_t a0_map_grow(a0_map_t* map) {
   a0_map_t new_map = *map;
   new_map._size = 0;
   new_map._cap = new_map._cap ? (new_map._cap * 2) : 4;
@@ -130,13 +130,13 @@ a0_err_t _a0_map_grow(a0_map_t* map) {
 
 a0_err_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
   if (map->_size * 2 >= map->_cap) {
-    A0_RETURN_ERR_ON_ERR(_a0_map_grow(map));
+    A0_RETURN_ERR_ON_ERR(a0_map_grow(map));
   }
 
   size_t hash;
   A0_RETURN_ERR_ON_ERR(a0_hash_eval(map->_key_hash, key, &hash));
 
-  _a0_map_bucket_t new_bkt;
+  a0_map_bucket_t new_bkt;
   new_bkt.ptr = alloca(map->_bucket_size);
   new_bkt.idx = hash & map->_hash2idx;
   new_bkt.off = (size_t*)new_bkt.ptr;
@@ -147,8 +147,8 @@ a0_err_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
   memcpy(new_bkt.key, key, map->_key_size);
   memcpy(new_bkt.val, val, map->_val_size);
 
-  _a0_map_bucket_t iter_bkt;
-  A0_RETURN_ERR_ON_ERR(_a0_map_bucket(map, new_bkt.idx, &iter_bkt));
+  a0_map_bucket_t iter_bkt;
+  A0_RETURN_ERR_ON_ERR(a0_map_bucket(map, new_bkt.idx, &iter_bkt));
 
   while (*iter_bkt.off) {
     int cmp;
@@ -166,7 +166,7 @@ a0_err_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
     }
 
     new_bkt.idx = (new_bkt.idx + 1) & map->_hash2idx;
-    A0_RETURN_ERR_ON_ERR(_a0_map_bucket(map, new_bkt.idx, &iter_bkt));
+    A0_RETURN_ERR_ON_ERR(a0_map_bucket(map, new_bkt.idx, &iter_bkt));
     (*new_bkt.off)++;
   }
 
@@ -177,15 +177,15 @@ a0_err_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
 }
 
 A0_STATIC_INLINE
-a0_err_t _a0_map_del_bucket(a0_map_t* map, _a0_map_bucket_t bkt) {
+a0_err_t a0_map_del_bucket(a0_map_t* map, a0_map_bucket_t bkt) {
   *bkt.off = 0;
 
   map->_size--;
 
   size_t next_idx = (bkt.idx + 1) & map->_hash2idx;
 
-  _a0_map_bucket_t next_bkt;
-  A0_RETURN_ERR_ON_ERR(_a0_map_bucket(map, next_idx, &next_bkt));
+  a0_map_bucket_t next_bkt;
+  A0_RETURN_ERR_ON_ERR(a0_map_bucket(map, next_idx, &next_bkt));
 
   while (*next_bkt.off > 1) {
     memcpy(bkt.ptr, next_bkt.ptr, map->_bucket_size);
@@ -195,30 +195,30 @@ a0_err_t _a0_map_del_bucket(a0_map_t* map, _a0_map_bucket_t bkt) {
     bkt = next_bkt;
 
     next_idx = (bkt.idx + 1) & map->_hash2idx;
-    A0_RETURN_ERR_ON_ERR(_a0_map_bucket(map, next_idx, &next_bkt));
+    A0_RETURN_ERR_ON_ERR(a0_map_bucket(map, next_idx, &next_bkt));
   }
 
   return A0_OK;
 }
 
 a0_err_t a0_map_del(a0_map_t* map, const void* key) {
-  _a0_map_bucket_t bkt;
-  A0_RETURN_ERR_ON_ERR(_a0_map_find(map, key, &bkt));
-  return _a0_map_del_bucket(map, bkt);
+  a0_map_bucket_t bkt;
+  A0_RETURN_ERR_ON_ERR(a0_map_find(map, key, &bkt));
+  return a0_map_del_bucket(map, bkt);
 }
 
 a0_err_t a0_map_get(a0_map_t* map, const void* key, void** val) {
-  _a0_map_bucket_t bkt;
-  A0_RETURN_ERR_ON_ERR(_a0_map_find(map, key, &bkt));
+  a0_map_bucket_t bkt;
+  A0_RETURN_ERR_ON_ERR(a0_map_find(map, key, &bkt));
   *val = bkt.val;
   return A0_OK;
 }
 
 a0_err_t a0_map_pop(a0_map_t* map, const void* key, void* val) {
-  _a0_map_bucket_t bkt;
-  A0_RETURN_ERR_ON_ERR(_a0_map_find(map, key, &bkt));
+  a0_map_bucket_t bkt;
+  A0_RETURN_ERR_ON_ERR(a0_map_find(map, key, &bkt));
   memcpy(val, bkt.val, map->_val_size);
-  return _a0_map_del_bucket(map, bkt);
+  return a0_map_del_bucket(map, bkt);
 }
 
 a0_err_t a0_map_iterator_init(a0_map_iterator_t* iter, a0_map_t* map) {
@@ -234,9 +234,9 @@ a0_err_t a0_map_iterator_next(a0_map_iterator_t* iter, const void** key, void** 
     return A0_ERRCODE_DONE_ITER;
   }
 
-  _a0_map_bucket_t bkt;
+  a0_map_bucket_t bkt;
   do {
-    A0_RETURN_ERR_ON_ERR(_a0_map_bucket(iter->_map, iter->_idx++, &bkt));
+    A0_RETURN_ERR_ON_ERR(a0_map_bucket(iter->_map, iter->_idx++, &bkt));
   } while (iter->_idx <= iter->_map->_cap && !*bkt.off);
 
   if (iter->_idx > iter->_map->_cap) {

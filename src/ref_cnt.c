@@ -44,7 +44,7 @@ a0_counters_t* _global_counters() {
 }
 
 A0_STATIC_INLINE
-a0_err_t _a0_ref_cnt_inc_locked(a0_map_t* map, void* key, size_t* out_cnt) {
+a0_err_t a0_ref_cnt_inc_locked(a0_map_t* map, void* key, size_t* out_cnt) {
   size_t unused_cnt;
   if (!out_cnt) {
     out_cnt = &unused_cnt;
@@ -66,13 +66,13 @@ a0_err_t _a0_ref_cnt_inc_locked(a0_map_t* map, void* key, size_t* out_cnt) {
 a0_err_t a0_ref_cnt_inc(void* key, size_t* out_cnt) {
   a0_counters_t* cnts = _global_counters();
   pthread_mutex_lock(&cnts->mu);
-  a0_err_t err = _a0_ref_cnt_inc_locked(&cnts->map, key, out_cnt);
+  a0_err_t err = a0_ref_cnt_inc_locked(&cnts->map, key, out_cnt);
   pthread_mutex_unlock(&cnts->mu);
   return err;
 }
 
 A0_STATIC_INLINE
-a0_err_t _a0_ref_cnt_dec_locked(a0_map_t* map, void* key, size_t* out_cnt) {
+a0_err_t a0_ref_cnt_dec_locked(a0_map_t* map, void* key, size_t* out_cnt) {
   size_t unused_cnt;
   if (!out_cnt) {
     out_cnt = &unused_cnt;
@@ -98,13 +98,13 @@ a0_err_t _a0_ref_cnt_dec_locked(a0_map_t* map, void* key, size_t* out_cnt) {
 a0_err_t a0_ref_cnt_dec(void* key, size_t* out_cnt) {
   a0_counters_t* cnts = _global_counters();
   pthread_mutex_lock(&cnts->mu);
-  a0_err_t err = _a0_ref_cnt_dec_locked(&cnts->map, key, out_cnt);
+  a0_err_t err = a0_ref_cnt_dec_locked(&cnts->map, key, out_cnt);
   pthread_mutex_unlock(&cnts->mu);
   return err;
 }
 
 A0_STATIC_INLINE
-a0_err_t _a0_ref_cnt_get_locked(a0_map_t* map, void* key, size_t* out) {
+a0_err_t a0_ref_cnt_get_locked(a0_map_t* map, void* key, size_t* out) {
   *out = 0;
 
   bool has_key;
@@ -121,7 +121,7 @@ a0_err_t _a0_ref_cnt_get_locked(a0_map_t* map, void* key, size_t* out) {
 a0_err_t a0_ref_cnt_get(void* key, size_t* out) {
   a0_counters_t* cnts = _global_counters();
   pthread_mutex_lock(&cnts->mu);
-  a0_err_t err = _a0_ref_cnt_get_locked(&cnts->map, key, out);
+  a0_err_t err = a0_ref_cnt_get_locked(&cnts->map, key, out);
   pthread_mutex_unlock(&cnts->mu);
   return err;
 }

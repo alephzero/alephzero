@@ -28,7 +28,7 @@ static const char RPC_TYPE_CANCEL[] = "cancel";
 static const char REQUEST_ID[] = "a0_req_id";
 
 A0_STATIC_INLINE
-a0_err_t _a0_rpc_topic_open(a0_rpc_topic_t topic, a0_file_t* file) {
+a0_err_t a0_rpc_topic_open(a0_rpc_topic_t topic, a0_file_t* file) {
   const char* template = getenv("A0_RPC_TOPIC_TEMPLATE");
   if (!template) {
     template = "alephzero/{topic}.rpc.a0";
@@ -72,7 +72,7 @@ a0_err_t a0_rpc_server_init(a0_rpc_server_t* server,
 
   // Response writer must be set up before the request reader to avoid a race condition.
 
-  A0_RETURN_ERR_ON_ERR(_a0_rpc_topic_open(topic, &server->_file));
+  A0_RETURN_ERR_ON_ERR(a0_rpc_topic_open(topic, &server->_file));
 
   a0_err_t err = a0_writer_init(&server->_response_writer, server->_file.arena);
   if (err) {
@@ -136,7 +136,7 @@ a0_err_t a0_rpc_server_reply(a0_rpc_request_t req, a0_packet_t resp) {
 ////////////
 
 A0_STATIC_INLINE
-void _a0_rpc_client_onpacket(void* user_data, a0_packet_t pkt) {
+void a0_rpc_client_onpacket(void* user_data, a0_packet_t pkt) {
   a0_rpc_client_t* client = (a0_rpc_client_t*)user_data;
 
   a0_packet_header_t req_id_hdr;
@@ -169,7 +169,7 @@ a0_err_t a0_rpc_client_init(a0_rpc_client_t* client,
       A0_COMPARE_UUID));
   pthread_mutex_init(&client->_outstanding_requests_mu, NULL);
 
-  a0_err_t err = _a0_rpc_topic_open(topic, &client->_file);
+  a0_err_t err = a0_rpc_topic_open(topic, &client->_file);
   if (err) {
     a0_map_close(&client->_outstanding_requests);
     pthread_mutex_destroy(&client->_outstanding_requests_mu);
@@ -201,7 +201,7 @@ a0_err_t a0_rpc_client_init(a0_rpc_client_t* client,
       A0_ITER_NEXT,
       (a0_packet_callback_t){
           .user_data = client,
-          .fn = _a0_rpc_client_onpacket,
+          .fn = a0_rpc_client_onpacket,
       });
   if (err) {
     a0_writer_close(&client->_request_writer);

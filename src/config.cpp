@@ -174,7 +174,7 @@ void mergepatch_config(ConfigTopic topic, nlohmann::json update) {
   a0_config_topic_t c_topic{topic.name.c_str(), &cfo};
 
   a0_file_t file;
-  check(_a0_config_topic_open(c_topic, &file));
+  check(a0_config_topic_open(c_topic, &file));
 
   Writer w(cpp_wrap<File>(file));
 

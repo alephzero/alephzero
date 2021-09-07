@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 A0_STATIC_INLINE
-a0_err_t _a0_config_topic_open(a0_config_topic_t topic, a0_file_t* out) {
+a0_err_t a0_config_topic_open(a0_config_topic_t topic, a0_file_t* out) {
   const char* tmpl = getenv("A0_CONFIG_TOPIC_TEMPLATE");
   if (!tmpl) {
     tmpl = "alephzero/{topic}.cfg.a0";

@@ -21,7 +21,7 @@ a0_err_t a0_read_config(a0_config_topic_t topic,
                         int flags,
                         a0_packet_t* out) {
   a0_file_t file;
-  A0_RETURN_ERR_ON_ERR(_a0_config_topic_open(topic, &file));
+  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &file));
 
   a0_err_t err = a0_reader_read_one(file.arena,
                                     alloc,
@@ -35,7 +35,7 @@ a0_err_t a0_read_config(a0_config_topic_t topic,
 
 a0_err_t a0_write_config(a0_config_topic_t topic, a0_packet_t pkt) {
   a0_file_t file;
-  A0_RETURN_ERR_ON_ERR(_a0_config_topic_open(topic, &file));
+  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &file));
 
   a0_writer_t writer;
   a0_err_t err = a0_writer_init(&writer, file.arena);
@@ -62,7 +62,7 @@ a0_err_t a0_onconfig_init(a0_onconfig_t* cfg,
                           a0_config_topic_t topic,
                           a0_alloc_t alloc,
                           a0_packet_callback_t onpacket) {
-  A0_RETURN_ERR_ON_ERR(_a0_config_topic_open(topic, &cfg->_file));
+  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &cfg->_file));
 
   a0_err_t err = a0_reader_init(
       &cfg->_reader,
@@ -126,7 +126,7 @@ a0_err_t a0_read_config_yyjson(a0_config_topic_t topic,
   };
 
   a0_file_t file;
-  A0_RETURN_ERR_ON_ERR(_a0_config_topic_open(topic, &file));
+  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &file));
 
   a0_packet_t pkt;
   a0_err_t err = a0_reader_read_one(file.arena,
@@ -301,7 +301,7 @@ a0_err_t a0_mergepatch_process_locked(
 
 a0_err_t a0_mergepatch_config_yyjson(a0_config_topic_t topic, yyjson_doc mergepatch) {
   a0_file_t file;
-  A0_RETURN_ERR_ON_ERR(_a0_config_topic_open(topic, &file));
+  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &file));
 
   a0_writer_t w;
   a0_writer_init(&w, file.arena);
