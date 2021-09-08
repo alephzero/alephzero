@@ -16,11 +16,11 @@
 
 A0_STATIC_INLINE
 a0_err_t a0_log_topic_open(a0_log_topic_t topic, a0_file_t* file) {
-  const char* template = getenv("A0_LOG_TOPIC_TEMPLATE");
-  if (!template) {
-    template = "alephzero/{topic}.log.a0";
+  const char* tmpl = getenv("A0_LOG_TOPIC_TEMPLATE");
+  if (!tmpl) {
+    tmpl = "alephzero/{topic}.log.a0";
   }
-  return a0_topic_open(template, topic.name, topic.file_opts, file);
+  return a0_topic_open(tmpl, topic.name, topic.file_opts, file);
 }
 
 static const char LOG_LEVEL[] = "a0_log_level";

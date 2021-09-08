@@ -120,12 +120,17 @@ CPP make_cpp() {
 template <typename CPP>
 CPP cpp_wrap(typename CPP::c_type c) {
   using c_type = typename CPP::c_type;
-  return make_cpp<CPP>(
-      [&](c_type* c_) {
-        *c_ = c;
-        return A0_OK;
-      },
-      [](c_type*) {});
+  CPP cpp;
+  cpp.c = std::make_shared<c_type>(c);
+  return cpp;
+}
+
+template <typename CPP>
+CPP cpp_wrap(typename CPP::c_type* c) {
+  using c_type = typename CPP::c_type;
+  CPP cpp;
+  cpp.c = std::shared_ptr<c_type>(c, [](c_type*) {});
+  return cpp;
 }
 
 template <typename T>

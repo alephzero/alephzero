@@ -48,6 +48,7 @@ struct ConfigFixture {
   }
 
   void clear() {
+    setenv("A0_NODE", topic.name, true);
     a0_file_remove(topic_path);
   }
 };
@@ -141,7 +142,7 @@ void from_json(const nlohmann::json& j, MyStruct& my) {
 }
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann") {
-  a0::Config c(topic.name);
+  a0::Config c;
   c.write(R"({"foo": 1, "bar": 2})");
 
   a0::CfgVar<MyStruct> my;
@@ -153,7 +154,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann") {
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 1);
 
-  c.write(R"({"foo": 3, "bar": 2})");
+  c.write({{"foo", 3}, {"bar", 2}});
   REQUIRE(my->foo == 1);
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 1);

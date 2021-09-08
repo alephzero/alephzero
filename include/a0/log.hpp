@@ -11,15 +11,17 @@ namespace a0 {
 
 struct LogTopic {
   std::string name;
-  File::Options file_opts;
+  File::Options file_opts{File::Options::DEFAULT};
+
+  LogTopic() = default;
+
+  LogTopic(const char* name)
+      : LogTopic(std::string(name)) {}
 
   LogTopic(
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
       : name{std::move(name)}, file_opts{std::move(file_opts)} {}
-
-  LogTopic(const char* name)
-      : LogTopic(std::string(name)) {}
 };
 
 enum class LogLevel {
@@ -34,7 +36,7 @@ enum class LogLevel {
 };
 
 struct Logger : details::CppWrap<a0_logger_t> {
-  Logger() = default;
+  Logger();
   Logger(LogTopic);
 
   void log(LogLevel, Packet);
@@ -58,6 +60,7 @@ struct Logger : details::CppWrap<a0_logger_t> {
 
 struct LogListener : details::CppWrap<a0_log_listener_t> {
   LogListener() = default;
+  LogListener(LogLevel, std::function<void(Packet)>);
   LogListener(LogTopic, LogLevel, std::function<void(Packet)>);
 };
 

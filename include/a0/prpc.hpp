@@ -16,15 +16,17 @@ namespace a0 {
 
 struct PrpcTopic {
   std::string name;
-  File::Options file_opts;
+  File::Options file_opts{File::Options::DEFAULT};
+
+  PrpcTopic() = default;
+
+  PrpcTopic(const char* name)
+      : PrpcTopic(std::string(name)) {}
 
   PrpcTopic(
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
       : name{std::move(name)}, file_opts{std::move(file_opts)} {}
-
-  PrpcTopic(const char* name)
-      : PrpcTopic(std::string(name)) {}
 };
 
 struct PrpcServer;
@@ -47,13 +49,16 @@ struct PrpcConnection : details::CppWrap<a0_prpc_connection_t> {
 struct PrpcServer : details::CppWrap<a0_prpc_server_t> {
   PrpcServer() = default;
   PrpcServer(
+      std::function<void(PrpcConnection)> onconnection,
+      std::function<void(string_view /* id */)> oncancel);
+  PrpcServer(
       PrpcTopic,
       std::function<void(PrpcConnection)> onconnection,
       std::function<void(string_view /* id */)> oncancel);
 };
 
 struct PrpcClient : details::CppWrap<a0_prpc_client_t> {
-  PrpcClient() = default;
+  PrpcClient();
   PrpcClient(PrpcTopic);
 
   void connect(Packet, std::function<void(Packet, bool /* done */)>);

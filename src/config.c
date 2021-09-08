@@ -34,7 +34,9 @@ a0_err_t a0_config_init(a0_config_t* config, a0_config_topic_t topic) {
 }
 
 a0_err_t a0_config_close(a0_config_t* config) {
-  return a0_file_close(&config->_file);
+  a0_writer_close(&config->_writer);
+  a0_file_close(&config->_file);
+  return A0_OK;
 }
 
 a0_err_t a0_config_read(a0_config_t* config,

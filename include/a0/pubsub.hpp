@@ -13,19 +13,21 @@ namespace a0 {
 
 struct PubSubTopic {
   std::string name;
-  File::Options file_opts;
+  File::Options file_opts{File::Options::DEFAULT};
+
+  PubSubTopic() = default;
+
+  PubSubTopic(const char* name)
+      : PubSubTopic(std::string(name)) {}
 
   PubSubTopic(
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
       : name{std::move(name)}, file_opts{std::move(file_opts)} {}
-
-  PubSubTopic(const char* name)
-      : PubSubTopic(std::string(name)) {}
 };
 
 struct Publisher : details::CppWrap<a0_publisher_t> {
-  Publisher() = default;
+  Publisher();
   Publisher(PubSubTopic);
 
   void pub(Packet);
@@ -34,6 +36,7 @@ struct Publisher : details::CppWrap<a0_publisher_t> {
 
 struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
   SubscriberSync() = default;
+  SubscriberSync(ReaderInit, ReaderIter);
   SubscriberSync(PubSubTopic, ReaderInit, ReaderIter);
 
   bool has_next();
@@ -42,6 +45,7 @@ struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
 
 struct Subscriber : details::CppWrap<a0_subscriber_t> {
   Subscriber() = default;
+  Subscriber(ReaderInit, ReaderIter, std::function<void(Packet)>);
   Subscriber(PubSubTopic, ReaderInit, ReaderIter, std::function<void(Packet)>);
 
   static Packet read_one(PubSubTopic, ReaderInit, int flags);

@@ -16,15 +16,17 @@ namespace a0 {
 
 struct RpcTopic {
   std::string name;
-  File::Options file_opts;
+  File::Options file_opts{File::Options::DEFAULT};
+
+  RpcTopic() = default;
+
+  RpcTopic(const char* name)
+      : RpcTopic(std::string(name)) {}
 
   RpcTopic(
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
       : name{std::move(name)}, file_opts{std::move(file_opts)} {}
-
-  RpcTopic(const char* name)
-      : RpcTopic(std::string(name)) {}
 };
 
 struct RpcServer;
@@ -46,13 +48,16 @@ struct RpcRequest : details::CppWrap<a0_rpc_request_t> {
 struct RpcServer : details::CppWrap<a0_rpc_server_t> {
   RpcServer() = default;
   RpcServer(
+      std::function<void(RpcRequest)> onrequest,
+      std::function<void(string_view /* id */)> oncancel);
+  RpcServer(
       RpcTopic,
       std::function<void(RpcRequest)> onrequest,
       std::function<void(string_view /* id */)> oncancel);
 };
 
 struct RpcClient : details::CppWrap<a0_rpc_client_t> {
-  RpcClient() = default;
+  RpcClient();
   RpcClient(RpcTopic);
 
   void send(Packet, std::function<void(Packet)>);

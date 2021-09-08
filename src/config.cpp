@@ -43,6 +43,9 @@ struct ConfigImpl {
 
 }  // namespace
 
+Config::Config()
+    : Config(ConfigTopic{}) {}
+
 Config::Config(ConfigTopic topic) {
   set_c_impl<ConfigImpl>(
       &c,
@@ -113,7 +116,7 @@ void Config::mergepatch(nlohmann::json update) {
       },
   };
 
-  cpp_wrap<Writer>(c->_writer)
+  cpp_wrap<Writer>(&c->_writer)
       .wrap(cpp_wrap<Middleware>(mergepatch_middleware))
       .write("");
 }
@@ -149,12 +152,14 @@ struct ConfigListenerImpl {
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
 
   std::function<void(nlohmann::json)> onjson;
-  nlohmann::json::json_pointer jptr;
 
 #endif  // A0_CXX_CONFIG_USE_NLOHMANN
 };
 
 }  // namespace
+
+ConfigListener::ConfigListener(std::function<void(Packet)> onpacket)
+    : ConfigListener(ConfigTopic{}, std::move(onpacket)) {}
 
 ConfigListener::ConfigListener(
     ConfigTopic topic,
@@ -196,20 +201,16 @@ ConfigListener::ConfigListener(
 
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
 
-ConfigListener::ConfigListener(
-    ConfigTopic topic,
-    std::function<void(const nlohmann::json&)> onjson)
-    : ConfigListener(std::move(topic), "/", std::move(onjson)) {}
+ConfigListener::ConfigListener(std::function<void(const nlohmann::json&)> onjson)
+    : ConfigListener(ConfigTopic{}, std::move(onjson)) {}
 
 ConfigListener::ConfigListener(
     ConfigTopic topic,
-    std::string jptr_str,
     std::function<void(const nlohmann::json&)> onjson) {
   set_c_impl<ConfigListenerImpl>(
       &c,
       [&](a0_onconfig_t* c, ConfigListenerImpl* impl) {
         impl->onjson = std::move(onjson);
-        impl->jptr = nlohmann::json::json_pointer(jptr_str);
 
         auto cfo = c_fileopts(topic.file_opts);
         a0_config_topic_t c_topic{topic.name.c_str(), &cfo};
@@ -231,7 +232,7 @@ ConfigListener::ConfigListener(
               auto* impl = (ConfigListenerImpl*)user_data;
               auto json = nlohmann::json::parse(
                   string_view((const char*)pkt.payload.ptr, pkt.payload.size));
-              impl->onjson(json[impl->jptr]);
+              impl->onjson(json);
             }};
 
         return a0_onconfig_init(c, c_topic, alloc, c_onpacket);

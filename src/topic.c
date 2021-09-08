@@ -5,6 +5,7 @@
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
+#include <a0/node.h>
 
 #include <alloca.h>
 #include <errno.h>
@@ -27,7 +28,10 @@ A0_STATIC_INLINE
 a0_err_t a0_topic_match_info(const char* tmpl,
                              const char* topic,
                              a0_topic_template_match_info_t* info) {
-  if (!tmpl || !*tmpl || !topic || !*topic || topic[0] == '/') {
+  if (!tmpl || !*tmpl) {
+    return A0_ERRCODE_BAD_TOPIC;
+  }
+  if (!topic || !*topic || topic[0] == '/') {
     return A0_ERRCODE_BAD_TOPIC;
   }
 
@@ -37,20 +41,21 @@ a0_err_t a0_topic_match_info(const char* tmpl,
   const char* prev = tmpl;
   const char* next;
   while ((next = strstr(prev, "{topic}")) && info->num_segments < A0_TOPIC_TMPL_MAX_MATCH_CNT) {
+    size_t seg_len = next - prev;
     info->segments[info->num_segments++] = (a0_buf_t){
         .ptr = (uint8_t*)prev,
-        .size = next - prev,
+        .size = seg_len,
     };
 
     info->path_len += next - prev + info->topic_len;
     prev = next + strlen("{topic}");
   }
-  size_t last_len = strlen(prev);
+  size_t seg_len = strlen(prev);
   info->segments[info->num_segments++] = (a0_buf_t){
       .ptr = (uint8_t*)prev,
-      .size = last_len,
+      .size = seg_len,
   };
-  info->path_len += last_len;
+  info->path_len += seg_len;
   return A0_OK;
 }
 
@@ -74,6 +79,9 @@ a0_err_t a0_topic_write_path(const char* topic,
 a0_err_t a0_topic_path(const char* tmpl,
                        const char* topic,
                        const char** path) {
+  if (!topic || !*topic) {
+    topic = a0_node();
+  }
   a0_topic_template_match_info_t info = A0_EMPTY;
   A0_RETURN_ERR_ON_ERR(a0_topic_match_info(tmpl, topic, &info));
 
@@ -91,6 +99,9 @@ a0_err_t a0_topic_open(const char* tmpl,
                        const char* topic,
                        const a0_file_options_t* topic_opts,
                        a0_file_t* file) {
+  if (!topic || !*topic) {
+    topic = a0_node();
+  }
   a0_topic_template_match_info_t info = A0_EMPTY;
   A0_RETURN_ERR_ON_ERR(a0_topic_match_info(tmpl, topic, &info));
 
