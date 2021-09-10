@@ -3,6 +3,7 @@
 #include <a0/buf.h>
 #include <a0/c_wrap.hpp>
 #include <a0/err.h>
+#include <a0/inline.h>
 
 #include <chrono>
 #include <cstdint>
@@ -16,12 +17,10 @@
 #include <utility>
 
 namespace a0 {
-namespace {
+namespace {  // NOLINT(google-build-namespaces)
 
-void check(a0_err_t err) {
-  if (err == A0_ERRCODE_SYSERR) {
-    throw std::system_error(a0_err_syscode, std::generic_category());
-  } else if (err) {
+inline void check(a0_err_t err) {
+  if (err) {
     throw std::runtime_error(a0_strerror(err));
   }
 }

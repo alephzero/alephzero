@@ -81,7 +81,7 @@ a0_err_t a0_ref_cnt_dec_locked(a0_map_t* map, void* key, size_t* out_cnt) {
   bool has_key;
   A0_RETURN_ERR_ON_ERR(a0_map_has(map, &key, &has_key));
   if (!has_key) {
-    return A0_ERRCODE_NOT_FOUND;
+    return A0_ERR_NOT_FOUND;
   }
 
   size_t* cnt;

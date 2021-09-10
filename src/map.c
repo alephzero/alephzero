@@ -76,7 +76,7 @@ a0_err_t a0_map_bucket(a0_map_t* map, size_t idx, a0_map_bucket_t* bkt) {
 A0_STATIC_INLINE
 a0_err_t a0_map_find(a0_map_t* map, const void* key, a0_map_bucket_t* bkt) {
   if (!map->_size) {
-    return A0_ERRCODE_NOT_FOUND;
+    return A0_ERR_NOT_FOUND;
   }
 
   size_t hash;
@@ -98,7 +98,7 @@ a0_err_t a0_map_find(a0_map_t* map, const void* key, a0_map_bucket_t* bkt) {
     off++;
   }
 
-  return A0_ERRCODE_NOT_FOUND;
+  return A0_ERR_NOT_FOUND;
 }
 
 a0_err_t a0_map_has(a0_map_t* map, const void* key, bool* contains) {
@@ -121,7 +121,11 @@ a0_err_t a0_map_grow(a0_map_t* map) {
   const void* key;
   void* val;
   while (a0_map_iterator_next(&iter, &key, &val) == A0_OK) {
-    A0_RETURN_ERR_ON_ERR(a0_map_put(&new_map, key, val));
+    a0_err_t err = a0_map_put(&new_map, key, val);
+    if (err) {
+      free(new_map._data);
+      return err;
+    }
   }
   free(map->_data);
   *map = new_map;
@@ -231,7 +235,7 @@ a0_err_t a0_map_iterator_init(a0_map_iterator_t* iter, a0_map_t* map) {
 
 a0_err_t a0_map_iterator_next(a0_map_iterator_t* iter, const void** key, void** val) {
   if (iter->_idx >= iter->_map->_cap) {
-    return A0_ERRCODE_DONE_ITER;
+    return A0_ERR_ITER_DONE;
   }
 
   a0_map_bucket_t bkt;
@@ -240,7 +244,7 @@ a0_err_t a0_map_iterator_next(a0_map_iterator_t* iter, const void** key, void** 
   } while (iter->_idx <= iter->_map->_cap && !*bkt.off);
 
   if (iter->_idx > iter->_map->_cap) {
-    return A0_ERRCODE_DONE_ITER;
+    return A0_ERR_ITER_DONE;
   }
 
   *key = bkt.key;

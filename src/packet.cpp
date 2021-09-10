@@ -5,9 +5,8 @@
 #include <a0/string_view.hpp>
 #include <a0/uuid.h>
 
-#include <errno.h>
-
 #include <algorithm>
+#include <cerrno>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -45,7 +44,7 @@ std::shared_ptr<a0_packet_t> make_cpp_packet(
           memcpy(c->id, id.data(), A0_UUID_SIZE - 1);
           c->id[A0_UUID_SIZE - 1] = '\0';
         } else {
-          return A0_ERRCODE_INVALID_ARG;
+          return A0_ERR_INVALID_ARG;
         }
 
         // Handle headers.
@@ -98,7 +97,7 @@ Packet::Packet(std::unordered_multimap<std::string, std::string> headers,
 }
 
 Packet::Packet(string_view payload, tag_ref_t ref)
-    : Packet({}, std::move(payload), ref) {}
+    : Packet({}, payload, ref) {}
 
 Packet::Packet(std::unordered_multimap<std::string, std::string> headers,
                string_view payload,
@@ -134,7 +133,7 @@ string_view Packet::id() const {
 
 const std::unordered_multimap<std::string, std::string>& Packet::headers() const {
   CHECK_C;
-  auto* impl = c_impl<PacketImpl>(&c);
+  const auto* impl = c_impl<PacketImpl>(&c);
   return impl->cpp_hdrs;
 }
 

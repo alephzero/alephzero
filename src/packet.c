@@ -60,7 +60,7 @@ a0_err_t a0_packet_header_iterator_next(a0_packet_header_iterator_t* iter,
   }
 
   if (!iter->_block) {
-    return A0_ERRCODE_DONE_ITER;
+    return A0_ERR_ITER_DONE;
   }
 
   *out = iter->_block->headers[iter->_idx++];
@@ -72,7 +72,7 @@ a0_err_t a0_packet_header_iterator_next_match(a0_packet_header_iterator_t* iter,
                                               a0_packet_header_t* out) {
   do {
     A0_RETURN_ERR_ON_ERR(a0_packet_header_iterator_next(iter, out));
-  } while (strcmp(key, out->key));
+  } while (strcmp(key, out->key) != 0);
   return A0_OK;
 }
 
@@ -283,7 +283,7 @@ a0_err_t a0_flat_packet_payload(a0_flat_packet_t fpkt, a0_buf_t* out) {
 a0_err_t a0_flat_packet_header(a0_flat_packet_t fpkt, size_t idx, a0_packet_header_t* out) {
   size_t num_hdrs = *(size_t*)(fpkt.buf.ptr + sizeof(a0_uuid_t));
   if (idx >= num_hdrs) {
-    return A0_ERRCODE_NOT_FOUND;
+    return A0_ERR_NOT_FOUND;
   }
 
   size_t* hdr_idx_ptr = (size_t*)(fpkt.buf.ptr + sizeof(a0_uuid_t) + sizeof(size_t));
@@ -313,6 +313,6 @@ a0_err_t a0_flat_packet_header_iterator_next(a0_flat_packet_header_iterator_t* i
 a0_err_t a0_flat_packet_header_iterator_next_match(a0_flat_packet_header_iterator_t* iter, const char* key, a0_packet_header_t* out) {
   do {
     A0_RETURN_ERR_ON_ERR(a0_flat_packet_header_iterator_next(iter, out));
-  } while (strcmp(key, out->key));
+  } while (strcmp(key, out->key) != 0);
   return A0_OK;
 }

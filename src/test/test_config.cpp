@@ -55,7 +55,7 @@ struct ConfigFixture {
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] basic") {
   a0_packet_t pkt;
-  REQUIRE(A0_SYSERR(a0_config_read(&cfg, a0::test::alloc(), O_NONBLOCK, &pkt)) == EAGAIN);
+  REQUIRE(a0_config_read(&cfg, a0::test::alloc(), O_NONBLOCK, &pkt) == A0_ERR_AGAIN);
 
   REQUIRE_OK(a0_config_write(&cfg, a0::test::pkt("cfg")));
   REQUIRE_OK(a0_config_read(&cfg, a0::test::alloc(), O_NONBLOCK, &pkt));
@@ -70,7 +70,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp basic") {
 
   REQUIRE_THROWS_WITH(
       [&]() { c.read(O_NONBLOCK); }(),
-      "Resource temporarily unavailable");
+      "Not available yet");
 
   c.write("cfg");
   REQUIRE(c.read().payload() == "cfg");
@@ -81,14 +81,14 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp basic") {
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson read empty nonblock") {
   yyjson_doc doc;
-  REQUIRE(A0_SYSERR(a0_config_read_yyjson(&cfg, a0::test::alloc(), O_NONBLOCK, &doc)) == EAGAIN);
+  REQUIRE(a0_config_read_yyjson(&cfg, a0::test::alloc(), O_NONBLOCK, &doc) == A0_ERR_AGAIN);
 }
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson read nonjson") {
   REQUIRE_OK(a0_config_write(&cfg, a0::test::pkt("cfg")));
   yyjson_doc doc;
   a0_err_t err = a0_config_read_yyjson(&cfg, a0::test::alloc(), 0, &doc);
-  REQUIRE(err == A0_ERRCODE_CUSTOM_MSG);
+  REQUIRE(err == A0_ERR_CUSTOM_MSG);
   REQUIRE(std::string(a0_err_msg) == "Failed to parse config: unexpected character");
 }
 

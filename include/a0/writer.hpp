@@ -12,7 +12,7 @@ namespace a0 {
 
 struct Writer : details::CppWrap<a0_writer_t> {
   Writer() = default;
-  Writer(Arena);
+  explicit Writer(Arena);
 
   void write(Packet);
   void write(string_view sv) { write(Packet(sv, ref)); }

@@ -17,18 +17,18 @@ struct PubSubTopic {
 
   PubSubTopic() = default;
 
-  PubSubTopic(const char* name)
+  PubSubTopic(const char* name)  // NOLINT(google-explicit-constructor)
       : PubSubTopic(std::string(name)) {}
 
-  PubSubTopic(
+  PubSubTopic(  // NOLINT(google-explicit-constructor)
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
-      : name{std::move(name)}, file_opts{std::move(file_opts)} {}
+      : name{std::move(name)}, file_opts{file_opts} {}
 };
 
 struct Publisher : details::CppWrap<a0_publisher_t> {
   Publisher();
-  Publisher(PubSubTopic);
+  explicit Publisher(PubSubTopic);
 
   void pub(Packet);
   void pub(string_view sv) { pub(Packet(sv, ref)); }

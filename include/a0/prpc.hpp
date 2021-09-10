@@ -20,13 +20,13 @@ struct PrpcTopic {
 
   PrpcTopic() = default;
 
-  PrpcTopic(const char* name)
+  PrpcTopic(const char* name)  // NOLINT(google-explicit-constructor)
       : PrpcTopic(std::string(name)) {}
 
-  PrpcTopic(
+  PrpcTopic(  // NOLINT(google-explicit-constructor)
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
-      : name{std::move(name)}, file_opts{std::move(file_opts)} {}
+      : name{std::move(name)}, file_opts{file_opts} {}
 };
 
 struct PrpcServer;
@@ -59,7 +59,7 @@ struct PrpcServer : details::CppWrap<a0_prpc_server_t> {
 
 struct PrpcClient : details::CppWrap<a0_prpc_client_t> {
   PrpcClient();
-  PrpcClient(PrpcTopic);
+  explicit PrpcClient(PrpcTopic);
 
   void connect(Packet, std::function<void(Packet, bool /* done */)>);
   void connect(std::unordered_multimap<std::string, std::string> headers,

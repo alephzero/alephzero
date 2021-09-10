@@ -97,7 +97,7 @@ a0_err_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
   a0_transport_empty(tlk, &empty);
   if (empty) {
     a0_transport_unlock(tlk);
-    return A0_MAKE_SYSERR(EAGAIN);
+    return A0_ERR_AGAIN;
   }
 
 #ifdef DEBUG
@@ -107,7 +107,7 @@ a0_err_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
   }
   if (!has_next) {
     a0_transport_unlock(tlk);
-    return A0_MAKE_SYSERR(EAGAIN);
+    return A0_ERR_AGAIN;
   }
 #endif
 
@@ -431,7 +431,7 @@ a0_err_t a0_reader_read_one_nonblocking(a0_arena_t arena,
                                         a0_reader_init_t init,
                                         a0_packet_t* out) {
   if (init == A0_INIT_AWAIT_NEW) {
-    return A0_MAKE_SYSERR(EAGAIN);
+    return A0_ERR_AGAIN;
   }
 
   a0_reader_sync_t reader_sync;
@@ -443,7 +443,7 @@ a0_err_t a0_reader_read_one_nonblocking(a0_arena_t arena,
     if (has_next) {
       a0_reader_sync_next(&reader_sync, out);
     } else {
-      err = A0_MAKE_SYSERR(EAGAIN);
+      err = A0_ERR_AGAIN;
     }
   }
   a0_reader_sync_close(&reader_sync);

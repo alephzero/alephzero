@@ -15,13 +15,13 @@ struct LogTopic {
 
   LogTopic() = default;
 
-  LogTopic(const char* name)
+  LogTopic(const char* name)  // NOLINT(google-explicit-constructor)
       : LogTopic(std::string(name)) {}
 
-  LogTopic(
+  LogTopic(  // NOLINT(google-explicit-constructor)
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
-      : name{std::move(name)}, file_opts{std::move(file_opts)} {}
+      : name{std::move(name)}, file_opts{file_opts} {}
 };
 
 enum class LogLevel {
@@ -37,7 +37,7 @@ enum class LogLevel {
 
 struct Logger : details::CppWrap<a0_logger_t> {
   Logger();
-  Logger(LogTopic);
+  explicit Logger(LogTopic);
 
   void log(LogLevel, Packet);
   void log(LogLevel lvl, string_view sv) { log(lvl, Packet(sv, ref)); }

@@ -115,9 +115,9 @@ inline a0_packet_t pkt(
 
   auto pkt_ = pkt(std::move(payload));
   std::unique_ptr<std::vector<a0_packet_header_t>> pkt_hdrs(new std::vector<a0_packet_header_t>);
-  for (const auto& elem : hdrs) {
-    const auto& k = elem.first;
-    const auto& v = elem.second;
+  for (auto&& elem : hdrs) {
+    auto&& k = elem.first;
+    auto&& v = elem.second;
     pkt_hdrs->push_back(a0_packet_header_t{
         .key = (char*)a0::test::buf(std::move(k)).ptr,
         .val = (char*)a0::test::buf(std::move(v)).ptr,

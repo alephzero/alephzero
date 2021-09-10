@@ -5,10 +5,9 @@
 #include <a0/inline.h>
 
 namespace a0 {
-namespace {
+namespace {  // NOLINT(google-build-namespaces)
 
-A0_STATIC_INLINE
-a0_file_options_t c_fileopts(File::Options opts) {
+inline a0_file_options_t c_fileopts(File::Options opts) {
   return a0_file_options_t{
       .create_options = {
           .size = opts.create_options.size,

@@ -66,57 +66,57 @@ a0_err_t a0_time_wall_parse(const char wall_str[36], a0_time_wall_t* out) {
   wall_tm.tm_year -= 1900;
   // -
   if (wall_str[4] != '-') {
-    return A0_ERRCODE_INVALID_ARG;
+    return A0_ERR_INVALID_ARG;
   }
   // %m
   A0_RETURN_ERR_ON_ERR(a0_str_to_u32(wall_str + 5, wall_str + 7, (uint32_t*)&wall_tm.tm_mon));
   if (wall_tm.tm_mon < 1 || wall_tm.tm_mon > 12) {
-    return A0_ERRCODE_INVALID_ARG;
+    return A0_ERR_INVALID_ARG;
   }
   wall_tm.tm_mon--;
   // -
   if (wall_str[7] != '-') {
-    return A0_ERRCODE_INVALID_ARG;
+    return A0_ERR_INVALID_ARG;
   }
   // %d
   A0_RETURN_ERR_ON_ERR(a0_str_to_u32(wall_str + 8, wall_str + 10, (uint32_t*)&wall_tm.tm_mday));
   if (wall_tm.tm_mday < 1 || wall_tm.tm_mday > 31) {
-    return A0_ERRCODE_INVALID_ARG;
+    return A0_ERR_INVALID_ARG;
   }
   // T
   if (wall_str[10] != 'T') {
-    return A0_ERRCODE_INVALID_ARG;
+    return A0_ERR_INVALID_ARG;
   }
   // %H
   A0_RETURN_ERR_ON_ERR(a0_str_to_u32(wall_str + 11, wall_str + 13, (uint32_t*)&wall_tm.tm_hour));
   if (wall_tm.tm_hour > 24) {
-    return A0_ERRCODE_INVALID_ARG;
+    return A0_ERR_INVALID_ARG;
   }
   // :
   if (wall_str[13] != ':') {
-    return A0_ERRCODE_INVALID_ARG;
+    return A0_ERR_INVALID_ARG;
   }
   // %M
   A0_RETURN_ERR_ON_ERR(a0_str_to_u32(wall_str + 14, wall_str + 16, (uint32_t*)&wall_tm.tm_min));
   if (wall_tm.tm_min > 60) {
-    return A0_ERRCODE_INVALID_ARG;
+    return A0_ERR_INVALID_ARG;
   }
   // :
   if (wall_str[16] != ':') {
-    return A0_ERRCODE_INVALID_ARG;
+    return A0_ERR_INVALID_ARG;
   }
   // %S
   A0_RETURN_ERR_ON_ERR(a0_str_to_u32(wall_str + 17, wall_str + 19, (uint32_t*)&wall_tm.tm_sec));
   if (wall_tm.tm_sec > 61) {
-    return A0_ERRCODE_INVALID_ARG;
+    return A0_ERR_INVALID_ARG;
   }
   // .
   if (wall_str[19] != '.') {
-    return A0_ERRCODE_INVALID_ARG;
+    return A0_ERR_INVALID_ARG;
   }
 
-  if (memcmp(wall_str + 29, "-00:00", 6)) {
-    return A0_ERRCODE_INVALID_ARG;
+  if (memcmp(wall_str + 29, "-00:00", 6) != 0) {
+    return A0_ERR_INVALID_ARG;
   }
 
   // Use timegm, cause it's a pain to compute months/years to seconds.

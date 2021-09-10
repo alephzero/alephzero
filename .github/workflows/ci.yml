@@ -196,7 +196,7 @@ jobs:
     - name: run
       run: |
         clang-tidy include/**/*.h src/*.c src/*.h -- -Iinclude
-        clang-tidy src/*.cpp src/*.hpp -- -Iinclude -I. -std=c++17
+        clang-tidy include/**/*.hpp src/*.cpp src/*.hpp -- -Iinclude -I. -std=c++11
 
   format:
     name: Format

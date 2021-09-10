@@ -5,8 +5,7 @@
 #include <a0/transport.h>
 #include <a0/transport.hpp>
 
-#include <errno.h>
-
+#include <cerrno>
 #include <memory>
 
 #include "c_wrap.hpp"
@@ -53,15 +52,11 @@ bool TransportLocked::ptr_valid() const {
   return ret;
 }
 
-const Frame TransportLocked::frame() const {
+Frame TransportLocked::frame() const {
   CHECK_C;
   Frame ret;
   check(a0_transport_frame(*c, &ret));
   return ret;
-}
-
-Frame TransportLocked::frame() {
-  return as_mutable(as_const(this)->frame());
 }
 
 void TransportLocked::jump_head() {
@@ -128,7 +123,7 @@ a0_predicate_t pred(std::function<bool()>* fn) {
         } catch (const std::exception& e) {
           size_t len = std::min(1024ul, strnlen(e.what(), 1024));
           memcpy(a0_err_msg, e.what(), len);
-          return A0_ERRCODE_CUSTOM_MSG;
+          return A0_ERR_CUSTOM_MSG;
         }
         return A0_OK;
       },

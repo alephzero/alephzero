@@ -1,8 +1,10 @@
 #ifndef A0_SRC_CLOCK_H
 #define A0_SRC_CLOCK_H
 
+#include <a0/err.h>
 #include <a0/inline.h>
 
+#include <stdint.h>
 #include <time.h>
 
 #include "err_macro.h"

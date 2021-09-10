@@ -30,7 +30,7 @@ a0_err_t a0_u64_to_str(uint64_t val, char* buf_start, char* buf_end, char** star
     val /= 100;
   }
   if (val) {
-    *--ptr = '0' + val;
+    *--ptr = (char)('0' + val);
   }
   memset(buf_start, '0', ptr - buf_start);
   ptr -= (!orig_val);
@@ -44,7 +44,7 @@ a0_err_t a0_str_to_u32(const char* start, const char* end, uint32_t* out) {
   *out = 0;
   for (const char* ptr = start; ptr < end; ptr++) {
     if (*ptr < '0' || *ptr > '9') {
-      return A0_ERRCODE_INVALID_ARG;
+      return A0_ERR_INVALID_ARG;
     }
     *out *= 10;
     *out += *ptr - '0';
@@ -56,7 +56,7 @@ a0_err_t a0_str_to_u64(const char* start, const char* end, uint64_t* out) {
   *out = 0;
   for (const char* ptr = start; ptr < end; ptr++) {
     if (*ptr < '0' || *ptr > '9') {
-      return A0_ERRCODE_INVALID_ARG;
+      return A0_ERR_INVALID_ARG;
     }
     *out *= 10;
     *out += *ptr - '0';

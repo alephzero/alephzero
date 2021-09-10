@@ -313,31 +313,31 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Nonblocking, oldest, not available.
   {
     a0_packet_t pkt;
-    REQUIRE(A0_SYSERR(a0_subscriber_read_one(topic,
-                                             a0::test::alloc(),
-                                             A0_INIT_OLDEST,
-                                             O_NONBLOCK,
-                                             &pkt)) == EAGAIN);
+    REQUIRE(a0_subscriber_read_one(topic,
+                                   a0::test::alloc(),
+                                   A0_INIT_OLDEST,
+                                   O_NONBLOCK,
+                                   &pkt) == A0_ERR_AGAIN);
   }
 
   // Nonblocking, most recent, not available.
   {
     a0_packet_t pkt;
-    REQUIRE(A0_SYSERR(a0_subscriber_read_one(topic,
-                                             a0::test::alloc(),
-                                             A0_INIT_MOST_RECENT,
-                                             O_NONBLOCK,
-                                             &pkt)) == EAGAIN);
+    REQUIRE(a0_subscriber_read_one(topic,
+                                   a0::test::alloc(),
+                                   A0_INIT_MOST_RECENT,
+                                   O_NONBLOCK,
+                                   &pkt) == A0_ERR_AGAIN);
   }
 
   // Nonblocking, await new.
   {
     a0_packet_t pkt;
-    REQUIRE(A0_SYSERR(a0_subscriber_read_one(topic,
-                                             a0::test::alloc(),
-                                             A0_INIT_AWAIT_NEW,
-                                             O_NONBLOCK,
-                                             &pkt)) == EAGAIN);
+    REQUIRE(a0_subscriber_read_one(topic,
+                                   a0::test::alloc(),
+                                   A0_INIT_AWAIT_NEW,
+                                   O_NONBLOCK,
+                                   &pkt) == A0_ERR_AGAIN);
   }
 
   // Do writes.
@@ -398,11 +398,11 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Nonblocking, await new.
   {
     a0_packet_t pkt;
-    REQUIRE(A0_SYSERR(a0_subscriber_read_one(topic,
-                                             a0::test::alloc(),
-                                             A0_INIT_AWAIT_NEW,
-                                             O_NONBLOCK,
-                                             &pkt)) == EAGAIN);
+    REQUIRE(a0_subscriber_read_one(topic,
+                                   a0::test::alloc(),
+                                   A0_INIT_AWAIT_NEW,
+                                   O_NONBLOCK,
+                                   &pkt) == A0_ERR_AGAIN);
   }
 }
 

@@ -76,8 +76,10 @@ size_t a0_transport_workspace_off() {
 // Converts a 0.2 transport into a 0.3 transport.
 // Note: This does not allow 0.2 and 0.3 to run simultaniously.
 //       0.2 transport will no longer work after this.
-A0_STATIC_INLINE
-void a0_backward_compatiblility_update_from_0_2(a0_arena_t arena) {
+static void a0_backward_compatiblility_update_from_0_2(a0_arena_t)
+    __attribute__((no_sanitize("thread")));
+
+static void a0_backward_compatiblility_update_from_0_2(a0_arena_t arena) {
   if (*(uint16_t*)arena.buf.ptr != 0x0101) {
     // Not 0.2 format.
     return;
@@ -98,7 +100,7 @@ void a0_backward_compatiblility_update_from_0_2(a0_arena_t arena) {
   ptr += sizeof(uintptr_t);
 
   uintptr_t off_tail = *(uintptr_t*)ptr;
-  ptr += sizeof(uintptr_t);
+  // ptr += sizeof(uintptr_t);
 
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)arena.buf.ptr;
   memset(hdr, 0, sizeof(a0_transport_hdr_t));
@@ -229,7 +231,7 @@ a0_err_t a0_transport_jump_head(a0_transport_locked_t lk) {
   bool empty;
   A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
   if (empty) {
-    return A0_ERRCODE_TRANSPORT_CANNOT_MOVE_POINTER;
+    return A0_ERR_RANGE;
   }
 
   lk.transport->_seq = state->seq_low;
@@ -243,7 +245,7 @@ a0_err_t a0_transport_jump_tail(a0_transport_locked_t lk) {
   bool empty;
   A0_RETURN_ERR_ON_ERR(a0_transport_empty(lk, &empty));
   if (empty) {
-    return A0_ERRCODE_TRANSPORT_CANNOT_MOVE_POINTER;
+    return A0_ERR_RANGE;
   }
 
   lk.transport->_seq = state->seq_high;
@@ -266,7 +268,7 @@ a0_err_t a0_transport_step_next(a0_transport_locked_t lk) {
   bool has_next;
   A0_RETURN_ERR_ON_ERR(a0_transport_has_next(lk, &has_next));
   if (!has_next) {
-    return A0_ERRCODE_TRANSPORT_CANNOT_MOVE_POINTER;
+    return A0_ERR_RANGE;
   }
 
   if (lk.transport->_seq < state->seq_low) {
@@ -300,7 +302,7 @@ a0_err_t a0_transport_step_prev(a0_transport_locked_t lk) {
   bool has_prev;
   A0_RETURN_ERR_ON_ERR(a0_transport_has_prev(lk, &has_prev));
   if (!has_prev) {
-    return A0_ERRCODE_TRANSPORT_CANNOT_MOVE_POINTER;
+    return A0_ERR_RANGE;
   }
 
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;
@@ -538,7 +540,7 @@ a0_err_t a0_transport_find_slot(a0_transport_locked_t lk, size_t frame_size, siz
   }
 
   if (*off + frame_size > hdr->arena_size) {
-    return A0_ERRCODE_TRANSPORT_FRAME_GT_ARENA;
+    return A0_ERR_FRAME_LARGE;
   }
 
   return A0_OK;
@@ -688,7 +690,7 @@ a0_err_t a0_transport_resize(a0_transport_locked_t lk, size_t arena_size) {
   size_t used_space;
   A0_RETURN_ERR_ON_ERR(a0_transport_used_space(lk, &used_space));
   if (arena_size < used_space) {
-    return A0_ERRCODE_INVALID_ARG;
+    return A0_ERR_INVALID_ARG;
   }
 
   a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.ptr;

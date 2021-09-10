@@ -267,7 +267,7 @@ a0_err_t a0_transport_commit(a0_transport_locked_t);
 
 /// Returns the arena space in use.
 a0_err_t a0_transport_used_space(a0_transport_locked_t, size_t*);
-/// Resizes the underlying arena. Fails with A0_ERRCODE_INVALID_ARG if this would delete active data.
+/// Resizes the underlying arena. Fails with A0_ERR_INVALID_ARG if this would delete active data.
 a0_err_t a0_transport_resize(a0_transport_locked_t, size_t);
 
 /** @}*/

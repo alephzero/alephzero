@@ -29,10 +29,10 @@ a0_err_t a0_topic_match_info(const char* tmpl,
                              const char* topic,
                              a0_topic_template_match_info_t* info) {
   if (!tmpl || !*tmpl) {
-    return A0_ERRCODE_BAD_TOPIC;
+    return A0_ERR_BAD_TOPIC;
   }
   if (!topic || !*topic || topic[0] == '/') {
-    return A0_ERRCODE_BAD_TOPIC;
+    return A0_ERR_BAD_TOPIC;
   }
 
   info->topic_len = strlen(topic);

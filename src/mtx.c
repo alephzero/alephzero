@@ -342,7 +342,7 @@ a0_err_t a0_mtx_unlock(a0_mtx_t* mtx) {
   return A0_OK;
 }
 
-// TODO: Handle ENOTRECOVERABLE
+// TODO(lshamis): Handle ENOTRECOVERABLE
 A0_STATIC_INLINE
 a0_err_t a0_cnd_timedwait_impl(a0_cnd_t* cnd, a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   const uint32_t init_cnd = a0_atomic_load(cnd);

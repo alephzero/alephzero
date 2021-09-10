@@ -330,7 +330,7 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] next without has_next") 
       },
   };
 
-  REQUIRE(A0_SYSERR(a0_reader_sync_zc_next(&rsz, cb)) == EAGAIN);
+  REQUIRE(a0_reader_sync_zc_next(&rsz, cb) == A0_ERR_AGAIN);
   REQUIRE(!data.executed);
 
   REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
@@ -388,6 +388,10 @@ TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] cpp oldest-next") {
   REQUIRE(cpp_rs.has_next());
   REQUIRE(cpp_rs.next().payload() == "pkt_2");
   REQUIRE(!cpp_rs.has_next());
+
+  REQUIRE_THROWS_WITH(
+      cpp_rs.next(),
+      "Not available yet");
 }
 
 TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] oldest-next, empty start") {
@@ -576,7 +580,7 @@ TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] next without has_next") {
   REQUIRE_OK(a0_reader_sync_init(&rs, arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, A0_ITER_NEWEST));
 
   a0_packet_t pkt;
-  REQUIRE(A0_SYSERR(a0_reader_sync_next(&rs, &pkt)) == EAGAIN);
+  REQUIRE(a0_reader_sync_next(&rs, &pkt) == A0_ERR_AGAIN);
 
   REQUIRE_OK(a0_reader_sync_close(&rs));
 }
@@ -891,7 +895,7 @@ TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking oldest") 
 
 TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking oldest, empty") {
   a0_packet_t pkt;
-  REQUIRE(A0_SYSERR(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_OLDEST, O_NONBLOCK, &pkt)) == EAGAIN);
+  REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_OLDEST, O_NONBLOCK, &pkt) == A0_ERR_AGAIN);
 }
 
 TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking most recent") {
@@ -906,7 +910,7 @@ TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking most rece
 
 TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking most recent, empty") {
   a0_packet_t pkt;
-  REQUIRE(A0_SYSERR(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_MOST_RECENT, O_NONBLOCK, &pkt)) == EAGAIN);
+  REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_MOST_RECENT, O_NONBLOCK, &pkt) == A0_ERR_AGAIN);
 }
 
 TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking await new") {
@@ -914,12 +918,12 @@ TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking await new
   push_pkt("pkt_1");
 
   a0_packet_t pkt;
-  REQUIRE(A0_SYSERR(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, O_NONBLOCK, &pkt)) == EAGAIN);
+  REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, O_NONBLOCK, &pkt) == A0_ERR_AGAIN);
 }
 
 TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking await new, empty") {
   a0_packet_t pkt;
-  REQUIRE(A0_SYSERR(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, O_NONBLOCK, &pkt)) == EAGAIN);
+  REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, O_NONBLOCK, &pkt) == A0_ERR_AGAIN);
 }
 
 TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking oldest") {

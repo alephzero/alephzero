@@ -10,12 +10,11 @@ struct Arena : details::CppWrap<a0_arena_t> {
   Arena() = default;
   Arena(Buf, a0_arena_mode_t);
 
-  const Buf buf() const;
-  Buf buf();
+  Buf buf() const;
   a0_arena_mode_t mode() const;
 
   /// Implicit conversions.
-  operator Buf();
+  operator Buf() const;  // NOLINT(google-explicit-constructor)
 };
 
 }  // namespace a0

@@ -110,14 +110,16 @@ a0_err_t a0_open(const char* path, a0_file_open_options_t opts, a0_file_t* file)
     flags = O_RDONLY;
   }
 
-  file->path = path;
-  file->fd = open(path, flags);
-  A0_RETURN_SYSERR_ON_MINUS_ONE(file->fd);
+  int fd = open(path, flags);
+  A0_RETURN_SYSERR_ON_MINUS_ONE(fd);
+
   a0_err_t err = A0_OK;
-  if (fstat(file->fd, &file->stat) == -1) {
+  if (fstat(fd, &file->stat) == -1) {
     err = A0_MAKE_SYSERR(errno);
-    close(file->fd);
-    file->fd = -1;
+    close(fd);
+  } else {
+    file->path = path;
+    file->fd = fd;
   }
   return err;
 }
@@ -128,7 +130,12 @@ a0_err_t a0_mktmp(const char* dir, a0_file_create_options_t opts, a0_file_t* fil
   A0_RETURN_ERR_ON_ERR(a0_joinpath(dir, ".alephzero_mkstemp.XXXXXX", &path));
 
   file->fd = mkstemp(path);
-  A0_RETURN_SYSERR_ON_MINUS_ONE(file->fd);
+  if (file->fd == -1) {
+    a0_err_t err = A0_MAKE_SYSERR(errno);
+    free(path);
+    return err;
+  }
+
   file->path = path;
 
   if (fchmod(file->fd, opts.mode) == -1 ||
@@ -227,14 +234,9 @@ a0_err_t a0_do_open(
     if (!err) {
       err = a0_mmap(file, &opts->open_options);
       if (err) {
-        if (file->fd) {
-          close(file->fd);
-          file->fd = 0;
-        }
-        if (file->path) {
-          free((void*)file->path);
-          file->path = NULL;
-        }
+        close(file->fd);
+        file->fd = 0;
+        file->path = NULL;
       }
       break;
     } else if (A0_SYSERR(err) != ENOENT) {
@@ -384,7 +386,7 @@ a0_err_t a0_file_iter_next(a0_file_iter_t* iter, a0_file_iter_entry_t* entry) {
   while ((dir_entity = readdir(iter->_dir)) && (!memcmp(dir_entity->d_name, ".", 2) || !memcmp(dir_entity->d_name, "..", 3))) {
   }
   if (!dir_entity) {
-    return A0_ERRCODE_DONE_ITER;
+    return A0_ERR_ITER_DONE;
   }
 
   size_t len = strlen(dir_entity->d_name);

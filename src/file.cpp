@@ -42,23 +42,19 @@ File::File(string_view path, Options opts) {
       a0_file_close);
 }
 
-File::operator Buf() {
+File::operator Buf() const {
   return buf();
 }
 
-File::operator Arena() {
+File::operator Arena() const {
   return arena();
 }
 
-const Buf File::buf() const {
+Buf File::buf() const {
   return arena().buf();
 }
 
-Buf File::buf() {
-  return arena().buf();
-}
-
-const Arena File::arena() const {
+Arena File::arena() const {
   CHECK_C;
   auto save = c;
   return make_cpp<Arena>(
@@ -67,10 +63,6 @@ const Arena File::arena() const {
         return A0_OK;
       },
       [save](a0_arena_t*) {});
-}
-
-Arena File::arena() {
-  return as_mutable(as_const(this)->arena());
 }
 
 size_t File::size() const {

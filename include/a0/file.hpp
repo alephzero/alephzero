@@ -36,17 +36,15 @@ struct File : details::CppWrap<a0_file_t> {
   };
 
   File() = default;
-  File(string_view path);
+  explicit File(string_view path);
   File(string_view path, Options);
 
   /// Implicit conversions.
-  operator Buf();
-  operator Arena();
+  operator Buf() const;    // NOLINT(google-explicit-constructor)
+  operator Arena() const;  // NOLINT(google-explicit-constructor)
 
-  const Buf buf() const;
-  Buf buf();
-  const Arena arena() const;
-  Arena arena();
+  Buf buf() const;
+  Arena arena() const;
 
   /// File size.
   size_t size() const;

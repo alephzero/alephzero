@@ -23,8 +23,7 @@ struct TransportLocked : details::CppWrap<a0_transport_locked_t> {
   void resize(size_t);
 
   bool ptr_valid() const;
-  const Frame frame() const;
-  Frame frame();
+  Frame frame() const;
 
   void jump_head();
   void jump_tail();
@@ -45,7 +44,7 @@ struct TransportLocked : details::CppWrap<a0_transport_locked_t> {
 
 struct Transport : details::CppWrap<a0_transport_t> {
   Transport() = default;
-  Transport(Arena);
+  explicit Transport(Arena);
 
   TransportLocked lock();
 };

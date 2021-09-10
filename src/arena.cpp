@@ -20,7 +20,7 @@ Arena::Arena(Buf buf, a0_arena_mode_t mode) {
       [buf](a0_arena_t*) {});
 }
 
-const Buf Arena::buf() const {
+Buf Arena::buf() const {
   CHECK_C;
   auto save = c;
   return make_cpp<Buf>(
@@ -31,16 +31,12 @@ const Buf Arena::buf() const {
       [save](a0_buf_t*) {});
 }
 
-Buf Arena::buf() {
-  return as_mutable(as_const(this)->buf());
-}
-
 a0_arena_mode_t Arena::mode() const {
   CHECK_C;
   return c->mode;
 }
 
-Arena::operator Buf() {
+Arena::operator Buf() const {
   return buf();
 }
 

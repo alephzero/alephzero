@@ -27,7 +27,7 @@ const a0_hash_t A0_HASH_PTR = {
 
 a0_err_t a0_compare_ptr_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
   A0_MAYBE_UNUSED(user_data);
-  *out = (*(uintptr_t*)lhs - *(uintptr_t*)rhs);
+  *out = (int)(*(uintptr_t*)lhs - *(uintptr_t*)rhs);
   return A0_OK;
 }
 

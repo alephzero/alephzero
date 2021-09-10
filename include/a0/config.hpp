@@ -37,18 +37,18 @@ struct ConfigTopic {
 
   ConfigTopic() = default;
 
-  ConfigTopic(const char* name)
+  ConfigTopic(const char* name)  // NOLINT(google-explicit-constructor)
       : ConfigTopic(std::string(name)) {}
 
-  ConfigTopic(
+  ConfigTopic(  // NOLINT(google-explicit-constructor)
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
-      : name{std::move(name)}, file_opts{std::move(file_opts)} {}
+      : name{std::move(name)}, file_opts{file_opts} {}
 };
 
 struct Config : details::CppWrap<a0_config_t> {
   Config();
-  Config(ConfigTopic);
+  explicit Config(ConfigTopic);
 
   Packet read(int flags = 0) const;
 
@@ -146,12 +146,12 @@ class CfgVar {
 
 struct ConfigListener : details::CppWrap<a0_onconfig_t> {
   ConfigListener() = default;
-  ConfigListener(std::function<void(Packet)>);
+  explicit ConfigListener(std::function<void(Packet)>);
   ConfigListener(ConfigTopic, std::function<void(Packet)>);
 
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
 
-  ConfigListener(std::function<void(const nlohmann::json&)>);
+  explicit ConfigListener(std::function<void(const nlohmann::json&)>);
   ConfigListener(ConfigTopic, std::function<void(const nlohmann::json&)>);
 
 #endif  // A0_CXX_CONFIG_USE_NLOHMANN

@@ -20,13 +20,13 @@ struct RpcTopic {
 
   RpcTopic() = default;
 
-  RpcTopic(const char* name)
+  RpcTopic(const char* name)  // NOLINT(google-explicit-constructor)
       : RpcTopic(std::string(name)) {}
 
-  RpcTopic(
+  RpcTopic(  // NOLINT(google-explicit-constructor)
       std::string name,
       File::Options file_opts = File::Options::DEFAULT)
-      : name{std::move(name)}, file_opts{std::move(file_opts)} {}
+      : name{std::move(name)}, file_opts{file_opts} {}
 };
 
 struct RpcServer;
@@ -58,7 +58,7 @@ struct RpcServer : details::CppWrap<a0_rpc_server_t> {
 
 struct RpcClient : details::CppWrap<a0_rpc_client_t> {
   RpcClient();
-  RpcClient(RpcTopic);
+  explicit RpcClient(RpcTopic);
 
   void send(Packet, std::function<void(Packet)>);
   void send(std::unordered_multimap<std::string, std::string> headers,

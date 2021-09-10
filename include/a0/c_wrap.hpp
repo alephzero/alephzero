@@ -10,10 +10,9 @@ struct CppWrap {
   using c_type = CType;
 
   std::shared_ptr<CType> c;
-  uint32_t magic_number;
+  uint32_t magic_number{0xA0A0A0A0};
 
-  CppWrap()
-      : magic_number{0xA0A0A0A0} {}
+  CppWrap() = default;
   ~CppWrap() {
     magic_number = 0xDEADBEEF;
   }

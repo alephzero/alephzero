@@ -37,7 +37,7 @@
 
 #else
 
-#include "unused.h"
+#include <a0/unused.h>
 
 #define A0_ASSERT(X, ...) \
   do {                    \
