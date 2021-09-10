@@ -1,6 +1,7 @@
 #include <a0/arena.h>
 #include <a0/arena.hpp>
 #include <a0/buf.h>
+#include <a0/err.h>
 #include <a0/file.h>
 #include <a0/transport.h>
 #include <a0/transport.hpp>
@@ -10,7 +11,6 @@
 #include <unistd.h>
 
 #include <algorithm>
-#include <cerrno>
 #include <chrono>
 #include <csignal>
 #include <cstdint>

@@ -2,7 +2,6 @@
 
 #include <a0/err.h>
 
-#include <errno.h>
 #include <string.h>
 
 static const char DECIMAL_DIGITS[] =

@@ -6,7 +6,6 @@
 #include <a0/uuid.h>
 
 #include <algorithm>
-#include <cerrno>
 #include <cstring>
 #include <functional>
 #include <memory>

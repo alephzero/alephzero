@@ -5,20 +5,13 @@
 #include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
-#include <a0/string_view.hpp>
-#include <a0/tid.h>
-#include <a0/transport.hpp>
-#include <a0/writer.hpp>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
-#include <initializer_list>
 #include <memory>
-#include <mutex>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -26,6 +19,16 @@
 #include "file_opts.hpp"
 
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
+
+#include <a0/middleware.h>
+#include <a0/middleware.hpp>
+#include <a0/string_view.hpp>
+#include <a0/transport.h>
+#include <a0/transport.hpp>
+#include <a0/writer.hpp>
+
+#include <initializer_list>
+#include <type_traits>
 
 #include <nlohmann/json.hpp>
 

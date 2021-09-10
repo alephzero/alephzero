@@ -5,7 +5,12 @@
 #include <a0/transport.h>
 #include <a0/transport.hpp>
 
-#include <cerrno>
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include <functional>
 #include <memory>
 
 #include "c_wrap.hpp"

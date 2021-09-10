@@ -1,5 +1,7 @@
 #include <a0/config.h>
 #include <a0/config.hpp>
+#include <a0/empty.h>
+#include <a0/err.h>
 #include <a0/file.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
@@ -8,23 +10,22 @@
 #include <doctest.h>
 #include <fcntl.h>
 
-#include <algorithm>
-#include <atomic>
-#include <cerrno>
-#include <chrono>
 #include <cstdlib>
-#include <functional>
-#include <memory>
-#include <mutex>
 #include <ostream>
 #include <string>
-#include <thread>
-#include <vector>
 
-#include "src/err_macro.h"
 #include "src/test_util.hpp"
 
+#ifdef A0_C_CONFIG_USE_YYJSON
+
+#include <yyjson.h>
+
+#endif  // A0_C_CONFIG_USE_YYJSON
+
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
+
+#include <stdexcept>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 

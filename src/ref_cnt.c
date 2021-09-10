@@ -7,7 +7,6 @@
 #include <a0/inline.h>
 #include <a0/map.h>
 
-#include <errno.h>
 #include <pthread.h>
 #include <stdbool.h>
 

@@ -3,7 +3,6 @@
 #include <a0/buf.h>
 #include <a0/c_wrap.hpp>
 #include <a0/err.h>
-#include <a0/inline.h>
 
 #include <chrono>
 #include <cstdint>
@@ -12,7 +11,6 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
-#include <system_error>
 #include <thread>
 #include <utility>
 

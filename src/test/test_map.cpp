@@ -3,7 +3,6 @@
 #include <a0/map.h>
 
 #include <doctest.h>
-#include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
 

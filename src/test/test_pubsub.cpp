@@ -1,3 +1,4 @@
+#include <a0/err.h>
 #include <a0/file.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
@@ -7,7 +8,6 @@
 #include <fcntl.h>
 
 #include <algorithm>
-#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -18,7 +18,6 @@
 #include <utility>
 #include <vector>
 
-#include "src/err_macro.h"
 #include "src/test_util.hpp"
 
 struct PubsubFixture {

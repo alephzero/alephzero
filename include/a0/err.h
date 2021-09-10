@@ -1,8 +1,6 @@
 #ifndef A0_ERR_H
 #define A0_ERR_H
 
-#include <a0/empty.h>
-
 #include <threads.h>
 
 #ifdef __cplusplus

@@ -2,6 +2,7 @@
 #include <a0/arena.h>
 #include <a0/arena.hpp>
 #include <a0/buf.h>
+#include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/reader.h>
@@ -14,7 +15,6 @@
 #include <fcntl.h>
 
 #include <algorithm>
-#include <cerrno>
 #include <chrono>
 #include <condition_variable>
 #include <cstddef>
@@ -28,7 +28,6 @@
 #include <vector>
 
 #include "src/c_wrap.hpp"
-#include "src/err_macro.h"
 #include "src/test_util.hpp"
 
 struct ReaderBaseFixture {

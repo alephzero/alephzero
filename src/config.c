@@ -3,17 +3,30 @@
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
-#include <a0/middleware.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
-#include <a0/unused.h>
 #include <a0/writer.h>
 
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "err_macro.h"
 #include "topic.h"
+
+#ifdef A0_C_CONFIG_USE_YYJSON
+
+#include <a0/buf.h>
+#include <a0/empty.h>
+#include <a0/middleware.h>
+#include <a0/transport.h>
+#include <a0/unused.h>
+
+#include <alloca.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <yyjson.h>
+
+#endif  // A0_C_CONFIG_USE_YYJSON
 
 A0_STATIC_INLINE
 a0_err_t a0_config_topic_open(a0_config_topic_t topic, a0_file_t* out) {

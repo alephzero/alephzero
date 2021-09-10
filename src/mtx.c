@@ -11,7 +11,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <syscall.h>
 #include <threads.h>
 #include <time.h>
@@ -19,6 +18,7 @@
 
 #include "atomic.h"
 #include "clock.h"
+#include "err_macro.h"
 #include "ftx.h"
 
 // TSAN is worth the pain of properly annotating our mutex.
