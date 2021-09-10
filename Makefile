@@ -198,4 +198,4 @@ iwyu: $(patsubst $(SRC_DIR)/%.hpp,iwyu/$(SRC_DIR)/%.hpp.ok,$(wildcard $(SRC_DIR)
 iwyu: $(patsubst $(SRC_DIR)/test/%.cpp,iwyu/$(SRC_DIR)/test/%.cpp.ok,$(wildcard $(SRC_DIR)/test/*.cpp))
 
 clean:
-	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ cov/ iwyu/ *.gcov
+	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ cov/ iwyu/ *.gcov core vgcore\.*
