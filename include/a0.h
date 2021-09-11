@@ -30,6 +30,7 @@
 #include <a0/file.hpp>
 #include <a0/log.hpp>
 #include <a0/middleware.hpp>
+#include <a0/node.hpp>
 #include <a0/packet.hpp>
 #include <a0/prpc.hpp>
 #include <a0/pubsub.hpp>
