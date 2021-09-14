@@ -388,9 +388,11 @@ TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] cpp oldest-next") {
   REQUIRE(cpp_rs.next().payload() == "pkt_2");
   REQUIRE(!cpp_rs.has_next());
 
+#ifdef DEBUG
   REQUIRE_THROWS_WITH(
       cpp_rs.next(),
       "Not available yet");
+#endif
 }
 
 TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] oldest-next, empty start") {

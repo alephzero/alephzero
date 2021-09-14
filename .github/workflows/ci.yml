@@ -112,6 +112,22 @@ jobs:
       shell: sh
       run: CC=x86_64-alpine-linux-musl-gcc CXX=x86_64-alpine-linux-musl-g++ make test -j
 
+  third_party:
+    name: Third Party Extensions
+
+    runs-on: ubuntu-latest
+    container:
+      image: 'ubuntu:20.04'
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y g++ make
+    - name: run
+      run: |
+       make clean && make test -j A0_C_CONFIG_USE_YYJSON=1
+       make clean && make test -j A0_CXX_CONFIG_USE_NLOHMANN=1
+
   asan:
     name: Address Sanitizer
 

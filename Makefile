@@ -39,7 +39,7 @@ ifneq ($(DEBUG), 1)
 	DEBUG = $(if $(REQUIRE_DEBUG),1,0)
 endif
 
-A0_C_CONFIG_USE_YYJSON ?= 1
+A0_C_CONFIG_USE_YYJSON ?= 0
 ifeq ($(A0_C_CONFIG_USE_YYJSON), 1)
 	CXFLAGS += -DA0_C_CONFIG_USE_YYJSON
 	CXFLAGS += -Ithird_party/yyjson/src
@@ -52,7 +52,7 @@ $(YYJSON_OBJ): $(YYJSON_SRC)
 	$(CC) $(CFLAGS) $(CXFLAGS) -MMD -c $< -o $@
 endif
 
-A0_CXX_CONFIG_USE_NLOHMANN ?= 1
+A0_CXX_CONFIG_USE_NLOHMANN ?= 0
 ifeq ($(A0_CXX_CONFIG_USE_NLOHMANN), 1)
 	CXXFLAGS += -DA0_CXX_CONFIG_USE_NLOHMANN
 	CXXFLAGS += -Ithird_party/json/single_include
