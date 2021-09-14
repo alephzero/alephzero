@@ -325,18 +325,18 @@ TEST_CASE("file] readonly") {
   {
     a0_file_t file;
     REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
-    REQUIRE(file.arena.buf.ptr[0] == 0);
-    file.arena.buf.ptr[0] = 1;
-    REQUIRE(file.arena.buf.ptr[0] == 1);
+    REQUIRE(file.arena.buf.data[0] == 0);
+    file.arena.buf.data[0] = 1;
+    REQUIRE(file.arena.buf.data[0] == 1);
     REQUIRE_OK(a0_file_close(&file));
   }
 
   {
     a0_file_t file;
     REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
-    REQUIRE(file.arena.buf.ptr[0] == 1);
-    file.arena.buf.ptr[0] = 2;
-    REQUIRE(file.arena.buf.ptr[0] == 2);
+    REQUIRE(file.arena.buf.data[0] == 1);
+    file.arena.buf.data[0] = 2;
+    REQUIRE(file.arena.buf.data[0] == 2);
     REQUIRE_OK(a0_file_close(&file));
   }
 
@@ -346,17 +346,17 @@ TEST_CASE("file] readonly") {
 
     a0_file_t file;
     REQUIRE_OK(a0_file_open(TEST_FILE, &opt, &file));
-    REQUIRE(file.arena.buf.ptr[0] == 2);
+    REQUIRE(file.arena.buf.data[0] == 2);
     // Note: this 3 will not be written to the file because of readonly mode.
-    file.arena.buf.ptr[0] = 3;
-    REQUIRE(file.arena.buf.ptr[0] == 3);
+    file.arena.buf.data[0] = 3;
+    REQUIRE(file.arena.buf.data[0] == 3);
     REQUIRE_OK(a0_file_close(&file));
   }
 
   {
     a0_file_t file;
     REQUIRE_OK(a0_file_open(TEST_FILE, nullptr, &file));
-    REQUIRE(file.arena.buf.ptr[0] == 2);
+    REQUIRE(file.arena.buf.data[0] == 2);
     REQUIRE_OK(a0_file_close(&file));
   }
 

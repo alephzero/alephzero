@@ -50,10 +50,10 @@ void TransportLocked::resize(size_t size) {
   check(a0_transport_resize(*c, size));
 }
 
-bool TransportLocked::ptr_valid() const {
+bool TransportLocked::iter_valid() const {
   CHECK_C;
   bool ret;
-  check(a0_transport_ptr_valid(*c, &ret));
+  check(a0_transport_iter_valid(*c, &ret));
   return ret;
 }
 

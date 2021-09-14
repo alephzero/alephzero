@@ -234,7 +234,7 @@ ConfigListener::ConfigListener(
             .fn = [](void* user_data, a0_packet_t pkt) {
               auto* impl = (ConfigListenerImpl*)user_data;
               auto json = nlohmann::json::parse(
-                  string_view((const char*)pkt.payload.ptr, pkt.payload.size));
+                  string_view((const char*)pkt.payload.data, pkt.payload.size));
               impl->onjson(json);
             }};
 

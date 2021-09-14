@@ -47,10 +47,7 @@ struct TransportFixture {
   TransportFixture() {
     stack_arena_data.resize(4096);
     arena = a0_arena_t{
-        .buf = {
-            .ptr = stack_arena_data.data(),
-            .size = stack_arena_data.size(),
-        },
+        .buf = {stack_arena_data.data(), stack_arena_data.size()},
         .mode = A0_ARENA_MODE_SHARED,
     };
 
@@ -77,7 +74,7 @@ struct TransportFixture {
     a0_buf_t debugstr;
     a0_transport_debugstr(lk, &debugstr);
     REQUIRE(a0::test::str(debugstr) == expected);
-    free(debugstr.ptr);
+    free(debugstr.data);
   }
 };
 
@@ -808,7 +805,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] expired next") {
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   bool valid;
-  REQUIRE_OK(a0_transport_ptr_valid(lk, &valid));
+  REQUIRE_OK(a0_transport_iter_valid(lk, &valid));
   REQUIRE(!valid);
 
   bool has_next;
@@ -819,7 +816,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] expired next") {
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 18);
 
-  REQUIRE_OK(a0_transport_ptr_valid(lk, &valid));
+  REQUIRE_OK(a0_transport_iter_valid(lk, &valid));
   REQUIRE(valid);
 
   bool has_prev;
@@ -858,11 +855,11 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp expired next") {
 
   tlk = transport.lock();
 
-  REQUIRE(!tlk.ptr_valid());
+  REQUIRE(!tlk.iter_valid());
   REQUIRE(tlk.has_next());
 
   tlk.step_next();
-  REQUIRE(tlk.ptr_valid());
+  REQUIRE(tlk.iter_valid());
   frame = tlk.frame();
   REQUIRE(frame.hdr.seq == 18);
 
@@ -1001,8 +998,8 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.data_size == 1024);
   REQUIRE(a0::test::str(frame) == data);
-  REQUIRE(arena.buf.ptr[1207] == 'b');
-  REQUIRE(arena.buf.ptr[1208] != 'b');
+  REQUIRE(arena.buf.data[1207] == 'b');
+  REQUIRE(arena.buf.data[1208] != 'b');
 
   require_debugstr(lk, R"(
 {
@@ -1233,8 +1230,8 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
   frame = tlk.frame();
   REQUIRE(frame.hdr.data_size == 1024);
   REQUIRE(a0::test::str(frame) == data);
-  REQUIRE(arena.buf.ptr[1207] == 'b');
-  REQUIRE(arena.buf.ptr[1208] != 'b');
+  REQUIRE(arena.buf.data[1207] == 'b');
+  REQUIRE(arena.buf.data[1208] != 'b');
 
   require_debugstr(*tlk.c, R"(
 {

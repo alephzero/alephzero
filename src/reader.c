@@ -46,7 +46,7 @@ a0_err_t a0_reader_sync_zc_init(a0_reader_sync_zc_t* reader_sync_zc,
   A0_RETURN_ERR_ON_ERR(a0_transport_unlock(tlk));
 
 #ifdef DEBUG
-  A0_ASSERT_OK(a0_ref_cnt_inc(arena.buf.ptr, NULL), "");
+  A0_ASSERT_OK(a0_ref_cnt_inc(arena.buf.data, NULL), "");
 #endif
 
   return A0_OK;
@@ -58,7 +58,7 @@ a0_err_t a0_reader_sync_zc_close(a0_reader_sync_zc_t* reader_sync_zc) {
   A0_ASSERT(reader_sync_zc, "Cannot close null reader (sync+zc).");
 
   A0_ASSERT_OK(
-      a0_ref_cnt_dec(reader_sync_zc->_transport._arena.buf.ptr, NULL),
+      a0_ref_cnt_dec(reader_sync_zc->_transport._arena.buf.data, NULL),
       "Reader (sync+zc) closing. Arena was previously closed.");
 #endif
 
@@ -114,7 +114,7 @@ a0_err_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
   bool should_step = reader_sync_zc->_first_read_done || reader_sync_zc->_init == A0_INIT_AWAIT_NEW;
   if (!should_step) {
     bool is_valid;
-    a0_transport_ptr_valid(tlk, &is_valid);
+    a0_transport_iter_valid(tlk, &is_valid);
     should_step = !is_valid;
   }
 
@@ -131,10 +131,7 @@ a0_err_t a0_reader_sync_zc_next(a0_reader_sync_zc_t* reader_sync_zc,
   a0_transport_frame(tlk, &frame);
 
   a0_flat_packet_t flat_packet = {
-      .buf = {
-          .ptr = frame.data,
-          .size = frame.hdr.data_size,
-      },
+      .buf = {frame.data, frame.hdr.data_size},
   };
 
   cb.fn(cb.user_data, tlk, flat_packet);
@@ -206,10 +203,7 @@ void a0_reader_zc_thread_handle_pkt(a0_reader_zc_t* reader_zc, a0_transport_lock
   a0_transport_frame(tlk, &frame);
 
   a0_flat_packet_t fpkt = {
-      .buf = {
-          .ptr = frame.data,
-          .size = frame.hdr.data_size,
-      },
+      .buf = {frame.data, frame.hdr.data_size},
   };
 
   reader_zc->_onpacket.fn(reader_zc->_onpacket.user_data, tlk, fpkt);
@@ -223,7 +217,7 @@ bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_t* reader_zc, a0_transpor
       reset = true;
     } else {
       bool ptr_valid;
-      a0_transport_ptr_valid(tlk, &ptr_valid);
+      a0_transport_iter_valid(tlk, &ptr_valid);
       reset = !ptr_valid;
     }
 
@@ -294,7 +288,7 @@ a0_err_t a0_reader_zc_init(a0_reader_zc_t* reader_zc,
   A0_RETURN_ERR_ON_ERR(a0_transport_init(&reader_zc->_transport, arena));
 
 #ifdef DEBUG
-  a0_ref_cnt_inc(arena.buf.ptr, NULL);
+  a0_ref_cnt_inc(arena.buf.data, NULL);
 #endif
 
   a0_transport_locked_t tlk;
@@ -328,7 +322,7 @@ a0_err_t a0_reader_zc_close(a0_reader_zc_t* reader_zc) {
     return A0_MAKE_SYSERR(EDEADLK);
   }
 #ifdef DEBUG
-  a0_ref_cnt_dec(reader_zc->_transport._arena.buf.ptr, NULL);
+  a0_ref_cnt_dec(reader_zc->_transport._arena.buf.data, NULL);
 #endif
 
   a0_transport_locked_t tlk;

@@ -1,5 +1,6 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
+#include <a0/empty.h>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
@@ -177,16 +178,15 @@ a0_err_t a0_mmap(a0_file_t* file, const a0_file_open_options_t* open_options) {
     mmap_flags = MAP_PRIVATE;
   }
 
-  file->arena.buf.ptr = (uint8_t*)mmap(
+  file->arena.buf.data = (uint8_t*)mmap(
       /* addr   = */ 0,
       /* len    = */ file->arena.buf.size,
       /* prot   = */ PROT_READ | PROT_WRITE,
       /* flags  = */ mmap_flags,
       /* fd     = */ file->fd,
       /* offset = */ 0);
-  if ((intptr_t)file->arena.buf.ptr == -1) {
-    file->arena.buf.ptr = NULL;
-    file->arena.buf.size = 0;
+  if ((intptr_t)file->arena.buf.data == -1) {
+    file->arena.buf = (a0_buf_t)A0_EMPTY;
     return A0_MAKE_SYSERR(errno);
   }
 
@@ -195,13 +195,12 @@ a0_err_t a0_mmap(a0_file_t* file, const a0_file_open_options_t* open_options) {
 
 A0_STATIC_INLINE
 a0_err_t a0_munmap(a0_file_t* file) {
-  if (!file->arena.buf.ptr) {
+  if (!file->arena.buf.data) {
     return A0_MAKE_SYSERR(EBADF);
   }
 
-  A0_RETURN_SYSERR_ON_MINUS_ONE(munmap(file->arena.buf.ptr, file->arena.buf.size));
-  file->arena.buf.ptr = NULL;
-  file->arena.buf.size = 0;
+  A0_RETURN_SYSERR_ON_MINUS_ONE(munmap(file->arena.buf.data, file->arena.buf.size));
+  file->arena.buf = (a0_buf_t)A0_EMPTY;
 
   return A0_OK;
 }
@@ -315,25 +314,25 @@ a0_err_t a0_file_open(
   }
 
 #ifdef DEBUG
-  a0_ref_cnt_inc(out->arena.buf.ptr, NULL);
+  a0_ref_cnt_inc(out->arena.buf.data, NULL);
 #endif
 
   return A0_OK;
 }
 
 a0_err_t a0_file_close(a0_file_t* file) {
-  if (!file->path || !file->arena.buf.ptr) {
+  if (!file->path || !file->arena.buf.data) {
     return A0_MAKE_SYSERR(EBADF);
   }
 
 #ifdef DEBUG
   A0_ASSERT_OK(
-      a0_ref_cnt_dec(file->arena.buf.ptr, NULL),
+      a0_ref_cnt_dec(file->arena.buf.data, NULL),
       "File reference count corrupt: %s",
       file->path);
 
   size_t cnt;
-  a0_ref_cnt_get(file->arena.buf.ptr, &cnt);
+  a0_ref_cnt_get(file->arena.buf.data, &cnt);
   A0_ASSERT(
       cnt == 0,
       "File closing while still in use: %s",

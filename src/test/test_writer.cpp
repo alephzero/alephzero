@@ -29,8 +29,7 @@ struct WriterFixture {
 
   WriterFixture() {
     arena_data.resize(4096);
-    arena.buf.ptr = arena_data.data();
-    arena.buf.size = arena_data.size();
+    arena.buf = {arena_data.data(), arena_data.size()};
     arena.mode = A0_ARENA_MODE_SHARED;
   }
 

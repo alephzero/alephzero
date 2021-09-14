@@ -43,14 +43,11 @@ static std::string fmt(const std::string& format, Args... args) {
 }
 
 inline a0_buf_t buf(a0_transport_frame_t frame) {
-  return a0_buf_t{
-      .ptr = frame.data,
-      .size = frame.hdr.data_size,
-  };
+  return a0_buf_t{frame.data, frame.hdr.data_size};
 }
 
 inline std::string str(a0_buf_t buf) {
-  return std::string((char*)buf.ptr, buf.size);
+  return std::string((char*)buf.data, buf.size);
 }
 
 inline std::string str(a0_transport_frame_t frame) {
@@ -65,10 +62,7 @@ inline a0_buf_t buf(std::string str) {
   std::unique_lock<std::mutex> lk{data.mu};
 
   auto result = data.mem.insert(std::move(str));
-  return a0_buf_t{
-      .ptr = (uint8_t*)result.first->c_str(),
-      .size = result.first->size(),
-  };
+  return a0_buf_t{(uint8_t*)result.first->c_str(), result.first->size()};
 }
 
 inline a0_alloc_t alloc() {
@@ -87,7 +81,7 @@ inline a0_alloc_t alloc() {
             auto key = data->dump.size();
             data->dump[key].resize(size);
             out->size = size;
-            out->ptr = (uint8_t*)(data->dump[key].c_str());
+            out->data = (uint8_t*)(data->dump[key].c_str());
             return A0_OK;
           },
       .dealloc = nullptr,
@@ -119,8 +113,8 @@ inline a0_packet_t pkt(
     auto&& k = elem.first;
     auto&& v = elem.second;
     pkt_hdrs->push_back(a0_packet_header_t{
-        .key = (char*)a0::test::buf(std::move(k)).ptr,
-        .val = (char*)a0::test::buf(std::move(v)).ptr,
+        .key = (char*)a0::test::buf(std::move(k)).data,
+        .val = (char*)a0::test::buf(std::move(v)).data,
     });
   }
   pkt_.headers_block = {

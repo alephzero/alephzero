@@ -51,7 +51,7 @@ a0_err_t a0_write_action_init(a0_arena_t arena, void** user_data) {
   A0_RETURN_ERR_ON_ERR(a0_transport_init(&transport, arena));
 
 #ifdef DEBUG
-  A0_ASSERT_OK(a0_ref_cnt_inc(arena.buf.ptr, NULL), "");
+  A0_ASSERT_OK(a0_ref_cnt_inc(arena.buf.data, NULL), "");
 #endif
 
   a0_transport_t* heap_transport = (a0_transport_t*)malloc(sizeof(a0_transport_t));
@@ -67,7 +67,7 @@ a0_err_t a0_write_action_close(void* user_data) {
 
 #ifdef DEBUG
   A0_ASSERT_OK(
-      a0_ref_cnt_dec(transport->_arena.buf.ptr, NULL),
+      a0_ref_cnt_dec(transport->_arena.buf.data, NULL),
       "Writer closing. User bug detected. Dependent arena was closed prior to writer.");
 #endif
 

@@ -14,7 +14,7 @@
 #include "err_macro.h"
 
 typedef struct a0_map_bucket_s {
-  void* ptr;
+  void* dat;
   size_t idx;
   // Zero indicates empty bucket.
   // Distance measure is one-indexed.
@@ -64,9 +64,9 @@ a0_err_t a0_map_size(a0_map_t* map, size_t* size) {
 
 A0_STATIC_INLINE
 a0_err_t a0_map_bucket(a0_map_t* map, size_t idx, a0_map_bucket_t* bkt) {
-  bkt->ptr = map->_data + idx * map->_bucket_size;
+  bkt->dat = map->_data + idx * map->_bucket_size;
   bkt->idx = idx;
-  bkt->off = (size_t*)bkt->ptr;
+  bkt->off = (size_t*)bkt->dat;
   bkt->key = (uint8_t*)(bkt->off) + sizeof(size_t);
   bkt->val = (uint8_t*)(bkt->key) + a0_max_align(map->_key_size);
   return A0_OK;
@@ -140,9 +140,9 @@ a0_err_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
   A0_RETURN_ERR_ON_ERR(a0_hash_eval(map->_key_hash, key, &hash));
 
   a0_map_bucket_t new_bkt;
-  new_bkt.ptr = alloca(map->_bucket_size);
+  new_bkt.dat = alloca(map->_bucket_size);
   new_bkt.idx = hash & map->_hash2idx;
-  new_bkt.off = (size_t*)new_bkt.ptr;
+  new_bkt.off = (size_t*)new_bkt.dat;
   new_bkt.key = (uint8_t*)(new_bkt.off) + sizeof(size_t);
   new_bkt.val = (uint8_t*)(new_bkt.key) + a0_max_align(map->_key_size);
 
@@ -163,9 +163,9 @@ a0_err_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
 
     if (*new_bkt.off > *iter_bkt.off) {
       void* tmp_bkt = alloca(map->_bucket_size);
-      memcpy(tmp_bkt, iter_bkt.ptr, map->_bucket_size);
-      memcpy(iter_bkt.ptr, new_bkt.ptr, map->_bucket_size);
-      memcpy(new_bkt.ptr, tmp_bkt, map->_bucket_size);
+      memcpy(tmp_bkt, iter_bkt.dat, map->_bucket_size);
+      memcpy(iter_bkt.dat, new_bkt.dat, map->_bucket_size);
+      memcpy(new_bkt.dat, tmp_bkt, map->_bucket_size);
     }
 
     new_bkt.idx = (new_bkt.idx + 1) & map->_hash2idx;
@@ -173,7 +173,7 @@ a0_err_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
     (*new_bkt.off)++;
   }
 
-  memcpy(iter_bkt.ptr, new_bkt.ptr, map->_bucket_size);
+  memcpy(iter_bkt.dat, new_bkt.dat, map->_bucket_size);
   map->_size++;
 
   return A0_OK;
@@ -191,7 +191,7 @@ a0_err_t a0_map_del_bucket(a0_map_t* map, a0_map_bucket_t bkt) {
   A0_RETURN_ERR_ON_ERR(a0_map_bucket(map, next_idx, &next_bkt));
 
   while (*next_bkt.off > 1) {
-    memcpy(bkt.ptr, next_bkt.ptr, map->_bucket_size);
+    memcpy(bkt.dat, next_bkt.dat, map->_bucket_size);
     (*bkt.off)--;
     *next_bkt.off = 0;
 

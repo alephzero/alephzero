@@ -26,7 +26,7 @@ using string_view = std::string_view;
 namespace a0 {
 
 class string_view {
-  const char* ptr_{nullptr};
+  const char* data_{nullptr};
   size_t size_{0};
 
  public:
@@ -47,22 +47,22 @@ class string_view {
 
   static const size_t npos = size_t(-1);
 
-  explicit operator std::string() const { return std::string(ptr_, size_); }
+  explicit operator std::string() const { return std::string(data_, size_); }
 
   string_view() noexcept = default;
   string_view(const string_view& other) noexcept = default;
   string_view(const char* s, size_t count) noexcept
-      : ptr_{s}, size_{count} {}
+      : data_{s}, size_{count} {}
   string_view(const char* s) noexcept  // NOLINT(google-explicit-constructor)
       : string_view(s, strlen(s)) {}
   string_view(const std::string& str) noexcept  // NOLINT(google-explicit-constructor)
-      : ptr_{str.c_str()}, size_{str.size()} {}
+      : data_{str.c_str()}, size_{str.size()} {}
 
   string_view& operator=(const string_view& view) = default;
 
-  const_iterator begin() const noexcept { return ptr_; }
+  const_iterator begin() const noexcept { return data_; }
   const_iterator cbegin() const noexcept { return begin(); }
-  const_iterator end() const noexcept { return ptr_ + size_; }
+  const_iterator end() const noexcept { return data_ + size_; }
   const_iterator cend() const noexcept { return end(); }
   const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator{end()}; }
   const_reverse_iterator rend() const noexcept { return const_reverse_iterator{begin()}; }
@@ -73,12 +73,12 @@ class string_view {
     if (pos >= size_) {
       throw std::out_of_range("string_view::at out of range");
     }
-    return ptr_[pos];
+    return data_[pos];
   }
-  const_reference operator[](size_type pos) const noexcept { return ptr_[pos]; }
-  const_reference front() const noexcept { return *ptr_; }
-  const_reference back() const noexcept { return ptr_[size_ - 1]; }
-  const_pointer data() const noexcept { return ptr_; }
+  const_reference operator[](size_type pos) const noexcept { return data_[pos]; }
+  const_reference front() const noexcept { return *data_; }
+  const_reference back() const noexcept { return data_[size_ - 1]; }
+  const_pointer data() const noexcept { return data_; }
 
   size_type size() const noexcept { return size_; }
   size_type length() const noexcept { return size_; }
@@ -86,12 +86,12 @@ class string_view {
   bool empty() const noexcept { return !size_; }
 
   void remove_prefix(size_type n) noexcept {
-    ptr_ += n;
+    data_ += n;
     size_ -= n;
   }
   void remove_suffix(size_type n) noexcept { size_ -= n; }
   void swap(string_view& v) noexcept {
-    std::swap(ptr_, v.ptr_);
+    std::swap(data_, v.data_);
     std::swap(size_, v.size_);
   }
 
@@ -100,18 +100,18 @@ class string_view {
       throw std::out_of_range("string_view::copy out of range");
     }
     size_t rcount = std::min(size_ - pos, count + 1);
-    memcpy(dest, ptr_ + pos, rcount);
+    memcpy(dest, data_ + pos, rcount);
     return rcount;
   }
   string_view substr(size_type pos = 0, size_type len = npos) const {
     if (pos >= size_) {
       throw std::out_of_range("string_view::substr out of range");
     }
-    return string_view(ptr_ + pos, std::min(len, size_ - pos));
+    return string_view(data_ + pos, std::min(len, size_ - pos));
   }
 
   int compare(string_view v) const noexcept {
-    int cmp = traits_type::compare(ptr_, v.ptr_, std::min(size_, v.size_));
+    int cmp = traits_type::compare(data_, v.data_, std::min(size_, v.size_));
     if (cmp) {
       return cmp;
     }

@@ -63,7 +63,7 @@
  * a0_transport_frame returns a frame pointer into the arena.
  *
  * If the transport is unlocked and relocked, the pointer may no longer be valid.
- * To check for validity, you can use a0_transport_ptr_valid. You can use
+ * To check for validity, you can use a0_transport_iter_valid. You can use
  * a0_transport_has_next and a0_transport_next regardless of whether the pointer
  * is still valid.
  *
@@ -193,7 +193,7 @@ a0_err_t a0_transport_empty(a0_transport_locked_t, bool*);
 /// Checks whether the transport is not empty.
 a0_err_t a0_transport_nonempty(a0_transport_locked_t, bool*);
 /// Checks whether the user's transport pointer is valid.
-a0_err_t a0_transport_ptr_valid(a0_transport_locked_t, bool*);
+a0_err_t a0_transport_iter_valid(a0_transport_locked_t, bool*);
 /// Moves the user's transport pointer to the oldest frame.
 ///
 /// Note that this is inclusive.

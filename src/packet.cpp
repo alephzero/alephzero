@@ -121,7 +121,7 @@ Packet::Packet(a0_packet_t pkt, std::function<void(a0_packet_t*)> deleter) {
   c = make_cpp_packet(
       pkt.id,
       std::move(hdrs),
-      string_view((char*)pkt.payload.ptr, pkt.payload.size),
+      string_view((char*)pkt.payload.data, pkt.payload.size),
       deleter);
 }
 
@@ -138,7 +138,7 @@ const std::unordered_multimap<std::string, std::string>& Packet::headers() const
 
 string_view Packet::payload() const {
   CHECK_C;
-  return string_view((char*)c->payload.ptr, c->payload.size);
+  return string_view((char*)c->payload.data, c->payload.size);
 }
 
 string_view FlatPacket::id() const {
@@ -152,7 +152,7 @@ string_view FlatPacket::payload() const {
   CHECK_C;
   a0_buf_t buf;
   check(a0_flat_packet_payload(*c, &buf));
-  return string_view((const char*)buf.ptr, buf.size);
+  return string_view((const char*)buf.data, buf.size);
 }
 
 size_t FlatPacket::num_headers() const {

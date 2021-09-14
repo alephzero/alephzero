@@ -22,7 +22,7 @@ struct TransportLocked : details::CppWrap<a0_transport_locked_t> {
   size_t used_space() const;
   void resize(size_t);
 
-  bool ptr_valid() const;
+  bool iter_valid() const;
   Frame frame() const;
 
   void jump_head();

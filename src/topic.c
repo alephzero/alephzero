@@ -41,19 +41,13 @@ a0_err_t a0_topic_match_info(const char* tmpl,
   const char* next;
   while ((next = strstr(prev, "{topic}")) && info->num_segments < A0_TOPIC_TMPL_MAX_MATCH_CNT) {
     size_t seg_len = next - prev;
-    info->segments[info->num_segments++] = (a0_buf_t){
-        .ptr = (uint8_t*)prev,
-        .size = seg_len,
-    };
+    info->segments[info->num_segments++] = (a0_buf_t){(uint8_t*)prev, seg_len};
 
     info->path_len += next - prev + info->topic_len;
     prev = next + strlen("{topic}");
   }
   size_t seg_len = strlen(prev);
-  info->segments[info->num_segments++] = (a0_buf_t){
-      .ptr = (uint8_t*)prev,
-      .size = seg_len,
-  };
+  info->segments[info->num_segments++] = (a0_buf_t){(uint8_t*)prev, seg_len};
   info->path_len += seg_len;
   return A0_OK;
 }
@@ -62,13 +56,13 @@ A0_STATIC_INLINE
 a0_err_t a0_topic_write_path(const char* topic,
                              a0_topic_template_match_info_t info,
                              char* write_ptr) {
-  memcpy(write_ptr, info.segments[0].ptr, info.segments[0].size);
+  memcpy(write_ptr, info.segments[0].data, info.segments[0].size);
   write_ptr += info.segments[0].size;
   for (size_t i = 1; i < info.num_segments; i++) {
     memcpy(write_ptr, topic, info.topic_len);
     write_ptr += info.topic_len;
 
-    memcpy(write_ptr, info.segments[i].ptr, info.segments[i].size);
+    memcpy(write_ptr, info.segments[i].data, info.segments[i].size);
     write_ptr += info.segments[i].size;
   }
   *write_ptr = '\0';

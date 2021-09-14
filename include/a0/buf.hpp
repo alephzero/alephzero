@@ -12,8 +12,8 @@ struct Buf : details::CppWrap<a0_buf_t> {
   Buf() = default;
   Buf(uint8_t*, size_t);
 
-  const uint8_t* ptr() const;
-  uint8_t* ptr();
+  const uint8_t* data() const;
+  uint8_t* data();
   size_t size() const;
 };
 

@@ -33,7 +33,7 @@ TEST_CASE("packet] init") {
   REQUIRE(pkt.headers_block.size == 0);
   REQUIRE(pkt.headers_block.next_block == nullptr);
 
-  REQUIRE(pkt.payload.ptr == nullptr);
+  REQUIRE(pkt.payload.data == nullptr);
   REQUIRE(pkt.payload.size == 0);
 }
 
@@ -175,7 +175,7 @@ TEST_CASE("flat_packet] payload") {
     REQUIRE_OK(a0_flat_packet_payload(fpkt, &flat_payload));
 
     REQUIRE(flat_payload.size == 13);
-    REQUIRE(std::string((char*)flat_payload.ptr, flat_payload.size) == "Hello, World!");
+    REQUIRE(a0::test::str(flat_payload) == "Hello, World!");
   });
 }
 

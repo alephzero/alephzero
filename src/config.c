@@ -89,9 +89,9 @@ a0_err_t yyjson_alloc_wrapper(void* user_data, size_t size, a0_buf_t* out) {
   a0_buf_t buf;
   a0_err_t err = a0_alloc(yyjson_alloc->alloc, size + yyjson_size, &buf);
 
-  *out = (a0_buf_t){buf.ptr, size};
+  *out = (a0_buf_t){buf.data, size};
   yyjson_alloc->pkt_buf = *out;
-  yyjson_alloc->yyjson_buf = (a0_buf_t){buf.ptr + size, yyjson_size};
+  yyjson_alloc->yyjson_buf = (a0_buf_t){buf.data + size, yyjson_size};
   return err;
 }
 
@@ -118,12 +118,12 @@ a0_err_t a0_config_read_yyjson(a0_config_t* config,
   yyjson_alc alc;
   yyjson_alc_pool_init(
       &alc,
-      yyjson_alloc.yyjson_buf.ptr,
+      yyjson_alloc.yyjson_buf.data,
       yyjson_alloc.yyjson_buf.size);
 
   yyjson_read_err read_err;
   yyjson_doc* result = yyjson_read_opts(
-      (char*)pkt.payload.ptr,
+      (char*)pkt.payload.data,
       pkt.payload.size,
       a0_yyjson_read_flags,
       &alc,
@@ -198,10 +198,7 @@ a0_err_t a0_mergepatch_process_locked_nonempty(
   a0_transport_frame(tlk, &frame);
 
   a0_flat_packet_t flat_packet = {
-      .buf = {
-          .ptr = frame.data,
-          .size = frame.hdr.data_size,
-      },
+      .buf = {frame.data, frame.hdr.data_size},
   };
   a0_buf_t old_payload;
   a0_flat_packet_payload(flat_packet, &old_payload);
@@ -219,7 +216,7 @@ a0_err_t a0_mergepatch_process_locked_nonempty(
 
   yyjson_read_err read_err;
   yyjson_doc* original = yyjson_read_opts(
-      (char*)old_payload.ptr,
+      (char*)old_payload.data,
       old_payload.size,
       a0_yyjson_read_flags,
       &alc,

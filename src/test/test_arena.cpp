@@ -13,6 +13,6 @@ TEST_CASE("arena] cpp") {
   a0::Arena arena(buf, A0_ARENA_MODE_SHARED);
 
   REQUIRE(arena.mode() == A0_ARENA_MODE_SHARED);
-  REQUIRE(arena.buf().ptr() == data);
-  REQUIRE(((a0::Buf)arena).ptr() == data);
+  REQUIRE(arena.buf().data() == data);
+  REQUIRE(((a0::Buf)arena).data() == data);
 }

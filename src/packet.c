@@ -97,11 +97,11 @@ a0_err_t a0_packet_serialize(a0_packet_t pkt, a0_alloc_t alloc, a0_flat_packet_t
                + sizeof(size_t);                      // Payload offset.
 
   // ID.
-  memcpy(out->ptr + idx_off, pkt.id, sizeof(a0_uuid_t));
+  memcpy(out->data + idx_off, pkt.id, sizeof(a0_uuid_t));
   idx_off += sizeof(a0_uuid_t);
 
   // Number of headers.
-  memcpy(out->ptr + idx_off, &stats.num_hdrs, sizeof(size_t));
+  memcpy(out->data + idx_off, &stats.num_hdrs, sizeof(size_t));
   idx_off += sizeof(size_t);
 
   // For each header.
@@ -112,29 +112,29 @@ a0_err_t a0_packet_serialize(a0_packet_t pkt, a0_alloc_t alloc, a0_flat_packet_t
       a0_packet_header_t* hdr = &block->headers[i];
 
       // Header key offset.
-      memcpy(out->ptr + idx_off, &off, sizeof(size_t));
+      memcpy(out->data + idx_off, &off, sizeof(size_t));
       idx_off += sizeof(size_t);
 
       // Header key content.
-      memcpy(out->ptr + off, hdr->key, strlen(hdr->key) + 1);
+      memcpy(out->data + off, hdr->key, strlen(hdr->key) + 1);
       off += strlen(hdr->key) + 1;
 
       // Header val offset.
-      memcpy(out->ptr + idx_off, &off, sizeof(size_t));
+      memcpy(out->data + idx_off, &off, sizeof(size_t));
       idx_off += sizeof(size_t);
 
       // Header val content.
-      memcpy(out->ptr + off, hdr->val, strlen(hdr->val) + 1);
+      memcpy(out->data + off, hdr->val, strlen(hdr->val) + 1);
       off += strlen(hdr->val) + 1;
     }
   }
 
   // Payload offset.
-  memcpy(out->ptr + idx_off, &off, sizeof(size_t));
+  memcpy(out->data + idx_off, &off, sizeof(size_t));
 
   // Payload content.
   if (pkt.payload.size) {
-    memcpy(out->ptr + off, pkt.payload.ptr, pkt.payload.size);
+    memcpy(out->data + off, pkt.payload.data, pkt.payload.size);
   }
 
   return A0_OK;
@@ -142,37 +142,37 @@ a0_err_t a0_packet_serialize(a0_packet_t pkt, a0_alloc_t alloc, a0_flat_packet_t
 
 a0_err_t a0_packet_deserialize(a0_flat_packet_t fpkt, a0_alloc_t alloc, a0_packet_t* out_pkt, a0_buf_t* out_buf) {
   a0_buf_t in = fpkt.buf;
-  memcpy(out_pkt->id, in.ptr, sizeof(a0_uuid_t));
+  memcpy(out_pkt->id, in.data, sizeof(a0_uuid_t));
 
   a0_packet_stats_t stats;
   a0_flat_packet_stats(fpkt, &stats);
 
   a0_alloc(alloc, stats.num_hdrs * sizeof(a0_packet_header_t) + stats.content_size, out_buf);
 
-  uint8_t* write_ptr = out_buf->ptr;
+  uint8_t* write_ptr = out_buf->data;
   out_pkt->headers_block.headers = (a0_packet_header_t*)write_ptr;
   out_pkt->headers_block.size = stats.num_hdrs;
   write_ptr += stats.num_hdrs * sizeof(a0_packet_header_t);
 
-  size_t* hdr_idx_ptr = (size_t*)(in.ptr + sizeof(a0_uuid_t) + sizeof(size_t));
+  size_t* hdr_idx_ptr = (size_t*)(in.data + sizeof(a0_uuid_t) + sizeof(size_t));
   for (size_t i = 0; i < stats.num_hdrs; i++) {
     size_t key_off;
     memcpy(&key_off, hdr_idx_ptr + (2 * i), sizeof(size_t));
     out_pkt->headers_block.headers[i].key = (char*)write_ptr;
-    strcpy((char*)out_pkt->headers_block.headers[i].key, (char*)(in.ptr + key_off));
-    write_ptr += strlen((char*)(in.ptr + key_off)) + 1;
+    strcpy((char*)out_pkt->headers_block.headers[i].key, (char*)(in.data + key_off));
+    write_ptr += strlen((char*)(in.data + key_off)) + 1;
 
     size_t val_off;
     memcpy(&val_off, hdr_idx_ptr + (2 * i + 1), sizeof(size_t));
     out_pkt->headers_block.headers[i].val = (char*)write_ptr;
-    strcpy((char*)out_pkt->headers_block.headers[i].val, (char*)(in.ptr + val_off));
-    write_ptr += strlen((char*)(in.ptr + val_off)) + 1;
+    strcpy((char*)out_pkt->headers_block.headers[i].val, (char*)(in.data + val_off));
+    write_ptr += strlen((char*)(in.data + val_off)) + 1;
   }
   out_pkt->headers_block.next_block = NULL;
 
   size_t payload_off;
   memcpy(&payload_off,
-         in.ptr
+         in.data
              // ID.
              + sizeof(a0_uuid_t)
              // Num headers.
@@ -181,9 +181,8 @@ a0_err_t a0_packet_deserialize(a0_flat_packet_t fpkt, a0_alloc_t alloc, a0_packe
              + (2 * stats.num_hdrs) * sizeof(size_t),
          sizeof(size_t));
 
-  out_pkt->payload.size = in.size - payload_off;
-  out_pkt->payload.ptr = write_ptr;
-  memcpy(out_pkt->payload.ptr, in.ptr + payload_off, out_pkt->payload.size);
+  out_pkt->payload = (a0_buf_t){write_ptr, in.size - payload_off};
+  memcpy(out_pkt->payload.data, in.data + payload_off, out_pkt->payload.size);
 
   return A0_OK;
 }
@@ -198,7 +197,7 @@ a0_err_t a0_packet_deep_copy(a0_packet_t in, a0_alloc_t alloc, a0_packet_t* out_
            stats.num_hdrs * sizeof(a0_packet_header_t) + stats.content_size,
            out_buf);
 
-  out_pkt->headers_block.headers = (a0_packet_header_t*)out_buf->ptr;
+  out_pkt->headers_block.headers = (a0_packet_header_t*)out_buf->data;
   out_pkt->headers_block.size = stats.num_hdrs;
   out_pkt->headers_block.next_block = NULL;
 
@@ -212,11 +211,11 @@ a0_err_t a0_packet_deep_copy(a0_packet_t in, a0_alloc_t alloc, a0_packet_t* out_
       a0_packet_header_t* in_hdr = &block->headers[i];
       a0_packet_header_t* out_hdr = &out_pkt->headers_block.headers[hdr_idx];
 
-      out_hdr->key = (char*)(out_buf->ptr + off);
+      out_hdr->key = (char*)(out_buf->data + off);
       strcpy((char*)out_hdr->key, in_hdr->key);
       off += strlen(in_hdr->key) + 1;
 
-      out_hdr->val = (char*)(out_buf->ptr + off);
+      out_hdr->val = (char*)(out_buf->data + off);
       strcpy((char*)out_hdr->val, in_hdr->val);
       off += strlen(in_hdr->val) + 1;
 
@@ -224,18 +223,15 @@ a0_err_t a0_packet_deep_copy(a0_packet_t in, a0_alloc_t alloc, a0_packet_t* out_
     }
   }
 
-  out_pkt->payload = (a0_buf_t){
-      .ptr = out_buf->ptr + off,
-      .size = in.payload.size,
-  };
-  memcpy(out_pkt->payload.ptr, in.payload.ptr, in.payload.size);
+  out_pkt->payload = (a0_buf_t){out_buf->data + off, in.payload.size};
+  memcpy(out_pkt->payload.data, in.payload.data, in.payload.size);
 
   return A0_OK;
 }
 
 a0_err_t a0_flat_packet_stats(a0_flat_packet_t fpkt, a0_packet_stats_t* stats) {
   stats->serial_size = fpkt.buf.size;
-  stats->num_hdrs = *(size_t*)(fpkt.buf.ptr + sizeof(a0_uuid_t));
+  stats->num_hdrs = *(size_t*)(fpkt.buf.data + sizeof(a0_uuid_t));
 
   size_t content_off =
       // ID.
@@ -253,16 +249,16 @@ a0_err_t a0_flat_packet_stats(a0_flat_packet_t fpkt, a0_packet_stats_t* stats) {
 }
 
 a0_err_t a0_flat_packet_id(a0_flat_packet_t fpkt, a0_uuid_t** out) {
-  *out = (a0_uuid_t*)fpkt.buf.ptr;
+  *out = (a0_uuid_t*)fpkt.buf.data;
   return A0_OK;
 }
 
 a0_err_t a0_flat_packet_payload(a0_flat_packet_t fpkt, a0_buf_t* out) {
-  size_t num_hdrs = *(size_t*)(fpkt.buf.ptr + sizeof(a0_uuid_t));
+  size_t num_hdrs = *(size_t*)(fpkt.buf.data + sizeof(a0_uuid_t));
 
   size_t payload_off;
   memcpy(&payload_off,
-         fpkt.buf.ptr
+         fpkt.buf.data
              // ID.
              + sizeof(a0_uuid_t)
              // Num headers.
@@ -271,21 +267,17 @@ a0_err_t a0_flat_packet_payload(a0_flat_packet_t fpkt, a0_buf_t* out) {
              + (2 * num_hdrs) * sizeof(size_t),
          sizeof(size_t));
 
-  *out = (a0_buf_t){
-      .ptr = fpkt.buf.ptr + payload_off,
-      .size = fpkt.buf.size - payload_off,
-  };
-
+  *out = (a0_buf_t){fpkt.buf.data + payload_off, fpkt.buf.size - payload_off};
   return A0_OK;
 }
 
 a0_err_t a0_flat_packet_header(a0_flat_packet_t fpkt, size_t idx, a0_packet_header_t* out) {
-  size_t num_hdrs = *(size_t*)(fpkt.buf.ptr + sizeof(a0_uuid_t));
+  size_t num_hdrs = *(size_t*)(fpkt.buf.data + sizeof(a0_uuid_t));
   if (idx >= num_hdrs) {
     return A0_ERR_NOT_FOUND;
   }
 
-  size_t* hdr_idx_ptr = (size_t*)(fpkt.buf.ptr + sizeof(a0_uuid_t) + sizeof(size_t));
+  size_t* hdr_idx_ptr = (size_t*)(fpkt.buf.data + sizeof(a0_uuid_t) + sizeof(size_t));
 
   size_t key_off;
   memcpy(&key_off, hdr_idx_ptr + (2 * idx), sizeof(size_t));
@@ -293,8 +285,8 @@ a0_err_t a0_flat_packet_header(a0_flat_packet_t fpkt, size_t idx, a0_packet_head
   memcpy(&val_off, hdr_idx_ptr + (2 * idx + 1), sizeof(size_t));
 
   *out = (a0_packet_header_t){
-      .key = (char*)(fpkt.buf.ptr + key_off),
-      .val = (char*)(fpkt.buf.ptr + val_off),
+      .key = (char*)(fpkt.buf.data + key_off),
+      .val = (char*)(fpkt.buf.data + val_off),
   };
 
   return A0_OK;

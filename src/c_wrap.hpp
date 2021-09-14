@@ -169,10 +169,7 @@ T* as_mutable(const T* t) noexcept {
 
 template <typename T>
 a0_buf_t as_buf(T& mem) {
-  return a0_buf_t{
-      .ptr = (uint8_t*)(mem.data()),
-      .size = mem.size(),
-  };
+  return a0_buf_t{(uint8_t*)(mem.data()), mem.size()};
 }
 
 // TODO(lshamis): Is this the right response?

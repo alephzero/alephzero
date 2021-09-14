@@ -45,7 +45,7 @@ struct MtxTestFixture {
     REQUIRE_OK(a0_file_open(name.c_str(), &fileopt, &file));
     files.push_back(file);
 
-    return file.arena.buf.ptr;
+    return file.arena.buf.data;
   }
 
   template <typename T, typename... Args>
