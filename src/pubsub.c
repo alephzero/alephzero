@@ -1,4 +1,5 @@
 #include <a0/alloc.h>
+#include <a0/env.h>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
@@ -16,11 +17,7 @@
 
 A0_STATIC_INLINE
 a0_err_t a0_pubsub_topic_open(a0_pubsub_topic_t topic, a0_file_t* file) {
-  const char* tmpl = getenv("A0_PUBSUB_TOPIC_TEMPLATE");
-  if (!tmpl) {
-    tmpl = "alephzero/{topic}.pubsub.a0";
-  }
-  return a0_topic_open(tmpl, topic.name, topic.file_opts, file);
+  return a0_topic_open(a0_env_topic_tmpl_pubsub(), topic.name, topic.file_opts, file);
 }
 
 /////////////////

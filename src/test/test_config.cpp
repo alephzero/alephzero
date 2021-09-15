@@ -1,6 +1,7 @@
 #include <a0/config.h>
 #include <a0/config.hpp>
 #include <a0/empty.h>
+#include <a0/env.hpp>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/packet.h>
@@ -49,7 +50,7 @@ struct ConfigFixture {
   }
 
   void clear() {
-    setenv("A0_TOPIC_DEFAULT", topic.name, true);
+    setenv("A0_TOPIC", topic.name, true);
     a0_file_remove(topic_path);
   }
 };
@@ -67,7 +68,7 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] basic") {
 }
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] cpp basic") {
-  a0::Config c(topic.name);
+  a0::Config c(a0::env::topic());
 
   REQUIRE_THROWS_WITH(
       [&]() { c.read(O_NONBLOCK); }(),
@@ -143,7 +144,7 @@ void from_json(const nlohmann::json& j, MyStruct& my) {
 }
 
 TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann") {
-  a0::Config c("");
+  a0::Config c(a0::env::topic());
   c.write(R"({"foo": 1, "bar": 2})");
 
   a0::CfgVar<MyStruct> my;

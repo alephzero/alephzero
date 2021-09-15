@@ -1,5 +1,6 @@
 #include <a0/alloc.h>
 #include <a0/config.h>
+#include <a0/env.h>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
@@ -30,11 +31,7 @@
 
 A0_STATIC_INLINE
 a0_err_t a0_config_topic_open(a0_config_topic_t topic, a0_file_t* out) {
-  const char* tmpl = getenv("A0_CONFIG_TOPIC_TEMPLATE");
-  if (!tmpl) {
-    tmpl = "alephzero/{topic}.cfg.a0";
-  }
-  return a0_topic_open(tmpl, topic.name, topic.file_opts, out);
+  return a0_topic_open(a0_env_topic_tmpl_cfg(), topic.name, topic.file_opts, out);
 }
 
 a0_err_t a0_config_init(a0_config_t* config, a0_config_topic_t topic) {

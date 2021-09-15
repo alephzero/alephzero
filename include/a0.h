@@ -8,6 +8,7 @@
 #include <a0/compare.h>
 #include <a0/config.h>
 #include <a0/err.h>
+#include <a0/env.h>
 #include <a0/file.h>
 #include <a0/log.h>
 #include <a0/middleware.h>
@@ -26,6 +27,7 @@
 #include <a0/arena.hpp>
 #include <a0/buf.hpp>
 #include <a0/config.hpp>
+#include <a0/env.hpp>
 #include <a0/file.hpp>
 #include <a0/log.hpp>
 #include <a0/middleware.hpp>
@@ -37,6 +39,6 @@
 #include <a0/time.hpp>
 #include <a0/transport.hpp>
 #include <a0/writer.hpp>
-#endif
+#endif  // __cplusplus
 
 #endif  // A0_H

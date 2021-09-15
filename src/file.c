@@ -1,6 +1,7 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/empty.h>
+#include <a0/env.h>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
@@ -89,10 +90,7 @@ a0_err_t a0_abspath(const char* rel, char** out) {
     return A0_OK;
   }
 
-  const char* root = getenv("A0_ROOT");
-  if (!root) {
-    root = "/dev/shm";
-  }
+  const char* root = a0_env_root();
   if (!*root) {
     return A0_MAKE_SYSERR(ENOENT);
   }
