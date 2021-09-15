@@ -5,7 +5,6 @@
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
-#include <a0/node.h>
 
 #include <alloca.h>
 #include <stdint.h>
@@ -73,7 +72,7 @@ a0_err_t a0_topic_path(const char* tmpl,
                        const char* topic,
                        const char** path) {
   if (!topic || !*topic) {
-    topic = a0_node();
+    topic = getenv("A0_TOPIC_DEFAULT");
   }
   a0_topic_template_match_info_t info = A0_EMPTY;
   A0_RETURN_ERR_ON_ERR(a0_topic_match_info(tmpl, topic, &info));
@@ -93,7 +92,7 @@ a0_err_t a0_topic_open(const char* tmpl,
                        const a0_file_options_t* topic_opts,
                        a0_file_t* file) {
   if (!topic || !*topic) {
-    topic = a0_node();
+    topic = getenv("A0_TOPIC_DEFAULT");
   }
   a0_topic_template_match_info_t info = A0_EMPTY;
   A0_RETURN_ERR_ON_ERR(a0_topic_match_info(tmpl, topic, &info));

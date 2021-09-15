@@ -12,7 +12,6 @@
 #include <a0/log.h>
 #include <a0/middleware.h>
 #include <a0/mtx.h>
-#include <a0/node.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
 #include <a0/pubsub.h>
@@ -30,7 +29,6 @@
 #include <a0/file.hpp>
 #include <a0/log.hpp>
 #include <a0/middleware.hpp>
-#include <a0/node.hpp>
 #include <a0/packet.hpp>
 #include <a0/prpc.hpp>
 #include <a0/pubsub.hpp>
