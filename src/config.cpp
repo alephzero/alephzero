@@ -46,9 +46,6 @@ struct ConfigImpl {
 
 }  // namespace
 
-Config::Config()
-    : Config(ConfigTopic{}) {}
-
 Config::Config(ConfigTopic topic) {
   set_c_impl<ConfigImpl>(
       &c,
@@ -161,9 +158,6 @@ struct ConfigListenerImpl {
 
 }  // namespace
 
-ConfigListener::ConfigListener(std::function<void(Packet)> onpacket)
-    : ConfigListener(ConfigTopic{}, std::move(onpacket)) {}
-
 ConfigListener::ConfigListener(
     ConfigTopic topic,
     std::function<void(Packet)> onpacket) {
@@ -203,9 +197,6 @@ ConfigListener::ConfigListener(
 }
 
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
-
-ConfigListener::ConfigListener(std::function<void(const nlohmann::json&)> onjson)
-    : ConfigListener(ConfigTopic{}, std::move(onjson)) {}
 
 ConfigListener::ConfigListener(
     ConfigTopic topic,

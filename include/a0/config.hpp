@@ -47,7 +47,7 @@ struct ConfigTopic {
 };
 
 struct Config : details::CppWrap<a0_config_t> {
-  Config();
+  Config() = default;
   explicit Config(ConfigTopic);
 
   Packet read(int flags = 0) const;
@@ -146,12 +146,10 @@ class CfgVar {
 
 struct ConfigListener : details::CppWrap<a0_onconfig_t> {
   ConfigListener() = default;
-  explicit ConfigListener(std::function<void(Packet)>);
   ConfigListener(ConfigTopic, std::function<void(Packet)>);
 
 #ifdef A0_CXX_CONFIG_USE_NLOHMANN
 
-  explicit ConfigListener(std::function<void(const nlohmann::json&)>);
   ConfigListener(ConfigTopic, std::function<void(const nlohmann::json&)>);
 
 #endif  // A0_CXX_CONFIG_USE_NLOHMANN

@@ -21,9 +21,6 @@
 
 namespace a0 {
 
-Publisher::Publisher()
-    : Publisher(PubSubTopic{}) {}
-
 Publisher::Publisher(PubSubTopic topic) {
   set_c(
       &c,
@@ -47,9 +44,6 @@ struct SubscriberSyncImpl {
 };
 
 }  // namespace
-
-SubscriberSync::SubscriberSync(ReaderInit init, ReaderIter iter)
-    : SubscriberSync(PubSubTopic{}, init, iter) {}
 
 SubscriberSync::SubscriberSync(PubSubTopic topic, ReaderInit init, ReaderIter iter) {
   set_c_impl<SubscriberSyncImpl>(
@@ -101,12 +95,6 @@ struct SubscriberImpl {
 };
 
 }  // namespace
-
-Subscriber::Subscriber(
-    ReaderInit init,
-    ReaderIter iter,
-    std::function<void(Packet)> onpacket)
-    : Subscriber(PubSubTopic{}, init, iter, std::move(onpacket)) {}
 
 Subscriber::Subscriber(
     PubSubTopic topic,

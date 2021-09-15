@@ -27,7 +27,7 @@ struct PubSubTopic {
 };
 
 struct Publisher : details::CppWrap<a0_publisher_t> {
-  Publisher();
+  Publisher() = default;
   explicit Publisher(PubSubTopic);
 
   void pub(Packet);
@@ -36,7 +36,6 @@ struct Publisher : details::CppWrap<a0_publisher_t> {
 
 struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
   SubscriberSync() = default;
-  SubscriberSync(ReaderInit, ReaderIter);
   SubscriberSync(PubSubTopic, ReaderInit, ReaderIter);
 
   bool has_next();
@@ -45,7 +44,6 @@ struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
 
 struct Subscriber : details::CppWrap<a0_subscriber_t> {
   Subscriber() = default;
-  Subscriber(ReaderInit, ReaderIter, std::function<void(Packet)>);
   Subscriber(PubSubTopic, ReaderInit, ReaderIter, std::function<void(Packet)>);
 
   static Packet read_one(PubSubTopic, ReaderInit, int flags);

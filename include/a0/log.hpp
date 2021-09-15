@@ -36,7 +36,7 @@ enum class LogLevel {
 };
 
 struct Logger : details::CppWrap<a0_logger_t> {
-  Logger();
+  Logger() = default;
   explicit Logger(LogTopic);
 
   void log(LogLevel, Packet);
@@ -60,7 +60,6 @@ struct Logger : details::CppWrap<a0_logger_t> {
 
 struct LogListener : details::CppWrap<a0_log_listener_t> {
   LogListener() = default;
-  LogListener(LogLevel, std::function<void(Packet)>);
   LogListener(LogTopic, LogLevel, std::function<void(Packet)>);
 };
 

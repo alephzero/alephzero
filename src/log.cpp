@@ -20,9 +20,6 @@
 
 namespace a0 {
 
-Logger::Logger()
-    : Logger(LogTopic{}) {}
-
 Logger::Logger(LogTopic topic) {
   set_c(
       &c,
@@ -72,11 +69,6 @@ struct LogListenerImpl {
 };
 
 }  // namespace
-
-LogListener::LogListener(
-    LogLevel lvl,
-    std::function<void(Packet)> onpacket)
-    : LogListener(LogTopic{}, lvl, std::move(onpacket)) {}
 
 LogListener::LogListener(
     LogTopic topic,

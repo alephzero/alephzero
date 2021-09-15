@@ -61,11 +61,6 @@ struct RpcServerImpl {
 }  // namespace
 
 RpcServer::RpcServer(
-    std::function<void(RpcRequest)> onrequest,
-    std::function<void(string_view)> oncancel)
-    : RpcServer(RpcTopic{}, std::move(onrequest), std::move(oncancel)) {}
-
-RpcServer::RpcServer(
     RpcTopic topic,
     std::function<void(RpcRequest)> onrequest,
     std::function<void(string_view /* id */)> oncancel) {
@@ -128,9 +123,6 @@ struct RpcClientImpl {
 };
 
 }  // namespace
-
-RpcClient::RpcClient()
-    : RpcClient(RpcTopic{}) {}
 
 RpcClient::RpcClient(RpcTopic topic) {
   set_c_impl<RpcClientImpl>(

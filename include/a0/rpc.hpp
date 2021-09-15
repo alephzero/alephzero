@@ -48,16 +48,13 @@ struct RpcRequest : details::CppWrap<a0_rpc_request_t> {
 struct RpcServer : details::CppWrap<a0_rpc_server_t> {
   RpcServer() = default;
   RpcServer(
-      std::function<void(RpcRequest)> onrequest,
-      std::function<void(string_view /* id */)> oncancel);
-  RpcServer(
       RpcTopic,
       std::function<void(RpcRequest)> onrequest,
       std::function<void(string_view /* id */)> oncancel);
 };
 
 struct RpcClient : details::CppWrap<a0_rpc_client_t> {
-  RpcClient();
+  RpcClient() = default;
   explicit RpcClient(RpcTopic);
 
   void send(Packet, std::function<void(Packet)>);

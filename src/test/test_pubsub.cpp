@@ -2,7 +2,9 @@
 #include <a0/file.h>
 #include <a0/packet.h>
 #include <a0/pubsub.h>
+#include <a0/pubsub.hpp>
 #include <a0/reader.h>
+#include <a0/reader.hpp>
 
 #include <doctest.h>
 #include <fcntl.h>
@@ -140,7 +142,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
       REQUIRE(hdrs["key3"] == "val3");
       REQUIRE(hdrs["a0_time_mono"].size() == 19);
       REQUIRE(hdrs["a0_time_wall"].size() == 35);
-      // REQUIRE(hdrs["a0_transport_seq"] == "2");
+      REQUIRE(hdrs["a0_transport_seq"] == "2");
       REQUIRE(hdrs["a0_writer_seq"] == "0");
       REQUIRE(hdrs["a0_writer_id"].size() == 36);
     }
@@ -179,6 +181,93 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
     }
 
     REQUIRE_OK(a0_subscriber_sync_close(&sub));
+  }
+}
+
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp sync") {
+  {
+    a0::Publisher p(topic.name);
+
+    p.pub(a0::Packet({{"key0", "val0"}, {"key1", "val1"}}, "msg #0"));
+    p.pub(a0::Packet({{"key2", "val2"}}, "msg #1"));
+  }
+  {
+    a0::Publisher p(topic.name);
+    p.pub(a0::Packet({{"key3", "val3"}}, "msg #2"));
+  }
+
+  {
+    a0::SubscriberSync sub(topic.name, A0_INIT_OLDEST, A0_ITER_NEXT);
+
+    uint64_t pkt1_time_mono;
+
+    {
+      REQUIRE(sub.has_next());
+      auto pkt = sub.next();
+
+      REQUIRE(pkt.headers().size() == 7);
+      REQUIRE(pkt.payload() == "msg #0");
+
+      auto hdrs = pkt.headers();
+      REQUIRE(hdrs.find("key0")->second == "val0");
+      REQUIRE(hdrs.find("key1")->second == "val1");
+      REQUIRE(hdrs.find("a0_time_mono")->second.size() == 19);
+      REQUIRE(hdrs.find("a0_time_wall")->second.size() == 35);
+      REQUIRE(hdrs.find("a0_transport_seq")->second == "0");
+      REQUIRE(hdrs.find("a0_writer_seq")->second == "0");
+      REQUIRE(hdrs.find("a0_writer_id")->second.size() == 36);
+      pkt1_time_mono = stoull(hdrs.find("a0_time_mono")->second);
+      REQUIRE(pkt1_time_mono > 0);
+      REQUIRE(pkt1_time_mono < UINT64_MAX);
+    }
+
+    {
+      REQUIRE(sub.has_next());
+      auto pkt = sub.next();
+
+      REQUIRE(pkt.headers().size() == 6);
+      REQUIRE(pkt.payload() == "msg #1");
+
+      auto hdrs = pkt.headers();
+      REQUIRE(hdrs.find("key2")->second == "val2");
+      REQUIRE(hdrs.find("a0_time_mono")->second.size() == 19);
+      REQUIRE(hdrs.find("a0_time_wall")->second.size() == 35);
+      REQUIRE(hdrs.find("a0_transport_seq")->second == "1");
+      REQUIRE(hdrs.find("a0_writer_seq")->second == "1");
+      REQUIRE(hdrs.find("a0_writer_id")->second.size() == 36);
+
+      uint64_t pkt2_time_mono = stoull(hdrs.find("a0_time_mono")->second);
+      REQUIRE(pkt2_time_mono > pkt1_time_mono);
+      REQUIRE(pkt2_time_mono < UINT64_MAX);
+    }
+
+    {
+      REQUIRE(sub.has_next());
+      auto pkt = sub.next();
+
+      REQUIRE(pkt.headers().size() == 6);
+      REQUIRE(pkt.payload() == "msg #2");
+
+      auto hdrs = pkt.headers();
+      REQUIRE(hdrs.find("key3")->second == "val3");
+      REQUIRE(hdrs.find("a0_time_mono")->second.size() == 19);
+      REQUIRE(hdrs.find("a0_time_wall")->second.size() == 35);
+      REQUIRE(hdrs.find("a0_transport_seq")->second == "2");
+      REQUIRE(hdrs.find("a0_writer_seq")->second == "0");
+      REQUIRE(hdrs.find("a0_writer_id")->second.size() == 36);
+    }
+
+    REQUIRE(!sub.has_next());
+  }
+
+  {
+    a0::SubscriberSync sub(topic.name, A0_INIT_MOST_RECENT, A0_ITER_NEWEST);
+
+    REQUIRE(sub.has_next());
+    auto pkt = sub.next();
+    REQUIRE(pkt.payload() == "msg #2");
+
+    REQUIRE(!sub.has_next());
   }
 }
 

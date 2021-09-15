@@ -49,16 +49,13 @@ struct PrpcConnection : details::CppWrap<a0_prpc_connection_t> {
 struct PrpcServer : details::CppWrap<a0_prpc_server_t> {
   PrpcServer() = default;
   PrpcServer(
-      std::function<void(PrpcConnection)> onconnection,
-      std::function<void(string_view /* id */)> oncancel);
-  PrpcServer(
       PrpcTopic,
       std::function<void(PrpcConnection)> onconnection,
       std::function<void(string_view /* id */)> oncancel);
 };
 
 struct PrpcClient : details::CppWrap<a0_prpc_client_t> {
-  PrpcClient();
+  PrpcClient() = default;
   explicit PrpcClient(PrpcTopic);
 
   void connect(Packet, std::function<void(Packet, bool /* done */)>);

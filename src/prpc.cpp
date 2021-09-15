@@ -60,11 +60,6 @@ struct PrpcServerImpl {
 }  // namespace
 
 PrpcServer::PrpcServer(
-    std::function<void(PrpcConnection)> onconnect,
-    std::function<void(string_view)> oncancel)
-    : PrpcServer(PrpcTopic{}, std::move(onconnect), std::move(oncancel)) {}
-
-PrpcServer::PrpcServer(
     PrpcTopic topic,
     std::function<void(PrpcConnection)> onconnect,
     std::function<void(string_view /* id */)> oncancel) {
@@ -127,9 +122,6 @@ struct PrpcClientImpl {
 };
 
 }  // namespace
-
-PrpcClient::PrpcClient()
-    : PrpcClient(PrpcTopic{}) {}
 
 PrpcClient::PrpcClient(PrpcTopic topic) {
   set_c_impl<PrpcClientImpl>(
