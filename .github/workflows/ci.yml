@@ -124,9 +124,7 @@ jobs:
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
-      run: |
-       make clean && make test -j A0_C_CONFIG_USE_YYJSON=1
-       make clean && make test -j A0_CXX_CONFIG_USE_NLOHMANN=1
+      run: make test -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
 
   asan:
     name: Address Sanitizer

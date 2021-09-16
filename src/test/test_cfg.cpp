@@ -1,5 +1,5 @@
-#include <a0/config.h>
-#include <a0/config.hpp>
+#include <a0/cfg.h>
+#include <a0/cfg.hpp>
 #include <a0/empty.h>
 #include <a0/env.hpp>
 #include <a0/err.h>
@@ -17,34 +17,34 @@
 
 #include "src/test_util.hpp"
 
-#ifdef A0_C_CONFIG_USE_YYJSON
+#ifdef A0_EXT_YYJSON
 
 #include <yyjson.h>
 
-#endif  // A0_C_CONFIG_USE_YYJSON
+#endif  // A0_EXT_YYJSON
 
-#ifdef A0_CXX_CONFIG_USE_NLOHMANN
+#ifdef A0_EXT_NLOHMANN
+
+#include <nlohmann/json.hpp>
 
 #include <stdexcept>
 #include <vector>
 
-#include <nlohmann/json.hpp>
+#endif  // A0_EXT_NLOHMANN
 
-#endif  // A0_CXX_CONFIG_USE_NLOHMANN
-
-struct ConfigFixture {
-  a0_config_topic_t topic = {"test", nullptr};
+struct CfgFixture {
+  a0_cfg_topic_t topic = {"test", nullptr};
   const char* topic_path = "alephzero/test.cfg.a0";
-  a0_config_t cfg = A0_EMPTY;
+  a0_cfg_t cfg = A0_EMPTY;
 
-  ConfigFixture() {
+  CfgFixture() {
     clear();
 
-    REQUIRE_OK(a0_config_init(&cfg, topic));
+    REQUIRE_OK(a0_cfg_init(&cfg, topic));
   }
 
-  ~ConfigFixture() {
-    REQUIRE_OK(a0_config_close(&cfg));
+  ~CfgFixture() {
+    REQUIRE_OK(a0_cfg_close(&cfg));
 
     clear();
   }
@@ -55,20 +55,20 @@ struct ConfigFixture {
   }
 };
 
-TEST_CASE_FIXTURE(ConfigFixture, "config] basic") {
+TEST_CASE_FIXTURE(CfgFixture, "cfg] basic") {
   a0_packet_t pkt;
-  REQUIRE(a0_config_read(&cfg, a0::test::alloc(), O_NONBLOCK, &pkt) == A0_ERR_AGAIN);
+  REQUIRE(a0_cfg_read(&cfg, a0::test::alloc(), O_NONBLOCK, &pkt) == A0_ERR_AGAIN);
 
-  REQUIRE_OK(a0_config_write(&cfg, a0::test::pkt("cfg")));
-  REQUIRE_OK(a0_config_read(&cfg, a0::test::alloc(), O_NONBLOCK, &pkt));
+  REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt("cfg")));
+  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), O_NONBLOCK, &pkt));
   REQUIRE(a0::test::str(pkt.payload) == "cfg");
 
-  REQUIRE_OK(a0_config_read(&cfg, a0::test::alloc(), 0, &pkt));
+  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), 0, &pkt));
   REQUIRE(a0::test::str(pkt.payload) == "cfg");
 }
 
-TEST_CASE_FIXTURE(ConfigFixture, "config] cpp basic") {
-  a0::Config c(a0::env::topic());
+TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp basic") {
+  a0::Cfg c(a0::env::topic());
 
   REQUIRE_THROWS_WITH(
       [&]() { c.read(O_NONBLOCK); }(),
@@ -79,59 +79,59 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp basic") {
   REQUIRE(c.read(O_NONBLOCK).payload() == "cfg");
 }
 
-#ifdef A0_C_CONFIG_USE_YYJSON
+#ifdef A0_EXT_YYJSON
 
-TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson read empty nonblock") {
+TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read empty nonblock") {
   yyjson_doc doc;
-  REQUIRE(a0_config_read_yyjson(&cfg, a0::test::alloc(), O_NONBLOCK, &doc) == A0_ERR_AGAIN);
+  REQUIRE(a0_cfg_read_yyjson(&cfg, a0::test::alloc(), O_NONBLOCK, &doc) == A0_ERR_AGAIN);
 }
 
-TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson read nonjson") {
-  REQUIRE_OK(a0_config_write(&cfg, a0::test::pkt("cfg")));
+TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read nonjson") {
+  REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt("cfg")));
   yyjson_doc doc;
-  a0_err_t err = a0_config_read_yyjson(&cfg, a0::test::alloc(), 0, &doc);
+  a0_err_t err = a0_cfg_read_yyjson(&cfg, a0::test::alloc(), 0, &doc);
   REQUIRE(err == A0_ERR_CUSTOM_MSG);
-  REQUIRE(std::string(a0_err_msg) == "Failed to parse config: unexpected character");
+  REQUIRE(std::string(a0_err_msg) == "Failed to parse cfg: unexpected character");
 }
 
-TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson read valid") {
-  REQUIRE_OK(a0_config_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
+TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read valid") {
+  REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
   yyjson_doc doc;
-  REQUIRE_OK(a0_config_read_yyjson(&cfg, a0::test::alloc(), 0, &doc));
+  REQUIRE_OK(a0_cfg_read_yyjson(&cfg, a0::test::alloc(), 0, &doc));
   REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "foo")) == 1);
   REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "bar")) == 2);
 }
 
-TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson write") {
+TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson write") {
   std::string json_str = R"([1, "2", "three"])";
   yyjson_doc* doc = yyjson_read(json_str.c_str(), json_str.size(), 0);
-  REQUIRE_OK(a0_config_write_yyjson(&cfg, *doc));
+  REQUIRE_OK(a0_cfg_write_yyjson(&cfg, *doc));
   yyjson_doc_free(doc);
 
   a0_packet_t pkt;
-  REQUIRE_OK(a0_config_read(&cfg, a0::test::alloc(), 0, &pkt));
+  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), 0, &pkt));
   REQUIRE(a0::test::str(pkt.payload) == R"([1,"2","three"])");
 }
 
-TEST_CASE_FIXTURE(ConfigFixture, "config] yyjson mergepatch") {
+TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson mergepatch") {
   std::string mp_str = R"({"foo": 1,"bar": 2})";
   yyjson_doc* doc = yyjson_read(mp_str.c_str(), mp_str.size(), 0);
-  REQUIRE_OK(a0_config_mergepatch_yyjson(&cfg, *doc));
+  REQUIRE_OK(a0_cfg_mergepatch_yyjson(&cfg, *doc));
   yyjson_doc_free(doc);
 
   mp_str = R"({"foo": null, "bar": {"baz": 3}})";
   doc = yyjson_read(mp_str.c_str(), mp_str.size(), 0);
-  REQUIRE_OK(a0_config_mergepatch_yyjson(&cfg, *doc));
+  REQUIRE_OK(a0_cfg_mergepatch_yyjson(&cfg, *doc));
   yyjson_doc_free(doc);
 
   a0_packet_t pkt;
-  REQUIRE_OK(a0_config_read(&cfg, a0::test::alloc(), 0, &pkt));
+  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), 0, &pkt));
   REQUIRE(a0::test::str(pkt.payload) == R"({"bar":{"baz":3}})");
 }
 
 #endif
 
-#ifdef A0_CXX_CONFIG_USE_NLOHMANN
+#ifdef A0_EXT_NLOHMANN
 
 struct MyStruct {
   int foo;
@@ -143,11 +143,11 @@ void from_json(const nlohmann::json& j, MyStruct& my) {
   j["bar"].get_to(my.bar);
 }
 
-TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann") {
-  a0::Config c(a0::env::topic());
+TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
+  a0::Cfg c(a0::env::topic());
   c.write(R"({"foo": 1, "bar": 2})");
 
-  a0::CfgVar<MyStruct> my;
+  a0::Cfg::Var<MyStruct> my;
 
   my = c.var<MyStruct>();
   auto foo = c.var<int>("/foo");
@@ -181,4 +181,4 @@ TEST_CASE_FIXTURE(ConfigFixture, "config] cpp nlohmann") {
       "invalid literal; last read: 'c'");
 }
 
-#endif  // A0_CXX_CONFIG_USE_NLOHMANN
+#endif  // A0_EXT_NLOHMANN

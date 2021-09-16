@@ -1,5 +1,5 @@
 #include <a0/alloc.h>
-#include <a0/config.h>
+#include <a0/cfg.h>
 #include <a0/env.h>
 #include <a0/err.h>
 #include <a0/file.h>
@@ -13,7 +13,7 @@
 #include "err_macro.h"
 #include "topic.h"
 
-#ifdef A0_C_CONFIG_USE_YYJSON
+#ifdef A0_EXT_YYJSON
 
 #include <a0/buf.h>
 #include <a0/empty.h>
@@ -27,44 +27,44 @@
 #include <stdio.h>
 #include <yyjson.h>
 
-#endif  // A0_C_CONFIG_USE_YYJSON
+#endif  // A0_EXT_YYJSON
 
 A0_STATIC_INLINE
-a0_err_t a0_config_topic_open(a0_config_topic_t topic, a0_file_t* out) {
+a0_err_t a0_cfg_topic_open(a0_cfg_topic_t topic, a0_file_t* out) {
   return a0_topic_open(a0_env_topic_tmpl_cfg(), topic.name, topic.file_opts, out);
 }
 
-a0_err_t a0_config_init(a0_config_t* config, a0_config_topic_t topic) {
-  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &config->_file));
-  a0_err_t err = a0_writer_init(&config->_writer, config->_file.arena);
+a0_err_t a0_cfg_init(a0_cfg_t* cfg, a0_cfg_topic_t topic) {
+  A0_RETURN_ERR_ON_ERR(a0_cfg_topic_open(topic, &cfg->_file));
+  a0_err_t err = a0_writer_init(&cfg->_writer, cfg->_file.arena);
   if (err) {
-    a0_file_close(&config->_file);
+    a0_file_close(&cfg->_file);
   }
   return err;
 }
 
-a0_err_t a0_config_close(a0_config_t* config) {
-  a0_writer_close(&config->_writer);
-  a0_file_close(&config->_file);
+a0_err_t a0_cfg_close(a0_cfg_t* cfg) {
+  a0_writer_close(&cfg->_writer);
+  a0_file_close(&cfg->_file);
   return A0_OK;
 }
 
-a0_err_t a0_config_read(a0_config_t* config,
-                        a0_alloc_t alloc,
-                        int flags,
-                        a0_packet_t* out) {
-  return a0_reader_read_one(config->_file.arena,
+a0_err_t a0_cfg_read(a0_cfg_t* cfg,
+                     a0_alloc_t alloc,
+                     int flags,
+                     a0_packet_t* out) {
+  return a0_reader_read_one(cfg->_file.arena,
                             alloc,
                             A0_INIT_MOST_RECENT,
                             flags,
                             out);
 }
 
-a0_err_t a0_config_write(a0_config_t* config, a0_packet_t pkt) {
-  return a0_writer_write(&config->_writer, pkt);
+a0_err_t a0_cfg_write(a0_cfg_t* cfg, a0_packet_t pkt) {
+  return a0_writer_write(&cfg->_writer, pkt);
 }
 
-#ifdef A0_C_CONFIG_USE_YYJSON
+#ifdef A0_EXT_YYJSON
 
 static const int a0_yyjson_read_flags = YYJSON_READ_ALLOW_TRAILING_COMMAS | YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_INF_AND_NAN;
 
@@ -92,10 +92,10 @@ a0_err_t yyjson_alloc_wrapper(void* user_data, size_t size, a0_buf_t* out) {
   return err;
 }
 
-a0_err_t a0_config_read_yyjson(a0_config_t* config,
-                               a0_alloc_t alloc,
-                               int flags,
-                               yyjson_doc* out) {
+a0_err_t a0_cfg_read_yyjson(a0_cfg_t* cfg,
+                            a0_alloc_t alloc,
+                            int flags,
+                            yyjson_doc* out) {
   a0_yyjson_alloc_t yyjson_alloc = {alloc, A0_EMPTY, A0_EMPTY};
 
   a0_alloc_t alloc_wrapper = {
@@ -106,7 +106,7 @@ a0_err_t a0_config_read_yyjson(a0_config_t* config,
 
   a0_packet_t pkt;
   A0_RETURN_ERR_ON_ERR(a0_reader_read_one(
-      config->_file.arena,
+      cfg->_file.arena,
       alloc_wrapper,
       A0_INIT_MOST_RECENT,
       flags,
@@ -126,13 +126,13 @@ a0_err_t a0_config_read_yyjson(a0_config_t* config,
       &alc,
       &read_err);
   if (read_err.code) {
-    return A0_MAKE_MSGERR("Failed to parse config: %s", read_err.msg);
+    return A0_MAKE_MSGERR("Failed to parse cfg: %s", read_err.msg);
   }
   *out = *result;
   return A0_OK;
 }
 
-a0_err_t a0_config_write_yyjson(a0_config_t* config, yyjson_doc doc) {
+a0_err_t a0_cfg_write_yyjson(a0_cfg_t* cfg, yyjson_doc doc) {
   yyjson_write_err write_err;
   size_t size;
   char* data = yyjson_write_opts(
@@ -143,14 +143,14 @@ a0_err_t a0_config_write_yyjson(a0_config_t* config, yyjson_doc doc) {
       &write_err);
 
   if (write_err.code) {
-    return A0_MAKE_MSGERR("Failed to serialize config: %s", write_err.msg);
+    return A0_MAKE_MSGERR("Failed to serialize cfg: %s", write_err.msg);
   }
 
   a0_packet_t pkt;
   a0_packet_init(&pkt);
   pkt.payload = (a0_buf_t){(uint8_t*)data, size};
 
-  a0_err_t err = a0_config_write(config, pkt);
+  a0_err_t err = a0_cfg_write(cfg, pkt);
   free(data);
   return err;
 }
@@ -174,7 +174,7 @@ a0_err_t a0_mergepatch_process_locked_empty(
 
   if (write_err.code) {
     free(data);
-    return A0_MAKE_MSGERR("Failed to serialize config: %s", write_err.msg);
+    return A0_MAKE_MSGERR("Failed to serialize cfg: %s", write_err.msg);
   }
 
   pkt->payload = (a0_buf_t){(uint8_t*)data, size};
@@ -219,7 +219,7 @@ a0_err_t a0_mergepatch_process_locked_nonempty(
       &alc,
       &read_err);
   if (read_err.code) {
-    return A0_MAKE_MSGERR("Failed to parse config: %s", read_err.msg);
+    return A0_MAKE_MSGERR("Failed to parse cfg: %s", read_err.msg);
   }
 
   yyjson_mut_doc* merged_doc = yyjson_mut_doc_new(NULL);
@@ -240,7 +240,7 @@ a0_err_t a0_mergepatch_process_locked_nonempty(
 
   if (write_err.code) {
     yyjson_mut_doc_free(merged_doc);
-    return A0_MAKE_MSGERR("Failed to serialize config: %s", write_err.msg);
+    return A0_MAKE_MSGERR("Failed to serialize cfg: %s", write_err.msg);
   }
 
   pkt->payload = (a0_buf_t){(uint8_t*)data, size};
@@ -269,7 +269,7 @@ a0_err_t a0_mergepatch_process_locked(
   return a0_mergepatch_process_locked_nonempty(mergepatch, tlk, pkt, chain);
 }
 
-a0_err_t a0_config_mergepatch_yyjson(a0_config_t* config, yyjson_doc mergepatch) {
+a0_err_t a0_cfg_mergepatch_yyjson(a0_cfg_t* cfg, yyjson_doc mergepatch) {
   a0_middleware_t mergepatch_middleware = {
       .user_data = &mergepatch,
       .close = NULL,
@@ -279,7 +279,7 @@ a0_err_t a0_config_mergepatch_yyjson(a0_config_t* config, yyjson_doc mergepatch)
 
   a0_writer_t mergepatch_writer;
   a0_writer_wrap(
-      &config->_writer,
+      &cfg->_writer,
       mergepatch_middleware,
       &mergepatch_writer);
 
@@ -291,31 +291,31 @@ a0_err_t a0_config_mergepatch_yyjson(a0_config_t* config, yyjson_doc mergepatch)
   return err;
 }
 
-#endif  // A0_C_CONFIG_USE_YYJSON
+#endif  // A0_EXT_YYJSON
 
-a0_err_t a0_onconfig_init(a0_onconfig_t* cfg,
-                          a0_config_topic_t topic,
-                          a0_alloc_t alloc,
-                          a0_packet_callback_t onpacket) {
-  A0_RETURN_ERR_ON_ERR(a0_config_topic_open(topic, &cfg->_file));
+a0_err_t a0_cfg_watcher_init(a0_cfg_watcher_t* cw,
+                             a0_cfg_topic_t topic,
+                             a0_alloc_t alloc,
+                             a0_packet_callback_t onpacket) {
+  A0_RETURN_ERR_ON_ERR(a0_cfg_topic_open(topic, &cw->_file));
 
   a0_err_t err = a0_reader_init(
-      &cfg->_reader,
-      cfg->_file.arena,
+      &cw->_reader,
+      cw->_file.arena,
       alloc,
       A0_INIT_MOST_RECENT,
       A0_ITER_NEWEST,
       onpacket);
   if (err) {
-    a0_file_close(&cfg->_file);
+    a0_file_close(&cw->_file);
     return err;
   }
 
   return A0_OK;
 }
 
-a0_err_t a0_onconfig_close(a0_onconfig_t* cfg) {
-  a0_reader_close(&cfg->_reader);
-  a0_file_close(&cfg->_file);
+a0_err_t a0_cfg_watcher_close(a0_cfg_watcher_t* cw) {
+  a0_reader_close(&cw->_reader);
+  a0_file_close(&cw->_file);
   return A0_OK;
 }

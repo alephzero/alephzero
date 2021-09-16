@@ -1,7 +1,7 @@
 #include <a0/alloc.h>
 #include <a0/buf.h>
-#include <a0/config.h>
-#include <a0/config.hpp>
+#include <a0/cfg.h>
+#include <a0/cfg.hpp>
 #include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
@@ -18,7 +18,7 @@
 #include "c_wrap.hpp"
 #include "file_opts.hpp"
 
-#ifdef A0_CXX_CONFIG_USE_NLOHMANN
+#ifdef A0_EXT_NLOHMANN
 
 #include <a0/middleware.h>
 #include <a0/middleware.hpp>
@@ -27,39 +27,39 @@
 #include <a0/transport.hpp>
 #include <a0/writer.hpp>
 
+#include <nlohmann/json.hpp>
+
 #include <initializer_list>
 #include <type_traits>
 
-#include <nlohmann/json.hpp>
-
-#endif  // A0_CXX_CONFIG_USE_NLOHMANN
+#endif  // A0_EXT_NLOHMANN
 
 namespace a0 {
 
 namespace {
 
-struct ConfigImpl {
-#ifdef A0_CXX_CONFIG_USE_NLOHMANN
+struct CfgImpl {
+#ifdef A0_EXT_NLOHMANN
   std::vector<std::weak_ptr<std::function<void(const nlohmann::json&)>>> var_updaters;
-#endif  // A0_CXX_CONFIG_USE_NLOHMANN
+#endif  // A0_EXT_NLOHMANN
 };
 
 }  // namespace
 
-Config::Config(ConfigTopic topic) {
-  set_c_impl<ConfigImpl>(
+Cfg::Cfg(CfgTopic topic) {
+  set_c_impl<CfgImpl>(
       &c,
-      [&](a0_config_t* c, ConfigImpl*) {
+      [&](a0_cfg_t* c, CfgImpl*) {
         auto cfo = c_fileopts(topic.file_opts);
-        a0_config_topic_t c_topic{topic.name.c_str(), &cfo};
-        return a0_config_init(c, c_topic);
+        a0_cfg_topic_t c_topic{topic.name.c_str(), &cfo};
+        return a0_cfg_init(c, c_topic);
       },
-      [](a0_config_t* c, ConfigImpl*) {
-        a0_config_close(c);
+      [](a0_cfg_t* c, CfgImpl*) {
+        a0_cfg_close(c);
       });
 }
 
-Packet Config::read(int flags) const {
+Packet Cfg::read(int flags) const {
   auto data = std::make_shared<std::vector<uint8_t>>();
 
   a0_alloc_t alloc = {
@@ -74,18 +74,18 @@ Packet Config::read(int flags) const {
   };
 
   a0_packet_t pkt;
-  check(a0_config_read(&*c, alloc, flags, &pkt));
+  check(a0_cfg_read(&*c, alloc, flags, &pkt));
 
   return Packet(pkt, [data](a0_packet_t*) {});
 }
 
-void Config::write(Packet pkt) {
-  check(a0_config_write(&*c, *pkt.c));
+void Cfg::write(Packet pkt) {
+  check(a0_cfg_write(&*c, *pkt.c));
 }
 
-#ifdef A0_CXX_CONFIG_USE_NLOHMANN
+#ifdef A0_EXT_NLOHMANN
 
-void Config::mergepatch(nlohmann::json update) {
+void Cfg::mergepatch(nlohmann::json update) {
   a0_middleware_t mergepatch_middleware = {
       .user_data = &update,
       .close = NULL,
@@ -121,14 +121,14 @@ void Config::mergepatch(nlohmann::json update) {
       .write("");
 }
 
-void Config::register_var(std::weak_ptr<std::function<void(const nlohmann::json&)>> updater) {
-  c_impl<ConfigImpl>(&c)->var_updaters.push_back(updater);
+void Cfg::register_var(std::weak_ptr<std::function<void(const nlohmann::json&)>> updater) {
+  c_impl<CfgImpl>(&c)->var_updaters.push_back(updater);
 }
 
-void Config::update_var() {
+void Cfg::update_var() {
   auto json_cfg = nlohmann::json::parse(read().payload());
 
-  auto* weak_updaters = &c_impl<ConfigImpl>(&c)->var_updaters;
+  auto* weak_updaters = &c_impl<CfgImpl>(&c)->var_updaters;
   for (size_t i = 0; i < weak_updaters->size();) {
     auto strong_updater = weak_updaters->at(i).lock();
     if (!strong_updater) {
@@ -141,38 +141,38 @@ void Config::update_var() {
   }
 }
 
-#endif  // A0_CXX_CONFIG_USE_NLOHMANN
+#endif  // A0_EXT_NLOHMANN
 
 namespace {
 
-struct ConfigListenerImpl {
+struct CfgWatcherImpl {
   std::vector<uint8_t> data;
   std::function<void(Packet)> onpacket;
 
-#ifdef A0_CXX_CONFIG_USE_NLOHMANN
+#ifdef A0_EXT_NLOHMANN
 
   std::function<void(nlohmann::json)> onjson;
 
-#endif  // A0_CXX_CONFIG_USE_NLOHMANN
+#endif  // A0_EXT_NLOHMANN
 };
 
 }  // namespace
 
-ConfigListener::ConfigListener(
-    ConfigTopic topic,
+CfgWatcher::CfgWatcher(
+    CfgTopic topic,
     std::function<void(Packet)> onpacket) {
-  set_c_impl<ConfigListenerImpl>(
+  set_c_impl<CfgWatcherImpl>(
       &c,
-      [&](a0_onconfig_t* c, ConfigListenerImpl* impl) {
+      [&](a0_cfg_watcher_t* c, CfgWatcherImpl* impl) {
         impl->onpacket = std::move(onpacket);
 
         auto cfo = c_fileopts(topic.file_opts);
-        a0_config_topic_t c_topic{topic.name.c_str(), &cfo};
+        a0_cfg_topic_t c_topic{topic.name.c_str(), &cfo};
 
         a0_alloc_t alloc = {
             .user_data = impl,
             .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-              auto* impl = (ConfigListenerImpl*)user_data;
+              auto* impl = (CfgWatcherImpl*)user_data;
               impl->data.resize(size);
               *out = {impl->data.data(), size};
               return A0_OK;
@@ -183,36 +183,36 @@ ConfigListener::ConfigListener(
         a0_packet_callback_t c_onpacket = {
             .user_data = impl,
             .fn = [](void* user_data, a0_packet_t pkt) {
-              auto* impl = (ConfigListenerImpl*)user_data;
+              auto* impl = (CfgWatcherImpl*)user_data;
               auto data = std::make_shared<std::vector<uint8_t>>();
               std::swap(*data, impl->data);
               impl->onpacket(Packet(pkt, [data](a0_packet_t*) {}));
             }};
 
-        return a0_onconfig_init(c, c_topic, alloc, c_onpacket);
+        return a0_cfg_watcher_init(c, c_topic, alloc, c_onpacket);
       },
-      [](a0_onconfig_t* c, ConfigListenerImpl*) {
-        a0_onconfig_close(c);
+      [](a0_cfg_watcher_t* c, CfgWatcherImpl*) {
+        a0_cfg_watcher_close(c);
       });
 }
 
-#ifdef A0_CXX_CONFIG_USE_NLOHMANN
+#ifdef A0_EXT_NLOHMANN
 
-ConfigListener::ConfigListener(
-    ConfigTopic topic,
+CfgWatcher::CfgWatcher(
+    CfgTopic topic,
     std::function<void(const nlohmann::json&)> onjson) {
-  set_c_impl<ConfigListenerImpl>(
+  set_c_impl<CfgWatcherImpl>(
       &c,
-      [&](a0_onconfig_t* c, ConfigListenerImpl* impl) {
+      [&](a0_cfg_watcher_t* c, CfgWatcherImpl* impl) {
         impl->onjson = std::move(onjson);
 
         auto cfo = c_fileopts(topic.file_opts);
-        a0_config_topic_t c_topic{topic.name.c_str(), &cfo};
+        a0_cfg_topic_t c_topic{topic.name.c_str(), &cfo};
 
         a0_alloc_t alloc = {
             .user_data = impl,
             .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-              auto* impl = (ConfigListenerImpl*)user_data;
+              auto* impl = (CfgWatcherImpl*)user_data;
               impl->data.resize(size);
               *out = {impl->data.data(), size};
               return A0_OK;
@@ -223,19 +223,19 @@ ConfigListener::ConfigListener(
         a0_packet_callback_t c_onpacket = {
             .user_data = impl,
             .fn = [](void* user_data, a0_packet_t pkt) {
-              auto* impl = (ConfigListenerImpl*)user_data;
+              auto* impl = (CfgWatcherImpl*)user_data;
               auto json = nlohmann::json::parse(
                   string_view((const char*)pkt.payload.data, pkt.payload.size));
               impl->onjson(json);
             }};
 
-        return a0_onconfig_init(c, c_topic, alloc, c_onpacket);
+        return a0_cfg_watcher_init(c, c_topic, alloc, c_onpacket);
       },
-      [](a0_onconfig_t* c, ConfigListenerImpl*) {
-        a0_onconfig_close(c);
+      [](a0_cfg_watcher_t* c, CfgWatcherImpl*) {
+        a0_cfg_watcher_close(c);
       });
 }
 
-#endif  // A0_CXX_CONFIG_USE_NLOHMANN
+#endif  // A0_EXT_NLOHMANN
 
 }  // namespace a0
