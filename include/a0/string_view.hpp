@@ -1,14 +1,6 @@
 #pragma once
 
-#if (__cplusplus >= 201703L)
-
-#include <string_view>
-
-namespace a0 {
-using string_view = std::string_view;
-}  // namespace a0
-
-#else
+#define A0_CPP_17 (__cplusplus >= 201700L)
 
 #include <a0/inline.h>
 #include <a0/unused.h>
@@ -22,6 +14,10 @@ using string_view = std::string_view;
 #include <ostream>
 #include <stdexcept>
 #include <string>
+
+#if A0_CPP_17
+#include <string_view>
+#endif
 
 namespace a0 {
 
@@ -57,6 +53,15 @@ class string_view {
       : string_view(s, strlen(s)) {}
   string_view(const std::string& str) noexcept  // NOLINT(google-explicit-constructor)
       : data_{str.c_str()}, size_{str.size()} {}
+
+#if A0_CPP_17
+  string_view(std::string_view str) noexcept  // NOLINT(google-explicit-constructor)
+      : data_{str.data()}, size_{str.size()} {}
+
+  operator std::string_view() const noexcept {
+    return std::string_view(data_, size_);
+  }
+#endif  // A0_CPP_17
 
   string_view& operator=(const string_view& view) = default;
 
@@ -202,6 +207,28 @@ A0_STATIC_INLINE bool operator>=(const string_view& lhs, const string_view& rhs)
   return lhs.compare(rhs) >= 0;
 }
 
-}  // namespace a0
+#if A0_CPP_17
 
-#endif
+#define A0_STRING_VIEW_CMP(T) \
+  A0_STATIC_INLINE bool operator==(T lhs, string_view rhs) noexcept { return string_view(lhs) == rhs; } \
+  A0_STATIC_INLINE bool operator==(string_view lhs, T rhs) noexcept { return lhs == string_view(rhs); } \
+  A0_STATIC_INLINE bool operator!=(T lhs, string_view rhs) noexcept { return string_view(lhs) != rhs; } \
+  A0_STATIC_INLINE bool operator!=(string_view lhs, T rhs) noexcept { return lhs != string_view(rhs); } \
+  A0_STATIC_INLINE bool operator<(T lhs, string_view rhs) noexcept { return string_view(lhs) < rhs; } \
+  A0_STATIC_INLINE bool operator<(string_view lhs, T rhs) noexcept { return lhs < string_view(rhs); } \
+  A0_STATIC_INLINE bool operator>(T lhs, string_view rhs) noexcept { return string_view(lhs) > rhs; } \
+  A0_STATIC_INLINE bool operator>(string_view lhs, T rhs) noexcept { return lhs > string_view(rhs); } \
+  A0_STATIC_INLINE bool operator<=(T lhs, string_view rhs) noexcept { return string_view(lhs) <= rhs; } \
+  A0_STATIC_INLINE bool operator<=(string_view lhs, T rhs) noexcept { return lhs <= string_view(rhs); } \
+  A0_STATIC_INLINE bool operator>=(T lhs, string_view rhs) noexcept { return string_view(lhs) >= rhs; } \
+  A0_STATIC_INLINE bool operator>=(string_view lhs, T rhs) noexcept { return lhs >= string_view(rhs); }
+
+A0_STRING_VIEW_CMP(std::string_view)
+A0_STRING_VIEW_CMP(std::string)
+A0_STRING_VIEW_CMP(const char*)
+
+#undef A0_STRING_VIEW_CMP
+
+#endif  // A0_CPP_17
+
+}  // namespace a0
