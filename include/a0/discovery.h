@@ -36,7 +36,7 @@ a0_err_t a0_pathglob_match(a0_pathglob_t*, const char* path, bool* out);
 
 typedef struct a0_discovery_callback_s {
   void* user_data;
-  void (*on_discovery)(void* user_data, const char* path);
+  void (*fn)(void* user_data, const char* path);
 } a0_discovery_callback_t;
 
 typedef struct a0_discovery_s {

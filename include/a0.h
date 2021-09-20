@@ -7,6 +7,7 @@
 #include <a0/callback.h>
 #include <a0/cfg.h>
 #include <a0/compare.h>
+#include <a0/discovery.h>
 #include <a0/env.h>
 #include <a0/err.h>
 #include <a0/file.h>
@@ -27,6 +28,7 @@
 #include <a0/arena.hpp>
 #include <a0/buf.hpp>
 #include <a0/cfg.hpp>
+#include <a0/discovery.hpp>
 #include <a0/env.hpp>
 #include <a0/file.hpp>
 #include <a0/log.hpp>

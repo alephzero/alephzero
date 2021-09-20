@@ -204,7 +204,7 @@ void a0_discovery_announce(a0_discovery_t* d, const char* path) {
     char* dup = strdup(path);
     int unused = 0;
     a0_map_put(&d->_discovered_map, &dup, &unused);
-    d->_callback.on_discovery(d->_callback.user_data, path);
+    d->_callback.fn(d->_callback.user_data, path);
   }
 }
 
@@ -406,7 +406,7 @@ a0_err_t a0_discovery_init(a0_discovery_t* d, const char* path_pattern, a0_disco
 
 a0_err_t a0_discovery_close(a0_discovery_t* d) {
   uint64_t writ = 1;
-  write(d->_close_fd, &writ, sizeof(uint64_t));
+  (void)!write(d->_close_fd, &writ, sizeof(uint64_t));
   pthread_join(d->_thread, NULL);
 
   a0_map_iterator_t iter;
