@@ -35,6 +35,9 @@ const char* a0_strerror(a0_err_t err) {
     case A0_ERR_NOT_FOUND: {
       return "Not found";
     }
+    case A0_ERR_BAD_PATH: {
+      return "Invalid path";
+    }
     case A0_ERR_BAD_TOPIC: {
       return "Invalid topic name";
     }

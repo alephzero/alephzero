@@ -40,8 +40,14 @@ a0_err_t a0_hash_eval(a0_hash_t hash, const void* data, size_t* out) {
   return hash.fn(hash.user_data, data, out);
 }
 
+extern const a0_hash_t A0_HASH_U32;
+extern const a0_compare_t A0_COMPARE_U32;
+
 extern const a0_hash_t A0_HASH_PTR;
 extern const a0_compare_t A0_COMPARE_PTR;
+
+extern const a0_hash_t A0_HASH_STR;
+extern const a0_compare_t A0_COMPARE_STR;
 
 extern const a0_hash_t A0_HASH_UUID;
 extern const a0_compare_t A0_COMPARE_UUID;

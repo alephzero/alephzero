@@ -17,7 +17,8 @@ typedef enum a0_err_e {
   A0_ERR_ITER_DONE = 6,
   A0_ERR_NOT_FOUND = 7,
   A0_ERR_FRAME_LARGE = 8,
-  A0_ERR_BAD_TOPIC = 9,
+  A0_ERR_BAD_PATH = 9,
+  A0_ERR_BAD_TOPIC = 10,
 } a0_err_t;
 
 extern thread_local int a0_err_syscode;

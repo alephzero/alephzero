@@ -247,33 +247,21 @@ a0_err_t a0_do_open(
 
     err = a0_mktmp(dir, opts->create_options, file);
     if (err) {
-      if (file->fd) {
-        close(file->fd);
-        file->fd = 0;
-      }
-      if (file->path) {
-        free((void*)file->path);
-        file->path = NULL;
-      }
       break;
     }
     err = a0_mmap(file, &opts->open_options);
     if (err) {
       close(file->fd);
+      free((void*)file->path);
       file->fd = 0;
-      if (file->path) {
-        free((void*)file->path);
-        file->path = NULL;
-      }
+      file->path = NULL;
       break;
     }
 
     err = a0_tmp_move(file, path);
     if (err) {
-      if (file->fd) {
-        close(file->fd);
-        file->fd = 0;
-      }
+      close(file->fd);
+      file->fd = 0;
       file->path = NULL;
     }
     if (A0_SYSERR(err) != EEXIST) {

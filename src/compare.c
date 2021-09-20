@@ -8,6 +8,36 @@
 #include <stdint.h>
 #include <string.h>
 
+static const uint32_t GOLDEN_RATIO_U32 = 0x9E3779B9;
+
+//////////////////////
+// Compare uint32_t //
+//////////////////////
+
+// https://softwareengineering.stackexchange.com/questions/402542/where-do-magic-hashing-constants-like-0x9e3779b9-and-0x9e3779b1-come-from
+a0_err_t a0_hash_u32_fn(void* user_data, const void* data, size_t* out) {
+  A0_MAYBE_UNUSED(user_data);
+  *out = (*(uint32_t*)data) * GOLDEN_RATIO_U32;
+  return A0_OK;
+}
+
+const a0_hash_t A0_HASH_U32 = {
+    .user_data = NULL,
+    .fn = a0_hash_u32_fn,
+};
+
+a0_err_t a0_compare_u32_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
+  A0_MAYBE_UNUSED(user_data);
+  int64_t diff = (int64_t)(*(uint32_t*)lhs) - (int64_t)(*(uint32_t*)rhs);
+  *out = (diff < 0) - (diff > 0);
+  return A0_OK;
+}
+
+const a0_compare_t A0_COMPARE_U32 = {
+    .user_data = NULL,
+    .fn = a0_compare_u32_fn,
+};
+
 //////////////////////
 // Compare pointers //
 //////////////////////
@@ -34,6 +64,36 @@ a0_err_t a0_compare_ptr_fn(void* user_data, const void* lhs, const void* rhs, in
 const a0_compare_t A0_COMPARE_PTR = {
     .user_data = NULL,
     .fn = a0_compare_ptr_fn,
+};
+
+//////////////////////
+// Compare C-String //
+//////////////////////
+
+// https://softwareengineering.stackexchange.com/questions/402542/where-do-magic-hashing-constants-like-0x9e3779b9-and-0x9e3779b1-come-from
+a0_err_t a0_hash_str_fn(void* user_data, const void* data, size_t* out) {
+  A0_MAYBE_UNUSED(user_data);
+  *out = 0;
+  for (char* c = *(char**)data; *c; ++c) {
+    *out ^= *c + GOLDEN_RATIO_U32 + (*out << 6) + (*out >> 2);
+  }
+  return A0_OK;
+}
+
+const a0_hash_t A0_HASH_STR = {
+    .user_data = NULL,
+    .fn = a0_hash_str_fn,
+};
+
+a0_err_t a0_compare_str_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
+  A0_MAYBE_UNUSED(user_data);
+  *out = strcmp(*(char**)lhs, *(char**)rhs);
+  return A0_OK;
+}
+
+const a0_compare_t A0_COMPARE_STR = {
+    .user_data = NULL,
+    .fn = a0_compare_str_fn,
 };
 
 //////////////////
