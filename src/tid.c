@@ -1,14 +1,14 @@
 #include <a0/inline.h>
+#include <a0/thread_local.h>
 #include <a0/tid.h>
 
 #include <pthread.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <syscall.h>
-#include <threads.h>
 #include <unistd.h>
 
-thread_local uint32_t a0_tid_cache = 0;
+A0_THREAD_LOCAL uint32_t a0_tid_cache = 0;
 static pthread_once_t a0_tid_reset_atfork_once;
 
 A0_STATIC_INLINE

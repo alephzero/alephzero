@@ -209,15 +209,15 @@ A0_STATIC_INLINE bool operator>=(const string_view& lhs, const string_view& rhs)
 
 #if A0_CPP_17
 
-#define A0_STRING_VIEW_CMP(T) \
+#define A0_STRING_VIEW_CMP(T)                                                                           \
   A0_STATIC_INLINE bool operator==(T lhs, string_view rhs) noexcept { return string_view(lhs) == rhs; } \
   A0_STATIC_INLINE bool operator==(string_view lhs, T rhs) noexcept { return lhs == string_view(rhs); } \
   A0_STATIC_INLINE bool operator!=(T lhs, string_view rhs) noexcept { return string_view(lhs) != rhs; } \
   A0_STATIC_INLINE bool operator!=(string_view lhs, T rhs) noexcept { return lhs != string_view(rhs); } \
-  A0_STATIC_INLINE bool operator<(T lhs, string_view rhs) noexcept { return string_view(lhs) < rhs; } \
-  A0_STATIC_INLINE bool operator<(string_view lhs, T rhs) noexcept { return lhs < string_view(rhs); } \
-  A0_STATIC_INLINE bool operator>(T lhs, string_view rhs) noexcept { return string_view(lhs) > rhs; } \
-  A0_STATIC_INLINE bool operator>(string_view lhs, T rhs) noexcept { return lhs > string_view(rhs); } \
+  A0_STATIC_INLINE bool operator<(T lhs, string_view rhs) noexcept { return string_view(lhs) < rhs; }   \
+  A0_STATIC_INLINE bool operator<(string_view lhs, T rhs) noexcept { return lhs < string_view(rhs); }   \
+  A0_STATIC_INLINE bool operator>(T lhs, string_view rhs) noexcept { return string_view(lhs) > rhs; }   \
+  A0_STATIC_INLINE bool operator>(string_view lhs, T rhs) noexcept { return lhs > string_view(rhs); }   \
   A0_STATIC_INLINE bool operator<=(T lhs, string_view rhs) noexcept { return string_view(lhs) <= rhs; } \
   A0_STATIC_INLINE bool operator<=(string_view lhs, T rhs) noexcept { return lhs <= string_view(rhs); } \
   A0_STATIC_INLINE bool operator>=(T lhs, string_view rhs) noexcept { return string_view(lhs) >= rhs; } \

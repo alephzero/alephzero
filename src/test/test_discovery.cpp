@@ -173,6 +173,10 @@ TEST_CASE("discovery] cpp discovery") {
     std::mutex mu;
   } data;
 
+  a0::File("/dev/shm/discovery_test/file.a0");
+  a0::File("/dev/shm/discovery_test/a/file.a0");
+  a0::File("/dev/shm/discovery_test/a/b/file.a0");
+
   a0::Discovery discovery(
       "/dev/shm/discovery_test/**/*.a0",
       [&](const std::string& path) {
@@ -181,12 +185,9 @@ TEST_CASE("discovery] cpp discovery") {
         data.cv.notify_one();
       });
 
-  a0::File("/dev/shm/discovery_test/file.a0");
-  a0::File("/dev/shm/discovery_test/a/file.a0");
-  a0::File("/dev/shm/discovery_test/a/b/file.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/file.a0");
+  a0::File("/dev/shm/discovery_test/a/b/c/d/file1.a0");
   a0::File("/dev/shm/discovery_test/a/b/c/d/file2.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file.a0");
+  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file1.a0");
   a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file2.a0");
   a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file3.a0");
   a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file4.a0");
@@ -204,7 +205,7 @@ TEST_CASE("discovery] cpp discovery") {
 
   std::sort(data.paths.begin(), data.paths.end());
   REQUIRE(data.paths == std::vector<std::string>{
-                            "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file1.a0",
                             "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file2.a0",
                             "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file3.a0",
                             "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file4.a0",
@@ -212,7 +213,7 @@ TEST_CASE("discovery] cpp discovery") {
                             "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file6.a0",
                             "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file7.a0",
                             "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file8.a0",
-                            "/dev/shm/discovery_test/a/b/c/d/file.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/file1.a0",
                             "/dev/shm/discovery_test/a/b/c/d/file2.a0",
                             "/dev/shm/discovery_test/a/b/file.a0",
                             "/dev/shm/discovery_test/a/file.a0",

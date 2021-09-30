@@ -188,7 +188,7 @@ size_t a0_discovery_rootlen(a0_discovery_t* d) {
 
 A0_STATIC_INLINE
 void a0_discovery_watch_path(a0_discovery_t* d, const char* path) {
-  int wd = inotify_add_watch(d->_inotify_fd, path, IN_CREATE | IN_MASK_CREATE);
+  int wd = inotify_add_watch(d->_inotify_fd, path, IN_CREATE);
   if (wd < 0) {
     return;
   }

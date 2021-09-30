@@ -25,7 +25,7 @@ inline void check(a0_err_t err) {
 
 template <typename C, typename Impl>
 struct CDeleter {
-  std::unique_ptr<Impl> impl;
+  std::shared_ptr<Impl> impl;
   std::function<void(C*, Impl*)> closer;
 
   void operator()(C* c) {
@@ -39,13 +39,15 @@ struct CDeleter {
 template <typename Impl, typename C, typename InitFn, typename Closer>
 void set_c_impl(std::shared_ptr<C>* c, InitFn&& init, Closer&& closer) {
   auto unique_c = std::unique_ptr<C>(new C);
-  auto unique_impl = std::unique_ptr<Impl>(new Impl);
-  check(init(unique_c.get(), unique_impl.get()));
+  auto impl = std::shared_ptr<Impl>(new Impl);
+  check(init(unique_c.get(), impl.get()));
 
-  *c = std::shared_ptr<C>(unique_c.release(), CDeleter<C, Impl>{
-                                                  std::move(unique_impl),
-                                                  [closer](C* c, Impl* impl) { closer(c, impl); },
-                                              });
+  *c = std::shared_ptr<C>(
+      unique_c.release(),
+      CDeleter<C, Impl>{
+          impl,
+          [closer](C* c, Impl* impl_) { closer(c, impl_); },
+      });
 }
 
 template <typename Impl, typename C, typename InitFn>
@@ -54,7 +56,7 @@ void set_c_impl(std::shared_ptr<C>* c, InitFn&& init) {
 }
 
 template <typename C, typename InitFn, typename Closer>
-void set_c(std::shared_ptr<C>* c, InitFn&& init, Closer&& closer) {
+void set_c(std::shared_ptr<C>* c, InitFn&& init, Closer closer) {
   set_c_impl<int>(
       c,
       [init](C* c, int*) { return init(c); },

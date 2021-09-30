@@ -3,8 +3,8 @@
 #include <errno.h>
 #include <string.h>
 
-thread_local int a0_err_syscode;
-thread_local char a0_err_msg[1024];
+A0_THREAD_LOCAL int a0_err_syscode;
+A0_THREAD_LOCAL char a0_err_msg[1024];
 
 const char* a0_strerror(a0_err_t err) {
   switch (err) {

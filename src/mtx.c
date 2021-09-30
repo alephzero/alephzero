@@ -1,6 +1,7 @@
 #include <a0/err.h>
 #include <a0/inline.h>
 #include <a0/mtx.h>
+#include <a0/thread_local.h>
 #include <a0/tid.h>
 #include <a0/time.h>
 
@@ -12,7 +13,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <syscall.h>
-#include <threads.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -77,7 +77,7 @@ A0_STATIC_INLINE void _u_ __tsan_mutex_post_divert(_u_ void* addr, _u_ unsigned 
 
 #endif
 
-thread_local bool a0_robust_init = false;
+A0_THREAD_LOCAL bool a0_robust_init = false;
 
 A0_STATIC_INLINE
 void a0_robust_reset() {
@@ -94,7 +94,7 @@ static pthread_once_t a0_robust_reset_atfork_once;
 typedef struct robust_list robust_list_t;
 typedef struct robust_list_head robust_list_head_t;
 
-thread_local robust_list_head_t a0_robust_head;
+A0_THREAD_LOCAL robust_list_head_t a0_robust_head;
 
 A0_STATIC_INLINE
 void robust_init() {

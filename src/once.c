@@ -3,13 +3,13 @@
 #include <a0/callback.h>
 #include <a0/err.h>
 #include <a0/inline.h>
+#include <a0/thread_local.h>
 
 #include <pthread.h>
-#include <threads.h>
 
 #include "err_macro.h"
 
-thread_local a0_callback_t a0_pthread_once_ctx;
+A0_THREAD_LOCAL a0_callback_t a0_pthread_once_ctx;
 
 A0_STATIC_INLINE
 void a0_once_do() {

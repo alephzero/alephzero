@@ -1,14 +1,15 @@
 #include "rand.h"
 
+#include <a0/thread_local.h>
+
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <threads.h>
 #include <unistd.h>
 
-thread_local uint16_t a0_xsubi[3];
-thread_local bool a0_xsubi_init = false;
+A0_THREAD_LOCAL uint16_t a0_xsubi[3];
+A0_THREAD_LOCAL bool a0_xsubi_init = false;
 
 uint32_t a0_mrand48() {
   if (!a0_xsubi_init) {

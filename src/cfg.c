@@ -66,9 +66,15 @@ a0_err_t a0_cfg_write(a0_cfg_t* cfg, a0_packet_t pkt) {
 
 #ifdef A0_EXT_YYJSON
 
-static const int a0_yyjson_read_flags = YYJSON_READ_ALLOW_TRAILING_COMMAS | YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_INF_AND_NAN;
+A0_STATIC_INLINE
+int a0_yyjson_read_flags() {
+  return YYJSON_READ_ALLOW_TRAILING_COMMAS | YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_INF_AND_NAN;
+}
 
-static const int a0_yyjson_write_flags = YYJSON_WRITE_ESCAPE_UNICODE | YYJSON_WRITE_ESCAPE_SLASHES;
+A0_STATIC_INLINE
+int a0_yyjson_write_flags() {
+  return YYJSON_WRITE_ESCAPE_UNICODE | YYJSON_WRITE_ESCAPE_SLASHES;
+}
 
 typedef struct a0_yyjson_alloc_s {
   a0_alloc_t alloc;
@@ -81,7 +87,7 @@ a0_err_t yyjson_alloc_wrapper(void* user_data, size_t size, a0_buf_t* out) {
   a0_yyjson_alloc_t* yyjson_alloc = (a0_yyjson_alloc_t*)user_data;
 
   size_t yyjson_size = yyjson_read_max_memory_usage(
-      size, a0_yyjson_read_flags);
+      size, a0_yyjson_read_flags());
 
   a0_buf_t buf;
   a0_err_t err = a0_alloc(yyjson_alloc->alloc, size + yyjson_size, &buf);
@@ -122,7 +128,7 @@ a0_err_t a0_cfg_read_yyjson(a0_cfg_t* cfg,
   yyjson_doc* result = yyjson_read_opts(
       (char*)pkt.payload.data,
       pkt.payload.size,
-      a0_yyjson_read_flags,
+      a0_yyjson_read_flags(),
       &alc,
       &read_err);
   if (read_err.code) {
@@ -137,7 +143,7 @@ a0_err_t a0_cfg_write_yyjson(a0_cfg_t* cfg, yyjson_doc doc) {
   size_t size;
   char* data = yyjson_write_opts(
       &doc,
-      a0_yyjson_write_flags,
+      a0_yyjson_write_flags(),
       NULL,  // TODO: Maybe provide an allocator?
       &size,
       &write_err);
@@ -167,7 +173,7 @@ a0_err_t a0_mergepatch_process_locked_empty(
   size_t size;
   char* data = yyjson_write_opts(
       mergepatch,
-      a0_yyjson_write_flags,
+      a0_yyjson_write_flags(),
       NULL,  // TODO: Maybe provide an allocator?
       &size,
       &write_err);
@@ -201,7 +207,7 @@ a0_err_t a0_mergepatch_process_locked_nonempty(
   a0_flat_packet_payload(flat_packet, &old_payload);
 
   size_t yyjson_size = yyjson_read_max_memory_usage(
-      old_payload.size, a0_yyjson_read_flags);
+      old_payload.size, a0_yyjson_read_flags());
 
   void* yyjson_data = alloca(yyjson_size);
 
@@ -215,7 +221,7 @@ a0_err_t a0_mergepatch_process_locked_nonempty(
   yyjson_doc* original = yyjson_read_opts(
       (char*)old_payload.data,
       old_payload.size,
-      a0_yyjson_read_flags,
+      a0_yyjson_read_flags(),
       &alc,
       &read_err);
   if (read_err.code) {
@@ -233,7 +239,7 @@ a0_err_t a0_mergepatch_process_locked_nonempty(
   size_t size;
   char* data = yyjson_mut_write_opts(
       merged_doc,
-      a0_yyjson_write_flags,
+      a0_yyjson_write_flags(),
       NULL,  // TODO: Maybe provide an allocator?
       &size,
       &write_err);

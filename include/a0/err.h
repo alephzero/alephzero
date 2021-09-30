@@ -1,7 +1,7 @@
 #ifndef A0_ERR_H
 #define A0_ERR_H
 
-#include <threads.h>
+#include <a0/thread_local.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,8 +21,8 @@ typedef enum a0_err_e {
   A0_ERR_BAD_TOPIC = 10,
 } a0_err_t;
 
-extern thread_local int a0_err_syscode;
-extern thread_local char a0_err_msg[1024];
+extern A0_THREAD_LOCAL int a0_err_syscode;
+extern A0_THREAD_LOCAL char a0_err_msg[1024];
 
 const char* a0_strerror(a0_err_t);
 
