@@ -10,7 +10,7 @@
 
 TEST_CASE("discovery] pathglob split") {
   a0_pathglob_t pathglob;
-  REQUIRE_OK(a0_pathglob_split("/dev/shm/**/abc*def/*.a0", &pathglob));
+  REQUIRE_OK(a0_pathglob_init(&pathglob, "/dev/shm/**/abc*def/*.a0"));
 
   REQUIRE(pathglob.depth == 5);
 
@@ -29,19 +29,19 @@ TEST_CASE("discovery] pathglob split") {
   REQUIRE(a0::test::str(pathglob.parts[4].str) == "*.a0");
   REQUIRE(pathglob.parts[4].type == A0_PATHGLOB_PART_TYPE_PATTERN);
 
-  REQUIRE_OK(a0_pathglob_split("/dev/shm/*.a0", &pathglob));
+  REQUIRE_OK(a0_pathglob_init(&pathglob, "/dev/shm/*.a0"));
 
   REQUIRE(pathglob.depth == 3);
   REQUIRE(a0::test::str(pathglob.parts[0].str) == "dev");
   REQUIRE(a0::test::str(pathglob.parts[1].str) == "shm");
   REQUIRE(a0::test::str(pathglob.parts[2].str) == "*.a0");
 
-  REQUIRE_OK(a0_pathglob_split("/*.a0", &pathglob));
+  REQUIRE_OK(a0_pathglob_init(&pathglob, "/*.a0"));
 
   REQUIRE(pathglob.depth == 1);
   REQUIRE(a0::test::str(pathglob.parts[0].str) == "*.a0");
 
-  REQUIRE_OK(a0_pathglob_split("/dev/shm/", &pathglob));
+  REQUIRE_OK(a0_pathglob_init(&pathglob, "/dev/shm/"));
 
   REQUIRE(pathglob.depth == 3);
   REQUIRE(a0::test::str(pathglob.parts[0].str) == "dev");
@@ -53,7 +53,7 @@ TEST_CASE("discovery] pathglob match") {
   bool match;
   a0_pathglob_t glob;
 
-  REQUIRE_OK(a0_pathglob_split("/dev/shm/*/*.a0", &glob));
+  REQUIRE_OK(a0_pathglob_init(&glob, "/dev/shm/*/*.a0"));
 
   REQUIRE_OK(a0_pathglob_match(&glob, "/dev/shm/a/foo.a0", &match));
   REQUIRE(match);
@@ -61,7 +61,7 @@ TEST_CASE("discovery] pathglob match") {
   REQUIRE_OK(a0_pathglob_match(&glob, "/dev/shm/a/b/foo.a0", &match));
   REQUIRE(!match);
 
-  REQUIRE_OK(a0_pathglob_split("/dev/shm/**/*.a0", &glob));
+  REQUIRE_OK(a0_pathglob_init(&glob, "/dev/shm/**/*.a0"));
 
   REQUIRE_OK(a0_pathglob_match(&glob, "/dev/shm/a/foo.a0", &match));
   REQUIRE(match);
@@ -69,7 +69,7 @@ TEST_CASE("discovery] pathglob match") {
   REQUIRE_OK(a0_pathglob_match(&glob, "/dev/shm/a/b/foo.a0", &match));
   REQUIRE(match);
 
-  REQUIRE_OK(a0_pathglob_split("/dev/shm/**/b/*.a0", &glob));
+  REQUIRE_OK(a0_pathglob_init(&glob, "/dev/shm/**/b/*.a0"));
 
   REQUIRE_OK(a0_pathglob_match(&glob, "/dev/shm/a/foo.a0", &match));
   REQUIRE(!match);
@@ -77,20 +77,45 @@ TEST_CASE("discovery] pathglob match") {
   REQUIRE_OK(a0_pathglob_match(&glob, "/dev/shm/a/b/foo.a0", &match));
   REQUIRE(match);
 
-  REQUIRE_OK(a0_pathglob_split("/dev/shm/**", &glob));
+  REQUIRE_OK(a0_pathglob_init(&glob, "/dev/shm/**"));
 
   REQUIRE_OK(a0_pathglob_match(&glob, "/dev/shm/foo.a0", &match));
   REQUIRE(match);
 
-  REQUIRE_OK(a0_pathglob_split("/dev/shm/**/**/**/**/**/*******b***/*.a0", &glob));
+  REQUIRE_OK(a0_pathglob_init(&glob, "/dev/shm/**/**/**/**/**/*******b***/*.a0"));
 
   REQUIRE_OK(a0_pathglob_match(&glob, "/dev/shm/a/b/foo.a0", &match));
   REQUIRE(match);
 
-  REQUIRE_OK(a0_pathglob_split("/dev/shm/**/*.a0", &glob));
+  REQUIRE_OK(a0_pathglob_init(&glob, "/dev/shm/**/*.a0"));
 
   REQUIRE_OK(a0_pathglob_match(&glob, "/dev/shm/foo.a0", &match));
   REQUIRE(match);
+}
+
+TEST_CASE("discovery] cpp pathglob match") {
+  a0::PathGlob glob;
+
+  glob = a0::PathGlob("/dev/shm/*/*.a0");
+  REQUIRE(glob.match("/dev/shm/a/foo.a0"));
+  REQUIRE(!glob.match("/dev/shm/a/b/foo.a0"));
+
+  glob = a0::PathGlob("/dev/shm/**/*.a0");
+  REQUIRE(glob.match("/dev/shm/a/foo.a0"));
+  REQUIRE(glob.match("/dev/shm/a/b/foo.a0"));
+
+  glob = a0::PathGlob("/dev/shm/**/b/*.a0");
+  REQUIRE(!glob.match("/dev/shm/a/foo.a0"));
+  REQUIRE(glob.match("/dev/shm/a/b/foo.a0"));
+
+  glob = a0::PathGlob("/dev/shm/**");
+  REQUIRE(glob.match("/dev/shm/foo.a0"));
+
+  glob = a0::PathGlob("/dev/shm/**/**/**/**/**/*******b***/*.a0");
+  REQUIRE(glob.match("/dev/shm/a/b/foo.a0"));
+
+  glob = a0::PathGlob("/dev/shm/**/*.a0");
+  REQUIRE(glob.match("/dev/shm/foo.a0"));
 }
 
 TEST_CASE("discovery] discovery") {

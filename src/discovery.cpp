@@ -6,6 +6,24 @@
 #include "c_wrap.hpp"
 
 namespace a0 {
+
+PathGlob::PathGlob(std::string path_pattern) {
+  auto path_pattern_mem = std::make_shared<std::string>(std::move(path_pattern));
+  set_c<a0_pathglob_t>(
+      &c,
+      [&](a0_pathglob_t* c) {
+        return a0_pathglob_init(c, path_pattern_mem->c_str());
+      },
+      [path_pattern_mem](a0_pathglob_t*) {});
+}
+
+bool PathGlob::match(const std::string& path) const {
+  CHECK_C;
+  bool result;
+  check(a0_pathglob_match(&*c, path.c_str(), &result));
+  return result;
+}
+
 namespace {
 
 struct DiscoveryImpl {

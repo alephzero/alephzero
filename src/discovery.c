@@ -22,8 +22,8 @@
 typedef struct epoll_event epoll_event_t;
 typedef struct inotify_event inotify_event_t;
 
-a0_err_t a0_pathglob_split(const char* path_pattern, a0_pathglob_t* out) {
-  *out = (a0_pathglob_t)A0_EMPTY;
+a0_err_t a0_pathglob_init(a0_pathglob_t* glob, const char* path_pattern) {
+  *glob = (a0_pathglob_t)A0_EMPTY;
   if (!path_pattern || path_pattern[0] != '/') {
     return A0_ERR_BAD_PATH;
   }
@@ -42,7 +42,7 @@ a0_err_t a0_pathglob_split(const char* path_pattern, a0_pathglob_t* out) {
           type = A0_PATHGLOB_PART_TYPE_RECURSIVE;
         }
       }
-      out->parts[out->depth++] = (a0_pathglob_part_t){
+      glob->parts[glob->depth++] = (a0_pathglob_part_t){
           (a0_buf_t){recent_slash + 1, iter - recent_slash - 1},
           type,
       };
@@ -50,7 +50,7 @@ a0_err_t a0_pathglob_split(const char* path_pattern, a0_pathglob_t* out) {
     }
   }
   a0_pathglob_part_type_t type = has_star ? A0_PATHGLOB_PART_TYPE_PATTERN : A0_PATHGLOB_PART_TYPE_VERBATIM;
-  out->parts[out->depth++] = (a0_pathglob_part_t){
+  glob->parts[glob->depth++] = (a0_pathglob_part_t){
       (a0_buf_t){recent_slash + 1, iter - recent_slash - 1},
       type,
   };
@@ -117,7 +117,7 @@ a0_err_t a0_pathglob_part_match(a0_pathglob_part_t globpart, a0_buf_t buf, bool*
 
 a0_err_t a0_pathglob_match(a0_pathglob_t* glob, const char* path, bool* out) {
   a0_pathglob_t real;
-  A0_RETURN_ERR_ON_ERR(a0_pathglob_split(path, &real));
+  A0_RETURN_ERR_ON_ERR(a0_pathglob_init(&real, path));
 
   size_t star_g = 0;
   size_t star_r = 0;
@@ -366,7 +366,7 @@ a0_err_t a0_discovery_init(a0_discovery_t* d, const char* path_pattern, a0_disco
 
   d->_path_pattern = strdup(path_pattern);
 
-  a0_err_t err = a0_pathglob_split(d->_path_pattern, &d->_pathglob);
+  a0_err_t err = a0_pathglob_init(&d->_pathglob, d->_path_pattern);
   if (err) {
     free((void*)d->_path_pattern);
     return err;

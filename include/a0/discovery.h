@@ -30,7 +30,7 @@ typedef struct a0_pathglob_s {
   size_t depth;
 } a0_pathglob_t;
 
-a0_err_t a0_pathglob_split(const char* path_pattern, a0_pathglob_t* out);
+a0_err_t a0_pathglob_init(a0_pathglob_t*, const char* path_pattern);
 
 a0_err_t a0_pathglob_match(a0_pathglob_t*, const char* path, bool* out);
 
