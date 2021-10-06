@@ -17,8 +17,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -33,8 +32,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -49,8 +47,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       shell: sh
       run: apk add --no-cache g++ linux-headers make
@@ -67,8 +64,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang make
     - name: run
@@ -83,8 +79,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang make
     - name: run
@@ -99,8 +94,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       shell: sh
       run: apk add --no-cache clang g++ linux-headers make
@@ -117,8 +111,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       shell: sh
       run: apk add --no-cache g++ linux-headers make
@@ -135,8 +128,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -151,8 +143,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -167,8 +158,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -183,8 +173,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -199,8 +188,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make valgrind
     - name: run
@@ -215,8 +203,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang-9 iwyu make
     - name: run
@@ -231,8 +218,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang-tidy
     - name: run
@@ -249,8 +235,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang-format git
     - name: run
@@ -274,8 +259,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - name: install deps
       run: apt update && apt install --no-install-recommends -y ca-certificates curl g++ make
     - name: run
