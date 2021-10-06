@@ -3,6 +3,8 @@
 #include <a0/file.hpp>
 #include <a0/string_view.hpp>
 
+#include <doctest.h>
+
 #include <algorithm>
 #include <condition_variable>
 #include <functional>
@@ -10,8 +12,6 @@
 #include <ostream>
 #include <string>
 #include <vector>
-
-#include <doctest.h>
 
 #include "src/test_util.hpp"
 
