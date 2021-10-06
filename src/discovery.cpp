@@ -1,7 +1,10 @@
 #include <a0/discovery.h>
 #include <a0/discovery.hpp>
 
+#include <functional>
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "c_wrap.hpp"
 

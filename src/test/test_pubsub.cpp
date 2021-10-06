@@ -1,10 +1,11 @@
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/packet.h>
+#include <a0/packet.hpp>
 #include <a0/pubsub.h>
 #include <a0/pubsub.hpp>
 #include <a0/reader.h>
-#include <a0/reader.hpp>
+#include <a0/string_view.hpp>
 
 #include <doctest.h>
 #include <fcntl.h>
@@ -17,6 +18,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 

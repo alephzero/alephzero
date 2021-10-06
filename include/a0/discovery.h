@@ -6,7 +6,7 @@
 #include <a0/map.h>
 
 #include <pthread.h>
-#include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {

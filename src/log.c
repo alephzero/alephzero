@@ -9,7 +9,6 @@
 #include <a0/reader.h>
 #include <a0/writer.h>
 
-#include <stdlib.h>
 #include <string.h>
 
 #include "err_macro.h"

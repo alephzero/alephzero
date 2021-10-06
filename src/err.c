@@ -1,4 +1,5 @@
 #include <a0/err.h>
+#include <a0/thread_local.h>
 
 #include <errno.h>
 #include <string.h>

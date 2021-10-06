@@ -10,7 +10,6 @@
 #include <a0/writer.h>
 
 #include <stdbool.h>
-#include <stdlib.h>
 
 #include "err_macro.h"
 #include "topic.h"

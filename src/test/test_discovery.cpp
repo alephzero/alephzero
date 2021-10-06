@@ -1,10 +1,17 @@
 #include <a0/discovery.h>
 #include <a0/discovery.hpp>
 #include <a0/file.hpp>
+#include <a0/string_view.hpp>
+
+#include <algorithm>
+#include <condition_variable>
+#include <functional>
+#include <mutex>
+#include <ostream>
+#include <string>
+#include <vector>
 
 #include <doctest.h>
-
-#include <cstdint>
 
 #include "src/test_util.hpp"
 

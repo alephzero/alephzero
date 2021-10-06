@@ -8,8 +8,6 @@
 #include <a0/reader.h>
 #include <a0/writer.h>
 
-#include <stdlib.h>
-
 #include "err_macro.h"
 #include "topic.h"
 

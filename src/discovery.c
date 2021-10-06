@@ -1,4 +1,5 @@
 #include <a0/buf.h>
+#include <a0/compare.h>
 #include <a0/discovery.h>
 #include <a0/empty.h>
 #include <a0/err.h>
@@ -6,17 +7,21 @@
 #include <a0/inline.h>
 #include <a0/map.h>
 
-#include <fcntl.h>
+#include <dirent.h>
+#include <errno.h>
+#include <limits.h>
+#include <pthread.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/inotify.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
-#include "atomic.h"
 #include "err_macro.h"
 
 typedef struct epoll_event epoll_event_t;

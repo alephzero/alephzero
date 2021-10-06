@@ -39,7 +39,7 @@ a0_err_t a0_map_init(a0_map_t* map,
   map->_key_hash = key_hash;
   map->_key_compare = key_compare;
 
-  map->_bucket_size = sizeof(size_t) + a0_max_align(map->_key_size) + map->_val_size;
+  map->_bucket_size = sizeof(size_t) + a0_max_align(map->_key_size) + a0_max_align(map->_val_size);
 
   return A0_OK;
 }
