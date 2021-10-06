@@ -11,9 +11,12 @@
 #include <doctest.h>
 #include <fcntl.h>
 
+#include <algorithm>
 #include <cstdlib>
+#include <functional>
 #include <ostream>
 #include <string>
+#include <vector>
 
 #include "src/test_util.hpp"
 
