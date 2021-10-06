@@ -16,8 +16,9 @@ jobs:
       image: 'ubuntu:18.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -31,8 +32,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -46,8 +48,9 @@ jobs:
       image: 'alpine:3.11'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       shell: sh
       run: apk add --no-cache g++ linux-headers make
@@ -63,8 +66,9 @@ jobs:
       image: 'ubuntu:18.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang make
     - name: run
@@ -78,8 +82,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang make
     - name: run
@@ -93,8 +98,9 @@ jobs:
       image: 'alpine:3.11'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       shell: sh
       run: apk add --no-cache clang g++ linux-headers make
@@ -110,8 +116,9 @@ jobs:
       image: 'alpine:3.11'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       shell: sh
       run: apk add --no-cache g++ linux-headers make
@@ -127,8 +134,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -142,8 +150,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -157,8 +166,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -172,8 +182,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -187,8 +198,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make valgrind
     - name: run
@@ -202,8 +214,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang-9 iwyu make
     - name: run
@@ -217,8 +230,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang-tidy
     - name: run
@@ -234,8 +248,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang-format git
     - name: run
@@ -258,8 +273,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
-    - run: git submodule update --init --recursive
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y ca-certificates curl g++ make
     - name: run
