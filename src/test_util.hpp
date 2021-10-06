@@ -209,7 +209,7 @@ class Latch {
 };
 
 class Event {
-  bool val;
+  bool val{false};
   std::mutex mu;
   std::condition_variable cv;
 
