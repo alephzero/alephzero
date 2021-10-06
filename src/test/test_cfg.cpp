@@ -79,6 +79,64 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp basic") {
   REQUIRE(c.read(O_NONBLOCK).payload() == "cfg");
 }
 
+TEST_CASE_FIXTURE(CfgFixture, "cfg] watcher") {
+  struct data_t {
+    std::vector<std::string> cfgs;
+    a0::test::Event got_final_cfg;
+  } data{};
+
+  a0_packet_callback_t cb = {
+      .user_data = &data,
+      .fn =
+          [](void* user_data, a0_packet_t pkt) {
+            auto* data = (data_t*)user_data;
+            data->cfgs.push_back(a0::test::str(pkt.payload));
+            if (data->cfgs.back() == "final_cfg") {
+              data->got_final_cfg.set();
+            }
+          },
+  };
+
+  REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt("init_cfg")));
+
+  a0_cfg_watcher_t watcher;
+  REQUIRE_OK(a0_cfg_watcher_init(&watcher, topic, a0::test::alloc(), cb));
+
+  REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt("inter_cfg")));
+  REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt("final_cfg")));
+
+  data.got_final_cfg.wait();
+  REQUIRE_OK(a0_cfg_watcher_close(&watcher));
+
+  REQUIRE(data.cfgs.size() >= 2);
+  REQUIRE(data.cfgs.front() == "init_cfg");
+  REQUIRE(data.cfgs.back() == "final_cfg");
+}
+
+TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp watcher") {
+  std::vector<std::string> cfgs;
+  a0::test::Event got_final_cfg;
+
+  a0::Cfg c(topic.name);
+  c.write("init_cfg");
+
+  a0::CfgWatcher watcher(topic.name, [&](a0::Packet pkt) {
+    cfgs.push_back(std::string(pkt.payload()));
+    if (cfgs.back() == "final_cfg") {
+      got_final_cfg.set();
+    }
+  });
+
+  c.write("inter_cfg");
+  c.write("final_cfg");
+
+  got_final_cfg.wait();
+
+  REQUIRE(cfgs.size() >= 2);
+  REQUIRE(cfgs.front() == "init_cfg");
+  REQUIRE(cfgs.back() == "final_cfg");
+}
+
 #ifdef A0_EXT_YYJSON
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read empty nonblock") {

@@ -273,9 +273,9 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp sync") {
   }
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately await_new") {
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] await_new") {
   struct data_t {
-    std::string msg;
+    std::vector<std::string> msgs;
     a0::test::Latch latch{1};
   } data{};
 
@@ -284,7 +284,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately await_new") {
       .fn =
           [](void* user_data, a0_packet_t pkt) {
             auto* data = (data_t*)user_data;
-            data->msg = a0::test::str(pkt.payload);
+            data->msgs.push_back(a0::test::str(pkt.payload));
             data->latch.count_down();
           },
   };
@@ -306,14 +306,37 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately await_new") {
 
   data.latch.wait();
 
-  REQUIRE(data.msg == "msg after");
+  REQUIRE(data.msgs == std::vector<std::string>{"msg after"});
   REQUIRE_OK(a0_subscriber_close(&sub));
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately most_recent") {
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp await_new") {
+  std::vector<std::string> msgs;
+  a0::test::Latch latch{1};
+
+  a0::Publisher p(topic.name);
+  p.pub("msg before");
+
+  a0::Subscriber sub(
+      topic.name,
+      A0_INIT_AWAIT_NEW,
+      A0_ITER_NEXT,
+      [&](a0::Packet pkt) {
+        msgs.push_back(std::string(pkt.payload()));
+        latch.count_down();
+      });
+
+  p.pub("msg after");
+
+  latch.wait();
+
+  REQUIRE(msgs == std::vector<std::string>{"msg after"});
+}
+
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] most_recent") {
   struct data_t {
-    std::string msg;
-    a0::test::Latch latch{1};
+    std::vector<std::string> msgs;
+    a0::test::Latch latch{2};
   } data{};
 
   a0_packet_callback_t cb = {
@@ -321,10 +344,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately most_recent") {
       .fn =
           [](void* user_data, a0_packet_t pkt) {
             auto* data = (data_t*)user_data;
-            if (data->msg.empty()) {
-              data->msg = a0::test::str(pkt.payload);
-              data->latch.count_down();
-            }
+            data->msgs.push_back(a0::test::str(pkt.payload));
+            data->latch.count_down();
           },
   };
 
@@ -345,8 +366,31 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately most_recent") {
 
   data.latch.wait();
 
-  REQUIRE(data.msg == "msg before");
+  REQUIRE(data.msgs == std::vector<std::string>{"msg before", "msg after"});
   REQUIRE_OK(a0_subscriber_close(&sub));
+}
+
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp most_recent") {
+  std::vector<std::string> msgs;
+  a0::test::Latch latch{2};
+
+  a0::Publisher p(topic.name);
+  p.pub("msg before");
+
+  a0::Subscriber sub(
+      topic.name,
+      A0_INIT_MOST_RECENT,
+      A0_ITER_NEXT,
+      [&](a0::Packet pkt) {
+        msgs.push_back(std::string(pkt.payload()));
+        latch.count_down();
+      });
+
+  p.pub("msg after");
+
+  latch.wait();
+
+  REQUIRE(msgs == std::vector<std::string>{"msg before", "msg after"});
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
@@ -494,6 +538,49 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
                                    O_NONBLOCK,
                                    &pkt) == A0_ERR_AGAIN);
   }
+}
+
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp read one") {
+  // TODO: Blocking, oldest, not available.
+  // TODO: Blocking, most recent, not available.
+  // TODO: Blocking, await new.
+
+  // Nonblocking, oldest, not available.
+  REQUIRE_THROWS_WITH(
+      [&]() { a0::Subscriber::read_one(topic.name, A0_INIT_OLDEST, O_NONBLOCK); }(),
+      "Not available yet");
+
+  // Nonblocking, most recent, not available.
+  REQUIRE_THROWS_WITH(
+      [&]() { a0::Subscriber::read_one(topic.name, A0_INIT_MOST_RECENT, O_NONBLOCK); }(),
+      "Not available yet");
+
+  // Nonblocking, await new.
+  REQUIRE_THROWS_WITH(
+      [&]() { a0::Subscriber::read_one(topic.name, A0_INIT_AWAIT_NEW, O_NONBLOCK); }(),
+      "Not available yet");
+
+  // Do writes.
+  a0::Publisher p(topic.name);
+  p.pub("msg #0");
+  p.pub("msg #1");
+
+  // Blocking, oldest, available.
+  REQUIRE(a0::Subscriber::read_one(topic.name, A0_INIT_OLDEST, 0).payload() == "msg #0");
+
+  // Blocking, most recent, available.
+  REQUIRE(a0::Subscriber::read_one(topic.name, A0_INIT_MOST_RECENT, 0).payload() == "msg #1");
+
+  // Nonblocking, oldest, available.
+  REQUIRE(a0::Subscriber::read_one(topic.name, A0_INIT_OLDEST, O_NONBLOCK).payload() == "msg #0");
+
+  // Nonblocking, most recent, available.
+  REQUIRE(a0::Subscriber::read_one(topic.name, A0_INIT_MOST_RECENT, O_NONBLOCK).payload() == "msg #1");
+
+  // Nonblocking, await new.
+  REQUIRE_THROWS_WITH(
+      [&]() { a0::Subscriber::read_one(topic.name, A0_INIT_AWAIT_NEW, O_NONBLOCK); }(),
+      "Not available yet");
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
