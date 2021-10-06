@@ -303,7 +303,7 @@ a0_err_t a0_file_open(
   a0_ref_cnt_inc(out->arena.buf.data, NULL);
 #endif
 
-  return A0_OK;
+  return A0_OK;  // NOLINT(clang-analyzer-unix.Malloc): false positive. filepath is owned by out.
 }
 
 a0_err_t a0_file_close(a0_file_t* file) {
