@@ -45,8 +45,9 @@ typedef struct a0_discovery_s {
   a0_discovery_callback_t _callback;
   pthread_t _thread;
 
-  a0_map_t _watch_map;       // inotify watch descriptor -> absolute path
-  a0_map_t _discovered_map;  // absolute path -> nothing
+  a0_map_t _watch_map;          // inotify watch descriptor -> absolute dir path
+  a0_map_t _reverse_watch_map;  // absolute dir path -> nothing
+  a0_map_t _discovered_map;     // absolute file path -> nothing
   int _epoll_fd;
   int _inotify_fd;
   int _close_fd;

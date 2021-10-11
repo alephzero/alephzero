@@ -193,12 +193,20 @@ size_t a0_discovery_rootlen(a0_discovery_t* d) {
 
 A0_STATIC_INLINE
 void a0_discovery_watch_path(a0_discovery_t* d, const char* path) {
+  bool already_watching;
+  a0_map_has(&d->_reverse_watch_map, &path, &already_watching);
+  if (already_watching) {
+    return;
+  }
+
   int wd = inotify_add_watch(d->_inotify_fd, path, IN_CREATE);
   if (wd < 0) {
     return;
   }
   char* dup = strdup(path);
   a0_map_put(&d->_watch_map, &wd, &dup);
+  int unused = 0;
+  a0_map_put(&d->_reverse_watch_map, &dup, &unused);
 }
 
 A0_STATIC_INLINE
@@ -389,12 +397,25 @@ a0_err_t a0_discovery_init(a0_discovery_t* d, const char* path_pattern, a0_disco
   }
 
   err = a0_map_init(
+      &d->_reverse_watch_map,
+      sizeof(char*),
+      sizeof(int),
+      A0_HASH_STR,
+      A0_COMPARE_STR);
+  if (err) {
+    a0_map_close(&d->_watch_map);
+    free((void*)d->_path_pattern);
+    return err;
+  }
+
+  err = a0_map_init(
       &d->_discovered_map,
       sizeof(char*),
       sizeof(int),
       A0_HASH_STR,
       A0_COMPARE_STR);
   if (err) {
+    a0_map_close(&d->_reverse_watch_map);
     a0_map_close(&d->_watch_map);
     free((void*)d->_path_pattern);
     return err;
@@ -424,6 +445,8 @@ a0_err_t a0_discovery_close(a0_discovery_t* d) {
     free(*(void**)val);
   }
   a0_map_close(&d->_watch_map);
+  // Note: _reverse_watch_map doesn't own any memory.
+  a0_map_close(&d->_reverse_watch_map);
 
   a0_map_iterator_init(&iter, &d->_discovered_map);
   while (!a0_map_iterator_next(&iter, &key, &val)) {
