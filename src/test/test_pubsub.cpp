@@ -1,76 +1,58 @@
-#include <a0/arena.h>
-#include <a0/common.h>
+#include <a0/err.h>
+#include <a0/file.h>
 #include <a0/packet.h>
+#include <a0/packet.hpp>
 #include <a0/pubsub.h>
+#include <a0/pubsub.hpp>
+#include <a0/reader.h>
+#include <a0/string_view.hpp>
 
 #include <doctest.h>
 #include <fcntl.h>
 
 #include <algorithm>
-#include <cerrno>
-#include <condition_variable>
+#include <cstddef>
 #include <cstdint>
-#include <cstring>
+#include <functional>
 #include <map>
 #include <ostream>
 #include <set>
 #include <string>
 #include <thread>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
-#include "src/strutil.hpp"
-#include "src/sync.hpp"
 #include "src/test_util.hpp"
 
-static const char TEST_FILE[] = "test.file";
-
 struct PubsubFixture {
-  a0_file_t file;
+  a0_pubsub_topic_t topic = {"test", nullptr};
+  const char* topic_path = "alephzero/test.pubsub.a0";
 
   PubsubFixture() {
-    a0_file_remove(TEST_FILE);
-
-    a0_file_open(TEST_FILE, nullptr, &file);
+    a0_file_remove(topic_path);
   }
 
   ~PubsubFixture() {
-    a0_file_close(&file);
-    a0_file_remove(TEST_FILE);
-  }
-
-  a0_packet_t make_packet(std::string payload) {
-    a0_packet_t pkt;
-    a0_packet_init(&pkt);
-    pkt.payload = a0::test::buf(payload);
-    return pkt;
-  }
-
-  a0_packet_t make_packet(a0_packet_header_t* hdr, std::string payload) {
-    auto pkt = make_packet(payload);
-    pkt.headers_block = a0::test::header_block(hdr);
-    return pkt;
+    a0_file_remove(topic_path);
   }
 };
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, file.arena));
+    REQUIRE_OK(a0_publisher_init(&pub, topic));
 
-    a0_packet_header_t hdr = {"key", "val"};
-
-    REQUIRE_OK(a0_pub(&pub, make_packet(&hdr, "msg #0")));
-    REQUIRE_OK(a0_pub(&pub, make_packet(&hdr, "msg #1")));
+    REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt({{"key0", "val0"}, {"key1", "val1"}}, "msg #0")));
+    REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt({{"key2", "val2"}}, "msg #1")));
 
     REQUIRE_OK(a0_publisher_close(&pub));
   }
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, file.arena));
+    REQUIRE_OK(a0_publisher_init(&pub, topic));
 
-    a0_packet_header_t hdr = {"key", "val"};
-
-    REQUIRE_OK(a0_pub(&pub, make_packet(&hdr, "msg #2")));
+    REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt({{"key3", "val3"}}, "msg #2")));
 
     REQUIRE_OK(a0_publisher_close(&pub));
   }
@@ -78,8 +60,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   {
     a0_subscriber_sync_t sub;
     REQUIRE_OK(a0_subscriber_sync_init(&sub,
-                                       file.arena,
-                                       a0::test::allocator(),
+                                       topic,
+                                       a0::test::alloc(),
                                        A0_INIT_OLDEST,
                                        A0_ITER_NEXT));
 
@@ -93,7 +75,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
       a0_packet_t pkt;
       REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
 
-      REQUIRE(pkt.headers_block.size == 6);
+      REQUIRE(pkt.headers_block.size == 7);
       REQUIRE(pkt.headers_block.next_block == nullptr);
 
       std::map<std::string, std::string> hdrs;
@@ -101,21 +83,16 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
         auto hdr = pkt.headers_block.headers[i];
         hdrs[hdr.key] = hdr.val;
       }
-      REQUIRE(hdrs.count("key"));
-      REQUIRE(hdrs.count("a0_time_mono"));
-      REQUIRE(hdrs.count("a0_time_wall"));
-      REQUIRE(hdrs.count("a0_transport_seq"));
-      REQUIRE(hdrs.count("a0_publisher_seq"));
-      REQUIRE(hdrs.count("a0_publisher_id"));
 
       REQUIRE(a0::test::str(pkt.payload) == "msg #0");
 
-      REQUIRE(hdrs["key"] == "val");
-      REQUIRE(hdrs["a0_time_mono"].size() < 20);
+      REQUIRE(hdrs["key0"] == "val0");
+      REQUIRE(hdrs["key1"] == "val1");
+      REQUIRE(hdrs["a0_time_mono"].size() == 19);
       REQUIRE(hdrs["a0_time_wall"].size() == 35);
       REQUIRE(hdrs["a0_transport_seq"] == "0");
-      REQUIRE(hdrs["a0_publisher_seq"] == "0");
-      REQUIRE(hdrs["a0_publisher_id"].size() == 36);
+      REQUIRE(hdrs["a0_writer_seq"] == "0");
+      REQUIRE(hdrs["a0_writer_id"].size() == 36);
       pkt1_time_mono = stoull(hdrs["a0_time_mono"]);
       REQUIRE(pkt1_time_mono > 0);
       REQUIRE(pkt1_time_mono < UINT64_MAX);
@@ -137,12 +114,12 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
 
       REQUIRE(a0::test::str(pkt.payload) == "msg #1");
 
-      REQUIRE(hdrs["key"] == "val");
-      REQUIRE(hdrs["a0_time_mono"].size() < 20);
+      REQUIRE(hdrs["key2"] == "val2");
+      REQUIRE(hdrs["a0_time_mono"].size() == 19);
       REQUIRE(hdrs["a0_time_wall"].size() == 35);
       REQUIRE(hdrs["a0_transport_seq"] == "1");
-      REQUIRE(hdrs["a0_publisher_seq"] == "1");
-      REQUIRE(hdrs["a0_publisher_id"].size() == 36);
+      REQUIRE(hdrs["a0_writer_seq"] == "1");
+      REQUIRE(hdrs["a0_writer_id"].size() == 36);
 
       uint64_t pkt2_time_mono = stoull(hdrs["a0_time_mono"]);
       REQUIRE(pkt2_time_mono > pkt1_time_mono);
@@ -165,12 +142,12 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
 
       REQUIRE(a0::test::str(pkt.payload) == "msg #2");
 
-      REQUIRE(hdrs["key"] == "val");
-      REQUIRE(hdrs["a0_time_mono"].size() < 20);
+      REQUIRE(hdrs["key3"] == "val3");
+      REQUIRE(hdrs["a0_time_mono"].size() == 19);
       REQUIRE(hdrs["a0_time_wall"].size() == 35);
       REQUIRE(hdrs["a0_transport_seq"] == "2");
-      REQUIRE(hdrs["a0_publisher_seq"] == "0");
-      REQUIRE(hdrs["a0_publisher_id"].size() == 36);
+      REQUIRE(hdrs["a0_writer_seq"] == "0");
+      REQUIRE(hdrs["a0_writer_id"].size() == 36);
     }
 
     {
@@ -185,8 +162,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   {
     a0_subscriber_sync_t sub;
     REQUIRE_OK(a0_subscriber_sync_init(&sub,
-                                       file.arena,
-                                       a0::test::allocator(),
+                                       topic,
+                                       a0::test::alloc(),
                                        A0_INIT_MOST_RECENT,
                                        A0_ITER_NEWEST));
 
@@ -210,213 +187,255 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
   }
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "pubsub] raw") {
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp sync") {
   {
-    a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, file.arena));
+    a0::Publisher p(topic.name);
 
-    a0_packet_header_t hdr = {"key", "val"};
-
-    REQUIRE_OK(a0_pub(&pub, make_packet(&hdr, "msg #0")));
-
-    REQUIRE_OK(a0_publisher_close(&pub));
+    p.pub(a0::Packet({{"key0", "val0"}, {"key1", "val1"}}, "msg #0"));
+    p.pub(a0::Packet({{"key2", "val2"}}, "msg #1"));
   }
   {
-    a0_publisher_raw_t pub;
-    REQUIRE_OK(a0_publisher_raw_init(&pub, file.arena));
-
-    a0_packet_header_t hdr = {"key", "val"};
-
-    REQUIRE_OK(a0_pub_raw(&pub, make_packet(&hdr, "msg #1")));
-
-    REQUIRE_OK(a0_publisher_raw_close(&pub));
+    a0::Publisher p(topic.name);
+    p.pub(a0::Packet({{"key3", "val3"}}, "msg #2"));
   }
 
   {
-    a0_subscriber_sync_t sub;
-    REQUIRE_OK(a0_subscriber_sync_init(&sub,
-                                       file.arena,
-                                       a0::test::allocator(),
-                                       A0_INIT_OLDEST,
-                                       A0_ITER_NEXT));
+    a0::SubscriberSync sub(topic.name, A0_INIT_OLDEST, A0_ITER_NEXT);
+
+    uint64_t pkt1_time_mono;
 
     {
-      bool has_next;
-      REQUIRE_OK(a0_subscriber_sync_has_next(&sub, &has_next));
-      REQUIRE(has_next);
+      REQUIRE(sub.has_next());
+      auto pkt = sub.next();
 
-      a0_packet_t pkt;
-      REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
+      REQUIRE(pkt.headers().size() == 7);
+      REQUIRE(pkt.payload() == "msg #0");
 
-      REQUIRE(pkt.headers_block.size == 6);
-      REQUIRE(pkt.headers_block.next_block == nullptr);
-
-      std::map<std::string, std::string> hdrs;
-      for (size_t i = 0; i < pkt.headers_block.size; i++) {
-        auto hdr = pkt.headers_block.headers[i];
-        hdrs[hdr.key] = hdr.val;
-      }
-      REQUIRE(hdrs.count("key"));
-      REQUIRE(hdrs.count("a0_time_mono"));
-      REQUIRE(hdrs.count("a0_time_wall"));
-      REQUIRE(hdrs.count("a0_transport_seq"));
-      REQUIRE(hdrs.count("a0_publisher_seq"));
-      REQUIRE(hdrs.count("a0_publisher_id"));
-
-      REQUIRE(a0::test::str(pkt.payload) == "msg #0");
-
-      REQUIRE(hdrs["key"] == "val");
-      REQUIRE(hdrs["a0_time_mono"].size() < 20);
-      REQUIRE(hdrs["a0_time_wall"].size() == 35);
-      REQUIRE(hdrs["a0_transport_seq"] == "0");
-      REQUIRE(hdrs["a0_publisher_seq"] == "0");
-      REQUIRE(hdrs["a0_publisher_id"].size() == 36);
+      auto hdrs = pkt.headers();
+      REQUIRE(hdrs.find("key0")->second == "val0");
+      REQUIRE(hdrs.find("key1")->second == "val1");
+      REQUIRE(hdrs.find("a0_time_mono")->second.size() == 19);
+      REQUIRE(hdrs.find("a0_time_wall")->second.size() == 35);
+      REQUIRE(hdrs.find("a0_transport_seq")->second == "0");
+      REQUIRE(hdrs.find("a0_writer_seq")->second == "0");
+      REQUIRE(hdrs.find("a0_writer_id")->second.size() == 36);
+      pkt1_time_mono = stoull(hdrs.find("a0_time_mono")->second);
+      REQUIRE(pkt1_time_mono > 0);
+      REQUIRE(pkt1_time_mono < UINT64_MAX);
     }
 
     {
-      bool has_next;
-      REQUIRE_OK(a0_subscriber_sync_has_next(&sub, &has_next));
-      REQUIRE(has_next);
+      REQUIRE(sub.has_next());
+      auto pkt = sub.next();
 
-      a0_packet_t pkt;
-      REQUIRE_OK(a0_subscriber_sync_next(&sub, &pkt));
+      REQUIRE(pkt.headers().size() == 6);
+      REQUIRE(pkt.payload() == "msg #1");
 
-      REQUIRE(pkt.headers_block.size == 1);
-      REQUIRE(pkt.headers_block.next_block == nullptr);
+      auto hdrs = pkt.headers();
+      REQUIRE(hdrs.find("key2")->second == "val2");
+      REQUIRE(hdrs.find("a0_time_mono")->second.size() == 19);
+      REQUIRE(hdrs.find("a0_time_wall")->second.size() == 35);
+      REQUIRE(hdrs.find("a0_transport_seq")->second == "1");
+      REQUIRE(hdrs.find("a0_writer_seq")->second == "1");
+      REQUIRE(hdrs.find("a0_writer_id")->second.size() == 36);
 
-      std::map<std::string, std::string> hdrs;
-      for (size_t i = 0; i < pkt.headers_block.size; i++) {
-        auto hdr = pkt.headers_block.headers[i];
-        hdrs[hdr.key] = hdr.val;
-      }
-      REQUIRE(hdrs.count("key"));
-
-      REQUIRE(a0::test::str(pkt.payload) == "msg #1");
-
-      REQUIRE(hdrs["key"] == "val");
+      uint64_t pkt2_time_mono = stoull(hdrs.find("a0_time_mono")->second);
+      REQUIRE(pkt2_time_mono > pkt1_time_mono);
+      REQUIRE(pkt2_time_mono < UINT64_MAX);
     }
 
     {
-      bool has_next;
-      REQUIRE_OK(a0_subscriber_sync_has_next(&sub, &has_next));
-      REQUIRE(!has_next);
+      REQUIRE(sub.has_next());
+      auto pkt = sub.next();
+
+      REQUIRE(pkt.headers().size() == 6);
+      REQUIRE(pkt.payload() == "msg #2");
+
+      auto hdrs = pkt.headers();
+      REQUIRE(hdrs.find("key3")->second == "val3");
+      REQUIRE(hdrs.find("a0_time_mono")->second.size() == 19);
+      REQUIRE(hdrs.find("a0_time_wall")->second.size() == 35);
+      REQUIRE(hdrs.find("a0_transport_seq")->second == "2");
+      REQUIRE(hdrs.find("a0_writer_seq")->second == "0");
+      REQUIRE(hdrs.find("a0_writer_id")->second.size() == 36);
     }
 
-    REQUIRE_OK(a0_subscriber_sync_close(&sub));
+    REQUIRE(!sub.has_next());
+  }
+
+  {
+    a0::SubscriberSync sub(topic.name, A0_INIT_MOST_RECENT, A0_ITER_NEWEST);
+
+    REQUIRE(sub.has_next());
+    auto pkt = sub.next();
+    REQUIRE(pkt.payload() == "msg #2");
+
+    REQUIRE(!sub.has_next());
   }
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately await_new") {
-  a0::sync<std::string> msg;
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] await_new") {
+  struct data_t {
+    std::vector<std::string> msgs;
+    a0::test::Latch latch{1};
+  } data{};
 
   a0_packet_callback_t cb = {
-      .user_data = &msg,
+      .user_data = &data,
       .fn =
           [](void* user_data, a0_packet_t pkt) {
-            auto* data = (a0::sync<std::string>*)user_data;
-            data->notify_all([&](auto* msg_) {
-              *msg_ = a0::test::str(pkt.payload);
-            });
+            auto* data = (data_t*)user_data;
+            data->msgs.push_back(a0::test::str(pkt.payload));
+            data->latch.count_down();
           },
   };
 
+  a0_publisher_t pub;
+  REQUIRE_OK(a0_publisher_init(&pub, topic));
+  REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg before")));
+
   a0_subscriber_t sub;
   REQUIRE_OK(a0_subscriber_init(&sub,
-                                file.arena,
-                                a0::test::allocator(),
+                                topic,
+                                a0::test::alloc(),
                                 A0_INIT_AWAIT_NEW,
                                 A0_ITER_NEXT,
                                 cb));
 
-  a0_publisher_t pub;
-  REQUIRE_OK(a0_publisher_init(&pub, file.arena));
-  REQUIRE_OK(a0_pub(&pub, make_packet("msg")));
+  REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg after")));
   REQUIRE_OK(a0_publisher_close(&pub));
 
-  msg.wait([](auto* msg_) {
-    return !msg_->empty();
-  });
+  data.latch.wait();
 
-  REQUIRE(msg.copy() == "msg");
+  REQUIRE(data.msgs == std::vector<std::string>{"msg after"});
   REQUIRE_OK(a0_subscriber_close(&sub));
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "pubsub] seek immediately most_recent") {
-  a0::sync<std::string> msg;
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp await_new") {
+  std::vector<std::string> msgs;
+  a0::test::Latch latch{1};
+
+  a0::Publisher p(topic.name);
+  p.pub("msg before");
+
+  a0::Subscriber sub(
+      topic.name,
+      A0_INIT_AWAIT_NEW,
+      A0_ITER_NEXT,
+      [&](a0::Packet pkt) {
+        msgs.push_back(std::string(pkt.payload()));
+        latch.count_down();
+      });
+
+  p.pub("msg after");
+
+  latch.wait();
+
+  REQUIRE(msgs == std::vector<std::string>{"msg after"});
+}
+
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] most_recent") {
+  struct data_t {
+    std::vector<std::string> msgs;
+    a0::test::Latch latch{2};
+  } data{};
 
   a0_packet_callback_t cb = {
-      .user_data = &msg,
+      .user_data = &data,
       .fn =
           [](void* user_data, a0_packet_t pkt) {
-            auto* data = (a0::sync<std::string>*)user_data;
-            data->notify_all([&](auto* msg_) {
-              if (msg_->empty()) {
-                *msg_ = a0::test::str(pkt.payload);
-              }
-            });
+            auto* data = (data_t*)user_data;
+            data->msgs.push_back(a0::test::str(pkt.payload));
+            data->latch.count_down();
           },
   };
 
   a0_publisher_t pub;
-  REQUIRE_OK(a0_publisher_init(&pub, file.arena));
-  REQUIRE_OK(a0_pub(&pub, make_packet("msg before")));
+  REQUIRE_OK(a0_publisher_init(&pub, topic));
+  REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg before")));
 
   a0_subscriber_t sub;
   REQUIRE_OK(a0_subscriber_init(&sub,
-                                file.arena,
-                                a0::test::allocator(),
+                                topic,
+                                a0::test::alloc(),
                                 A0_INIT_MOST_RECENT,
                                 A0_ITER_NEXT,
                                 cb));
 
-  REQUIRE_OK(a0_pub(&pub, make_packet("msg after")));
+  REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg after")));
   REQUIRE_OK(a0_publisher_close(&pub));
 
-  msg.wait([](auto* msg_) {
-    return !msg_->empty();
-  });
+  data.latch.wait();
 
-  REQUIRE(msg.copy() == "msg before");
+  REQUIRE(data.msgs == std::vector<std::string>{"msg before", "msg after"});
   REQUIRE_OK(a0_subscriber_close(&sub));
+}
+
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp most_recent") {
+  std::vector<std::string> msgs;
+  a0::test::Latch latch{2};
+
+  a0::Publisher p(topic.name);
+  p.pub("msg before");
+
+  a0::Subscriber sub(
+      topic.name,
+      A0_INIT_MOST_RECENT,
+      A0_ITER_NEXT,
+      [&](a0::Packet pkt) {
+        msgs.push_back(std::string(pkt.payload()));
+        latch.count_down();
+      });
+
+  p.pub("msg after");
+
+  latch.wait();
+
+  REQUIRE(msgs == std::vector<std::string>{"msg before", "msg after"});
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, file.arena));
+    REQUIRE_OK(a0_publisher_init(&pub, topic));
 
-    REQUIRE_OK(a0_pub(&pub, make_packet("msg #0")));
-    REQUIRE_OK(a0_pub(&pub, make_packet("msg #1")));
+    REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg #0")));
+    REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg #1")));
 
     REQUIRE_OK(a0_publisher_close(&pub));
   }
 
-  a0::sync<size_t> msg_cnt;
+  struct data_t {
+    size_t msg_cnt;
+    a0::test::Latch latch{2};
+  } data{};
 
   a0_packet_callback_t cb = {
-      .user_data = &msg_cnt,
+      .user_data = &data,
       .fn =
           [](void* user_data, a0_packet_t pkt) {
-            auto* data = (a0::sync<size_t>*)user_data;
-            data->notify_all([&](auto* msg_cnt_) {
-              if (*msg_cnt_ == 0) {
-                REQUIRE(a0::test::str(pkt.payload) == "msg #0");
-              } else {
-                REQUIRE(a0::test::str(pkt.payload) == "msg #1");
-              }
+            auto* data = (data_t*)user_data;
 
-              (*msg_cnt_)++;
-            });
+            if (!data->msg_cnt) {
+              REQUIRE(a0::test::str(pkt.payload) == "msg #0");
+            } else {
+              REQUIRE(a0::test::str(pkt.payload) == "msg #1");
+            }
+
+            data->msg_cnt++;
+            data->latch.count_down();
           },
   };
 
   a0_subscriber_t sub;
-  REQUIRE_OK(
-      a0_subscriber_init(&sub, file.arena, a0::test::allocator(), A0_INIT_OLDEST, A0_ITER_NEXT, cb));
+  REQUIRE_OK(a0_subscriber_init(&sub,
+                                topic,
+                                a0::test::alloc(),
+                                A0_INIT_OLDEST,
+                                A0_ITER_NEXT,
+                                cb));
 
-  msg_cnt.wait([](auto* msg_cnt_) {
-    return (*msg_cnt_) == 2;
-  });
+  data.latch.wait();
 
   REQUIRE_OK(a0_subscriber_close(&sub));
 }
@@ -429,38 +448,40 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Nonblocking, oldest, not available.
   {
     a0_packet_t pkt;
-    REQUIRE(
-        a0_subscriber_read_one(file.arena, a0::test::allocator(), A0_INIT_OLDEST, O_NONBLOCK, &pkt) ==
-        EAGAIN);
+    REQUIRE(a0_subscriber_read_one(topic,
+                                   a0::test::alloc(),
+                                   A0_INIT_OLDEST,
+                                   O_NONBLOCK,
+                                   &pkt) == A0_ERR_AGAIN);
   }
 
   // Nonblocking, most recent, not available.
   {
     a0_packet_t pkt;
-    REQUIRE(a0_subscriber_read_one(file.arena,
-                                   a0::test::allocator(),
+    REQUIRE(a0_subscriber_read_one(topic,
+                                   a0::test::alloc(),
                                    A0_INIT_MOST_RECENT,
                                    O_NONBLOCK,
-                                   &pkt) == EAGAIN);
+                                   &pkt) == A0_ERR_AGAIN);
   }
 
   // Nonblocking, await new.
   {
     a0_packet_t pkt;
-    REQUIRE(a0_subscriber_read_one(file.arena,
-                                   a0::test::allocator(),
+    REQUIRE(a0_subscriber_read_one(topic,
+                                   a0::test::alloc(),
                                    A0_INIT_AWAIT_NEW,
                                    O_NONBLOCK,
-                                   &pkt) == EAGAIN);
+                                   &pkt) == A0_ERR_AGAIN);
   }
 
   // Do writes.
   {
     a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, file.arena));
+    REQUIRE_OK(a0_publisher_init(&pub, topic));
 
-    REQUIRE_OK(a0_pub(&pub, make_packet("msg #0")));
-    REQUIRE_OK(a0_pub(&pub, make_packet("msg #1")));
+    REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg #0")));
+    REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg #1")));
 
     REQUIRE_OK(a0_publisher_close(&pub));
   }
@@ -468,40 +489,99 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
   // Blocking, oldest, available.
   {
     a0_packet_t pkt;
-    REQUIRE_OK(a0_subscriber_read_one(file.arena, a0::test::allocator(), A0_INIT_OLDEST, 0, &pkt));
+    REQUIRE_OK(a0_subscriber_read_one(topic,
+                                      a0::test::alloc(),
+                                      A0_INIT_OLDEST,
+                                      0,
+                                      &pkt));
     REQUIRE(a0::test::str(pkt.payload) == "msg #0");
   }
 
   // Blocking, most recent, available.
   {
     a0_packet_t pkt;
-    REQUIRE_OK(
-        a0_subscriber_read_one(file.arena, a0::test::allocator(), A0_INIT_MOST_RECENT, 0, &pkt));
+    REQUIRE_OK(a0_subscriber_read_one(topic,
+                                      a0::test::alloc(),
+                                      A0_INIT_MOST_RECENT,
+                                      0,
+                                      &pkt));
     REQUIRE(a0::test::str(pkt.payload) == "msg #1");
   }
 
   // Nonblocking, oldest, available.
   {
     a0_packet_t pkt;
-    REQUIRE_OK(
-        a0_subscriber_read_one(file.arena, a0::test::allocator(), A0_INIT_OLDEST, O_NONBLOCK, &pkt));
+    REQUIRE_OK(a0_subscriber_read_one(topic,
+                                      a0::test::alloc(),
+                                      A0_INIT_OLDEST,
+                                      O_NONBLOCK,
+                                      &pkt));
     REQUIRE(a0::test::str(pkt.payload) == "msg #0");
   }
 
   // Nonblocking, most recent, available.
   {
     a0_packet_t pkt;
-    REQUIRE_OK(a0_subscriber_read_one(file.arena,
-                                      a0::test::allocator(),
+    REQUIRE_OK(a0_subscriber_read_one(topic,
+                                      a0::test::alloc(),
                                       A0_INIT_MOST_RECENT,
                                       O_NONBLOCK,
                                       &pkt));
     REQUIRE(a0::test::str(pkt.payload) == "msg #1");
   }
+
+  // Nonblocking, await new.
+  {
+    a0_packet_t pkt;
+    REQUIRE(a0_subscriber_read_one(topic,
+                                   a0::test::alloc(),
+                                   A0_INIT_AWAIT_NEW,
+                                   O_NONBLOCK,
+                                   &pkt) == A0_ERR_AGAIN);
+  }
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "pubsub] close before publish") {
-  // TODO(mac): DO THIS.
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp read one") {
+  // TODO: Blocking, oldest, not available.
+  // TODO: Blocking, most recent, not available.
+  // TODO: Blocking, await new.
+
+  // Nonblocking, oldest, not available.
+  REQUIRE_THROWS_WITH(
+      [&]() { a0::Subscriber::read_one(topic.name, A0_INIT_OLDEST, O_NONBLOCK); }(),
+      "Not available yet");
+
+  // Nonblocking, most recent, not available.
+  REQUIRE_THROWS_WITH(
+      [&]() { a0::Subscriber::read_one(topic.name, A0_INIT_MOST_RECENT, O_NONBLOCK); }(),
+      "Not available yet");
+
+  // Nonblocking, await new.
+  REQUIRE_THROWS_WITH(
+      [&]() { a0::Subscriber::read_one(topic.name, A0_INIT_AWAIT_NEW, O_NONBLOCK); }(),
+      "Not available yet");
+
+  // Do writes.
+  a0::Publisher p(topic.name);
+  p.pub("msg #0");
+  p.pub("msg #1");
+
+  // Blocking, oldest, available.
+  REQUIRE(a0::Subscriber::read_one(topic.name, A0_INIT_OLDEST, 0).payload() == "msg #0");
+
+  // Blocking, most recent, available.
+  REQUIRE(a0::Subscriber::read_one(topic.name, A0_INIT_MOST_RECENT, 0).payload() == "msg #1");
+
+  // Nonblocking, oldest, available.
+  REQUIRE(a0::Subscriber::read_one(topic.name, A0_INIT_OLDEST, O_NONBLOCK).payload() == "msg #0");
+
+  // Nonblocking, most recent, available.
+  REQUIRE(a0::Subscriber::read_one(topic.name, A0_INIT_MOST_RECENT, O_NONBLOCK).payload() == "msg #1");
+
+  // Nonblocking, await new.
+  REQUIRE_THROWS_WITH(
+      [&]() { a0::Subscriber::read_one(topic.name, A0_INIT_AWAIT_NEW, O_NONBLOCK); }(),
+      "Not available yet");
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
@@ -512,10 +592,10 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
   for (int i = 0; i < NUM_THREADS; i++) {
     threads.emplace_back([this, i]() {
       a0_publisher_t pub;
-      REQUIRE_OK(a0_publisher_init(&pub, file.arena));
+      REQUIRE_OK(a0_publisher_init(&pub, topic));
 
       for (int j = 0; j < NUM_PACKETS; j++) {
-        REQUIRE_OK(a0_pub(&pub, make_packet(a0::strutil::fmt("pub %d msg %d", i, j))));
+        REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt(a0::test::fmt("pub %d msg %d", i, j))));
       }
 
       REQUIRE_OK(a0_publisher_close(&pub));
@@ -529,8 +609,11 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
   // Now sanity-check our values.
   std::set<std::string> msgs;
   a0_subscriber_sync_t sub;
-  REQUIRE_OK(
-      a0_subscriber_sync_init(&sub, file.arena, a0::test::allocator(), A0_INIT_OLDEST, A0_ITER_NEXT));
+  REQUIRE_OK(a0_subscriber_sync_init(&sub,
+                                     topic,
+                                     a0::test::alloc(),
+                                     A0_INIT_OLDEST,
+                                     A0_ITER_NEXT));
 
   while (true) {
     a0_packet_t pkt;
@@ -548,10 +631,10 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
   REQUIRE_OK(a0_subscriber_sync_close(&sub));
 
   // Note that this assumes the topic is lossless.
-  REQUIRE(msgs.size() == 5000);
+  REQUIRE(msgs.size() == NUM_THREADS * NUM_PACKETS);
   for (int i = 0; i < NUM_THREADS; i++) {
     for (int j = 0; j < NUM_PACKETS; j++) {
-      REQUIRE(msgs.count(a0::strutil::fmt("pub %d msg %d", i, j)));
+      REQUIRE(msgs.count(a0::test::fmt("pub %d msg %d", i, j)));
     }
   }
 }

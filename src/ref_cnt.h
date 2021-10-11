@@ -1,7 +1,7 @@
-#ifndef A0_REF_CNT_H
-#define A0_REF_CNT_H
+#ifndef A0_SRC_REF_CNT_H
+#define A0_SRC_REF_CNT_H
 
-#include <a0/errno.h>
+#include <a0/err.h>
 
 #include <stddef.h>
 
@@ -9,12 +9,12 @@
 extern "C" {
 #endif
 
-errno_t a0_ref_cnt_inc(void*);
-errno_t a0_ref_cnt_dec(void*);
-errno_t a0_ref_cnt_get(void*, size_t*);
+a0_err_t a0_ref_cnt_inc(void*, size_t*);
+a0_err_t a0_ref_cnt_dec(void*, size_t*);
+a0_err_t a0_ref_cnt_get(void*, size_t*);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // A0_REF_CNT_H
+#endif  // A0_SRC_REF_CNT_H

@@ -80,20 +80,16 @@ To begin with, we need to include AlephZero:
 You can have as many publisher and subscribers on the same topic as you wish. They just need to agree on the filename.
 
 ```cc
-a0::Publisher p(a0::File("my_pubsub_topic"));
+a0::Publisher p("my_pubsub_topic");
 p.pub("foo");
 ```
 
 You just published `"foo"` to the `"my_pubsub_topic"`.
 
-`"my_pubsub_topic"` is actually a filename relative to `/dev/shm/`, so `/dev/shm/my_pubsub_topic`.
-
-You could do `a0::File("/tmp/my_pubsub_topic")` which puts the data in `/tmp/`, which in on disk. But do you really want to have every published message saved on disk instead of ram?
-
 To read those message, you can create a subscriber on the same topic:
 ```cc
 a0::Subscriber sub(
-    a0::File("my_pubsub_topic"),
+    "my_pubsub_topic",
     A0_INIT_AWAIT_NEW,  // or MOST_RECENT or OLDEST
     A0_ITER_NEWEST,     // or NEXT
     [](a0::PacketView pkt_view) {
@@ -115,7 +111,7 @@ The `A0_ITER` tells the subscriber how to continue reading messages. After each 
 
 ```cc
 a0::SubscriberSync sub_sync(
-    a0::File("my_pubsub_topic"),
+    "my_pubsub_topic",
     A0_INIT_OLDEST, A0_ITER_NEXT);
 while (sub_sync.has_next()) {
   auto pkt = sub_sync.next();
@@ -129,7 +125,7 @@ Create an `RpcServer`:
 
 ```cc
 a0::RpcServer server(
-    a0::File("my_rpc_topic"),
+    "my_rpc_topic",
     /* onrequest = */ [](a0::RpcRequest req) {
         std::cout << "Got: " << req.pkt().payload() << std::endl;
         req.reply("echo " + std::string(req.pkt().payload()));
@@ -140,7 +136,7 @@ a0::RpcServer server(
 Create an `RpcClient`:
 
 ```cc
-a0::RpcClient client(a0::File("my_rpc_topic"));
+a0::RpcClient client("my_rpc_topic");
 client.send("client msg", [](a0::PacketView reply) {
   std::cout << "Got: " << reply.payload() << std::endl;
 });

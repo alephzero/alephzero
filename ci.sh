@@ -5,9 +5,10 @@ rm /tmp/alephzero_ci.Dockerfile
 cat <<EOF >> /tmp/alephzero_ci.Dockerfile
 FROM alpine:latest
 
-RUN apk add --no-cache bash curl
+RUN apk add --no-cache bash
 
-RUN curl https://raw.githubusercontent.com/nektos/act/master/install.sh | bash
+RUN wget https://raw.githubusercontent.com/nektos/act/master/install.sh
+RUN bash install.sh v0.2.20
 EOF
 
 docker build -t alephzero_ci . -f /tmp/alephzero_ci.Dockerfile

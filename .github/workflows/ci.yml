@@ -16,7 +16,9 @@ jobs:
       image: 'ubuntu:18.04'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -30,7 +32,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -44,7 +48,9 @@ jobs:
       image: 'alpine:3.11'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       shell: sh
       run: apk add --no-cache g++ linux-headers make
@@ -60,7 +66,9 @@ jobs:
       image: 'ubuntu:18.04'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang make
     - name: run
@@ -74,7 +82,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang make
     - name: run
@@ -88,7 +98,9 @@ jobs:
       image: 'alpine:3.11'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       shell: sh
       run: apk add --no-cache clang g++ linux-headers make
@@ -104,13 +116,31 @@ jobs:
       image: 'alpine:3.11'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       shell: sh
       run: apk add --no-cache g++ linux-headers make
     - name: run
       shell: sh
       run: CC=x86_64-alpine-linux-musl-gcc CXX=x86_64-alpine-linux-musl-g++ make test -j
+
+  third_party:
+    name: Third Party Extensions
+
+    runs-on: ubuntu-latest
+    container:
+      image: 'ubuntu:20.04'
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: install deps
+      run: apt update && apt install --no-install-recommends -y g++ make
+    - name: run
+      run: make test -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
 
   asan:
     name: Address Sanitizer
@@ -120,7 +150,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -134,7 +166,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -148,7 +182,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
@@ -162,7 +198,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make valgrind
     - name: run
@@ -176,7 +214,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang-9 iwyu make
     - name: run
@@ -190,13 +230,15 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang-tidy
     - name: run
       run: |
         clang-tidy include/**/*.h src/*.c src/*.h -- -Iinclude
-        clang-tidy src/*.cpp src/*.hpp -- -Iinclude -I. -std=c++17
+        clang-tidy include/**/*.hpp src/*.cpp src/*.hpp -- -Iinclude -I. -std=c++11
 
   format:
     name: Format
@@ -206,19 +248,16 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang-format git
     - name: run
       shell: bash
       run: |
-        shopt -s globstar
-        git init
-        git config --global user.name "none"
-        git config --global user.email "none"
-        git add **
-        git commit -am "INITIAL STATE"
-        clang-format -i --style=file include/** src/** || true
+        find ./include/ ./src/ -name '*.[ch]' -o -name '*.[ch]pp' | xargs \
+          clang-format -i --style=file --verbose
         git --no-pager diff --exit-code
 
   cov:
@@ -229,7 +268,9 @@ jobs:
       image: 'ubuntu:20.04'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: install deps
       run: apt update && apt install --no-install-recommends -y ca-certificates curl g++ make
     - name: run

@@ -1,35 +1,77 @@
 #include <a0/time.h>
+#include <a0/time.hpp>
 
 #include <doctest.h>
 
-#include <cstdint>
+#include <chrono>
 #include <ctime>
+#include <memory>
+#include <string>
 
 #include "src/test_util.hpp"
 
 TEST_CASE("time] mono") {
-  uint64_t mono_ts;
-  REQUIRE_OK(a0_time_mono_now(&mono_ts));
+  a0_time_mono_t now;
+  REQUIRE_OK(a0_time_mono_now(&now));
+
+  a0_time_mono_t fut;
+  REQUIRE_OK(a0_time_mono_add(now, 1, &fut));
 
   char mono_str[20];
-  REQUIRE_OK(a0_time_mono_str(mono_ts, mono_str));
+  REQUIRE_OK(a0_time_mono_str(fut, mono_str));
 
-  uint64_t recovered_ts;
-  REQUIRE_OK(a0_time_mono_parse(mono_str, &recovered_ts));
+  a0_time_mono_t recovered;
+  REQUIRE_OK(a0_time_mono_parse(mono_str, &recovered));
 
-  REQUIRE(mono_ts == recovered_ts);
+  struct timespec want = now.ts;
+  want.tv_nsec++;
+  if (want.tv_nsec >= 1e9) {
+    want.tv_sec++;
+    want.tv_nsec -= 1e9;
+  }
+
+  REQUIRE(want.tv_sec == recovered.ts.tv_sec);
+  REQUIRE(want.tv_nsec == recovered.ts.tv_nsec);
+}
+
+TEST_CASE("time] cpp mono") {
+  a0::TimeMono now = a0::TimeMono::now();
+  a0::TimeMono fut = now.add(std::chrono::nanoseconds(1));
+  std::string serial = fut.to_string();
+  REQUIRE(serial.size() == 19);
+  a0::TimeMono recovered = a0::TimeMono::parse(serial);
+
+  struct timespec want = now.c->ts;
+  want.tv_nsec++;
+  if (want.tv_nsec >= 1e9) {
+    want.tv_sec++;
+    want.tv_nsec -= 1e9;
+  }
+
+  REQUIRE(want.tv_sec == recovered.c->ts.tv_sec);
+  REQUIRE(want.tv_nsec == recovered.c->ts.tv_nsec);
 }
 
 TEST_CASE("time] wall") {
-  timespec wall_ts;
-  REQUIRE_OK(a0_time_wall_now(&wall_ts));
+  a0_time_wall_t time_wall;
+  REQUIRE_OK(a0_time_wall_now(&time_wall));
 
   char wall_str[36];
-  REQUIRE_OK(a0_time_wall_str(wall_ts, wall_str));
+  REQUIRE_OK(a0_time_wall_str(time_wall, wall_str));
 
-  timespec recovered_ts;
-  REQUIRE_OK(a0_time_wall_parse(wall_str, &recovered_ts));
+  a0_time_wall_t recovered;
+  REQUIRE_OK(a0_time_wall_parse(wall_str, &recovered));
 
-  REQUIRE(wall_ts.tv_nsec == recovered_ts.tv_nsec);
-  REQUIRE(wall_ts.tv_sec == recovered_ts.tv_sec);
+  REQUIRE(time_wall.ts.tv_sec == recovered.ts.tv_sec);
+  REQUIRE(time_wall.ts.tv_nsec == recovered.ts.tv_nsec);
+}
+
+TEST_CASE("time] cpp wall") {
+  a0::TimeWall time_wall = a0::TimeWall::now();
+  std::string serial = time_wall.to_string();
+  REQUIRE(serial.size() == 35);
+  a0::TimeWall recovered = a0::TimeWall::parse(serial);
+
+  REQUIRE(time_wall.c->ts.tv_sec == recovered.c->ts.tv_sec);
+  REQUIRE(time_wall.c->ts.tv_nsec == recovered.c->ts.tv_nsec);
 }

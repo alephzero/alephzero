@@ -1,58 +1,63 @@
-#include <a0/errno.h>
-#include <a0/time.h>  // IWYU pragma: keep
+#include <a0/string_view.hpp>
+#include <a0/time.h>
+#include <a0/time.hpp>
 
-#include <cerrno>
-#include <cstdint>
-#include <cstdio>
-#include <ctime>
+#include <chrono>
+#include <memory>
+#include <string>
 
-#include "charconv.hpp"
+#include "c_wrap.hpp"
 
-const char A0_TIME_MONO[] = "a0_time_mono";
+namespace a0 {
 
-errno_t a0_time_mono_now(uint64_t* out) {
-  timespec mono_ts;
-  clock_gettime(CLOCK_BOOTTIME, &mono_ts);
-  *out = mono_ts.tv_sec * uint64_t(1e9) + mono_ts.tv_nsec;
-  return A0_OK;
+TimeMono TimeMono::now() {
+  return make_cpp<TimeMono>(
+      [](a0_time_mono_t* c) {
+        return a0_time_mono_now(c);
+      });
 }
 
-errno_t a0_time_mono_str(uint64_t mono_ts, char mono_str[20]) {
-  // Mono time as unsigned integer with up to 20 chars: "18446744072709551615"
-  a0::to_chars(mono_str, mono_str + 19, mono_ts);
-  mono_str[19] = '\0';
-  return A0_OK;
+std::string TimeMono::to_string() {
+  CHECK_C;
+  char mono_str[20];
+  check(a0_time_mono_str(*c, mono_str));
+  return mono_str;
 }
 
-errno_t a0_time_mono_parse(const char mono_str[20], uint64_t* out) {
-  return a0::from_chars(mono_str, mono_str + 20, *out);
+TimeMono TimeMono::parse(string_view str) {
+  return make_cpp<TimeMono>(
+      [&](a0_time_mono_t* c) {
+        return a0_time_mono_parse(str.data(), c);
+      });
 }
 
-const char A0_TIME_WALL[] = "a0_time_wall";
-
-errno_t a0_time_wall_now(timespec* out) {
-  clock_gettime(CLOCK_REALTIME, out);
-  return A0_OK;
+TimeMono TimeMono::add(std::chrono::nanoseconds dur) {
+  CHECK_C;
+  return make_cpp<TimeMono>(
+      [&](a0_time_mono_t* out) {
+        return a0_time_mono_add(*c, dur.count(), out);
+      });
 }
 
-errno_t a0_time_wall_str(timespec wall_ts, char wall_str[36]) {
-  // Wall time in RFC 3999 Nano: "2006-01-02T15:04:05.999999999-07:00"
-  std::tm wall_tm;
-  gmtime_r(&wall_ts.tv_sec, &wall_tm);
-
-  std::strftime(&wall_str[0], 20, "%Y-%m-%dT%H:%M:%S", &wall_tm);
-  std::snprintf(&wall_str[19], 17, ".%09ld-00:00", wall_ts.tv_nsec);
-  wall_str[35] = '\0';
-
-  return A0_OK;
+TimeWall TimeWall::now() {
+  return make_cpp<TimeWall>(
+      [](a0_time_wall_t* c) {
+        return a0_time_wall_now(c);
+      });
 }
 
-errno_t a0_time_wall_parse(const char wall_str[36], timespec* out) {
-  std::tm wall_tm;
-  if (!strptime(wall_str, "%Y-%m-%dT%H:%M:%S", &wall_tm)) {
-    return EINVAL;
-  }
-
-  out->tv_sec = timegm(&wall_tm);
-  return a0::from_chars(wall_str + 20, wall_str + 29, out->tv_nsec);
+std::string TimeWall::to_string() {
+  CHECK_C;
+  char wall_str[36];
+  check(a0_time_wall_str(*c, wall_str));
+  return wall_str;
 }
+
+TimeWall TimeWall::parse(string_view str) {
+  return make_cpp<TimeWall>(
+      [&](a0_time_wall_t* c) {
+        return a0_time_wall_parse(str.data(), c);
+      });
+}
+
+}  // namespace a0

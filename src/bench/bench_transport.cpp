@@ -4,7 +4,7 @@
 #include <a0.h>
 #include <picobench/picobench.hpp>
 
-static const char BENCH_SHM[] = "/bench.shm";
+static const char BENCH_FILE[] = "bench.a0";
 
 template <typename T>
 A0_STATIC_INLINE void use(const T& t) {
@@ -16,27 +16,24 @@ A0_STATIC_INLINE void use(const T& t) {
 
 struct BenchFixture {
   BenchFixture() {
-    a0_shm_unlink(BENCH_SHM);
-    a0_shm_open(BENCH_SHM, nullptr, &shm);
+    a0_file_remove(BENCH_FILE);
+    a0_file_open(BENCH_FILE, nullptr, &file);
 
-    a0_transport_init_status_t init_status;
-    a0_transport_init(&transport, shm.arena, &init_status, &lk);
+    a0_transport_init(&transport, file.arena);
   }
 
   ~BenchFixture() {
-    a0_transport_unlock(lk);
-    a0_transport_close(&transport);
-    a0_shm_close(&shm);
-    a0_shm_unlink(BENCH_SHM);
+    a0_file_close(&file);
+    a0_file_remove(BENCH_FILE);
   }
 
-  a0_shm_options_t shmopt;
-  a0_shm_t shm;
+  a0_file_t file;
   a0_transport_t transport;
-  a0_locked_transport_t lk;
 };
 
-auto bench_memcpy(int msg_size) {
+using bench_fn_t = std::function<void(picobench::state&)>;
+
+bench_fn_t bench_memcpy(int msg_size) {
   return [msg_size](picobench::state& s) {
     BenchFixture fixture;
     (void)fixture;
@@ -51,12 +48,12 @@ auto bench_memcpy(int msg_size) {
   };
 }
 
-auto bench_memcpy_slots(int msg_size) {
+bench_fn_t bench_memcpy_slots(int msg_size) {
   return [msg_size](picobench::state& s) {
     BenchFixture fixture;
     (void)fixture;
 
-    int slots = A0_SHM_OPTIONS_DEFAULT.size / msg_size;
+    int slots = A0_FILE_OPTIONS_DEFAULT.create_options.size / msg_size;
     char** array = (char**)malloc(slots * sizeof(char*));
     for (int i = 0; i < slots; i++) {
       array[i] = (char*)malloc(msg_size);
@@ -75,7 +72,7 @@ auto bench_memcpy_slots(int msg_size) {
   };
 }
 
-auto bench_malloc(int msg_size) {
+bench_fn_t bench_malloc(int msg_size) {
   return [msg_size](picobench::state& s) {
     BenchFixture fixture;
     (void)fixture;
@@ -89,12 +86,12 @@ auto bench_malloc(int msg_size) {
   };
 }
 
-auto bench_malloc_slots(int msg_size) {
+bench_fn_t bench_malloc_slots(int msg_size) {
   return [msg_size](picobench::state& s) {
     BenchFixture fixture;
     (void)fixture;
 
-    int slots = A0_SHM_OPTIONS_DEFAULT.size / msg_size;
+    int slots = A0_FILE_OPTIONS_DEFAULT.create_options.size / msg_size;
     char** array = (char**)malloc(slots * sizeof(char*));
     for (int i = 0; i < slots; i++) {
       array[i] = (char*)malloc(msg_size);
@@ -115,12 +112,12 @@ auto bench_malloc_slots(int msg_size) {
   };
 }
 
-auto bench_malloc_memcpy_slots(int msg_size) {
+bench_fn_t bench_malloc_memcpy_slots(int msg_size) {
   return [msg_size](picobench::state& s) {
     BenchFixture fixture;
     (void)fixture;
 
-    int slots = A0_SHM_OPTIONS_DEFAULT.size / msg_size;
+    int slots = A0_FILE_OPTIONS_DEFAULT.create_options.size / msg_size;
     char** array = (char**)malloc(slots * sizeof(char*));
     for (int i = 0; i < slots; i++) {
       array[i] = (char*)malloc(msg_size);
@@ -143,31 +140,38 @@ auto bench_malloc_memcpy_slots(int msg_size) {
   };
 }
 
-auto bench_a0_alloc(int msg_size) {
+bench_fn_t bench_a0_alloc(int msg_size) {
   return [msg_size](picobench::state& s) {
     BenchFixture fixture;
     (void)fixture;
 
+    a0_transport_locked_t lk;
+    a0_transport_lock(&fixture.transport, &lk);
     for (auto&& _ : s) {
       use(_);
       a0_transport_frame_t frame;
-      a0_transport_alloc(fixture.lk, msg_size, &frame);
+      a0_transport_alloc(lk, msg_size, &frame);
     }
+    a0_transport_unlock(lk);
   };
 }
 
-auto bench_a0_alloc_memcpy(int msg_size) {
+bench_fn_t bench_a0_alloc_memcpy(int msg_size) {
   return [msg_size](picobench::state& s) {
     BenchFixture fixture;
     (void)fixture;
 
     std::string src(msg_size, 0);
+
+    a0_transport_locked_t lk;
+    a0_transport_lock(&fixture.transport, &lk);
     for (auto&& _ : s) {
       use(_);
       a0_transport_frame_t frame;
-      a0_transport_alloc(fixture.lk, msg_size, &frame);
+      a0_transport_alloc(lk, msg_size, &frame);
       memcpy(frame.data, src.data(), msg_size);
     }
+    a0_transport_unlock(lk);
   };
 }
 

@@ -6,22 +6,24 @@ LIB_DIR = lib
 BIN_DIR = bin
 
 CXFLAGS += -Wall -Wextra -fPIC -Iinclude
-CXXFLAGS += -std=c++17
+CXXFLAGS += -std=c++11
 LDFLAGS += -lpthread
 
 SRC_C := $(wildcard $(SRC_DIR)/*.c)
 SRC_CXX := $(wildcard $(SRC_DIR)/*.cpp)
 
 OBJ := $(SRC_C:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
-OBJ += $(SRC_CXX:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
+OBJ += $(SRC_CXX:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%_cpp.o)
 
 DEP = $(OBJ:%.o=%.d)
 
 TEST_SRC_CXX := $(wildcard $(SRC_DIR)/test/*.cpp)
 
-TEST_OBJ := $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cpp=$(OBJ_DIR)/test/%.o)
+TEST_OBJ := $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cpp=$(OBJ_DIR)/test/%_cpp.o)
 
 TEST_CXXFLAGS += -I. -Itest -Ithird_party/doctest/doctest
+
+IWYU_FLAGS += -Xiwyu --no_fwd_decls -Xiwyu --mapping_file=./iwyu.imp
 
 BENCH_SRC_C := $(wildcard $(SRC_DIR)/bench/*.c)
 BENCH_SRC_CXX := $(wildcard $(SRC_DIR)/bench/*.cpp)
@@ -35,6 +37,25 @@ DEBUG ?= 0
 ifneq ($(DEBUG), 1)
 	REQUIRE_DEBUG := $(filter $(MAKECMDGOALS),asan tsan ubsan valgrind cov covweb)
 	DEBUG = $(if $(REQUIRE_DEBUG),1,0)
+endif
+
+A0_EXT_YYJSON ?= 0
+ifeq ($(A0_EXT_YYJSON), 1)
+	CXFLAGS += -DA0_EXT_YYJSON
+	CXFLAGS += -Ithird_party/yyjson/src
+	YYJSON_SRC := third_party/yyjson/src/yyjson.c
+	YYJSON_OBJ := obj/third_party/yyjson/src/yyjson.o
+	OBJ += $(YYJSON_OBJ)
+
+$(YYJSON_OBJ): $(YYJSON_SRC)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(CXFLAGS) -MMD -c $< -o $@
+endif
+
+A0_EXT_NLOHMANN ?= 0
+ifeq ($(A0_EXT_NLOHMANN), 1)
+	CXXFLAGS += -DA0_EXT_NLOHMANN
+	CXXFLAGS += -Ithird_party/json/single_include
 endif
 
 cov: CXFLAGS += -fprofile-arcs -ftest-coverage --coverage
@@ -75,11 +96,11 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CXFLAGS) -MMD -c $< -o $@
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+$(OBJ_DIR)/%_cpp.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXFLAGS) $(CXXFLAGS) -MMD -c $< -o $@
 
-$(OBJ_DIR)/test/%.o: $(SRC_DIR)/test/%.cpp
+$(OBJ_DIR)/test/%_cpp.o: $(SRC_DIR)/test/%.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXFLAGS) $(CXXFLAGS) $(TEST_CXXFLAGS) -MMD -c $< -o $@
 
@@ -137,7 +158,7 @@ valgrind: $(BIN_DIR)/test
 		echo "\e[01;31mError: valgrind is not installed\e[0m";  \
 		exit 1;                                                 \
 	}
-	RUNNING_ON_VALGRIND=1 valgrind --tool=memcheck --leak-check=yes ./bin/test
+	RUNNING_ON_VALGRIND=1 valgrind --tool=memcheck --leak-check=yes -q ./bin/test
 
 cov: $(BIN_DIR)/test
 	$(BIN_DIR)/test
@@ -153,22 +174,22 @@ covweb: cov
 
 iwyu/$(SRC_DIR)/%.c.ok: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
-	iwyu $(CFLAGS) $(CXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	iwyu $(CFLAGS) $(CXFLAGS) $(IWYU_FLAGS) -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu/$(SRC_DIR)/%.cpp.ok: $(SRC_DIR)/%.cpp
 	@mkdir -p $(@D)
-	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	iwyu $(CXFLAGS) $(CXXFLAGS) $(IWYU_FLAGS) -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu/$(SRC_DIR)/%.hpp.ok: $(SRC_DIR)/%.hpp
 	@mkdir -p $(@D)
-	iwyu $(CXFLAGS) $(CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	iwyu $(CXFLAGS) $(CXXFLAGS) $(IWYU_FLAGS) -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu/$(SRC_DIR)/test/%.cpp.ok: $(SRC_DIR)/test/%.cpp
 	@mkdir -p $(@D)
-	iwyu $(CXFLAGS) $(CXXFLAGS) $(TEST_CXXFLAGS) -Xiwyu --mapping_file=./iwyu.imp -c $< ; \
+	iwyu $(CXFLAGS) $(CXXFLAGS) $(TEST_CXXFLAGS) $(IWYU_FLAGS) -c $< ; \
 	if [ $$? -eq 2 ]; then touch $@ ; else exit 1 ; fi
 
 iwyu: $(patsubst $(SRC_DIR)/%.c,iwyu/$(SRC_DIR)/%.c.ok,$(wildcard $(SRC_DIR)/*.c))
@@ -177,4 +198,4 @@ iwyu: $(patsubst $(SRC_DIR)/%.hpp,iwyu/$(SRC_DIR)/%.hpp.ok,$(wildcard $(SRC_DIR)
 iwyu: $(patsubst $(SRC_DIR)/test/%.cpp,iwyu/$(SRC_DIR)/test/%.cpp.ok,$(wildcard $(SRC_DIR)/test/*.cpp))
 
 clean:
-	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ cov/ iwyu/ *.gcov
+	rm -rf $(OBJ_DIR)/ $(LIB_DIR)/ $(BIN_DIR)/ cov/ iwyu/ *.gcov core vgcore\.*

@@ -5,8 +5,8 @@
 extern "C" {
 #endif
 
-// My kingdom for a constexpr.
-#define A0_UUID_SIZE 37
+enum { A0_UUID_SIZE = 37 };
+
 typedef char a0_uuid_t[A0_UUID_SIZE];
 
 void a0_uuidv4(a0_uuid_t out);

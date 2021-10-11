@@ -7,5 +7,4 @@ Reference (C++)
 
    arena_cpp
    file_cpp
-   heartbeat_cpp
    packet_cpp

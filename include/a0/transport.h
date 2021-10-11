@@ -27,19 +27,10 @@
  * The layout of the transport is guaranteed to be consistent on the same machine,
  * regardless of libc implementations.
  *
- * The transport may also optionally reserves a section of it's space for user metadata.
- * Metadata space must be reserved before the first frame is written. Unlike the rest
- * of the transport, consistency of the metadata is not guaranteed. In general, it should
- * not be used for mutable state.
- *
  * Constructing
  * ------------
  *
  * A transport exists in an arena, a flat contiguous memory buffer.
- *
- * The constructor returns a status of CREATED or CONNECTED along with exclusive
- * ownership of the mutex. This is meant, in part, to allow the caller a chance
- * to make one-time preparations for the transport, such as set up the metadata.
  *
  * Accessing
  * ---------
@@ -49,7 +40,7 @@
  *
  * To access frames within the arena, the transport must be locked. To help
  * prevent bugs associated with unlocked access, all access functions require a
- * a0_locked_transport_t object, returned by a0_transport_lock. The lock should
+ * a0_transport_locked_t object, returned by a0_transport_lock. The lock should
  * be freed with a0_transport_unlock.
  *
  * Since frames are organized in a linked-list format, iteration and access follows
@@ -72,7 +63,7 @@
  * a0_transport_frame returns a frame pointer into the arena.
  *
  * If the transport is unlocked and relocked, the pointer may no longer be valid.
- * To check for validity, you can use a0_transport_ptr_valid. You can use
+ * To check for validity, you can use a0_transport_iter_valid. You can use
  * a0_transport_has_next and a0_transport_next regardless of whether the pointer
  * is still valid.
  *
@@ -101,7 +92,7 @@
  * -------------
  *
  * The transport provides a simple condition-variable style wait/notify.
- * a0_transport_await atomically unlocks the transport and will be awoken when
+ * a0_transport_wait atomically unlocks the transport and will be awoken when
  * a given predicate is satisfied.
  *
  * The predicate is checked immediately, then whenever the transport is unlocked
@@ -125,7 +116,9 @@
 
 #include <a0/alloc.h>
 #include <a0/arena.h>
-#include <a0/common.h>
+#include <a0/buf.h>
+#include <a0/callback.h>
+#include <a0/time.h>
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -144,33 +137,26 @@ typedef struct a0_transport_s {
 
   // Connection pointer info.
   uint64_t _seq;
-  uint64_t _off;
+  size_t _off;
 
   // Number of active awaits using this transport connection.
-  // TODO(lshamis): Could this be a bool?
-  uint32_t _await_cnt;
+  uint32_t _wait_cnt;
 
-  // Whether the transport is in the process of disconnecting.
-  bool _closing;
-
-  // Whether the transport has an unflushed notification.
-  bool _should_notify;
-
-  // Unique token used to distinguish locks.
-  uint32_t _lk_tkn;
+  // Whether the transport has shutdown the notification mechanism.
+  bool _shutdown;
 } a0_transport_t;
 
 typedef struct a0_transport_frame_hdr_s {
   /// Sequence number.
   uint64_t seq;
   /// Offset within the arena.
-  uint64_t off;
+  size_t off;
   /// Offset of the next frame.
-  uint64_t next_off;
+  size_t next_off;
   /// Offset of the previous frame.
-  uint64_t prev_off;
+  size_t prev_off;
   /// Size of the data within the frame.
-  uint64_t data_size;
+  size_t data_size;
 } a0_transport_frame_hdr_t;
 
 typedef struct a0_transport_frame_s {
@@ -180,88 +166,84 @@ typedef struct a0_transport_frame_s {
   uint8_t* data;
 } a0_transport_frame_t;
 
-/// Whether the a0_transport_init call created or connected to the
-/// transport in the given arena.
-typedef enum a0_transport_init_status_s {
-  A0_TRANSPORT_CREATED,
-  A0_TRANSPORT_CONNECTED,
-} a0_transport_init_status_t;
-
 /// Wrapper around a transport, used to "strongly" type unique-access.
-typedef struct a0_locked_transport_s {
+typedef struct a0_transport_locked_s {
   /// Wrapped transport.
   a0_transport_t* transport;
-} a0_locked_transport_t;
+} a0_transport_locked_t;
 
 /// Creates or connects to the transport in the given arena.
-///
-/// The transport is locked at end of init and MUST be released
-/// by the caller once initialization is satisfied.
-errno_t a0_transport_init(a0_transport_t*,
-                          a0_arena_t,
-                          a0_transport_init_status_t* status_out,
-                          a0_locked_transport_t* lk_out);
-
-/// Allocates space in the arena for metadata.
-/// This can only be called after a0_transport_init, before any allocations.
-/// Once the transports start allocating frames, the metadata size is fixed.
-errno_t a0_transport_init_metadata(a0_locked_transport_t, size_t metadata_size);
-
-/// Closes the transport.
-errno_t a0_transport_close(a0_transport_t*);
+a0_err_t a0_transport_init(a0_transport_t*, a0_arena_t);
 
 /// Locks the transport.
-errno_t a0_transport_lock(a0_transport_t*, a0_locked_transport_t* lk_out);
+a0_err_t a0_transport_lock(a0_transport_t*, a0_transport_locked_t* lk_out);
 /// Unlocks the transport.
 ///
 /// The locked_transport object is invalid afterwards.
-errno_t a0_transport_unlock(a0_locked_transport_t);
+a0_err_t a0_transport_unlock(a0_transport_locked_t);
 
-/// Accesses the metadata space within the arena.
-///
-/// Caller does NOT own `metadata_out->ptr` and should not clean it up!
-errno_t a0_transport_metadata(a0_locked_transport_t, a0_buf_t* metadata_out);
+/// Shuts down the notification mechanism and waits for all waiters to return.
+a0_err_t a0_transport_shutdown(a0_transport_locked_t);
+
+/// Returns whether the a transport shutdown is requested.
+a0_err_t a0_transport_shutdown_requested(a0_transport_locked_t, bool*);
 
 /// Checks whether the transport is empty.
-errno_t a0_transport_empty(a0_locked_transport_t, bool*);
+a0_err_t a0_transport_empty(a0_transport_locked_t, bool*);
 /// Checks whether the transport is not empty.
-errno_t a0_transport_nonempty(a0_locked_transport_t, bool*);
+a0_err_t a0_transport_nonempty(a0_transport_locked_t, bool*);
 /// Checks whether the user's transport pointer is valid.
-errno_t a0_transport_ptr_valid(a0_locked_transport_t, bool*);
+a0_err_t a0_transport_iter_valid(a0_transport_locked_t, bool*);
 /// Moves the user's transport pointer to the oldest frame.
 ///
 /// Note that this is inclusive.
-errno_t a0_transport_jump_head(a0_locked_transport_t);
+a0_err_t a0_transport_jump_head(a0_transport_locked_t);
 /// Moves the user's transport pointer to the newest frame.
 ///
 /// Note that this is inclusive.
-errno_t a0_transport_jump_tail(a0_locked_transport_t);
+a0_err_t a0_transport_jump_tail(a0_transport_locked_t);
 /// Checks whether a newer frame exists than that at the current
 /// user's transport pointer.
-errno_t a0_transport_has_next(a0_locked_transport_t, bool*);
+a0_err_t a0_transport_has_next(a0_transport_locked_t, bool*);
 /// Step the user's transport pointer forward by one frame.
 ///
 /// Note: This steps to the oldest frame, still available, that was added
 /// after the current frame. If the sequentially next frame has already
 /// been evicted, this will effectively jump to head.
-errno_t a0_transport_next(a0_locked_transport_t);
+a0_err_t a0_transport_step_next(a0_transport_locked_t);
 /// Checks whether a earlier frame exists than that at the current
 /// user's transport pointer.
-errno_t a0_transport_has_prev(a0_locked_transport_t, bool*);
+a0_err_t a0_transport_has_prev(a0_transport_locked_t, bool*);
 /// Step the user's transport pointer backward by one frame.
-errno_t a0_transport_prev(a0_locked_transport_t);
+a0_err_t a0_transport_step_prev(a0_transport_locked_t);
 
-/// Await until the given predicate is satisfied.
+/// Wait until the given predicate is satisfied.
 ///
 /// The predicate is checked when an unlock event occurs following a commit or eviction.
+a0_err_t a0_transport_wait(a0_transport_locked_t, a0_predicate_t);
+
+/// Wait until the given predicate is satisfied or the timeout expires.
 ///
-/// TODO(lshamis): should pred take user_data?
-errno_t a0_transport_await(a0_locked_transport_t, errno_t (*pred)(a0_locked_transport_t, bool*));
+/// The predicate is checked when an unlock event occurs following a commit or eviction.
+a0_err_t a0_transport_timedwait(a0_transport_locked_t, a0_predicate_t, a0_time_mono_t);
+
+/// Predicate that is satisfied when the transport is empty.
+a0_predicate_t a0_transport_empty_pred(a0_transport_locked_t*);
+/// Predicate that is satisfied when the transport is not empty.
+a0_predicate_t a0_transport_nonempty_pred(a0_transport_locked_t*);
+/// Predicate that is satisfied when a newer frame exists than one at the current pointer.
+a0_predicate_t a0_transport_has_next_pred(a0_transport_locked_t*);
+
+/// Returns the earliest available sequence number.
+a0_err_t a0_transport_seq_low(a0_transport_locked_t, uint64_t* out);
+
+/// Returns the latest available sequence number.
+a0_err_t a0_transport_seq_high(a0_transport_locked_t, uint64_t* out);
 
 /// Accesses the frame within the arena, at the current transport pointer.
 ///
 /// Caller does NOT own `frame_out->data` and should not clean it up!
-errno_t a0_transport_frame(a0_locked_transport_t, a0_transport_frame_t* frame_out);
+a0_err_t a0_transport_frame(a0_transport_locked_t, a0_transport_frame_t* frame_out);
 
 /// Allocates a new frame within the arena.
 ///
@@ -275,11 +257,18 @@ errno_t a0_transport_frame(a0_locked_transport_t, a0_transport_frame_t* frame_ou
 ///     If an alloc evicts an old frame, that frame is lost, even if no
 ///     commit call is issued.
 /// \endrst
-errno_t a0_transport_alloc(a0_locked_transport_t, size_t, a0_transport_frame_t* frame_out);
+a0_err_t a0_transport_alloc(a0_transport_locked_t, size_t, a0_transport_frame_t* frame_out);
 /// Checks whether an alloc call would evict.
-errno_t a0_transport_alloc_evicts(a0_locked_transport_t, size_t, bool*);
-errno_t a0_transport_allocator(a0_locked_transport_t*, a0_alloc_t*);
-errno_t a0_transport_commit(a0_locked_transport_t);
+a0_err_t a0_transport_alloc_evicts(a0_transport_locked_t, size_t, bool*);
+/// Creates an allocator that allocates within the transport.
+a0_err_t a0_transport_allocator(a0_transport_locked_t*, a0_alloc_t*);
+/// Commits the allocated frames.
+a0_err_t a0_transport_commit(a0_transport_locked_t);
+
+/// Returns the arena space in use.
+a0_err_t a0_transport_used_space(a0_transport_locked_t, size_t*);
+/// Resizes the underlying arena. Fails with A0_ERR_INVALID_ARG if this would delete active data.
+a0_err_t a0_transport_resize(a0_transport_locked_t, size_t);
 
 /** @}*/
 

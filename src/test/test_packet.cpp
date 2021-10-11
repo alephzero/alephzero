@@ -1,17 +1,18 @@
-#include <a0/alloc.h>
-#include <a0/common.h>
-#include <a0/errno.h>
+#include <a0/buf.h>
 #include <a0/packet.h>
+#include <a0/packet.hpp>
+#include <a0/string_view.hpp>
 #include <a0/uuid.h>
 
 #include <doctest.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cstddef>
-#include <cstdint>
-#include <cstdlib>
-#include <map>
+#include <functional>
+#include <ostream>
 #include <string>
+#include <unordered_map>
 
 #include "src/test_util.hpp"
 
@@ -32,11 +33,11 @@ TEST_CASE("packet] init") {
   REQUIRE(pkt.headers_block.size == 0);
   REQUIRE(pkt.headers_block.next_block == nullptr);
 
-  REQUIRE(pkt.payload.ptr == nullptr);
+  REQUIRE(pkt.payload.data == nullptr);
   REQUIRE(pkt.payload.size == 0);
 }
 
-TEST_CASE("packet] stats") {
+void with_standard_packet(std::function<void(a0_packet_t pkt)> fn) {
   a0_packet_header_t grp_a[2] = {
       {"a", "b"},
       {"c", "d"},
@@ -55,197 +56,163 @@ TEST_CASE("packet] stats") {
   pkt.headers_block = blk_b;
   pkt.payload = a0::test::buf("Hello, World!");
 
-  a0_packet_stats_t stats;
-  REQUIRE_OK(a0_packet_stats(pkt, &stats));
-
-  REQUIRE(stats.num_hdrs == 5);
-  // Each header has a key & value (x2) with 2 chars each (including '\0').
-  size_t want_content_size = (stats.num_hdrs * 2 * 2);
-  // 13 for payload (not including '\0').
-  want_content_size += 13;
-  REQUIRE(stats.content_size == want_content_size);
-  // Serialized buffer has the content
-  size_t want_serial_size = want_content_size;
-  // and an ID
-  want_serial_size += A0_UUID_SIZE;
-  // and the number of headers
-  want_serial_size += sizeof(size_t);
-  // and an offset for each header key & value
-  want_serial_size += stats.num_hdrs * 2 * sizeof(size_t);
-  // and an offset for the payload
-  want_serial_size += sizeof(size_t);
-  REQUIRE(stats.serial_size == want_serial_size);
+  fn(pkt);
 }
 
-TEST_CASE("packet] for_each_header") {
-  a0_packet_header_t grp_a[2] = {
+std::unordered_multimap<std::string, std::string> standard_packet_hdrs() {
+  return {
       {"a", "b"},
       {"c", "d"},
-  };
-  a0_packet_headers_block_t blk_a = {grp_a, 2, nullptr};
-
-  a0_packet_header_t grp_b[3] = {
       {"e", "f"},
       {"g", "h"},
       {"i", "j"},
   };
-  a0_packet_headers_block_t blk_b = {grp_b, 3, &blk_a};
+}
 
-  std::map<std::string, std::string> kv;
-  // clang-format off
-  REQUIRE_OK(a0_packet_for_each_header(blk_b, {
-      .user_data = &kv,
-      .fn = [](void* data, a0_packet_header_t hdr) {
-        auto* map = (std::map<std::string, std::string>*)data;
-        (*map)[hdr.key] = hdr.val;
-      }
-  }));
-  // clang-format on
+TEST_CASE("packet] stats") {
+  with_standard_packet([](a0_packet_t pkt) {
+    a0_packet_stats_t stats;
+    REQUIRE_OK(a0_packet_stats(pkt, &stats));
 
-  REQUIRE(kv == std::map<std::string, std::string>{
-                    {"a", "b"},
-                    {"c", "d"},
-                    {"e", "f"},
-                    {"g", "h"},
-                    {"i", "j"},
-                });
+    REQUIRE(stats.num_hdrs == 5);
+    // Each header has a key & value (x2) with 2 chars each (including '\0').
+    size_t want_content_size = (stats.num_hdrs * 2 * 2);
+    // 13 for payload (not including '\0').
+    want_content_size += 13;
+    REQUIRE(stats.content_size == want_content_size);
+    // Serialized buffer has the content
+    size_t want_serial_size = want_content_size;
+    // and an ID
+    want_serial_size += A0_UUID_SIZE;
+    // and the number of headers
+    want_serial_size += sizeof(size_t);
+    // and an offset for each header key & value
+    want_serial_size += stats.num_hdrs * 2 * sizeof(size_t);
+    // and an offset for the payload
+    want_serial_size += sizeof(size_t);
+    REQUIRE(stats.serial_size == want_serial_size);
+  });
 }
 
 TEST_CASE("packet] serialize deserialize") {
-  a0_packet_header_t grp_a[2] = {
-      {"a", "b"},
-      {"c", "d"},
-  };
-  a0_packet_headers_block_t blk_a = {grp_a, 2, nullptr};
+  with_standard_packet([](a0_packet_t pkt) {
+    a0_flat_packet_t fpkt;
+    REQUIRE_OK(a0_packet_serialize(pkt, a0::test::alloc(), &fpkt));
 
-  a0_packet_header_t grp_b[3] = {
-      {"e", "f"},
-      {"g", "h"},
-      {"i", "j"},
-  };
-  a0_packet_headers_block_t blk_b = {grp_b, 3, &blk_a};
+    REQUIRE(fpkt.buf.size == 166);
 
-  a0_packet_t pkt_before;
-  REQUIRE_OK(a0_packet_init(&pkt_before));
-  pkt_before.headers_block = blk_b;
-  pkt_before.payload = a0::test::buf("Hello, World!");
+    a0_packet_t pkt_after;
+    a0_buf_t unused;
+    REQUIRE_OK(a0_packet_deserialize(fpkt, a0::test::alloc(), &pkt_after, &unused));
 
-  a0_buf_t serial;
-  REQUIRE_OK(a0_packet_serialize(pkt_before, a0::test::allocator(), &serial));
+    REQUIRE(std::string(pkt.id) == std::string(pkt_after.id));
+    REQUIRE(a0::test::str(pkt.payload) == a0::test::str(pkt_after.payload));
 
-  REQUIRE(serial.size == 166);
-
-  a0_packet_t pkt_after;
-  REQUIRE_OK(a0_packet_deserialize(serial, a0::test::allocator(), &pkt_after));
-
-  REQUIRE(std::string(pkt_before.id) == std::string(pkt_after.id));
-  REQUIRE(a0::test::str(pkt_before.payload) == a0::test::str(pkt_after.payload));
-
-  REQUIRE(pkt_after.headers_block.size == 5);
-
-  std::map<std::string, std::string> kv;
-  for (size_t i = 0; i < pkt_after.headers_block.size; i++) {
-    auto& hdr = pkt_after.headers_block.headers[i];
-    kv[hdr.key] = hdr.val;
-  }
-
-  REQUIRE(kv == std::map<std::string, std::string>{
-                    {"a", "b"},
-                    {"c", "d"},
-                    {"e", "f"},
-                    {"g", "h"},
-                    {"i", "j"},
-                });
+    REQUIRE(a0::test::hdr(pkt_after) == standard_packet_hdrs());
+  });
 }
 
 TEST_CASE("packet] deep_copy") {
-  a0_packet_header_t grp_a[2] = {
-      {"a", "b"},
-      {"c", "d"},
-  };
-  a0_packet_headers_block_t blk_a = {grp_a, 2, nullptr};
+  with_standard_packet([](a0_packet_t pkt) {
+    a0_packet_t pkt_after;
+    a0_buf_t unused;
+    REQUIRE_OK(a0_packet_deep_copy(pkt, a0::test::alloc(), &pkt_after, &unused));
 
-  a0_packet_header_t grp_b[3] = {
-      {"e", "f"},
-      {"g", "h"},
-      {"i", "j"},
-  };
-  a0_packet_headers_block_t blk_b = {grp_b, 3, &blk_a};
+    REQUIRE(std::string(pkt.id) == std::string(pkt_after.id));
+    REQUIRE(a0::test::str(pkt.payload) == a0::test::str(pkt_after.payload));
 
-  a0_packet_t pkt_before;
-  REQUIRE_OK(a0_packet_init(&pkt_before));
-  pkt_before.headers_block = blk_b;
-  pkt_before.payload = a0::test::buf("Hello, World!");
-
-  a0_packet_t pkt_after;
-  REQUIRE_OK(a0_packet_deep_copy(pkt_before, a0::test::allocator(), &pkt_after));
-
-  REQUIRE(std::string(pkt_before.id) == std::string(pkt_after.id));
-  REQUIRE(a0::test::str(pkt_before.payload) == a0::test::str(pkt_after.payload));
-
-  REQUIRE(pkt_after.headers_block.size == 5);
-
-  std::map<std::string, std::string> kv;
-  for (size_t i = 0; i < pkt_after.headers_block.size; i++) {
-    auto& hdr = pkt_after.headers_block.headers[i];
-    kv[hdr.key] = hdr.val;
-  }
-
-  REQUIRE(kv == std::map<std::string, std::string>{
-                    {"a", "b"},
-                    {"c", "d"},
-                    {"e", "f"},
-                    {"g", "h"},
-                    {"i", "j"},
-                });
+    REQUIRE(a0::test::hdr(pkt_after) == standard_packet_hdrs());
+  });
 }
 
-TEST_CASE("packet] dealloc") {
-  a0_packet_header_t grp_a[2] = {
-      {"a", "b"},
-      {"c", "d"},
-  };
-  a0_packet_headers_block_t blk_a = {grp_a, 2, nullptr};
+TEST_CASE("flat_packet] stats") {
+  with_standard_packet([](a0_packet_t pkt) {
+    a0_flat_packet_t fpkt;
+    REQUIRE_OK(a0_packet_serialize(pkt, a0::test::alloc(), &fpkt));
 
-  a0_packet_t pkt_before;
-  REQUIRE_OK(a0_packet_init(&pkt_before));
-  pkt_before.headers_block = blk_a;
-  pkt_before.payload = a0::test::buf("Hello, World!");
+    a0_packet_stats_t stats;
+    REQUIRE_OK(a0_flat_packet_stats(fpkt, &stats));
 
-  struct data_t {
-    bool was_alloc_called;
-    bool was_dealloc_called;
-    a0_buf_t expected_buf;
-  } data{false, false, {}};
+    REQUIRE(stats.num_hdrs == 5);
+    // Each header has a key & value (x2) with 2 chars each (including '\0').
+    size_t want_content_size = (stats.num_hdrs * 2 * 2);
+    // 13 for payload (not including '\0').
+    want_content_size += 13;
+    REQUIRE(stats.content_size == want_content_size);
+    // Serialized buffer has the content
+    size_t want_serial_size = want_content_size;
+    // and an ID
+    want_serial_size += A0_UUID_SIZE;
+    // and the number of headers
+    want_serial_size += sizeof(size_t);
+    // and an offset for each header key & value
+    want_serial_size += stats.num_hdrs * 2 * sizeof(size_t);
+    // and an offset for the payload
+    want_serial_size += sizeof(size_t);
+    REQUIRE(stats.serial_size == want_serial_size);
+  });
+}
 
-  // clang-format off
-  a0_alloc_t alloc = {
-      .user_data = &data,
-      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-        out->size = size;
-        out->ptr = (uint8_t*)malloc(size);
+TEST_CASE("flat_packet] id") {
+  with_standard_packet([](a0_packet_t pkt) {
+    a0_flat_packet_t fpkt;
+    REQUIRE_OK(a0_packet_serialize(pkt, a0::test::alloc(), &fpkt));
 
-        ((data_t*)user_data)->was_alloc_called = true;
-        ((data_t*)user_data)->expected_buf = *out;
+    a0_uuid_t* fpkt_id;
+    REQUIRE_OK(a0_flat_packet_id(fpkt, &fpkt_id));
 
-        return A0_OK;
-      },
-      .dealloc = [](void* user_data, a0_buf_t buf) {
-        auto* data = (data_t*)user_data;
-        REQUIRE(data->was_alloc_called);
-        data->was_dealloc_called = true;
-        REQUIRE(buf.ptr == data->expected_buf.ptr);
-        REQUIRE(buf.size == data->expected_buf.size);
-        free(buf.ptr);
-        return A0_OK;
-      },
-  };
-  // clang-format on
+    REQUIRE(std::string(pkt.id).size() == 36);
+    REQUIRE(std::string(pkt.id) == std::string(*fpkt_id));
+  });
+}
 
-  a0_packet_t pkt_after;
-  REQUIRE_OK(a0_packet_deep_copy(pkt_before, alloc, &pkt_after));
-  REQUIRE(data.was_alloc_called);
-  REQUIRE(!data.was_dealloc_called);
-  REQUIRE_OK(a0_packet_dealloc(pkt_after, alloc));
-  REQUIRE(data.was_dealloc_called);
+TEST_CASE("flat_packet] payload") {
+  with_standard_packet([](a0_packet_t pkt) {
+    a0_flat_packet_t fpkt;
+    REQUIRE_OK(a0_packet_serialize(pkt, a0::test::alloc(), &fpkt));
+
+    a0_buf_t flat_payload;
+    REQUIRE_OK(a0_flat_packet_payload(fpkt, &flat_payload));
+
+    REQUIRE(flat_payload.size == 13);
+    REQUIRE(a0::test::str(flat_payload) == "Hello, World!");
+  });
+}
+
+TEST_CASE("flat_packet] header") {
+  with_standard_packet([](a0_packet_t pkt) {
+    a0_flat_packet_t fpkt;
+    REQUIRE_OK(a0_packet_serialize(pkt, a0::test::alloc(), &fpkt));
+
+    REQUIRE(a0::test::hdr(fpkt) == standard_packet_hdrs());
+  });
+}
+
+TEST_CASE("packet] cpp") {
+  a0::Packet pkt1({{"hdr-key", "hdr-val"}}, "Hello, World!");
+  REQUIRE(pkt1.payload() == "Hello, World!");
+  REQUIRE(pkt1.id().size() == 36);
+  REQUIRE(pkt1.headers() == std::unordered_multimap<std::string, std::string>{{"hdr-key", "hdr-val"}});
+
+  a0::Packet pkt2 = pkt1;
+  REQUIRE(pkt2.id() == pkt1.id());
+  REQUIRE(pkt1.id() == pkt2.id());
+  REQUIRE(pkt1.headers() == pkt2.headers());
+  REQUIRE(pkt1.payload() == pkt2.payload());
+  REQUIRE(pkt1.payload().data() == pkt2.payload().data());
+
+  a0::Packet pkt3("Hello, World!");
+  REQUIRE(pkt3.payload() == "Hello, World!");
+  REQUIRE(pkt3.headers().empty());
+  REQUIRE(pkt3.id().size() == 36);
+
+  std::string owner = "Hello, World!";
+
+  a0::Packet pkt4(owner);
+  REQUIRE(pkt4.payload() == owner);
+  REQUIRE(pkt4.payload().data() != owner.data());
+
+  a0::Packet pkt5(owner, a0::ref);
+  REQUIRE(pkt5.payload() == owner);
+  REQUIRE(pkt5.payload().data() == owner.data());
 }

@@ -1,293 +1,205 @@
 #include <a0/alloc.h>
-#include <a0/arena.h>
-#include <a0/common.h>
-#include <a0/errno.h>
+#include <a0/buf.h>
+#include <a0/empty.h>
+#include <a0/err.h>
 #include <a0/packet.h>
-#include <a0/pubsub.h>
+#include <a0/packet.hpp>
 #include <a0/rpc.h>
+#include <a0/rpc.hpp>
+#include <a0/string_view.hpp>
 #include <a0/uuid.h>
 
-#include <cerrno>
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
-#include <cstring>
+#include <functional>
+#include <future>
+#include <memory>
+#include <mutex>
 #include <string>
-#include <string_view>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
-#include "sync.hpp"
-#include "transport_tools.hpp"
+#include "c_wrap.hpp"
+#include "file_opts.hpp"
 
-//////////////////
-//  Rpc Common  //
-//////////////////
+namespace a0 {
 
-static constexpr std::string_view RPC_TYPE = "a0_rpc_type";
-static constexpr std::string_view RPC_TYPE_REQUEST = "request";
-static constexpr std::string_view RPC_TYPE_RESPONSE = "response";
-static constexpr std::string_view RPC_TYPE_CANCEL = "cancel";
+namespace {
 
-static constexpr std::string_view REQUEST_ID = "a0_req_id";
-
-//////////////
-//  Server  //
-//////////////
-
-struct a0_rpc_server_impl_s {
-  a0_subscriber_t req_reader;
-  a0_publisher_t resp_writer;
-
-  a0_rpc_request_callback_t onrequest;
-  a0_packet_id_callback_t oncancel;
+struct RpcServerRequestImpl {
+  std::vector<uint8_t> data;
 };
 
-errno_t a0_rpc_server_init(a0_rpc_server_t* server,
-                           a0_arena_t arena,
-                           a0_alloc_t alloc,
-                           a0_rpc_request_callback_t onrequest,
-                           a0_packet_id_callback_t oncancel) {
-  server->_impl = new a0_rpc_server_impl_t;
+}  // namespace
 
-  server->_impl->onrequest = onrequest;
-  server->_impl->oncancel = oncancel;
-  a0_packet_callback_t onpacket = {
-      .user_data = server,
-      .fn =
-          [](void* user_data, a0_packet_t pkt) {
-            auto* server = (a0_rpc_server_t*)user_data;
-            auto* impl = server->_impl;
-
-            auto rpc_type = a0::find_header(pkt, RPC_TYPE);
-            if (rpc_type == RPC_TYPE_REQUEST) {
-              impl->onrequest.fn(impl->onrequest.user_data,
-                                 a0_rpc_request_t{
-                                     .server = server,
-                                     .pkt = pkt,
-                                 });
-            } else if (bool(impl->oncancel.fn) && rpc_type == RPC_TYPE_CANCEL) {
-              impl->oncancel.fn(impl->oncancel.user_data, (char*)pkt.payload.ptr);
-            }
-          },
-  };
-
-  a0_publisher_init(&server->_impl->resp_writer, arena);
-  a0_subscriber_init(&server->_impl->req_reader,
-                     arena,
-                     alloc,
-                     A0_INIT_AWAIT_NEW,
-                     A0_ITER_NEXT,
-                     onpacket);
-
-  return A0_OK;
+RpcServer RpcRequest::server() {
+  // Note: this does not extend the server lifetime.
+  return cpp_wrap<RpcServer>(*c->server);
 }
 
-errno_t a0_rpc_server_async_close(a0_rpc_server_t* server, a0_callback_t onclose) {
-  if (!server->_impl) {
-    return ESHUTDOWN;
-  }
-
-  struct data_t {
-    a0_rpc_server_t* server;
-    a0_callback_t onclose;
-  };
-
-  a0_callback_t wrapped_onclose = {
-      .user_data = new data_t{server, onclose},
-      .fn =
-          [](void* user_data) {
-            auto* data = (data_t*)user_data;
-            a0_publisher_close(&data->server->_impl->resp_writer);
-            delete data->server->_impl;
-            data->server->_impl = nullptr;
-            if (data->onclose.fn) {
-              data->onclose.fn(data->onclose.user_data);
-            }
-            delete data;
-          },
-  };
-
-  return a0_subscriber_async_close(&server->_impl->req_reader, wrapped_onclose);
+Packet RpcRequest::pkt() {
+  CHECK_C;
+  auto save = c;
+  return Packet(c->pkt, [save](a0_packet_t*) {});
 }
 
-errno_t a0_rpc_server_close(a0_rpc_server_t* server) {
-  if (!server->_impl) {
-    return ESHUTDOWN;
-  }
-
-  a0_subscriber_close(&server->_impl->req_reader);
-  a0_publisher_close(&server->_impl->resp_writer);
-  delete server->_impl;
-  server->_impl = nullptr;
-
-  return A0_OK;
+void RpcRequest::reply(Packet pkt) {
+  CHECK_C;
+  check(a0_rpc_server_reply(*c, *pkt.c));
 }
 
-errno_t a0_rpc_reply(a0_rpc_request_t req, const a0_packet_t resp) {
-  if (!req.server->_impl) {
-    return ESHUTDOWN;
-  }
+namespace {
 
-  constexpr size_t num_extra_headers = 3;
-  a0_packet_header_t extra_headers[num_extra_headers] = {
-      {RPC_TYPE.data(), RPC_TYPE_RESPONSE.data()},
-      {REQUEST_ID.data(), req.pkt.id},
-      {A0_PACKET_DEP_KEY, req.pkt.id},
-  };
-
-  a0_packet_t full_resp = resp;
-  full_resp.headers_block = (a0_packet_headers_block_t){
-      .headers = extra_headers,
-      .size = num_extra_headers,
-      .next_block = (a0_packet_headers_block_t*)&resp.headers_block,
-  };
-
-  return a0_pub(&req.server->_impl->resp_writer, full_resp);
-}
-
-//////////////
-//  Client  //
-//////////////
-
-struct a0_rpc_client_impl_s {
-  a0_publisher_t req_writer;
-  a0_subscriber_t resp_reader;
-
-  a0::sync<std::unordered_map<std::string, a0_packet_callback_t>> outstanding;
+struct RpcServerImpl {
+  std::vector<uint8_t> data;
+  std::function<void(RpcRequest)> onrequest;
+  std::function<void(string_view)> oncancel;
 };
 
-errno_t a0_rpc_client_init(a0_rpc_client_t* client, a0_arena_t arena, a0_alloc_t alloc) {
-  client->_impl = new a0_rpc_client_impl_t;
+}  // namespace
 
-  a0_packet_callback_t onpacket = {
-      .user_data = client,
-      .fn =
-          [](void* user_data, a0_packet_t pkt) {
-            auto* client = (a0_rpc_client_t*)user_data;
-            auto* impl = client->_impl;
+RpcServer::RpcServer(
+    RpcTopic topic,
+    std::function<void(RpcRequest)> onrequest,
+    std::function<void(string_view /* id */)> oncancel) {
+  set_c_impl<RpcServerImpl>(
+      &c,
+      [&](a0_rpc_server_t* c, RpcServerImpl* impl) {
+        impl->onrequest = std::move(onrequest);
+        impl->oncancel = std::move(oncancel);
 
-            if (a0::find_header(pkt, RPC_TYPE) != RPC_TYPE_RESPONSE) {
-              return;
-            }
+        auto cfo = c_fileopts(topic.file_opts);
+        a0_rpc_topic_t c_topic{topic.name.c_str(), &cfo};
 
-            auto req_id = std::string(a0::find_header(pkt, REQUEST_ID));
+        a0_alloc_t alloc = {
+            .user_data = impl,
+            .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
+              auto* impl = (RpcServerImpl*)user_data;
+              impl->data.resize(size);
+              *out = {impl->data.data(), size};
+              return A0_OK;
+            },
+            .dealloc = nullptr,
+        };
 
-            auto callback =
-                impl->outstanding.with_lock([&](auto* outstanding_) -> a0_packet_callback_t {
-                  if (outstanding_->count(req_id)) {
-                    a0_packet_callback_t callback = (*outstanding_)[req_id];
-                    outstanding_->erase(req_id);
-                    return callback;
-                  }
-                  return {};
-                });
+        a0_rpc_request_callback_t c_onrequest = {
+            .user_data = impl,
+            .fn = [](void* user_data, a0_rpc_request_t req) {
+              auto* impl = (RpcServerImpl*)user_data;
 
-            if (callback.fn) {
-              callback.fn(callback.user_data, pkt);
-            }
-          },
-  };
+              RpcRequest cpp_req = make_cpp_impl<RpcRequest, RpcServerRequestImpl>(
+                  [&](a0_rpc_request_t* c_req, RpcServerRequestImpl* req_impl) {
+                    std::swap(impl->data, req_impl->data);
+                    *c_req = req;
+                    return A0_OK;
+                  });
 
-  a0_publisher_init(&client->_impl->req_writer, arena);
-  a0_subscriber_init(&client->_impl->resp_reader,
-                     arena,
-                     alloc,
-                     A0_INIT_AWAIT_NEW,
-                     A0_ITER_NEXT,
-                     onpacket);
+              impl->onrequest(cpp_req);
+            }};
 
-  return A0_OK;
+        a0_packet_id_callback_t c_oncancel = {
+            .user_data = impl,
+            .fn = [](void* user_data, a0_uuid_t id) {
+              auto* impl = (RpcServerImpl*)user_data;
+              impl->oncancel(id);
+            }};
+
+        return a0_rpc_server_init(c, c_topic, alloc, c_onrequest, c_oncancel);
+      },
+      [](a0_rpc_server_t* c, RpcServerImpl*) {
+        a0_rpc_server_close(c);
+      });
 }
 
-errno_t a0_rpc_client_async_close(a0_rpc_client_t* client, a0_callback_t onclose) {
-  if (!client->_impl) {
-    return ESHUTDOWN;
-  }
+namespace {
 
-  struct data_t {
-    a0_rpc_client_t* client;
-    a0_callback_t onclose;
-  };
+struct RpcClientImpl {
+  std::vector<uint8_t> data;
 
-  a0_callback_t wrapped_onclose = {
-      .user_data = new data_t{client, onclose},
-      .fn =
-          [](void* user_data) {
-            auto* data = (data_t*)user_data;
-            a0_publisher_close(&data->client->_impl->req_writer);
-            delete data->client->_impl;
-            data->client->_impl = nullptr;
-            if (data->onclose.fn) {
-              data->onclose.fn(data->onclose.user_data);
-            }
-            delete data;
-          },
-  };
+  std::unordered_map<std::string, std::function<void(Packet)>> user_onreply;
+  std::mutex user_onreply_mu;
+};
 
-  return a0_subscriber_async_close(&client->_impl->resp_reader, wrapped_onclose);
+}  // namespace
+
+RpcClient::RpcClient(RpcTopic topic) {
+  set_c_impl<RpcClientImpl>(
+      &c,
+      [&](a0_rpc_client_t* c, RpcClientImpl* impl) {
+        auto cfo = c_fileopts(topic.file_opts);
+        a0_rpc_topic_t c_topic{topic.name.c_str(), &cfo};
+
+        a0_alloc_t alloc = {
+            .user_data = impl,
+            .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
+              auto* impl = (RpcClientImpl*)user_data;
+              impl->data.resize(size);
+              *out = {impl->data.data(), size};
+              return A0_OK;
+            },
+            .dealloc = nullptr,
+        };
+
+        return a0_rpc_client_init(c, c_topic, alloc);
+      },
+      [](a0_rpc_client_t* c, RpcClientImpl*) {
+        a0_rpc_client_close(c);
+      });
 }
 
-errno_t a0_rpc_client_close(a0_rpc_client_t* client) {
-  if (!client->_impl) {
-    return ESHUTDOWN;
+void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply) {
+  CHECK_C;
+
+  a0_packet_callback_t c_onreply = A0_EMPTY;
+  if (onreply) {
+    auto* impl = c_impl<RpcClientImpl>(&c);
+    {
+      std::unique_lock<std::mutex> lk{impl->user_onreply_mu};
+      impl->user_onreply[std::string(pkt.id())] = std::move(onreply);
+    }
+
+    c_onreply = {
+        .user_data = impl,
+        .fn = [](void* user_data, a0_packet_t resp) {
+          auto* impl = (RpcClientImpl*)user_data;
+
+          a0_packet_header_t req_id_hdr;
+
+          a0_packet_header_iterator_t hdr_iter;
+          a0_packet_header_iterator_init(&hdr_iter, &resp);
+          if (a0_packet_header_iterator_next_match(&hdr_iter, "a0_req_id", &req_id_hdr)) {
+            return;
+          }
+
+          std::function<void(Packet)> onreply;
+          {
+            std::unique_lock<std::mutex> lk{impl->user_onreply_mu};
+            auto iter = impl->user_onreply.find(req_id_hdr.val);
+            onreply = std::move(iter->second);
+            impl->user_onreply.erase(iter);
+          }
+
+          onreply(Packet(resp, nullptr));
+        },
+    };
   }
 
-  a0_subscriber_close(&client->_impl->resp_reader);
-  a0_publisher_close(&client->_impl->req_writer);
-  delete client->_impl;
-  client->_impl = nullptr;
-
-  return A0_OK;
+  check(a0_rpc_client_send(&*c, *pkt.c, c_onreply));
 }
 
-errno_t a0_rpc_send(a0_rpc_client_t* client, const a0_packet_t pkt, a0_packet_callback_t callback) {
-  if (!client->_impl) {
-    return ESHUTDOWN;
-  }
-
-  client->_impl->outstanding.with_lock([&](auto* outstanding_) {
-    (*outstanding_)[pkt.id] = callback;
+std::future<Packet> RpcClient::send(Packet pkt) {
+  auto p = std::make_shared<std::promise<Packet>>();
+  send(pkt, [p](Packet resp) {
+    p->set_value(resp);
   });
-
-  constexpr size_t num_extra_headers = 1;
-  a0_packet_header_t extra_headers[num_extra_headers] = {
-      {RPC_TYPE.data(), RPC_TYPE_REQUEST.data()},
-  };
-
-  a0_packet_t full_pkt = pkt;
-  full_pkt.headers_block = (a0_packet_headers_block_t){
-      .headers = extra_headers,
-      .size = num_extra_headers,
-      .next_block = (a0_packet_headers_block_t*)&pkt.headers_block,
-  };
-
-  return a0_pub(&client->_impl->req_writer, full_pkt);
+  return p->get_future();
 }
 
-errno_t a0_rpc_cancel(a0_rpc_client_t* client, const a0_uuid_t req_id) {
-  if (!client->_impl) {
-    return ESHUTDOWN;
-  }
-
-  client->_impl->outstanding.with_lock([&](auto* outstanding_) {
-    outstanding_->erase(req_id);
-  });
-
-  constexpr size_t num_headers = 2;
-  a0_packet_header_t headers[num_headers] = {
-      {RPC_TYPE.data(), RPC_TYPE_CANCEL.data()},
-      {A0_PACKET_DEP_KEY, req_id},
-  };
-
-  a0_packet_t pkt;
-  a0_packet_init(&pkt);
-  pkt.headers_block = {
-      .headers = headers,
-      .size = num_headers,
-      .next_block = nullptr,
-  };
-  pkt.payload = {
-      .ptr = (uint8_t*)req_id,
-      .size = sizeof(a0_uuid_t),
-  };
-
-  return a0_pub(&client->_impl->req_writer, pkt);
+void RpcClient::cancel(string_view id) {
+  CHECK_C;
+  check(a0_rpc_client_cancel(&*c, id.data()));
 }
+
+}  // namespace a0
