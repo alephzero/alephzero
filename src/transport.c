@@ -52,14 +52,25 @@ typedef struct a0_transport_hdr_s {
 _Static_assert(sizeof(a0_transport_hdr_t) == 144, "Unexpected transport binary representation.");
 
 A0_STATIC_INLINE
+a0_transport_hdr_t* a0_transport_header(a0_transport_locked_t lk) {
+  return (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
+}
+
+A0_STATIC_INLINE
+a0_transport_frame_hdr_t* a0_transport_frame_header(a0_transport_locked_t lk, size_t off) {
+  a0_transport_hdr_t* hdr = a0_transport_header(lk);
+  return (a0_transport_frame_hdr_t*)((uint8_t*)hdr + off);
+}
+
+A0_STATIC_INLINE
 a0_transport_state_t* a0_transport_committed_page(a0_transport_locked_t lk) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
+  a0_transport_hdr_t* hdr = a0_transport_header(lk);
   return &hdr->state_pages[hdr->committed_page_idx];
 }
 
 A0_STATIC_INLINE
 a0_transport_state_t* a0_transport_working_page(a0_transport_locked_t lk) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
+  a0_transport_hdr_t* hdr = a0_transport_header(lk);
   return &hdr->state_pages[!hdr->committed_page_idx];
 }
 
@@ -158,7 +169,7 @@ a0_err_t a0_transport_init(a0_transport_t* transport, a0_arena_t arena) {
 }
 
 a0_err_t a0_transport_shutdown(a0_transport_locked_t lk) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
+  a0_transport_hdr_t* hdr = a0_transport_header(lk);
 
   lk.transport->_shutdown = true;
   a0_cnd_broadcast(&hdr->cnd, &hdr->mtx);
@@ -181,7 +192,7 @@ a0_err_t a0_transport_lock(a0_transport_t* transport, a0_transport_locked_t* lk_
     return A0_OK;
   }
 
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)transport->_arena.buf.data;
+  a0_transport_hdr_t* hdr = a0_transport_header(*lk_out);
 
   a0_err_t lock_status = a0_mtx_lock(&hdr->mtx);
   if (A0_SYSERR(lock_status) == EOWNERDEAD) {
@@ -201,7 +212,7 @@ a0_err_t a0_transport_unlock(a0_transport_locked_t lk) {
   }
 
   *a0_transport_working_page(lk) = *a0_transport_committed_page(lk);
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
+  a0_transport_hdr_t* hdr = a0_transport_header(lk);
   a0_mtx_unlock(&hdr->mtx);
   return A0_OK;
 }
@@ -277,14 +288,8 @@ a0_err_t a0_transport_step_next(a0_transport_locked_t lk) {
     return A0_OK;
   }
 
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
-  a0_transport_frame_hdr_t* curr_frame_hdr =
-      (a0_transport_frame_hdr_t*)((uint8_t*)hdr + lk.transport->_off);
-  lk.transport->_off = curr_frame_hdr->next_off;
-
-  a0_transport_frame_hdr_t* next_frame_hdr =
-      (a0_transport_frame_hdr_t*)((uint8_t*)hdr + lk.transport->_off);
-  lk.transport->_seq = next_frame_hdr->seq;
+  lk.transport->_off = a0_transport_frame_header(lk, lk.transport->_off)->next_off;
+  lk.transport->_seq = a0_transport_frame_header(lk, lk.transport->_off)->seq;
 
   return A0_OK;
 }
@@ -305,14 +310,8 @@ a0_err_t a0_transport_step_prev(a0_transport_locked_t lk) {
     return A0_ERR_RANGE;
   }
 
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
-  a0_transport_frame_hdr_t* curr_frame_hdr =
-      (a0_transport_frame_hdr_t*)((uint8_t*)hdr + lk.transport->_off);
-  lk.transport->_off = curr_frame_hdr->prev_off;
-
-  a0_transport_frame_hdr_t* prev_frame_hdr =
-      (a0_transport_frame_hdr_t*)((uint8_t*)hdr + lk.transport->_off);
-  lk.transport->_seq = prev_frame_hdr->seq;
+  lk.transport->_off = a0_transport_frame_header(lk, lk.transport->_off)->prev_off;
+  lk.transport->_seq = a0_transport_frame_header(lk, lk.transport->_off)->seq;
 
   return A0_OK;
 }
@@ -347,7 +346,7 @@ a0_err_t a0_transport_timedwait_impl(a0_transport_locked_t lk, a0_predicate_t pr
   if (lk.transport->_arena.mode != A0_ARENA_MODE_SHARED) {
     return A0_MAKE_SYSERR(EPERM);
   }
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
+  a0_transport_hdr_t* hdr = a0_transport_header(lk);
 
   bool sat = false;
   a0_err_t err = a0_predicate_eval(pred, &sat);
@@ -448,15 +447,13 @@ a0_err_t a0_transport_seq_high(a0_transport_locked_t lk, uint64_t* out) {
 }
 
 a0_err_t a0_transport_frame(a0_transport_locked_t lk, a0_transport_frame_t* frame_out) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   if (lk.transport->_seq < state->seq_low) {
     return A0_MAKE_SYSERR(ESPIPE);
   }
 
-  a0_transport_frame_hdr_t* frame_hdr =
-      (a0_transport_frame_hdr_t*)((uint8_t*)hdr + lk.transport->_off);
+  a0_transport_frame_hdr_t* frame_hdr = a0_transport_frame_header(lk, lk.transport->_off);
 
   frame_out->hdr = *frame_hdr;
   frame_out->data = (uint8_t*)frame_hdr + sizeof(a0_transport_frame_hdr_t);
@@ -464,8 +461,8 @@ a0_err_t a0_transport_frame(a0_transport_locked_t lk, a0_transport_frame_t* fram
 }
 
 A0_STATIC_INLINE
-size_t a0_transport_frame_end(a0_transport_hdr_t* hdr, size_t frame_off) {
-  a0_transport_frame_hdr_t* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + frame_off);
+size_t a0_transport_frame_end(a0_transport_locked_t lk, size_t frame_off) {
+  a0_transport_frame_hdr_t* frame_hdr = a0_transport_frame_header(lk, frame_off);
   return frame_off + sizeof(a0_transport_frame_hdr_t) + frame_hdr->data_size;
 }
 
@@ -484,8 +481,6 @@ bool a0_transport_head_interval(a0_transport_locked_t lk,
                                 a0_transport_state_t* state,
                                 size_t* head_off,
                                 size_t* head_size) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
-
   bool empty;
   a0_transport_empty(lk, &empty);
   if (empty) {
@@ -493,28 +488,26 @@ bool a0_transport_head_interval(a0_transport_locked_t lk,
   }
 
   *head_off = state->off_head;
-  a0_transport_frame_hdr_t* head_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + *head_off);
+  a0_transport_frame_hdr_t* head_hdr = a0_transport_frame_header(lk, *head_off);
   *head_size = sizeof(a0_transport_frame_hdr_t) + head_hdr->data_size;
   return true;
 }
 
 A0_STATIC_INLINE
 void a0_transport_remove_head(a0_transport_locked_t lk, a0_transport_state_t* state) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
-
   if (state->off_head == state->off_tail) {
     state->off_head = 0;
     state->off_tail = 0;
     state->high_water_mark = a0_transport_workspace_off();
   } else {
-    a0_transport_frame_hdr_t* head_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + state->off_head);
+    a0_transport_frame_hdr_t* head_hdr = a0_transport_frame_header(lk, state->off_head);
     state->off_head = head_hdr->next_off;
 
     // Check whether the old head frame was responsible for the high water mark.
-    size_t head_end = a0_transport_frame_end(hdr, head_hdr->off);
+    size_t head_end = a0_transport_frame_end(lk, head_hdr->off);
     if (state->high_water_mark == head_end) {
       // The high water mark is always set by a tail element.
-      state->high_water_mark = a0_transport_frame_end(hdr, state->off_tail);
+      state->high_water_mark = a0_transport_frame_end(lk, state->off_tail);
     }
   }
   state->seq_low++;
@@ -524,7 +517,7 @@ void a0_transport_remove_head(a0_transport_locked_t lk, a0_transport_state_t* st
 
 A0_STATIC_INLINE
 a0_err_t a0_transport_find_slot(a0_transport_locked_t lk, size_t frame_size, size_t* off) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
+  a0_transport_hdr_t* hdr = a0_transport_header(lk);
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   bool empty;
@@ -533,7 +526,7 @@ a0_err_t a0_transport_find_slot(a0_transport_locked_t lk, size_t frame_size, siz
   if (empty) {
     *off = a0_transport_workspace_off();
   } else {
-    *off = a0_max_align(a0_transport_frame_end(hdr, state->off_tail));
+    *off = a0_max_align(a0_transport_frame_end(lk, state->off_tail));
     if (*off + frame_size >= hdr->arena_size) {
       *off = a0_transport_workspace_off();
     }
@@ -583,12 +576,11 @@ void a0_transport_maybe_set_head(a0_transport_state_t* state, a0_transport_frame
 }
 
 A0_STATIC_INLINE
-void a0_transport_update_tail(a0_transport_hdr_t* hdr,
+void a0_transport_update_tail(a0_transport_locked_t lk,
                               a0_transport_state_t* state,
                               a0_transport_frame_hdr_t* frame_hdr) {
   if (state->off_tail) {
-    a0_transport_frame_hdr_t* tail_frame_hdr =
-        (a0_transport_frame_hdr_t*)((uint8_t*)hdr + state->off_tail);
+    a0_transport_frame_hdr_t* tail_frame_hdr = a0_transport_frame_header(lk, state->off_tail);
     tail_frame_hdr->next_off = frame_hdr->off;
     frame_hdr->prev_off = state->off_tail;
   }
@@ -596,10 +588,10 @@ void a0_transport_update_tail(a0_transport_hdr_t* hdr,
 }
 
 A0_STATIC_INLINE
-void a0_transport_update_high_water_mark(a0_transport_hdr_t* hdr,
+void a0_transport_update_high_water_mark(a0_transport_locked_t lk,
                                          a0_transport_state_t* state,
                                          a0_transport_frame_hdr_t* frame_hdr) {
-  size_t high_water_mark = a0_transport_frame_end(hdr, frame_hdr->off);
+  size_t high_water_mark = a0_transport_frame_end(lk, frame_hdr->off);
   if (state->high_water_mark < high_water_mark) {
     state->high_water_mark = high_water_mark;
   }
@@ -631,17 +623,17 @@ a0_err_t a0_transport_alloc(a0_transport_locked_t lk, size_t size, a0_transport_
 
   a0_transport_evict(lk, off, frame_size);
 
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
+  a0_transport_hdr_t* hdr = a0_transport_header(lk);
   // Note: a0_transport_evict commits changes, which invalidates state.
   //       Must grab state afterwards.
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
-  a0_transport_frame_hdr_t* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + off);
+  a0_transport_frame_hdr_t* frame_hdr = a0_transport_frame_header(lk, off);
   a0_transport_slot_init(state, frame_hdr, off, size);
 
   a0_transport_maybe_set_head(state, frame_hdr);
-  a0_transport_update_tail(hdr, state, frame_hdr);
-  a0_transport_update_high_water_mark(hdr, state, frame_hdr);
+  a0_transport_update_tail(lk, state, frame_hdr);
+  a0_transport_update_high_water_mark(lk, state, frame_hdr);
 
   frame_out->hdr = *frame_hdr;
   frame_out->data = (uint8_t*)hdr + off + sizeof(a0_transport_frame_hdr_t);
@@ -665,7 +657,7 @@ a0_err_t a0_transport_allocator(a0_transport_locked_t* lk, a0_alloc_t* alloc_out
 }
 
 a0_err_t a0_transport_commit(a0_transport_locked_t lk) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
+  a0_transport_hdr_t* hdr = a0_transport_header(lk);
   // Assume page A was the previously committed page and page B is the working
   // page that is ready to be committed. Both represent a valid state for the
   // transport. It's possible that the copying of B into A will fail (prog crash),
@@ -692,7 +684,7 @@ a0_err_t a0_transport_resize(a0_transport_locked_t lk, size_t arena_size) {
     return A0_ERR_INVALID_ARG;
   }
 
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
+  a0_transport_hdr_t* hdr = a0_transport_header(lk);
   hdr->arena_size = arena_size;
   return A0_OK;
 }
@@ -712,7 +704,7 @@ void write_limited(FILE* f, a0_buf_t str) {
 }
 
 void a0_transport_debugstr(a0_transport_locked_t lk, a0_buf_t* out) {
-  a0_transport_hdr_t* hdr = (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
+  a0_transport_hdr_t* hdr = a0_transport_header(lk);
 
   a0_transport_state_t* committed_state = a0_transport_committed_page(lk);
   a0_transport_state_t* working_state = a0_transport_working_page(lk);
@@ -744,7 +736,7 @@ void a0_transport_debugstr(a0_transport_locked_t lk, a0_buf_t* out) {
     size_t off = working_state->off_head;
     bool first = true;
     while (true) {
-      a0_transport_frame_hdr_t* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)hdr + off);
+      a0_transport_frame_hdr_t* frame_hdr = a0_transport_frame_header(lk, off);
       uint64_t seq = frame_hdr->seq;
 
       if (!first) {
