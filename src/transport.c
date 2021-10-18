@@ -51,16 +51,15 @@ typedef struct a0_transport_hdr_s {
 // TODO(lshamis): Consider packing or reordering fields to reduce this.
 _Static_assert(sizeof(a0_transport_hdr_t) == 144, "Unexpected transport binary representation.");
 
-
 A0_STATIC_INLINE
 a0_transport_hdr_t* a0_transport_header(a0_transport_locked_t lk) {
   return (a0_transport_hdr_t*)lk.transport->_arena.buf.data;
 }
 
 A0_STATIC_INLINE
-a0_transport_frame_hdr_t* a0_transport_frame_header(a0_transport_locked_t lk, off_t off) {
+a0_transport_frame_hdr_t* a0_transport_frame_header(a0_transport_locked_t lk, size_t off) {
   a0_transport_hdr_t* hdr = a0_transport_header(lk);
-  return (a0_transport_frame_hdr_t*)((uint8_t*)hdr + off);;
+  return (a0_transport_frame_hdr_t*)((uint8_t*)hdr + off);
 }
 
 A0_STATIC_INLINE
