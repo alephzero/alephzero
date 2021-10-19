@@ -247,9 +247,6 @@ void a0_discovery_watch_root(a0_discovery_t* d) {
   char root_path[PATH_MAX];
   memcpy(root_path, d->_path_pattern, root_size);
   root_path[root_size] = '\0';
-  fprintf(stderr, "root_size: %zu\n", root_size);
-  fprintf(stderr, "pattern: %s\n", d->_path_pattern);
-  fprintf(stderr, "root_path: %s\n", root_path);
   a0_discovery_watch_recursive(d, root_path);
 }
 
