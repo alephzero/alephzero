@@ -109,8 +109,7 @@ a0_err_t a0_pathglob_part_match(a0_pathglob_part_t globpart, a0_buf_t buf, bool*
       return A0_OK;
     }
     case A0_PATHGLOB_PART_TYPE_PATTERN: {
-      a0_err_t err = a0_pathglob_pattern_match(globpart, buf, out);
-      return err;
+      return a0_pathglob_pattern_match(globpart, buf, out);
     }
     case A0_PATHGLOB_PART_TYPE_RECURSIVE: {
       *out = true;
@@ -169,7 +168,7 @@ A0_STATIC_INLINE
 size_t a0_discovery_rootlen(a0_discovery_t* d) {
   a0_pathglob_t* glob = &d->_pathglob;
   char* start_ptr = (char*)glob->parts[0].str.data - 1;
-  for (size_t i = 0; i < glob->depth; i++) {
+  for (size_t i = 0; i + 1 < glob->depth; i++) {
     char* exclude_ptr = (char*)glob->parts[i].str.data;
 
     if (glob->parts[i].type != A0_PATHGLOB_PART_TYPE_VERBATIM) {
@@ -188,7 +187,7 @@ size_t a0_discovery_rootlen(a0_discovery_t* d) {
       return exclude_ptr - start_ptr;
     }
   }
-  return 0;
+  return (char*)glob->parts[glob->depth - 1].str.data - start_ptr;
 }
 
 A0_STATIC_INLINE
@@ -244,13 +243,14 @@ void a0_discovery_watch_recursive(a0_discovery_t* d, const char* path) {
 
 A0_STATIC_INLINE
 void a0_discovery_watch_root(a0_discovery_t* d) {
-  size_t rootlen = a0_discovery_rootlen(d);
-  char old = d->_path_pattern[rootlen];
-  d->_path_pattern[rootlen] = '\0';
-
-  a0_discovery_watch_recursive(d, d->_path_pattern);
-
-  d->_path_pattern[rootlen] = old;
+  size_t root_size = a0_discovery_rootlen(d);
+  char root_path[PATH_MAX];
+  memcpy(root_path, d->_path_pattern, root_size);
+  root_path[root_size] = '\0';
+  fprintf(stderr, "root_size: %zu\n", root_size);
+  fprintf(stderr, "pattern: %s\n", d->_path_pattern);
+  fprintf(stderr, "root_path: %s\n", root_path);
+  a0_discovery_watch_recursive(d, root_path);
 }
 
 A0_STATIC_INLINE
