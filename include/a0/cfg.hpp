@@ -95,7 +95,10 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
     Var(Cfg parent_, std::string jptr_str)
         : parent{std::make_shared<Cfg>(parent_)}, jptr{jptr_str} {
       create_updater();
-      (*updater)(nlohmann::json::parse(parent->read().payload()));
+      Packet pkt = parent->read();
+      const char* begin = pkt.payload().data();
+      const char* end = begin + pkt.payload().size();
+      (*updater)(nlohmann::json::parse(begin, end));
     }
 
     Var& operator=(const Var& other) {
