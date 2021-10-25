@@ -28,11 +28,11 @@
 
 static const char TEST_DISK[] = "/tmp/transport_test.a0";
 static const char TEST_SHM[] = "transport_test.a0";
-static const char TEST_SHM_ABS[] = "/dev/shm/transport_test.a0";
+static const char TEST_SHM_ABS[] = "/dev/shm/alephzero/transport_test.a0";
 
 static const char COPY_DISK[] = "/tmp/copy.a0";
 static const char COPY_SHM[] = "copy.a0";
-static const char COPY_SHM_ABS[] = "/dev/shm/copy.a0";
+static const char COPY_SHM_ABS[] = "/dev/shm/alephzero/copy.a0";
 
 struct TransportFixture {
   std::vector<uint8_t> stack_arena_data;
