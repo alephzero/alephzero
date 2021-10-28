@@ -4,6 +4,7 @@
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
+#include <a0/middleware.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
 #include <a0/writer.h>
@@ -34,11 +35,21 @@ a0_err_t a0_cfg_topic_open(a0_cfg_topic_t topic, a0_file_t* out) {
 
 a0_err_t a0_cfg_init(a0_cfg_t* cfg, a0_cfg_topic_t topic) {
   A0_RETURN_ERR_ON_ERR(a0_cfg_topic_open(topic, &cfg->_file));
+
   a0_err_t err = a0_writer_init(&cfg->_writer, cfg->_file.arena);
   if (err) {
     a0_file_close(&cfg->_file);
+    return err;
   }
-  return err;
+
+  err = a0_writer_push(&cfg->_writer, a0_add_standard_headers());
+  if (err) {
+    a0_writer_close(&cfg->_writer);
+    a0_file_close(&cfg->_file);
+    return err;
+  }
+
+  return A0_OK;
 }
 
 a0_err_t a0_cfg_close(a0_cfg_t* cfg) {
