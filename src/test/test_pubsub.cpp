@@ -27,7 +27,7 @@
 
 struct PubsubFixture {
   a0_pubsub_topic_t topic = {"test", nullptr};
-  const char* topic_path = "alephzero/test.pubsub.a0";
+  const char* topic_path = "test.pubsub.a0";
 
   PubsubFixture() {
     a0_file_remove(topic_path);

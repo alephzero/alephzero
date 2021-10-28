@@ -37,7 +37,7 @@
 
 struct CfgFixture {
   a0_cfg_topic_t topic = {"test", nullptr};
-  const char* topic_path = "alephzero/test.cfg.a0";
+  const char* topic_path = "test.cfg.a0";
   a0_cfg_t cfg = A0_EMPTY;
 
   CfgFixture() {

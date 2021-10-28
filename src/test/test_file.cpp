@@ -157,54 +157,54 @@ TEST_CASE("file] make dir recursive") {
   }
 }
 
-TEST_CASE("file] relative to /dev/shm") {
+TEST_CASE("file] relative to /dev/shm/alephzero") {
   static const char* TEST_FILE_0 = "d0/test.file";
   static const char* TEST_FILE_1 = "d1/test.file";
   static const char* TEST_FILE_2 = "d1/sub/test.file";
-  a0_file_remove_all("/dev/shm/d0");
-  a0_file_remove_all("/dev/shm/d1");
+  a0_file_remove_all("/dev/shm/alephzero/d0");
+  a0_file_remove_all("/dev/shm/alephzero/d1");
   REQUIRE_OK(unsetenv("A0_ROOT"));
 
   {
     stat_t st;
-    REQUIRE(stat("/dev/shm/d0/test.file", &st) == -1);
-    REQUIRE(stat("/dev/shm/d1/test.file", &st) == -1);
-    REQUIRE(stat("/dev/shm/d1/sub/test.file", &st) == -1);
+    REQUIRE(stat("/dev/shm/alephzero/d0/test.file", &st) == -1);
+    REQUIRE(stat("/dev/shm/alephzero/d1/test.file", &st) == -1);
+    REQUIRE(stat("/dev/shm/alephzero/d1/sub/test.file", &st) == -1);
   }
 
   a0_file_t file_0;
   REQUIRE_OK(a0_file_open(TEST_FILE_0, nullptr, &file_0));
-  REQUIRE(!strcmp(file_0.path, "/dev/shm/d0/test.file"));
+  REQUIRE(!strcmp(file_0.path, "/dev/shm/alephzero/d0/test.file"));
   REQUIRE(file_0.fd > 0);
   REQUIRE_OK(a0_file_close(&file_0));
 
   a0_file_t file_1;
   REQUIRE_OK(a0_file_open(TEST_FILE_1, nullptr, &file_1));
-  REQUIRE(!strcmp(file_1.path, "/dev/shm/d1/test.file"));
+  REQUIRE(!strcmp(file_1.path, "/dev/shm/alephzero/d1/test.file"));
   REQUIRE(file_1.fd > 0);
   REQUIRE_OK(a0_file_close(&file_1));
 
   a0_file_t file_2;
   REQUIRE_OK(a0_file_open(TEST_FILE_2, nullptr, &file_2));
-  REQUIRE(!strcmp(file_2.path, "/dev/shm/d1/sub/test.file"));
+  REQUIRE(!strcmp(file_2.path, "/dev/shm/alephzero/d1/sub/test.file"));
   REQUIRE(file_2.fd > 0);
   REQUIRE_OK(a0_file_close(&file_2));
 
   {
     stat_t st;
-    REQUIRE(stat("/dev/shm/d0/test.file", &st) == 0);
-    REQUIRE(stat("/dev/shm/d1/test.file", &st) == 0);
-    REQUIRE(stat("/dev/shm/d1/sub/test.file", &st) == 0);
+    REQUIRE(stat("/dev/shm/alephzero/d0/test.file", &st) == 0);
+    REQUIRE(stat("/dev/shm/alephzero/d1/test.file", &st) == 0);
+    REQUIRE(stat("/dev/shm/alephzero/d1/sub/test.file", &st) == 0);
   }
 
-  a0_file_remove_all("/dev/shm/d0");
-  a0_file_remove_all("/dev/shm/d1");
+  a0_file_remove_all("/dev/shm/alephzero/d0");
+  a0_file_remove_all("/dev/shm/alephzero/d1");
 
   {
     stat_t st;
-    REQUIRE(stat("/dev/shm/d0/test.file", &st) == -1);
-    REQUIRE(stat("/dev/shm/d1/test.file", &st) == -1);
-    REQUIRE(stat("/dev/shm/d1/sub/test.file", &st) == -1);
+    REQUIRE(stat("/dev/shm/alephzero/d0/test.file", &st) == -1);
+    REQUIRE(stat("/dev/shm/alephzero/d1/test.file", &st) == -1);
+    REQUIRE(stat("/dev/shm/alephzero/d1/sub/test.file", &st) == -1);
   }
 }
 
