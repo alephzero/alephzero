@@ -117,7 +117,7 @@ a0_err_t a0_prpc_server_send(a0_prpc_connection_t conn, a0_packet_t resp, bool d
   a0_packet_header_t extra_headers[] = {
       {PRPC_TYPE, done ? PRPC_TYPE_COMPLETE : PRPC_TYPE_PROGRESS},
       {CONN_ID, (char*)conn.pkt.id},
-      {A0_PACKET_DEP_KEY, (char*)conn.pkt.id},
+      {A0_DEP, (char*)conn.pkt.id},
   };
 
   a0_packet_t full_resp = resp;
@@ -273,7 +273,7 @@ a0_err_t a0_prpc_client_cancel(a0_prpc_client_t* client, const a0_uuid_t uuid) {
   a0_packet_header_t headers[] = {
       {PRPC_TYPE, PRPC_TYPE_CANCEL},
       {CONN_ID, uuid},
-      {A0_PACKET_DEP_KEY, uuid},
+      {A0_DEP, uuid},
   };
 
   pkt.headers_block = (a0_packet_headers_block_t){

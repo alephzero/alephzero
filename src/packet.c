@@ -10,7 +10,7 @@
 
 #include "err_macro.h"
 
-const char* A0_PACKET_DEP_KEY = "a0_dep";
+const char* A0_DEP = "a0_dep";
 
 a0_err_t a0_packet_init(a0_packet_t* pkt) {
   memset(pkt, 0, sizeof(a0_packet_t));

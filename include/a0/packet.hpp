@@ -13,6 +13,8 @@
 
 namespace a0 {
 
+static const char* DEP = A0_DEP;
+
 static const struct tag_ref_t {
 } ref{};
 

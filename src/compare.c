@@ -1,3 +1,4 @@
+#include <a0/buf.h>
 #include <a0/compare.h>
 #include <a0/err.h>
 #include <a0/inline.h>
@@ -28,7 +29,7 @@ const a0_hash_t A0_HASH_U32 = {
 
 a0_err_t a0_compare_u32_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
   A0_MAYBE_UNUSED(user_data);
-  int64_t diff = (int64_t)(*(uint32_t*)lhs) - (int64_t)(*(uint32_t*)rhs);
+  int64_t diff = (int64_t)(*(uint32_t*)rhs) - (int64_t)(*(uint32_t*)lhs);
   *out = (diff < 0) - (diff > 0);
   return A0_OK;
 }
@@ -66,6 +67,44 @@ const a0_compare_t A0_COMPARE_PTR = {
     .fn = a0_compare_ptr_fn,
 };
 
+////////////////////
+// Compare Buffer //
+////////////////////
+
+// https://softwareengineering.stackexchange.com/questions/402542/where-do-magic-hashing-constants-like-0x9e3779b9-and-0x9e3779b1-come-from
+a0_err_t a0_hash_buf_fn(void* user_data, const void* data, size_t* out) {
+  A0_MAYBE_UNUSED(user_data);
+  a0_buf_t* buf = (a0_buf_t*)data;
+
+  *out = 0;
+  for (size_t i = 0; i < buf->size; i++) {
+    *out ^= buf->data[i] + GOLDEN_RATIO_U32 + (*out << 6) + (*out >> 2);
+  }
+  return A0_OK;
+}
+
+const a0_hash_t A0_HASH_BUF = {
+    .user_data = NULL,
+    .fn = a0_hash_buf_fn,
+};
+
+a0_err_t a0_compare_buf_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
+  A0_MAYBE_UNUSED(user_data);
+  a0_buf_t* lhs_buf = (a0_buf_t*)lhs;
+  a0_buf_t* rhs_buf = (a0_buf_t*)rhs;
+  if (lhs_buf->size != rhs_buf->size) {
+    *out = lhs_buf->size - rhs_buf->size;
+  } else {
+    *out = memcmp(lhs_buf->data, rhs_buf->data, lhs_buf->size);
+  }
+  return A0_OK;
+}
+
+const a0_compare_t A0_COMPARE_BUF = {
+    .user_data = NULL,
+    .fn = a0_compare_buf_fn,
+};
+
 //////////////////////
 // Compare C-String //
 //////////////////////
@@ -74,7 +113,7 @@ const a0_compare_t A0_COMPARE_PTR = {
 a0_err_t a0_hash_str_fn(void* user_data, const void* data, size_t* out) {
   A0_MAYBE_UNUSED(user_data);
   *out = 0;
-  for (char* c = *(char**)data; *c; ++c) {
+  for (char* c = *(char**)data; *c; c++) {
     *out ^= *c + GOLDEN_RATIO_U32 + (*out << 6) + (*out >> 2);
   }
   return A0_OK;

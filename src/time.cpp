@@ -31,12 +31,54 @@ TimeMono TimeMono::parse(string_view str) {
       });
 }
 
-TimeMono TimeMono::add(std::chrono::nanoseconds dur) {
+TimeMono& TimeMono::operator+=(std::chrono::nanoseconds dur) {
+  c = (*this + dur).c;
+  return *this;
+}
+
+TimeMono& TimeMono::operator-=(std::chrono::nanoseconds dur) {
+  return *this += (-dur);
+}
+
+TimeMono TimeMono::operator+(std::chrono::nanoseconds dur) const {
   CHECK_C;
   return make_cpp<TimeMono>(
       [&](a0_time_mono_t* out) {
         return a0_time_mono_add(*c, dur.count(), out);
       });
+}
+
+TimeMono TimeMono::operator-(std::chrono::nanoseconds dur) const {
+  return *this + (-dur);
+}
+
+bool TimeMono::operator<(TimeMono rhs) const {
+  CHECK_C;
+  check(__PRETTY_FUNCTION__, &rhs);
+  return c->ts.tv_sec < rhs.c->ts.tv_sec ||
+         (c->ts.tv_sec == rhs.c->ts.tv_sec && c->ts.tv_nsec < rhs.c->ts.tv_nsec);
+}
+
+bool TimeMono::operator==(TimeMono rhs) const {
+  CHECK_C;
+  check(__PRETTY_FUNCTION__, &rhs);
+  return c->ts.tv_sec == rhs.c->ts.tv_sec && c->ts.tv_nsec == rhs.c->ts.tv_nsec;
+}
+
+bool TimeMono::operator!=(TimeMono rhs) const {
+  return !(*this == rhs);
+}
+
+bool TimeMono::operator>(TimeMono rhs) const {
+  return rhs < *this;
+}
+
+bool TimeMono::operator>=(TimeMono rhs) const {
+  return !(*this < rhs);
+}
+
+bool TimeMono::operator<=(TimeMono rhs) const {
+  return !(*this > rhs);
 }
 
 TimeWall TimeWall::now() {

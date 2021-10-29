@@ -115,7 +115,7 @@ a0_err_t a0_rpc_server_reply(a0_rpc_request_t req, a0_packet_t resp) {
   a0_packet_header_t extra_headers[] = {
       {RPC_TYPE, RPC_TYPE_RESPONSE},
       {REQUEST_ID, (char*)req.pkt.id},
-      {A0_PACKET_DEP_KEY, (char*)req.pkt.id},
+      {A0_DEP, (char*)req.pkt.id},
   };
 
   a0_packet_t full_resp = resp;
@@ -253,7 +253,7 @@ a0_err_t a0_rpc_client_cancel(a0_rpc_client_t* client, const a0_uuid_t uuid) {
   a0_packet_header_t headers[] = {
       {RPC_TYPE, RPC_TYPE_CANCEL},
       {REQUEST_ID, uuid},
-      {A0_PACKET_DEP_KEY, uuid},
+      {A0_DEP, uuid},
   };
 
   pkt.headers_block = (a0_packet_headers_block_t){

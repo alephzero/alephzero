@@ -46,6 +46,9 @@ extern const a0_compare_t A0_COMPARE_U32;
 extern const a0_hash_t A0_HASH_PTR;
 extern const a0_compare_t A0_COMPARE_PTR;
 
+extern const a0_hash_t A0_HASH_BUF;
+extern const a0_compare_t A0_COMPARE_BUF;
+
 extern const a0_hash_t A0_HASH_STR;
 extern const a0_compare_t A0_COMPARE_STR;
 

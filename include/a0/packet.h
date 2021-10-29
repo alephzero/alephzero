@@ -176,7 +176,7 @@ typedef struct a0_flat_packet_s {
 /// Packet header key used to annotate a dependence on another packet.
 ///
 /// The value should be a packet id.
-extern const char* A0_PACKET_DEP_KEY;
+extern const char* A0_DEP;
 
 // Callback definition where packet is the only argument.
 

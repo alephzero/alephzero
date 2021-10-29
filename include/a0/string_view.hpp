@@ -2,6 +2,8 @@
 
 #define A0_CPP_17 (__cplusplus >= 201700L)
 
+#include <a0/buf.h>
+#include <a0/compare.h>
 #include <a0/inline.h>
 #include <a0/unused.h>
 
@@ -232,3 +234,17 @@ A0_STRING_VIEW_CMP(const char*)
 #endif  // A0_CPP_17
 
 }  // namespace a0
+
+namespace std {
+
+template <>
+struct hash<a0::string_view> {
+  size_t operator()(const a0::string_view& s) const noexcept {
+    a0_buf_t buf{(uint8_t*)s.data(), s.size()};
+    size_t result;
+    a0_hash_eval(A0_HASH_STR, &buf, &result);
+    return result;
+  }
+};
+
+}  // namespace std
