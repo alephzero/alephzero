@@ -190,7 +190,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson mergepatch") {
   REQUIRE(a0::test::str(pkt.payload) == R"({"bar":{"baz":3}})");
 }
 
-#endif
+#endif  // A0_EXT_YYJSON
 
 #ifdef A0_EXT_NLOHMANN
 
@@ -205,6 +205,16 @@ void from_json(const nlohmann::json& j, MyStruct& my) {
 }
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
+  std::vector<nlohmann::json> saved_cfgs;
+  a0::test::Event got_final_cfg;
+
+  a0::CfgWatcher watcher(topic.name, [&](nlohmann::json j) {
+    saved_cfgs.push_back(j);
+    if (j.count("done")) {
+      got_final_cfg.set();
+    }
+  });
+
   a0::Cfg c(a0::env::topic());
   c.write(R"({"foo": 1, "bar": 2})");
 
@@ -232,6 +242,16 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   REQUIRE(my->foo == 4);
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 4);
+
+  c.mergepatch({{"done", true}});
+  got_final_cfg.wait();
+
+  REQUIRE(saved_cfgs.size() == 4);
+  REQUIRE(saved_cfgs[0] == nlohmann::json{{"bar", 2}, {"foo", 1}});
+  REQUIRE(saved_cfgs[1] == nlohmann::json{{"bar", 2}, {"foo", 3}});
+  REQUIRE(saved_cfgs[2] == nlohmann::json{{"bar", 2}, {"foo", 4}});
+  REQUIRE(saved_cfgs[3] == nlohmann::json{{"bar", 2}, {"foo", 4}, {"done", true}});
+  watcher = {};
 
   c.write("cfg");
   REQUIRE_THROWS_WITH(
