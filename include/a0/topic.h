@@ -1,5 +1,5 @@
-#ifndef A0_SRC_TOPIC_H
-#define A0_SRC_TOPIC_H
+#ifndef A0_TOPIC_H
+#define A0_TOPIC_H
 
 #include <a0/err.h>
 #include <a0/file.h>
@@ -21,4 +21,4 @@ a0_err_t a0_topic_open(const char* tmpl,
 }
 #endif
 
-#endif  // A0_SRC_TOPIC_H
+#endif  // A0_TOPIC_H

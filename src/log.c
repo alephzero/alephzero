@@ -7,12 +7,12 @@
 #include <a0/middleware.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
+#include <a0/topic.h>
 #include <a0/writer.h>
 
 #include <string.h>
 
 #include "err_macro.h"
-#include "topic.h"
 
 A0_STATIC_INLINE
 a0_err_t a0_log_topic_open(a0_log_topic_t topic, a0_file_t* file) {

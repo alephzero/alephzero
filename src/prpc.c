@@ -10,6 +10,7 @@
 #include <a0/packet.h>
 #include <a0/prpc.h>
 #include <a0/reader.h>
+#include <a0/topic.h>
 #include <a0/uuid.h>
 #include <a0/writer.h>
 
@@ -20,7 +21,6 @@
 #include <string.h>
 
 #include "err_macro.h"
-#include "topic.h"
 
 static const char PRPC_TYPE[] = "a0_prpc_type";
 static const char PRPC_TYPE_CONNECT[] = "connect";

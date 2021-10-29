@@ -7,10 +7,10 @@
 #include <a0/middleware.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
+#include <a0/topic.h>
 #include <a0/writer.h>
 
 #include "err_macro.h"
-#include "topic.h"
 
 #ifdef A0_EXT_YYJSON
 

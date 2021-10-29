@@ -52,7 +52,7 @@ class string_view {
   string_view(const char* s, size_t count) noexcept
       : data_{s}, size_{count} {}
   string_view(const char* s) noexcept  // NOLINT(google-explicit-constructor)
-      : string_view(s, strlen(s)) {}
+      : string_view(s, s ? strlen(s) : 0) {}
   string_view(const std::string& str) noexcept  // NOLINT(google-explicit-constructor)
       : data_{str.c_str()}, size_{str.size()} {}
 

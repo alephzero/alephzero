@@ -1,10 +1,9 @@
-#include "topic.h"
-
 #include <a0/buf.h>
 #include <a0/empty.h>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
+#include <a0/topic.h>
 
 #include <alloca.h>
 #include <stdint.h>

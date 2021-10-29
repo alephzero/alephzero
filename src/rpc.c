@@ -10,6 +10,7 @@
 #include <a0/packet.h>
 #include <a0/reader.h>
 #include <a0/rpc.h>
+#include <a0/topic.h>
 #include <a0/uuid.h>
 #include <a0/writer.h>
 
@@ -19,7 +20,6 @@
 #include <string.h>
 
 #include "err_macro.h"
-#include "topic.h"
 
 static const char RPC_TYPE[] = "a0_rpc_type";
 static const char RPC_TYPE_REQUEST[] = "request";
