@@ -3,6 +3,7 @@
 #include <a0/time.hpp>
 
 #include <chrono>
+#include <ctime>
 #include <memory>
 #include <string>
 

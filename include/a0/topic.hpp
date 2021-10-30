@@ -1,7 +1,7 @@
 #pragma once
 
-#include <a0/inline.h>
 #include <a0/file.hpp>
+#include <a0/inline.h>
 #include <a0/string_view.hpp>
 
 namespace a0 {

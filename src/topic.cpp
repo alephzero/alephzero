@@ -1,5 +1,11 @@
+#include <a0/file.h>
+#include <a0/file.hpp>
+#include <a0/string_view.hpp>
 #include <a0/topic.h>
 #include <a0/topic.hpp>
+
+#include <cstdlib>
+#include <string>
 
 #include "c_wrap.hpp"
 #include "file_opts.hpp"

@@ -1,8 +1,11 @@
+#include <a0/file.hpp>
+#include <a0/string_view.hpp>
 #include <a0/topic.hpp>
 
 #include <doctest.h>
 
-#include <cstdint>
+#include <ostream>
+#include <string>
 
 static const char TMPL[] = "aaa{topic}ccc{topic}{topic}ddd";
 static const char TOPIC[] = "bbb";

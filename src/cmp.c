@@ -93,7 +93,7 @@ a0_err_t a0_cmp_buf_fn(void* user_data, const void* lhs, const void* rhs, int* o
   a0_buf_t* lhs_buf = (a0_buf_t*)lhs;
   a0_buf_t* rhs_buf = (a0_buf_t*)rhs;
   if (lhs_buf->size != rhs_buf->size) {
-    *out = lhs_buf->size - rhs_buf->size;
+    *out = (int)(lhs_buf->size) - (int)(rhs_buf->size);
   } else {
     *out = memcmp(lhs_buf->data, rhs_buf->data, lhs_buf->size);
   }

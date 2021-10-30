@@ -3,10 +3,12 @@
 #include <a0/buf.h>
 #include <a0/err.h>
 #include <a0/file.h>
+#include <a0/time.h>
 #include <a0/transport.h>
 #include <a0/transport.hpp>
 
 #include <doctest.h>
+#include <errno.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -1449,11 +1451,11 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp timedwait") {
 
   REQUIRE_THROWS_WITH(
       tlk.wait_for([]() { return false; }, std::chrono::nanoseconds(0)),
-      "Connection timed out");
+      strerror(ETIMEDOUT));
 
   REQUIRE_THROWS_WITH(
       tlk.wait_for([]() { return false; }, std::chrono::nanoseconds((uint64_t)1e6)),
-      "Connection timed out");
+      strerror(ETIMEDOUT));
 }
 
 TEST_CASE_FIXTURE(TransportFixture, "transport] disk await") {

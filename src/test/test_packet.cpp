@@ -10,9 +10,11 @@
 #include <cctype>
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <ostream>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "src/test_util.hpp"
 

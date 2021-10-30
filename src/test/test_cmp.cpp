@@ -1,9 +1,10 @@
-#include <a0/buf.hpp>
+#include <a0/buf.h>
 #include <a0/cmp.h>
 #include <a0/uuid.h>
 
 #include <doctest.h>
 
+#include <cstddef>
 #include <cstdint>
 
 TEST_CASE("cmp] u32") {
