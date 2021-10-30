@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "src/c_wrap.hpp"
+#include "src/err_macro.h"
 #include "src/test_util.hpp"
 #include "src/transport_debug.h"
 
@@ -1420,6 +1421,39 @@ void fork_sleep_push(a0_transport_t* transport, const std::string& str) {
 
     exit(0);
   }
+}
+
+TEST_CASE_FIXTURE(TransportFixture, "transport] timedwait") {
+  a0_transport_t transport;
+
+  REQUIRE_OK(a0_transport_init(&transport, arena));
+
+  a0_transport_locked_t lk;
+  REQUIRE_OK(a0_transport_lock(&transport, &lk));
+
+  a0_time_mono_t now;
+  a0_time_mono_now(&now);
+
+  REQUIRE(A0_SYSERR(a0_transport_timedwait(lk, a0_transport_nonempty_pred(&lk), now)) == ETIMEDOUT);
+
+  a0_time_mono_t fut;
+  a0_time_mono_add(now, 1e6, &fut);
+  REQUIRE(A0_SYSERR(a0_transport_timedwait(lk, a0_transport_nonempty_pred(&lk), fut)) == ETIMEDOUT);
+
+  REQUIRE_OK(a0_transport_unlock(lk));
+}
+
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp timedwait") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::TransportLocked tlk = transport.lock();
+
+  REQUIRE_THROWS_WITH(
+      tlk.wait_for([]() { return false; }, std::chrono::nanoseconds(0)),
+      "Connection timed out");
+
+  REQUIRE_THROWS_WITH(
+      tlk.wait_for([]() { return false; }, std::chrono::nanoseconds((uint64_t)1e6)),
+      "Connection timed out");
 }
 
 TEST_CASE_FIXTURE(TransportFixture, "transport] disk await") {

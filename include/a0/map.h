@@ -2,7 +2,7 @@
 #define A0_MAP_H
 
 #include <a0/callback.h>
-#include <a0/compare.h>
+#include <a0/cmp.h>
 #include <a0/err.h>
 #include <a0/inline.h>
 
@@ -18,7 +18,7 @@ typedef struct a0_map_s {
   size_t _val_size;
 
   a0_hash_t _key_hash;
-  a0_compare_t _key_compare;
+  a0_cmp_t _key_cmp;
 
   size_t _size;
   size_t _cap;
@@ -34,7 +34,7 @@ a0_err_t a0_map_init(a0_map_t*,
                      size_t key_size,
                      size_t val_size,
                      a0_hash_t key_hash,
-                     a0_compare_t key_compare);
+                     a0_cmp_t key_cmp);
 
 a0_err_t a0_map_close(a0_map_t*);
 

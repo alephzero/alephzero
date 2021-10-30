@@ -3,7 +3,7 @@
 #define A0_CPP_17 (__cplusplus >= 201700L)
 
 #include <a0/buf.h>
-#include <a0/compare.h>
+#include <a0/cmp.h>
 #include <a0/inline.h>
 #include <a0/unused.h>
 

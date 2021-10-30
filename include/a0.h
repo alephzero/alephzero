@@ -6,7 +6,7 @@
 #include <a0/buf.h>
 #include <a0/callback.h>
 #include <a0/cfg.h>
-#include <a0/compare.h>
+#include <a0/cmp.h>
 #include <a0/discovery.h>
 #include <a0/env.h>
 #include <a0/err.h>

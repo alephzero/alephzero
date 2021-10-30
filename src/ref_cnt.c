@@ -1,7 +1,7 @@
 #include "ref_cnt.h"
 
 #include <a0/callback.h>
-#include <a0/compare.h>
+#include <a0/cmp.h>
 #include <a0/empty.h>
 #include <a0/err.h>
 #include <a0/inline.h>
@@ -27,7 +27,7 @@ void _global_counters_init(void* user_data) {
       sizeof(void*),
       sizeof(size_t),
       A0_HASH_PTR,
-      A0_COMPARE_PTR);
+      A0_CMP_PTR);
   pthread_mutex_init(&cnts->mu, NULL);
 }
 
