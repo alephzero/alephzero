@@ -1,6 +1,6 @@
 #include <a0/alloc.h>
 #include <a0/buf.h>
-#include <a0/compare.h>
+#include <a0/cmp.h>
 #include <a0/env.h>
 #include <a0/err.h>
 #include <a0/file.h>
@@ -10,6 +10,7 @@
 #include <a0/packet.h>
 #include <a0/reader.h>
 #include <a0/rpc.h>
+#include <a0/topic.h>
 #include <a0/uuid.h>
 #include <a0/writer.h>
 
@@ -19,7 +20,6 @@
 #include <string.h>
 
 #include "err_macro.h"
-#include "topic.h"
 
 static const char RPC_TYPE[] = "a0_rpc_type";
 static const char RPC_TYPE_REQUEST[] = "request";
@@ -115,7 +115,7 @@ a0_err_t a0_rpc_server_reply(a0_rpc_request_t req, a0_packet_t resp) {
   a0_packet_header_t extra_headers[] = {
       {RPC_TYPE, RPC_TYPE_RESPONSE},
       {REQUEST_ID, (char*)req.pkt.id},
-      {A0_PACKET_DEP_KEY, (char*)req.pkt.id},
+      {A0_DEP, (char*)req.pkt.id},
   };
 
   a0_packet_t full_resp = resp;
@@ -163,7 +163,7 @@ a0_err_t a0_rpc_client_init(a0_rpc_client_t* client,
       sizeof(a0_uuid_t),
       sizeof(a0_packet_callback_t),
       A0_HASH_UUID,
-      A0_COMPARE_UUID));
+      A0_CMP_UUID));
   pthread_mutex_init(&client->_outstanding_requests_mu, NULL);
 
   a0_err_t err = a0_rpc_topic_open(topic, &client->_file);
@@ -253,7 +253,7 @@ a0_err_t a0_rpc_client_cancel(a0_rpc_client_t* client, const a0_uuid_t uuid) {
   a0_packet_header_t headers[] = {
       {RPC_TYPE, RPC_TYPE_CANCEL},
       {REQUEST_ID, uuid},
-      {A0_PACKET_DEP_KEY, uuid},
+      {A0_DEP, uuid},
   };
 
   pkt.headers_block = (a0_packet_headers_block_t){

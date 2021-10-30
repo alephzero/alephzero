@@ -1,4 +1,4 @@
-#include <a0/compare.h>
+#include <a0/cmp.h>
 #include <a0/err.h>
 #include <a0/inline.h>
 #include <a0/map.h>
@@ -32,12 +32,12 @@ a0_err_t a0_map_init(a0_map_t* map,
                      size_t key_size,
                      size_t val_size,
                      a0_hash_t key_hash,
-                     a0_compare_t key_compare) {
+                     a0_cmp_t key_cmp) {
   memset(map, 0, sizeof(a0_map_t));
   map->_key_size = key_size;
   map->_val_size = val_size;
   map->_key_hash = key_hash;
-  map->_key_compare = key_compare;
+  map->_key_cmp = key_cmp;
 
   map->_bucket_size = sizeof(size_t) + a0_max_align(map->_key_size) + a0_max_align(map->_val_size);
 
@@ -87,7 +87,7 @@ a0_err_t a0_map_find(a0_map_t* map, const void* key, a0_map_bucket_t* bkt) {
 
   while (off <= *bkt->off) {
     int cmp;
-    A0_RETURN_ERR_ON_ERR(a0_compare_eval(map->_key_compare, key, bkt->key, &cmp));
+    A0_RETURN_ERR_ON_ERR(a0_cmp_eval(map->_key_cmp, key, bkt->key, &cmp));
     if (!cmp) {
       return A0_OK;
     }
@@ -155,7 +155,7 @@ a0_err_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
 
   while (*iter_bkt.off) {
     int cmp;
-    A0_RETURN_ERR_ON_ERR(a0_compare_eval(map->_key_compare, new_bkt.key, iter_bkt.key, &cmp));
+    A0_RETURN_ERR_ON_ERR(a0_cmp_eval(map->_key_cmp, new_bkt.key, iter_bkt.key, &cmp));
     if (!cmp) {
       memcpy(iter_bkt.val, new_bkt.val, map->_val_size);
       return A0_OK;

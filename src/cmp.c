@@ -1,4 +1,5 @@
-#include <a0/compare.h>
+#include <a0/buf.h>
+#include <a0/cmp.h>
 #include <a0/err.h>
 #include <a0/inline.h>
 #include <a0/unused.h>
@@ -26,16 +27,16 @@ const a0_hash_t A0_HASH_U32 = {
     .fn = a0_hash_u32_fn,
 };
 
-a0_err_t a0_compare_u32_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
+a0_err_t a0_cmp_u32_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
   A0_MAYBE_UNUSED(user_data);
-  int64_t diff = (int64_t)(*(uint32_t*)lhs) - (int64_t)(*(uint32_t*)rhs);
+  int64_t diff = (int64_t)(*(uint32_t*)rhs) - (int64_t)(*(uint32_t*)lhs);
   *out = (diff < 0) - (diff > 0);
   return A0_OK;
 }
 
-const a0_compare_t A0_COMPARE_U32 = {
+const a0_cmp_t A0_CMP_U32 = {
     .user_data = NULL,
-    .fn = a0_compare_u32_fn,
+    .fn = a0_cmp_u32_fn,
 };
 
 //////////////////////
@@ -55,15 +56,53 @@ const a0_hash_t A0_HASH_PTR = {
     .fn = a0_hash_ptr_fn,
 };
 
-a0_err_t a0_compare_ptr_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
+a0_err_t a0_cmp_ptr_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
   A0_MAYBE_UNUSED(user_data);
   *out = (int)(*(uintptr_t*)lhs - *(uintptr_t*)rhs);
   return A0_OK;
 }
 
-const a0_compare_t A0_COMPARE_PTR = {
+const a0_cmp_t A0_CMP_PTR = {
     .user_data = NULL,
-    .fn = a0_compare_ptr_fn,
+    .fn = a0_cmp_ptr_fn,
+};
+
+////////////////////
+// Compare Buffer //
+////////////////////
+
+// https://softwareengineering.stackexchange.com/questions/402542/where-do-magic-hashing-constants-like-0x9e3779b9-and-0x9e3779b1-come-from
+a0_err_t a0_hash_buf_fn(void* user_data, const void* data, size_t* out) {
+  A0_MAYBE_UNUSED(user_data);
+  a0_buf_t* buf = (a0_buf_t*)data;
+
+  *out = 0;
+  for (size_t i = 0; i < buf->size; i++) {
+    *out ^= buf->data[i] + GOLDEN_RATIO_U32 + (*out << 6) + (*out >> 2);
+  }
+  return A0_OK;
+}
+
+const a0_hash_t A0_HASH_BUF = {
+    .user_data = NULL,
+    .fn = a0_hash_buf_fn,
+};
+
+a0_err_t a0_cmp_buf_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
+  A0_MAYBE_UNUSED(user_data);
+  a0_buf_t* lhs_buf = (a0_buf_t*)lhs;
+  a0_buf_t* rhs_buf = (a0_buf_t*)rhs;
+  if (lhs_buf->size != rhs_buf->size) {
+    *out = (int)(lhs_buf->size) - (int)(rhs_buf->size);
+  } else {
+    *out = memcmp(lhs_buf->data, rhs_buf->data, lhs_buf->size);
+  }
+  return A0_OK;
+}
+
+const a0_cmp_t A0_CMP_BUF = {
+    .user_data = NULL,
+    .fn = a0_cmp_buf_fn,
 };
 
 //////////////////////
@@ -74,7 +113,7 @@ const a0_compare_t A0_COMPARE_PTR = {
 a0_err_t a0_hash_str_fn(void* user_data, const void* data, size_t* out) {
   A0_MAYBE_UNUSED(user_data);
   *out = 0;
-  for (char* c = *(char**)data; *c; ++c) {
+  for (char* c = *(char**)data; *c; c++) {
     *out ^= *c + GOLDEN_RATIO_U32 + (*out << 6) + (*out >> 2);
   }
   return A0_OK;
@@ -85,15 +124,15 @@ const a0_hash_t A0_HASH_STR = {
     .fn = a0_hash_str_fn,
 };
 
-a0_err_t a0_compare_str_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
+a0_err_t a0_cmp_str_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
   A0_MAYBE_UNUSED(user_data);
   *out = strcmp(*(char**)lhs, *(char**)rhs);
   return A0_OK;
 }
 
-const a0_compare_t A0_COMPARE_STR = {
+const a0_cmp_t A0_CMP_STR = {
     .user_data = NULL,
-    .fn = a0_compare_str_fn,
+    .fn = a0_cmp_str_fn,
 };
 
 //////////////////
@@ -147,13 +186,13 @@ const a0_hash_t A0_HASH_UUID = {
     .fn = a0_hash_uuid_fn,
 };
 
-a0_err_t a0_compare_uuid_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
+a0_err_t a0_cmp_uuid_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
   A0_MAYBE_UNUSED(user_data);
-  *out = memcmp(lhs, rhs, A0_UUID_SIZE);
+  *out = memcmp(*(a0_uuid_t*)lhs, *(a0_uuid_t*)rhs, A0_UUID_SIZE);
   return A0_OK;
 }
 
-const a0_compare_t A0_COMPARE_UUID = {
+const a0_cmp_t A0_CMP_UUID = {
     .user_data = NULL,
-    .fn = a0_compare_uuid_fn,
+    .fn = a0_cmp_uuid_fn,
 };

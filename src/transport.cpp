@@ -143,7 +143,7 @@ void TransportLocked::wait(std::function<bool()> fn) {
 }
 
 void TransportLocked::wait_for(std::function<bool()> fn, std::chrono::nanoseconds dur) {
-  wait_until(fn, TimeMono::now().add(dur));
+  wait_until(fn, TimeMono::now() + dur);
 }
 
 void TransportLocked::wait_until(std::function<bool()> fn, TimeMono tm) {

@@ -10,9 +10,11 @@
 #include <cctype>
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <ostream>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "src/test_util.hpp"
 
@@ -189,6 +191,11 @@ TEST_CASE("flat_packet] header") {
 }
 
 TEST_CASE("packet] cpp") {
+  a0::Packet pkt0;
+  REQUIRE(pkt0.payload() == "");
+  REQUIRE(pkt0.id().size() == 36);
+  REQUIRE(pkt0.headers().empty());
+
   a0::Packet pkt1({{"hdr-key", "hdr-val"}}, "Hello, World!");
   REQUIRE(pkt1.payload() == "Hello, World!");
   REQUIRE(pkt1.id().size() == 36);
@@ -215,4 +222,27 @@ TEST_CASE("packet] cpp") {
   a0::Packet pkt5(owner, a0::ref);
   REQUIRE(pkt5.payload() == owner);
   REQUIRE(pkt5.payload().data() == owner.data());
+}
+
+TEST_CASE("flat_packet] cpp") {
+  with_standard_packet([](a0_packet_t pkt) {
+    a0::FlatPacket fpkt;
+    fpkt.c = std::make_shared<a0_flat_packet_t>();
+    REQUIRE_OK(a0_packet_serialize(pkt, a0::test::alloc(), fpkt.c.get()));
+
+    REQUIRE(fpkt.id().size() == 37);
+    REQUIRE(fpkt.num_headers() == 5);
+
+    std::unordered_multimap<a0::string_view, a0::string_view> hdrs;
+    for (size_t i = 0; i < fpkt.num_headers(); i++) {
+      hdrs.insert(fpkt.header(i));
+    }
+    REQUIRE(hdrs == std::unordered_multimap<a0::string_view, a0::string_view>{
+                        {"a", "b"},
+                        {"c", "d"},
+                        {"e", "f"},
+                        {"g", "h"},
+                        {"i", "j"},
+                    });
+  });
 }

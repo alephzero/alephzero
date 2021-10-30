@@ -2,6 +2,8 @@
 
 #define A0_CPP_17 (__cplusplus >= 201700L)
 
+#include <a0/buf.h>
+#include <a0/cmp.h>
 #include <a0/inline.h>
 #include <a0/unused.h>
 
@@ -50,7 +52,7 @@ class string_view {
   string_view(const char* s, size_t count) noexcept
       : data_{s}, size_{count} {}
   string_view(const char* s) noexcept  // NOLINT(google-explicit-constructor)
-      : string_view(s, strlen(s)) {}
+      : string_view(s, s ? strlen(s) : 0) {}
   string_view(const std::string& str) noexcept  // NOLINT(google-explicit-constructor)
       : data_{str.c_str()}, size_{str.size()} {}
 
@@ -232,3 +234,17 @@ A0_STRING_VIEW_CMP(const char*)
 #endif  // A0_CPP_17
 
 }  // namespace a0
+
+namespace std {
+
+template <>
+struct hash<a0::string_view> {
+  size_t operator()(const a0::string_view& s) const noexcept {
+    a0_buf_t buf{(uint8_t*)s.data(), s.size()};
+    size_t result;
+    a0_hash_eval(A0_HASH_STR, &buf, &result);
+    return result;
+  }
+};
+
+}  // namespace std

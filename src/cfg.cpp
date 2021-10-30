@@ -200,41 +200,10 @@ CfgWatcher::CfgWatcher(
 
 CfgWatcher::CfgWatcher(
     CfgTopic topic,
-    std::function<void(const nlohmann::json&)> onjson) {
-  set_c_impl<CfgWatcherImpl>(
-      &c,
-      [&](a0_cfg_watcher_t* c, CfgWatcherImpl* impl) {
-        impl->onjson = std::move(onjson);
-
-        auto cfo = c_fileopts(topic.file_opts);
-        a0_cfg_topic_t c_topic{topic.name.c_str(), &cfo};
-
-        a0_alloc_t alloc = {
-            .user_data = impl,
-            .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-              auto* impl = (CfgWatcherImpl*)user_data;
-              impl->data.resize(size);
-              *out = {impl->data.data(), size};
-              return A0_OK;
-            },
-            .dealloc = nullptr,
-        };
-
-        a0_packet_callback_t c_onpacket = {
-            .user_data = impl,
-            .fn = [](void* user_data, a0_packet_t pkt) {
-              auto* impl = (CfgWatcherImpl*)user_data;
-              auto json = nlohmann::json::parse(
-                  string_view((const char*)pkt.payload.data, pkt.payload.size));
-              impl->onjson(json);
-            }};
-
-        return a0_cfg_watcher_init(c, c_topic, alloc, c_onpacket);
-      },
-      [](a0_cfg_watcher_t* c, CfgWatcherImpl*) {
-        a0_cfg_watcher_close(c);
-      });
-}
+    std::function<void(const nlohmann::json&)> onjson)
+    : CfgWatcher(topic, [onjson](Packet pkt) {
+        onjson(nlohmann::json::parse(pkt.payload()));
+      }) {}
 
 #endif  // A0_EXT_NLOHMANN
 

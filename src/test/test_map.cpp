@@ -1,4 +1,4 @@
-#include <a0/compare.h>
+#include <a0/cmp.h>
 #include <a0/err.h>
 #include <a0/map.h>
 
@@ -29,8 +29,8 @@ struct MapFixture {
     };
   }
 
-  a0_compare_t make_compare() {
-    return (a0_compare_t){
+  a0_cmp_t make_cmp() {
+    return (a0_cmp_t){
         .user_data = nullptr,
         .fn = [](void* user_data, const void* lhs, const void* rhs, int* out) {
           (void)user_data;
@@ -44,7 +44,7 @@ struct MapFixture {
 TEST_CASE_FIXTURE(MapFixture, "map] basic") {
   a0_map_t map;
   REQUIRE_OK(a0_map_init(
-      &map, sizeof(map_key_t), sizeof(map_val_t), make_hash(), make_compare()));
+      &map, sizeof(map_key_t), sizeof(map_val_t), make_hash(), make_cmp()));
 
   size_t size;
   REQUIRE_OK(a0_map_size(&map, &size));
@@ -104,7 +104,7 @@ TEST_CASE_FIXTURE(MapFixture, "map] basic") {
 TEST_CASE_FIXTURE(MapFixture, "map] fuzz") {
   a0_map_t map;
   REQUIRE_OK(a0_map_init(
-      &map, sizeof(map_key_t), sizeof(map_val_t), make_hash(), make_compare()));
+      &map, sizeof(map_key_t), sizeof(map_val_t), make_hash(), make_cmp()));
 
   std::mt19937_64 rng(std::random_device{}());
 

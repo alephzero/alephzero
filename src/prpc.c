@@ -1,6 +1,6 @@
 #include <a0/alloc.h>
 #include <a0/buf.h>
-#include <a0/compare.h>
+#include <a0/cmp.h>
 #include <a0/env.h>
 #include <a0/err.h>
 #include <a0/file.h>
@@ -10,6 +10,7 @@
 #include <a0/packet.h>
 #include <a0/prpc.h>
 #include <a0/reader.h>
+#include <a0/topic.h>
 #include <a0/uuid.h>
 #include <a0/writer.h>
 
@@ -20,7 +21,6 @@
 #include <string.h>
 
 #include "err_macro.h"
-#include "topic.h"
 
 static const char PRPC_TYPE[] = "a0_prpc_type";
 static const char PRPC_TYPE_CONNECT[] = "connect";
@@ -117,7 +117,7 @@ a0_err_t a0_prpc_server_send(a0_prpc_connection_t conn, a0_packet_t resp, bool d
   a0_packet_header_t extra_headers[] = {
       {PRPC_TYPE, done ? PRPC_TYPE_COMPLETE : PRPC_TYPE_PROGRESS},
       {CONN_ID, (char*)conn.pkt.id},
-      {A0_PACKET_DEP_KEY, (char*)conn.pkt.id},
+      {A0_DEP, (char*)conn.pkt.id},
   };
 
   a0_packet_t full_resp = resp;
@@ -183,7 +183,7 @@ a0_err_t a0_prpc_client_init(a0_prpc_client_t* client,
       sizeof(a0_uuid_t),
       sizeof(a0_prpc_progress_callback_t),
       A0_HASH_UUID,
-      A0_COMPARE_UUID));
+      A0_CMP_UUID));
   pthread_mutex_init(&client->_outstanding_connections_mu, NULL);
 
   a0_err_t err = a0_prpc_topic_open(topic, &client->_file);
@@ -273,7 +273,7 @@ a0_err_t a0_prpc_client_cancel(a0_prpc_client_t* client, const a0_uuid_t uuid) {
   a0_packet_header_t headers[] = {
       {PRPC_TYPE, PRPC_TYPE_CANCEL},
       {CONN_ID, uuid},
-      {A0_PACKET_DEP_KEY, uuid},
+      {A0_DEP, uuid},
   };
 
   pkt.headers_block = (a0_packet_headers_block_t){

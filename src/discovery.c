@@ -1,5 +1,5 @@
 #include <a0/buf.h>
-#include <a0/compare.h>
+#include <a0/cmp.h>
 #include <a0/discovery.h>
 #include <a0/empty.h>
 #include <a0/err.h>
@@ -387,7 +387,7 @@ a0_err_t a0_discovery_init(a0_discovery_t* d, const char* path_pattern, a0_disco
       sizeof(int),
       sizeof(char*),
       A0_HASH_U32,
-      A0_COMPARE_U32);
+      A0_CMP_U32);
   if (err) {
     free((void*)d->_path_pattern);
     return err;
@@ -398,7 +398,7 @@ a0_err_t a0_discovery_init(a0_discovery_t* d, const char* path_pattern, a0_disco
       sizeof(char*),
       sizeof(int),
       A0_HASH_STR,
-      A0_COMPARE_STR);
+      A0_CMP_STR);
   if (err) {
     a0_map_close(&d->_watch_map);
     free((void*)d->_path_pattern);
@@ -410,7 +410,7 @@ a0_err_t a0_discovery_init(a0_discovery_t* d, const char* path_pattern, a0_disco
       sizeof(char*),
       sizeof(int),
       A0_HASH_STR,
-      A0_COMPARE_STR);
+      A0_CMP_STR);
   if (err) {
     a0_map_close(&d->_reverse_watch_map);
     a0_map_close(&d->_watch_map);

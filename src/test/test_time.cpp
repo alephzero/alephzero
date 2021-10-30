@@ -36,7 +36,7 @@ TEST_CASE("time] mono") {
 
 TEST_CASE("time] cpp mono") {
   a0::TimeMono now = a0::TimeMono::now();
-  a0::TimeMono fut = now.add(std::chrono::nanoseconds(1));
+  a0::TimeMono fut = now + std::chrono::nanoseconds(1);
   std::string serial = fut.to_string();
   REQUIRE(serial.size() == 19);
   a0::TimeMono recovered = a0::TimeMono::parse(serial);
@@ -50,6 +50,31 @@ TEST_CASE("time] cpp mono") {
 
   REQUIRE(want.tv_sec == recovered.c->ts.tv_sec);
   REQUIRE(want.tv_nsec == recovered.c->ts.tv_nsec);
+}
+
+TEST_CASE("time] cpp mono operators") {
+  a0::TimeMono now = a0::TimeMono::now();
+  a0::TimeMono fut = now + std::chrono::nanoseconds(1);
+  a0::TimeMono now_again = fut - std::chrono::nanoseconds(1);
+  a0::TimeMono fut_again = now_again;
+  fut_again += std::chrono::nanoseconds(1);
+  a0::TimeMono now_again_again = fut_again;
+  now_again_again -= std::chrono::nanoseconds(1);
+
+  REQUIRE(now.c.get() != now_again.c.get());
+  REQUIRE(fut.c.get() != fut_again.c.get());
+
+  REQUIRE(now == now);
+  REQUIRE(now == now_again);
+  REQUIRE(now == now_again_again);
+  REQUIRE(fut == fut_again);
+
+  REQUIRE(now != fut);
+  REQUIRE(now <= now);
+  REQUIRE(now <= fut);
+  REQUIRE(now < fut);
+  REQUIRE(fut > now);
+  REQUIRE(fut >= now);
 }
 
 TEST_CASE("time] wall") {

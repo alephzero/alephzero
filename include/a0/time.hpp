@@ -14,7 +14,17 @@ struct TimeMono : details::CppWrap<a0_time_mono_t> {
   static TimeMono now();
   std::string to_string();
   static TimeMono parse(string_view);
-  TimeMono add(std::chrono::nanoseconds);
+
+  TimeMono& operator+=(std::chrono::nanoseconds);
+  TimeMono& operator-=(std::chrono::nanoseconds);
+  TimeMono operator+(std::chrono::nanoseconds) const;
+  TimeMono operator-(std::chrono::nanoseconds) const;
+  bool operator<(TimeMono) const;
+  bool operator==(TimeMono) const;
+  bool operator!=(TimeMono) const;
+  bool operator>(TimeMono) const;
+  bool operator>=(TimeMono) const;
+  bool operator<=(TimeMono) const;
 };
 
 struct TimeWall : details::CppWrap<a0_time_wall_t> {

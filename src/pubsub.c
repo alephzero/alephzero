@@ -7,12 +7,12 @@
 #include <a0/packet.h>
 #include <a0/pubsub.h>
 #include <a0/reader.h>
+#include <a0/topic.h>
 #include <a0/writer.h>
 
 #include <stdbool.h>
 
 #include "err_macro.h"
-#include "topic.h"
 
 A0_STATIC_INLINE
 a0_err_t a0_pubsub_topic_open(a0_pubsub_topic_t topic, a0_file_t* file) {

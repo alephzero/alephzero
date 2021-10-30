@@ -332,8 +332,7 @@ a0_err_t a0_transport_timedwait_predicate(void* data_, bool* out) {
   uint64_t timeout_ns = data->timeout.ts.tv_sec * NS_PER_SEC + data->timeout.ts.tv_nsec;
 
   if (now_ns >= timeout_ns) {
-    *out = true;
-    return A0_OK;
+    return A0_MAKE_SYSERR(ETIMEDOUT);
   }
   return a0_predicate_eval(data->user_pred, out);
 }
