@@ -143,6 +143,8 @@ a0_err_t a0_log_listener_init(a0_log_listener_t* log_list,
                               a0_log_topic_t topic,
                               a0_alloc_t alloc,
                               a0_log_level_t level,
+                              a0_reader_init_t init,
+                              a0_reader_iter_t iter,
                               a0_packet_callback_t onmsg) {
   log_list->_level = level;
   log_list->_onmsg = onmsg;
@@ -152,8 +154,8 @@ a0_err_t a0_log_listener_init(a0_log_listener_t* log_list,
       &log_list->_reader,
       log_list->_file.arena,
       alloc,
-      A0_INIT_AWAIT_NEW,
-      A0_ITER_NEXT,
+      init,
+      iter,
       (a0_packet_callback_t){log_list, a0_log_listener_callback});
   if (err) {
     a0_file_close(&log_list->_file);

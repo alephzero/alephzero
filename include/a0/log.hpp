@@ -4,6 +4,7 @@
 #include <a0/file.hpp>
 #include <a0/log.h>
 #include <a0/packet.hpp>
+#include <a0/reader.hpp>
 
 #include <string>
 
@@ -60,7 +61,7 @@ struct Logger : details::CppWrap<a0_logger_t> {
 
 struct LogListener : details::CppWrap<a0_log_listener_t> {
   LogListener() = default;
-  LogListener(LogTopic, LogLevel, std::function<void(Packet)>);
+  LogListener(LogTopic, LogLevel, ReaderInit, ReaderIter, std::function<void(Packet)>);
 };
 
 }  // namespace a0
