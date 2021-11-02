@@ -20,6 +20,7 @@
 #include <a0/reader.h>
 #include <a0/rpc.h>
 #include <a0/time.h>
+#include <a0/topic.h>
 #include <a0/transport.h>
 #include <a0/uuid.h>
 #include <a0/writer.h>
@@ -39,6 +40,7 @@
 #include <a0/reader.hpp>
 #include <a0/rpc.hpp>
 #include <a0/time.hpp>
+#include <a0/topic.hpp>
 #include <a0/transport.hpp>
 #include <a0/writer.hpp>
 #endif  // __cplusplus

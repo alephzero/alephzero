@@ -57,7 +57,14 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
   };
 
   a0_log_listener_t log_list;
-  REQUIRE_OK(a0_log_listener_init(&log_list, topic, a0::test::alloc(), A0_LOG_LEVEL_INFO, onmsg));
+  REQUIRE_OK(a0_log_listener_init(
+      &log_list,
+      topic,
+      a0::test::alloc(),
+      A0_LOG_LEVEL_INFO,
+      A0_INIT_AWAIT_NEW,
+      A0_ITER_NEXT,
+      onmsg));
 
   a0_logger_t logger;
   REQUIRE_OK(a0_logger_init(&logger, topic));
@@ -87,16 +94,21 @@ TEST_CASE_FIXTURE(LogFixture, "logger] cpp basic") {
   std::mutex mu;
   a0::test::Latch latch{8};
 
-  a0::LogListener log_listener("topic", a0::LogLevel::INFO, [&](a0::Packet pkt) {
-    std::unique_lock<std::mutex> lk{mu};
+  a0::LogListener log_listener(
+      "topic",
+      a0::LogLevel::INFO,
+      A0_INIT_AWAIT_NEW,
+      A0_ITER_NEXT,
+      [&](a0::Packet pkt) {
+        std::unique_lock<std::mutex> lk{mu};
 
-    for (const auto& hdr : pkt.headers()) {
-      if (hdr.first == "a0_log_level") {
-        cnt[hdr.second]++;
-        latch.count_down();
-      }
-    }
-  });
+        for (const auto& hdr : pkt.headers()) {
+          if (hdr.first == "a0_log_level") {
+            cnt[hdr.second]++;
+            latch.count_down();
+          }
+        }
+      });
 
   a0::Logger logger("topic");
 

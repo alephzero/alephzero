@@ -73,6 +73,8 @@ struct LogListenerImpl {
 LogListener::LogListener(
     LogTopic topic,
     LogLevel lvl,
+    ReaderInit init,
+    ReaderIter iter,
     std::function<void(Packet)> onpacket) {
   set_c_impl<LogListenerImpl>(
       &c,
@@ -102,7 +104,7 @@ LogListener::LogListener(
               impl->onpacket(Packet(pkt, [data](a0_packet_t*) {}));
             }};
 
-        return a0_log_listener_init(c, c_topic, alloc, (a0_log_level_t)lvl, c_onpacket);
+        return a0_log_listener_init(c, c_topic, alloc, (a0_log_level_t)lvl, init, iter, c_onpacket);
       },
       [](a0_log_listener_t* c, LogListenerImpl*) {
         a0_log_listener_close(c);
