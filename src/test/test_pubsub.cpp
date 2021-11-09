@@ -504,7 +504,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp sync blocking") {
   block_timeout = a0::TimeMono::now() + std::chrono::milliseconds(1);
   REQUIRE_THROWS_WITH(
       [&]() { a0::SubscriberSync(topic.name, A0_INIT_AWAIT_NEW, A0_ITER_NEXT).read_blocking(block_timeout); }(),
-      "Connection timed out");
+      strerror(ETIMEDOUT));
   join_threads();
 
   // Nonblocking, await new.
