@@ -17,18 +17,20 @@ struct ReaderSyncZeroCopy : details::CppWrap<a0_reader_sync_zc_t> {
   ReaderSyncZeroCopy() = default;
   ReaderSyncZeroCopy(Arena, ReaderInit, ReaderIter);
 
-  bool has_next();
-  void next(std::function<void(TransportLocked, FlatPacket)>);
-  void next_blocking(std::function<void(TransportLocked, FlatPacket)>);
+  bool can_read();
+  void read(std::function<void(TransportLocked, FlatPacket)>);
+  void read_blocking(std::function<void(TransportLocked, FlatPacket)>);
+  void read_blocking(TimeMono, std::function<void(TransportLocked, FlatPacket)>);
 };
 
 struct ReaderSync : details::CppWrap<a0_reader_sync_t> {
   ReaderSync() = default;
   ReaderSync(Arena, ReaderInit, ReaderIter);
 
-  bool has_next();
-  Packet next();
-  Packet next_blocking();
+  bool can_read();
+  Packet read();
+  Packet read_blocking();
+  Packet read_blocking(TimeMono);
 };
 
 struct ReaderZeroCopy : details::CppWrap<a0_reader_zc_t> {

@@ -9,7 +9,6 @@
 #include <a0/string_view.hpp>
 
 #include <doctest.h>
-#include <fcntl.h>
 
 #include <algorithm>
 #include <cstdlib>

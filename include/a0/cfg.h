@@ -32,6 +32,7 @@ a0_err_t a0_cfg_close(a0_cfg_t*);
 
 a0_err_t a0_cfg_read(a0_cfg_t*, a0_alloc_t, a0_packet_t* out);
 a0_err_t a0_cfg_read_blocking(a0_cfg_t*, a0_alloc_t, a0_packet_t* out);
+a0_err_t a0_cfg_read_blocking_timeout(a0_cfg_t*, a0_alloc_t, a0_time_mono_t, a0_packet_t* out);
 
 a0_err_t a0_cfg_write(a0_cfg_t*, a0_packet_t);
 
@@ -39,6 +40,7 @@ a0_err_t a0_cfg_write(a0_cfg_t*, a0_packet_t);
 
 a0_err_t a0_cfg_read_yyjson(a0_cfg_t*, a0_alloc_t, yyjson_doc* out);
 a0_err_t a0_cfg_read_blocking_yyjson(a0_cfg_t*, a0_alloc_t, yyjson_doc* out);
+a0_err_t a0_cfg_read_blocking_timeout_yyjson(a0_cfg_t*, a0_alloc_t, a0_time_mono_t, yyjson_doc* out);
 
 a0_err_t a0_cfg_write_yyjson(a0_cfg_t*, yyjson_doc);
 

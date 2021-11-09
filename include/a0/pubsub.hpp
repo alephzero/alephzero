@@ -38,9 +38,10 @@ struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
   SubscriberSync() = default;
   SubscriberSync(PubSubTopic, ReaderInit, ReaderIter);
 
-  bool has_next();
-  Packet next();
-  Packet next_blocking();
+  bool can_read();
+  Packet read();
+  Packet read_blocking();
+  Packet read_blocking(TimeMono);
 };
 
 struct Subscriber : details::CppWrap<a0_subscriber_t> {

@@ -3,8 +3,10 @@
 #include <a0/cfg.h>
 #include <a0/cfg.hpp>
 #include <a0/err.h>
+#include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
+#include <a0/time.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -59,7 +61,8 @@ Cfg::Cfg(CfgTopic topic) {
       });
 }
 
-Packet Cfg::read() const {
+A0_STATIC_INLINE
+Packet Cfg_read(std::function<a0_err_t(a0_alloc_t, a0_packet_t*)> fn) {
   auto data = std::make_shared<std::vector<uint8_t>>();
 
   a0_alloc_t alloc = {
@@ -74,29 +77,26 @@ Packet Cfg::read() const {
   };
 
   a0_packet_t pkt;
-  check(a0_cfg_read(&*c, alloc, &pkt));
-
+  check(fn(alloc, &pkt));
   return Packet(pkt, [data](a0_packet_t*) {});
 }
 
+Packet Cfg::read() const {
+  return Cfg_read([&](a0_alloc_t alloc, a0_packet_t* pkt) {
+    return a0_cfg_read(&*c, alloc, pkt);
+  });
+}
+
 Packet Cfg::read_blocking() const {
-  auto data = std::make_shared<std::vector<uint8_t>>();
+  return Cfg_read([&](a0_alloc_t alloc, a0_packet_t* pkt) {
+    return a0_cfg_read_blocking(&*c, alloc, pkt);
+  });
+}
 
-  a0_alloc_t alloc = {
-      .user_data = data.get(),
-      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-        auto* data = (std::vector<uint8_t>*)user_data;
-        data->resize(size);
-        *out = {data->data(), size};
-        return A0_OK;
-      },
-      .dealloc = nullptr,
-  };
-
-  a0_packet_t pkt;
-  check(a0_cfg_read_blocking(&*c, alloc, &pkt));
-
-  return Packet(pkt, [data](a0_packet_t*) {});
+Packet Cfg::read_blocking(TimeMono timeout) const {
+  return Cfg_read([&](a0_alloc_t alloc, a0_packet_t* pkt) {
+    return a0_cfg_read_blocking_timeout(&*c, alloc, *timeout.c, pkt);
+  });
 }
 
 void Cfg::write(Packet pkt) {

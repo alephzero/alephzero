@@ -1,11 +1,13 @@
 #include <a0/alloc.h>
 #include <a0/buf.h>
 #include <a0/err.h>
+#include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/pubsub.h>
 #include <a0/pubsub.hpp>
 #include <a0/reader.hpp>
+#include <a0/time.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -69,33 +71,41 @@ SubscriberSync::SubscriberSync(PubSubTopic topic, ReaderInit init, ReaderIter it
       });
 }
 
-bool SubscriberSync::has_next() {
+bool SubscriberSync::can_read() {
   CHECK_C;
   bool ret;
-  check(a0_subscriber_sync_has_next(&*c, &ret));
+  check(a0_subscriber_sync_can_read(&*c, &ret));
   return ret;
 }
 
-Packet SubscriberSync::next() {
-  CHECK_C;
-  auto* impl = c_impl<SubscriberSyncImpl>(&c);
-
+A0_STATIC_INLINE
+Packet SubscriberSync_read(SubscriberSyncImpl* impl, std::function<a0_err_t(a0_packet_t*)> fn) {
   a0_packet_t pkt;
-  check(a0_subscriber_sync_next(&*c, &pkt));
+  check(fn(&pkt));
   auto data = std::make_shared<std::vector<uint8_t>>();
   std::swap(*data, impl->data);
   return Packet(pkt, [data](a0_packet_t*) {});
 }
 
-Packet SubscriberSync::next_blocking() {
+Packet SubscriberSync::read() {
   CHECK_C;
-  auto* impl = c_impl<SubscriberSyncImpl>(&c);
+  return SubscriberSync_read(c_impl<SubscriberSyncImpl>(&c), [&](a0_packet_t* pkt) {
+    return a0_subscriber_sync_read(&*c, pkt);
+  });
+}
 
-  a0_packet_t pkt;
-  check(a0_subscriber_sync_next_blocking(&*c, &pkt));
-  auto data = std::make_shared<std::vector<uint8_t>>();
-  std::swap(*data, impl->data);
-  return Packet(pkt, [data](a0_packet_t*) {});
+Packet SubscriberSync::read_blocking() {
+  CHECK_C;
+  return SubscriberSync_read(c_impl<SubscriberSyncImpl>(&c), [&](a0_packet_t* pkt) {
+    return a0_subscriber_sync_read_blocking(&*c, pkt);
+  });
+}
+
+Packet SubscriberSync::read_blocking(TimeMono timeout) {
+  CHECK_C;
+  return SubscriberSync_read(c_impl<SubscriberSyncImpl>(&c), [&](a0_packet_t* pkt) {
+    return a0_subscriber_sync_read_blocking_timeout(&*c, *timeout.c, pkt);
+  });
 }
 
 namespace {

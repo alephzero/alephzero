@@ -7,6 +7,7 @@
 #include <a0/middleware.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
+#include <a0/time.h>
 #include <a0/topic.h>
 #include <a0/writer.h>
 
@@ -63,7 +64,7 @@ a0_err_t a0_cfg_read(a0_cfg_t* cfg,
                      a0_packet_t* out) {
   a0_reader_sync_t reader_sync;
   A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, A0_INIT_MOST_RECENT, A0_ITER_NEXT));
-  a0_err_t err = a0_reader_sync_next(&reader_sync, out);
+  a0_err_t err = a0_reader_sync_read(&reader_sync, out);
   a0_reader_sync_close(&reader_sync);
   return err;
 }
@@ -73,7 +74,18 @@ a0_err_t a0_cfg_read_blocking(a0_cfg_t* cfg,
                               a0_packet_t* out) {
   a0_reader_sync_t reader_sync;
   A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, A0_INIT_MOST_RECENT, A0_ITER_NEXT));
-  a0_err_t err = a0_reader_sync_next_blocking(&reader_sync, out);
+  a0_err_t err = a0_reader_sync_read_blocking(&reader_sync, out);
+  a0_reader_sync_close(&reader_sync);
+  return err;
+}
+
+a0_err_t a0_cfg_read_blocking_timeout(a0_cfg_t* cfg,
+                                      a0_alloc_t alloc,
+                                      a0_time_mono_t timeout,
+                                      a0_packet_t* out) {
+  a0_reader_sync_t reader_sync;
+  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, A0_INIT_MOST_RECENT, A0_ITER_NEXT));
+  a0_err_t err = a0_reader_sync_read_blocking_timeout(&reader_sync, timeout, out);
   a0_reader_sync_close(&reader_sync);
   return err;
 }
@@ -163,6 +175,41 @@ a0_err_t a0_cfg_read_blocking_yyjson(a0_cfg_t* cfg,
 
   a0_packet_t pkt;
   A0_RETURN_ERR_ON_ERR(a0_cfg_read_blocking(cfg, alloc_wrapper, &pkt));
+
+  yyjson_alc alc;
+  yyjson_alc_pool_init(
+      &alc,
+      yyjson_alloc.yyjson_buf.data,
+      yyjson_alloc.yyjson_buf.size);
+
+  yyjson_read_err read_err;
+  yyjson_doc* result = yyjson_read_opts(
+      (char*)pkt.payload.data,
+      pkt.payload.size,
+      a0_yyjson_read_flags(),
+      &alc,
+      &read_err);
+  if (read_err.code) {
+    return A0_MAKE_MSGERR("Failed to parse cfg: %s", read_err.msg);
+  }
+  *out = *result;
+  return A0_OK;
+}
+
+a0_err_t a0_cfg_read_blocking_yyjson(a0_cfg_t* cfg,
+                                     a0_alloc_t alloc,
+                                     a0_time_mono_t timeout,
+                                     yyjson_doc* out) {
+  a0_yyjson_alloc_t yyjson_alloc = {alloc, A0_EMPTY, A0_EMPTY};
+
+  a0_alloc_t alloc_wrapper = {
+      .user_data = &yyjson_alloc,
+      .alloc = yyjson_alloc_wrapper,
+      .dealloc = alloc.dealloc,
+  };
+
+  a0_packet_t pkt;
+  A0_RETURN_ERR_ON_ERR(a0_cfg_read_blocking_timeout(cfg, alloc_wrapper, timeout, &pkt));
 
   yyjson_alc alc;
   yyjson_alc_pool_init(

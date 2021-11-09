@@ -75,16 +75,16 @@ a0_err_t a0_reader_sync_zc_init(a0_reader_sync_zc_t*,
 a0_err_t a0_reader_sync_zc_close(a0_reader_sync_zc_t*);
 
 /// ...
-a0_err_t a0_reader_sync_zc_has_next(a0_reader_sync_zc_t*, bool*);
+a0_err_t a0_reader_sync_zc_can_read(a0_reader_sync_zc_t*, bool*);
 
 /// ...
-a0_err_t a0_reader_sync_zc_next(a0_reader_sync_zc_t*, a0_zero_copy_callback_t);
+a0_err_t a0_reader_sync_zc_read(a0_reader_sync_zc_t*, a0_zero_copy_callback_t);
 
 /// ...
-a0_err_t a0_reader_sync_zc_next_blocking(a0_reader_sync_zc_t*, a0_zero_copy_callback_t);
+a0_err_t a0_reader_sync_zc_read_blocking(a0_reader_sync_zc_t*, a0_zero_copy_callback_t);
 
 /// ...
-a0_err_t a0_reader_sync_zc_next_blocking_timeout(a0_reader_sync_zc_t*, a0_time_mono_t, a0_zero_copy_callback_t);
+a0_err_t a0_reader_sync_zc_read_blocking_timeout(a0_reader_sync_zc_t*, a0_time_mono_t, a0_zero_copy_callback_t);
 
 /** @}*/
 
@@ -108,16 +108,16 @@ a0_err_t a0_reader_sync_init(a0_reader_sync_t*,
 a0_err_t a0_reader_sync_close(a0_reader_sync_t*);
 
 /// ...
-a0_err_t a0_reader_sync_has_next(a0_reader_sync_t*, bool*);
+a0_err_t a0_reader_sync_can_read(a0_reader_sync_t*, bool*);
 
 /// ...
-a0_err_t a0_reader_sync_next(a0_reader_sync_t*, a0_packet_t*);
+a0_err_t a0_reader_sync_read(a0_reader_sync_t*, a0_packet_t*);
 
 /// ...
-a0_err_t a0_reader_sync_next_blocking(a0_reader_sync_t*, a0_packet_t*);
+a0_err_t a0_reader_sync_read_blocking(a0_reader_sync_t*, a0_packet_t*);
 
 /// ...
-a0_err_t a0_reader_sync_next_blocking_timeout(a0_reader_sync_t*, a0_time_mono_t, a0_packet_t*);
+a0_err_t a0_reader_sync_read_blocking_timeout(a0_reader_sync_t*, a0_time_mono_t, a0_packet_t*);
 
 /** @}*/
 

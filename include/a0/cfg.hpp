@@ -7,6 +7,7 @@
 #include <a0/packet.hpp>
 #include <a0/string_view.hpp>
 #include <a0/tid.h>
+#include <a0/time.hpp>
 
 #include <cstdint>
 #include <functional>
@@ -52,6 +53,7 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
 
   Packet read() const;
   Packet read_blocking() const;
+  Packet read_blocking(TimeMono) const;
 
   void write(Packet);
 
