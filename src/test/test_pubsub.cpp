@@ -498,7 +498,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp sync blocking") {
 
   // Blocking, await new, must wait, sufficient timeout.
   thread_sleep_push_pkt(std::chrono::milliseconds(1), a0::Packet("msg #3"));
-  auto block_timeout = a0::TimeMono::now() + std::chrono::milliseconds(5);
+  auto block_timeout = a0::TimeMono::now() + std::chrono::milliseconds(a0::test::is_valgrind() ? 50 : 5);
   REQUIRE(a0::SubscriberSync(topic.name, A0_INIT_AWAIT_NEW, A0_ITER_NEXT).read_blocking(block_timeout).payload() == "msg #3");
   join_threads();
 
