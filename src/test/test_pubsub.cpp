@@ -27,6 +27,7 @@
 struct PubsubFixture {
   a0_pubsub_topic_t topic = {"test", nullptr};
   const char* topic_path = "test.pubsub.a0";
+  std::vector<std::thread> threads;
 
   PubsubFixture() {
     a0_file_remove(topic_path);
@@ -34,6 +35,20 @@ struct PubsubFixture {
 
   ~PubsubFixture() {
     a0_file_remove(topic_path);
+  }
+
+  void thread_sleep_push_pkt(std::chrono::nanoseconds timeout, a0::Packet pkt) {
+    threads.emplace_back([this, timeout, pkt]() {
+      std::this_thread::sleep_for(timeout);
+      a0::Publisher(topic.name).pub(pkt);
+    });
+  }
+
+  void join_threads() {
+    for (auto&& t : threads) {
+      t.join();
+    }
+    threads.clear();
   }
 };
 
@@ -456,17 +471,13 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp sync blocking") {
       "Not available yet");
 
   // Do writes.
-  a0::Publisher p(topic.name);
-
-  std::thread t0([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    p.pub("msg #0");
-  });
+  thread_sleep_push_pkt(std::chrono::milliseconds(1), a0::Packet("msg #0"));
 
   // Blocking, oldest.
   REQUIRE(a0::SubscriberSync(topic.name, A0_INIT_OLDEST, A0_ITER_NEXT).read_blocking().payload() == "msg #0");
-  t0.join();
-  p.pub("msg #1");
+  join_threads();
+
+  a0::Publisher(topic.name).pub("msg #1");
 
   // Blocking, most recent, available.
   REQUIRE(a0::SubscriberSync(topic.name, A0_INIT_MOST_RECENT, A0_ITER_NEXT).read_blocking().payload() == "msg #1");
@@ -477,19 +488,29 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp sync blocking") {
   // Nonblocking, most recent, available.
   REQUIRE(a0::SubscriberSync(topic.name, A0_INIT_MOST_RECENT, A0_ITER_NEXT).read().payload() == "msg #1");
 
+  // Blocking, await new, must wait.
+  thread_sleep_push_pkt(std::chrono::milliseconds(1), a0::Packet("msg #2"));
+  REQUIRE(a0::SubscriberSync(topic.name, A0_INIT_AWAIT_NEW, A0_ITER_NEXT).read_blocking().payload() == "msg #2");
+  join_threads();
+
+  // Blocking, await new, must wait, sufficient timeout.
+  thread_sleep_push_pkt(std::chrono::milliseconds(1), a0::Packet("msg #3"));
+  auto block_timeout = a0::TimeMono::now() + std::chrono::milliseconds(5);
+  REQUIRE(a0::SubscriberSync(topic.name, A0_INIT_AWAIT_NEW, A0_ITER_NEXT).read_blocking(block_timeout).payload() == "msg #3");
+  join_threads();
+
+  // Blocking, await new, must wait, insufficient timeout.
+  thread_sleep_push_pkt(std::chrono::milliseconds(5), a0::Packet("msg #4"));
+  block_timeout = a0::TimeMono::now() + std::chrono::milliseconds(1);
+  REQUIRE_THROWS_WITH(
+      [&]() { a0::SubscriberSync(topic.name, A0_INIT_AWAIT_NEW, A0_ITER_NEXT).read_blocking(block_timeout); }(),
+      "Connection timed out");
+  join_threads();
+
   // Nonblocking, await new.
   REQUIRE_THROWS_WITH(
       [&]() { a0::SubscriberSync(topic.name, A0_INIT_AWAIT_NEW, A0_ITER_NEXT).read(); }(),
       "Not available yet");
-
-  std::thread t1([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    p.pub("msg #2");
-  });
-
-  // Blocking, await new.
-  REQUIRE(a0::SubscriberSync(topic.name, A0_INIT_AWAIT_NEW, A0_ITER_NEXT).read_blocking().payload() == "msg #2");
-  t1.join();
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
