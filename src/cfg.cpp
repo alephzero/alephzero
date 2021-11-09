@@ -108,8 +108,8 @@ void Cfg::write(Packet pkt) {
 void Cfg::mergepatch(nlohmann::json update) {
   a0_middleware_t mergepatch_middleware = {
       .user_data = &update,
-      .close = NULL,
-      .process = NULL,
+      .close = nullptr,
+      .process = nullptr,
       .process_locked = [](
                             void* user_data,
                             a0_transport_locked_t tlk,

@@ -237,8 +237,10 @@ jobs:
       run: apt update && apt install --no-install-recommends -y clang-tidy
     - name: run
       run: |
-        clang-tidy include/**/*.h src/*.c src/*.h -- -Iinclude
-        clang-tidy include/**/*.hpp src/*.cpp src/*.hpp -- -Iinclude -I. -std=c++11
+        export CXFLAGS="-Iinclude -DA0_EXT_YYJSON=1 -Ithird_party/yyjson/src"
+        export CXXFLAGS="-std=c++11 -I. -DA0_EXT_NLOHMANN=1 -Ithird_party/json/single_include"
+        clang-tidy include/**/*.h src/*.c src/*.h -- $CXFLAGS
+        clang-tidy include/**/*.hpp src/*.cpp src/*.hpp -- $CXFLAGS $CXXFLAGS
 
   format:
     name: Format
@@ -277,7 +279,7 @@ jobs:
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       run: |
-        make cov -j
+        make cov -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
         # Use action when https://github.com/codecov/codecov-action/issues/24 is resolved
         curl -o ./codecov https://codecov.io/bash
         chmod +x ./codecov
