@@ -440,148 +440,57 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
   REQUIRE_OK(a0_subscriber_close(&sub));
 }
 
-TEST_CASE_FIXTURE(PubsubFixture, "pubsub] read one") {
-  // TODO: Blocking, oldest, not available.
-  // TODO: Blocking, most recent, not available.
-  // TODO: Blocking, await new.
-
-  // Nonblocking, oldest, not available.
-  {
-    a0_packet_t pkt;
-    REQUIRE(a0_subscriber_read_one(topic,
-                                   a0::test::alloc(),
-                                   A0_INIT_OLDEST,
-                                   O_NONBLOCK,
-                                   &pkt) == A0_ERR_AGAIN);
-  }
-
-  // Nonblocking, most recent, not available.
-  {
-    a0_packet_t pkt;
-    REQUIRE(a0_subscriber_read_one(topic,
-                                   a0::test::alloc(),
-                                   A0_INIT_MOST_RECENT,
-                                   O_NONBLOCK,
-                                   &pkt) == A0_ERR_AGAIN);
-  }
-
-  // Nonblocking, await new.
-  {
-    a0_packet_t pkt;
-    REQUIRE(a0_subscriber_read_one(topic,
-                                   a0::test::alloc(),
-                                   A0_INIT_AWAIT_NEW,
-                                   O_NONBLOCK,
-                                   &pkt) == A0_ERR_AGAIN);
-  }
-
-  // Do writes.
-  {
-    a0_publisher_t pub;
-    REQUIRE_OK(a0_publisher_init(&pub, topic));
-
-    REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg #0")));
-    REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg #1")));
-
-    REQUIRE_OK(a0_publisher_close(&pub));
-  }
-
-  // Blocking, oldest, available.
-  {
-    a0_packet_t pkt;
-    REQUIRE_OK(a0_subscriber_read_one(topic,
-                                      a0::test::alloc(),
-                                      A0_INIT_OLDEST,
-                                      0,
-                                      &pkt));
-    REQUIRE(a0::test::str(pkt.payload) == "msg #0");
-  }
-
-  // Blocking, most recent, available.
-  {
-    a0_packet_t pkt;
-    REQUIRE_OK(a0_subscriber_read_one(topic,
-                                      a0::test::alloc(),
-                                      A0_INIT_MOST_RECENT,
-                                      0,
-                                      &pkt));
-    REQUIRE(a0::test::str(pkt.payload) == "msg #1");
-  }
-
-  // Nonblocking, oldest, available.
-  {
-    a0_packet_t pkt;
-    REQUIRE_OK(a0_subscriber_read_one(topic,
-                                      a0::test::alloc(),
-                                      A0_INIT_OLDEST,
-                                      O_NONBLOCK,
-                                      &pkt));
-    REQUIRE(a0::test::str(pkt.payload) == "msg #0");
-  }
-
-  // Nonblocking, most recent, available.
-  {
-    a0_packet_t pkt;
-    REQUIRE_OK(a0_subscriber_read_one(topic,
-                                      a0::test::alloc(),
-                                      A0_INIT_MOST_RECENT,
-                                      O_NONBLOCK,
-                                      &pkt));
-    REQUIRE(a0::test::str(pkt.payload) == "msg #1");
-  }
-
-  // Nonblocking, await new.
-  {
-    a0_packet_t pkt;
-    REQUIRE(a0_subscriber_read_one(topic,
-                                   a0::test::alloc(),
-                                   A0_INIT_AWAIT_NEW,
-                                   O_NONBLOCK,
-                                   &pkt) == A0_ERR_AGAIN);
-  }
-}
-
-TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp read one") {
-  // TODO: Blocking, oldest, not available.
-  // TODO: Blocking, most recent, not available.
-  // TODO: Blocking, await new.
-
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp sync blocking") {
   // Nonblocking, oldest, not available.
   REQUIRE_THROWS_WITH(
-      [&]() { a0::Subscriber::read_one(topic.name, A0_INIT_OLDEST, O_NONBLOCK); }(),
+      [&]() { a0::SubscriberSync(topic.name, A0_INIT_OLDEST, A0_ITER_NEXT).next(); }(),
       "Not available yet");
 
   // Nonblocking, most recent, not available.
   REQUIRE_THROWS_WITH(
-      [&]() { a0::Subscriber::read_one(topic.name, A0_INIT_MOST_RECENT, O_NONBLOCK); }(),
+      [&]() { a0::SubscriberSync(topic.name, A0_INIT_MOST_RECENT, A0_ITER_NEXT).next(); }(),
       "Not available yet");
 
   // Nonblocking, await new.
   REQUIRE_THROWS_WITH(
-      [&]() { a0::Subscriber::read_one(topic.name, A0_INIT_AWAIT_NEW, O_NONBLOCK); }(),
+      [&]() { a0::SubscriberSync(topic.name, A0_INIT_AWAIT_NEW, A0_ITER_NEXT).next(); }(),
       "Not available yet");
 
   // Do writes.
   a0::Publisher p(topic.name);
-  p.pub("msg #0");
+
+  std::thread t0([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    p.pub("msg #0");
+  });
+
+  // Blocking, oldest.
+  REQUIRE(a0::SubscriberSync(topic.name, A0_INIT_OLDEST, A0_ITER_NEXT).next_blocking().payload() == "msg #0");
+  t0.join();
   p.pub("msg #1");
 
-  // Blocking, oldest, available.
-  REQUIRE(a0::Subscriber::read_one(topic.name, A0_INIT_OLDEST, 0).payload() == "msg #0");
-
   // Blocking, most recent, available.
-  REQUIRE(a0::Subscriber::read_one(topic.name, A0_INIT_MOST_RECENT, 0).payload() == "msg #1");
+  REQUIRE(a0::SubscriberSync(topic.name, A0_INIT_MOST_RECENT, A0_ITER_NEXT).next_blocking().payload() == "msg #1");
 
   // Nonblocking, oldest, available.
-  REQUIRE(a0::Subscriber::read_one(topic.name, A0_INIT_OLDEST, O_NONBLOCK).payload() == "msg #0");
+  REQUIRE(a0::SubscriberSync(topic.name, A0_INIT_OLDEST, A0_ITER_NEXT).next().payload() == "msg #0");
 
   // Nonblocking, most recent, available.
-  REQUIRE(a0::Subscriber::read_one(topic.name, A0_INIT_MOST_RECENT, O_NONBLOCK).payload() == "msg #1");
+  REQUIRE(a0::SubscriberSync(topic.name, A0_INIT_MOST_RECENT, A0_ITER_NEXT).next().payload() == "msg #1");
 
   // Nonblocking, await new.
   REQUIRE_THROWS_WITH(
-      [&]() { a0::Subscriber::read_one(topic.name, A0_INIT_AWAIT_NEW, O_NONBLOCK); }(),
+      [&]() { a0::SubscriberSync(topic.name, A0_INIT_AWAIT_NEW, A0_ITER_NEXT).next(); }(),
       "Not available yet");
+
+  std::thread t1([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    p.pub("msg #2");
+  });
+
+  // Blocking, await new.
+  REQUIRE(a0::SubscriberSync(topic.name, A0_INIT_AWAIT_NEW, A0_ITER_NEXT).next_blocking().payload() == "msg #2");
+  t1.join();
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {

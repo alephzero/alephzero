@@ -50,7 +50,8 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
   Cfg() = default;
   explicit Cfg(CfgTopic);
 
-  Packet read(int flags = 0) const;
+  Packet read() const;
+  Packet read_blocking() const;
 
   void write(Packet);
 

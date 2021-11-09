@@ -55,6 +55,22 @@ void ReaderSyncZeroCopy::next(std::function<void(TransportLocked, FlatPacket)> f
   check(a0_reader_sync_zc_next(&*c, cb));
 }
 
+void ReaderSyncZeroCopy::next_blocking(std::function<void(TransportLocked, FlatPacket)> fn) {
+  CHECK_C;
+
+  a0_zero_copy_callback_t cb = {
+      .user_data = &fn,
+      .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
+        auto* fn = (std::function<void(TransportLocked, FlatPacket)>*)user_data;
+        (*fn)(
+            cpp_wrap<TransportLocked>(tlk),
+            cpp_wrap<FlatPacket>(fpkt));
+      },
+  };
+
+  check(a0_reader_sync_zc_next_blocking(&*c, cb));
+}
+
 namespace {
 
 struct ReaderSyncImpl {
@@ -100,6 +116,17 @@ Packet ReaderSync::next() {
 
   a0_packet_t pkt;
   check(a0_reader_sync_next(&*c, &pkt));
+  auto data = std::make_shared<std::vector<uint8_t>>();
+  std::swap(*data, impl->data);
+  return Packet(pkt, [data](a0_packet_t*) {});
+}
+
+Packet ReaderSync::next_blocking() {
+  CHECK_C;
+  auto* impl = c_impl<ReaderSyncImpl>(&c);
+
+  a0_packet_t pkt;
+  check(a0_reader_sync_next_blocking(&*c, &pkt));
   auto data = std::make_shared<std::vector<uint8_t>>();
   std::swap(*data, impl->data);
   return Packet(pkt, [data](a0_packet_t*) {});
@@ -184,24 +211,6 @@ Reader::Reader(
       [](a0_reader_t* c, ReaderImpl*) {
         a0_reader_close(c);
       });
-}
-
-Packet Reader::read_one(Arena arena, ReaderInit init, int flags) {
-  auto data = std::make_shared<std::vector<uint8_t>>();
-  a0_alloc_t alloc = {
-      .user_data = data.get(),
-      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-        auto* data = (std::vector<uint8_t>*)user_data;
-        data->resize(size);
-        *out = {data->data(), size};
-        return A0_OK;
-      },
-      .dealloc = nullptr,
-  };
-
-  a0_packet_t c_pkt;
-  check(a0_reader_read_one(*arena.c, alloc, init, flags, &c_pkt));
-  return Packet(c_pkt, [data](a0_packet_t*) {});
 }
 
 }  // namespace a0

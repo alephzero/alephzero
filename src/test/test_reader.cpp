@@ -33,6 +33,7 @@
 struct ReaderBaseFixture {
   std::vector<uint8_t> arena_data;
   a0_arena_t arena;
+  std::vector<std::thread> threads;
 
   ReaderBaseFixture() {
     arena_data.resize(4096);
@@ -53,6 +54,20 @@ struct ReaderBaseFixture {
     a0_transport_commit(lk);
 
     REQUIRE_OK(a0_transport_unlock(lk));
+  }
+
+  void thread_sleep_push_pkt(std::string payload) {
+    threads.emplace_back([this, payload]() {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      push_pkt(payload);
+    });
+  }
+
+  void join_threads() {
+    for (auto&& t : threads) {
+      t.join();
+    }
+    threads.clear();
   }
 };
 
@@ -84,9 +99,37 @@ struct ReaderSyncZCFixture : ReaderBaseFixture {
     REQUIRE(data.executed);
   };
 
+  void REQUIRE_NEXT_BLOCKING(std::string want_payload) {
+    struct data_t {
+      a0_packet_t pkt;
+      bool executed;
+    } data{a0::test::pkt(std::move(want_payload)), false};
+
+    a0_zero_copy_callback_t cb = {
+        .user_data = &data,
+        .fn = [](void* user_data, a0_transport_locked_t, a0_flat_packet_t fpkt) {
+          auto* want = (data_t*)user_data;
+          REQUIRE(a0::test::pkt_cmp(want->pkt, a0::test::unflatten(fpkt)).content_match);
+          want->executed = true;
+        },
+    };
+
+    REQUIRE_OK(a0_reader_sync_zc_next_blocking(&rsz, cb));
+    REQUIRE(data.executed);
+  };
+
   void REQUIRE_NEXT_CPP(a0::ReaderSyncZeroCopy cpp_rsz, std::string want_payload) {
     bool executed = false;
     cpp_rsz.next([&](a0::TransportLocked, a0::FlatPacket fpkt) {
+      REQUIRE(fpkt.payload() == want_payload);
+      executed = true;
+    });
+    REQUIRE(executed);
+  }
+
+  void REQUIRE_NEXT_BLOCKING_CPP(a0::ReaderSyncZeroCopy cpp_rsz, std::string want_payload) {
+    bool executed = false;
+    cpp_rsz.next_blocking([&](a0::TransportLocked, a0::FlatPacket fpkt) {
       REQUIRE(fpkt.payload() == want_payload);
       executed = true;
     });
@@ -334,6 +377,123 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] next without has_next") 
   REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
 }
 
+TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] blocking oldest available") {
+  push_pkt("pkt_0");
+
+  REQUIRE_OK(a0_reader_sync_zc_init(&rsz, arena, A0_INIT_OLDEST, A0_ITER_NEXT));
+
+  REQUIRE_NEXT_BLOCKING("pkt_0");
+
+  thread_sleep_push_pkt("pkt_1");
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] cpp blocking oldest available") {
+  push_pkt("pkt_0");
+
+  a0::ReaderSyncZeroCopy cpp_rsz(a0::cpp_wrap<a0::Arena>(arena), A0_INIT_OLDEST, A0_ITER_NEXT);
+
+  REQUIRE_NEXT_BLOCKING_CPP(cpp_rsz, "pkt_0");
+
+  thread_sleep_push_pkt("pkt_1");
+  REQUIRE_NEXT_BLOCKING_CPP(cpp_rsz, "pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING_CPP(cpp_rsz, "pkt_2");
+
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] blocking oldest not available") {
+  REQUIRE_OK(a0_reader_sync_zc_init(&rsz, arena, A0_INIT_OLDEST, A0_ITER_NEXT));
+
+  thread_sleep_push_pkt("pkt_0");
+  REQUIRE_NEXT_BLOCKING("pkt_0");
+
+  thread_sleep_push_pkt("pkt_1");
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] blocking recent available") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  REQUIRE_OK(a0_reader_sync_zc_init(&rsz, arena, A0_INIT_MOST_RECENT, A0_ITER_NEXT));
+
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  thread_sleep_push_pkt("pkt_3");
+  REQUIRE_NEXT_BLOCKING("pkt_3");
+
+  REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] blocking recent not available") {
+  REQUIRE_OK(a0_reader_sync_zc_init(&rsz, arena, A0_INIT_MOST_RECENT, A0_ITER_NEXT));
+
+  thread_sleep_push_pkt("pkt_0");
+  REQUIRE_NEXT_BLOCKING("pkt_0");
+
+  thread_sleep_push_pkt("pkt_1");
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] blocking new available") {
+  push_pkt("pkt_0");
+
+  REQUIRE_OK(a0_reader_sync_zc_init(&rsz, arena, A0_INIT_AWAIT_NEW, A0_ITER_NEXT));
+
+  push_pkt("pkt_1");
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  thread_sleep_push_pkt("pkt_3");
+  REQUIRE_NEXT_BLOCKING("pkt_3");
+
+  REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] blocking new not available") {
+  REQUIRE_OK(a0_reader_sync_zc_init(&rsz, arena, A0_INIT_AWAIT_NEW, A0_ITER_NEXT));
+
+  thread_sleep_push_pkt("pkt_0");
+  REQUIRE_NEXT_BLOCKING("pkt_0");
+
+  thread_sleep_push_pkt("pkt_1");
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
+  join_threads();
+}
+
 struct ReaderSyncFixture : ReaderBaseFixture {
   a0_reader_sync_t rs;
 
@@ -346,6 +506,12 @@ struct ReaderSyncFixture : ReaderBaseFixture {
   void REQUIRE_NEXT(std::string want_payload) {
     a0_packet_t pkt;
     REQUIRE_OK(a0_reader_sync_next(&rs, &pkt));
+    REQUIRE(a0::test::str(pkt.payload) == want_payload);
+  };
+
+  void REQUIRE_NEXT_BLOCKING(std::string want_payload) {
+    a0_packet_t pkt;
+    REQUIRE_OK(a0_reader_sync_next_blocking(&rs, &pkt));
     REQUIRE(a0::test::str(pkt.payload) == want_payload);
   };
 };
@@ -387,11 +553,9 @@ TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] cpp oldest-next") {
   REQUIRE(cpp_rs.next().payload() == "pkt_2");
   REQUIRE(!cpp_rs.has_next());
 
-#ifdef DEBUG
   REQUIRE_THROWS_WITH(
       cpp_rs.next(),
       "Not available yet");
-#endif
 }
 
 TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] oldest-next, empty start") {
@@ -585,6 +749,173 @@ TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] next without has_next") {
   REQUIRE_OK(a0_reader_sync_close(&rs));
 }
 
+TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] blocking oldest-next") {
+  push_pkt("pkt_0");
+
+  REQUIRE_OK(a0_reader_sync_init(&rs, arena, a0::test::alloc(), A0_INIT_OLDEST, A0_ITER_NEXT));
+
+  REQUIRE_NEXT_BLOCKING("pkt_0");
+
+  thread_sleep_push_pkt("pkt_1");
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  REQUIRE_OK(a0_reader_sync_close(&rs));
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] cpp blocking oldest-next") {
+  push_pkt("pkt_0");
+
+  a0::ReaderSync cpp_rs(a0::cpp_wrap<a0::Arena>(arena), A0_INIT_OLDEST, A0_ITER_NEXT);
+  REQUIRE(cpp_rs.next_blocking().payload() == "pkt_0");
+
+  thread_sleep_push_pkt("pkt_1");
+  REQUIRE(cpp_rs.next_blocking().payload() == "pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE(cpp_rs.next_blocking().payload() == "pkt_2");
+
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] blocking oldest-next, empty start") {
+  REQUIRE_OK(a0_reader_sync_init(&rs, arena, a0::test::alloc(), A0_INIT_OLDEST, A0_ITER_NEXT));
+
+  thread_sleep_push_pkt("pkt_0");
+  REQUIRE_NEXT_BLOCKING("pkt_0");
+
+  thread_sleep_push_pkt("pkt_1");
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  REQUIRE_OK(a0_reader_sync_close(&rs));
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] cpp blocking oldest-next, empty start") {
+  a0::ReaderSync cpp_rs(a0::cpp_wrap<a0::Arena>(arena), A0_INIT_OLDEST, A0_ITER_NEXT);
+
+  thread_sleep_push_pkt("pkt_0");
+  REQUIRE(cpp_rs.next_blocking().payload() == "pkt_0");
+
+  thread_sleep_push_pkt("pkt_1");
+  REQUIRE(cpp_rs.next_blocking().payload() == "pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE(cpp_rs.next_blocking().payload() == "pkt_2");
+
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] blocking recent-next") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  REQUIRE_OK(a0_reader_sync_init(&rs, arena, a0::test::alloc(), A0_INIT_MOST_RECENT, A0_ITER_NEXT));
+
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  thread_sleep_push_pkt("pkt_3");
+  REQUIRE_NEXT_BLOCKING("pkt_3");
+
+  REQUIRE_OK(a0_reader_sync_close(&rs));
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] blocking recent-next, empty start") {
+  REQUIRE_OK(a0_reader_sync_init(&rs, arena, a0::test::alloc(), A0_INIT_MOST_RECENT, A0_ITER_NEXT));
+
+  thread_sleep_push_pkt("pkt_0");
+  REQUIRE_NEXT_BLOCKING("pkt_0");
+
+  thread_sleep_push_pkt("pkt_1");
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  REQUIRE_OK(a0_reader_sync_close(&rs));
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] blocking new-next") {
+  push_pkt("pkt_0");
+
+  REQUIRE_OK(a0_reader_sync_init(&rs, arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, A0_ITER_NEXT));
+
+  push_pkt("pkt_1");
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  thread_sleep_push_pkt("pkt_3");
+  REQUIRE_NEXT_BLOCKING("pkt_3");
+
+  REQUIRE_OK(a0_reader_sync_close(&rs));
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] blocking new-next, empty start") {
+  REQUIRE_OK(a0_reader_sync_init(&rs, arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, A0_ITER_NEXT));
+
+  thread_sleep_push_pkt("pkt_0");
+  REQUIRE_NEXT_BLOCKING("pkt_0");
+
+  thread_sleep_push_pkt("pkt_1");
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  thread_sleep_push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  REQUIRE_OK(a0_reader_sync_close(&rs));
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] blocking new-newest") {
+  push_pkt("pkt_0");
+
+  REQUIRE_OK(a0_reader_sync_init(&rs, arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, A0_ITER_NEWEST));
+
+  push_pkt("pkt_1");
+  REQUIRE_NEXT_BLOCKING("pkt_1");
+
+  push_pkt("pkt_2");
+  push_pkt("pkt_3");
+  REQUIRE_NEXT_BLOCKING("pkt_3");
+
+  thread_sleep_push_pkt("pkt_4");
+  REQUIRE_NEXT_BLOCKING("pkt_4");
+
+  REQUIRE_OK(a0_reader_sync_close(&rs));
+  join_threads();
+}
+
+TEST_CASE_FIXTURE(ReaderSyncFixture, "reader_sync] blocking new-newest, empty start") {
+  REQUIRE_OK(a0_reader_sync_init(&rs, arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, A0_ITER_NEWEST));
+
+  thread_sleep_push_pkt("pkt_0");
+  REQUIRE_NEXT_BLOCKING("pkt_0");
+
+  push_pkt("pkt_1");
+  push_pkt("pkt_2");
+  REQUIRE_NEXT_BLOCKING("pkt_2");
+
+  thread_sleep_push_pkt("pkt_3");
+  REQUIRE_NEXT_BLOCKING("pkt_3");
+
+  REQUIRE_OK(a0_reader_sync_close(&rs));
+  join_threads();
+}
+
 struct ReaderZCFixture : ReaderBaseFixture {
   a0_reader_zc_t rz;
 
@@ -734,6 +1065,40 @@ TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] await new-next, empty start") {
   REQUIRE_OK(a0_reader_zc_close(&rz));
 }
 
+TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] await new-newest") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  REQUIRE_OK(a0_reader_zc_init(&rz, arena, A0_INIT_AWAIT_NEW, A0_ITER_NEWEST, make_callback()));
+
+  push_pkt("pkt_2");
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_2"});
+
+  {
+    a0_transport_t transport;
+    REQUIRE_OK(a0_transport_init(&transport, arena));
+
+    a0_transport_locked_t lk;
+    REQUIRE_OK(a0_transport_lock(&transport, &lk));
+
+    a0_alloc_t alloc;
+    a0_transport_allocator(&lk, &alloc);
+    a0_packet_serialize(a0::test::pkt("pkt_3"), alloc, NULL);
+    a0_transport_commit(lk);
+
+    a0_transport_allocator(&lk, &alloc);
+    a0_packet_serialize(a0::test::pkt("pkt_4"), alloc, NULL);
+    a0_transport_commit(lk);
+
+    REQUIRE_OK(a0_transport_unlock(lk));
+  }
+
+  WAIT_AND_REQUIRE_PAYLOADS({"pkt_2", "pkt_4"});
+
+  REQUIRE_OK(a0_reader_zc_close(&rz));
+}
+
 struct ReaderFixture : ReaderBaseFixture {
   a0_reader_t r;
 
@@ -879,128 +1244,4 @@ TEST_CASE_FIXTURE(ReaderFixture, "reader] await new-next, empty start") {
   WAIT_AND_REQUIRE_PAYLOADS({"pkt_0", "pkt_1", "pkt_2"});
 
   REQUIRE_OK(a0_reader_close(&r));
-}
-
-struct ReaderReadOneFixture : ReaderBaseFixture {};
-
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking oldest") {
-  push_pkt("pkt_0");
-  push_pkt("pkt_1");
-
-  a0_packet_t pkt;
-  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_OLDEST, O_NONBLOCK, &pkt));
-
-  REQUIRE(a0::test::str(pkt.payload) == "pkt_0");
-}
-
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking oldest, empty") {
-  a0_packet_t pkt;
-  REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_OLDEST, O_NONBLOCK, &pkt) == A0_ERR_AGAIN);
-}
-
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking most recent") {
-  push_pkt("pkt_0");
-  push_pkt("pkt_1");
-
-  a0_packet_t pkt;
-  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_MOST_RECENT, O_NONBLOCK, &pkt));
-
-  REQUIRE(a0::test::str(pkt.payload) == "pkt_1");
-}
-
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking most recent, empty") {
-  a0_packet_t pkt;
-  REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_MOST_RECENT, O_NONBLOCK, &pkt) == A0_ERR_AGAIN);
-}
-
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking await new") {
-  push_pkt("pkt_0");
-  push_pkt("pkt_1");
-
-  a0_packet_t pkt;
-  REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, O_NONBLOCK, &pkt) == A0_ERR_AGAIN);
-}
-
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] non-blocking await new, empty") {
-  a0_packet_t pkt;
-  REQUIRE(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, O_NONBLOCK, &pkt) == A0_ERR_AGAIN);
-}
-
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking oldest") {
-  push_pkt("pkt_0");
-  push_pkt("pkt_1");
-
-  a0_packet_t pkt;
-  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_OLDEST, 0, &pkt));
-
-  REQUIRE(a0::test::str(pkt.payload) == "pkt_0");
-}
-
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking oldest, empty") {
-  std::thread t([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    push_pkt("pkt_0");
-  });
-
-  a0_packet_t pkt;
-  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_OLDEST, 0, &pkt));
-
-  REQUIRE(a0::test::str(pkt.payload) == "pkt_0");
-
-  t.join();
-}
-
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking most recent") {
-  push_pkt("pkt_0");
-  push_pkt("pkt_1");
-
-  a0_packet_t pkt;
-  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_MOST_RECENT, 0, &pkt));
-
-  REQUIRE(a0::test::str(pkt.payload) == "pkt_1");
-}
-
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking most recent, empty") {
-  std::thread t([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    push_pkt("pkt_0");
-  });
-
-  a0_packet_t pkt;
-  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_MOST_RECENT, 0, &pkt));
-
-  REQUIRE(a0::test::str(pkt.payload) == "pkt_0");
-
-  t.join();
-}
-
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking await new") {
-  push_pkt("pkt_0");
-  push_pkt("pkt_1");
-
-  std::thread t([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    push_pkt("pkt_2");
-  });
-
-  a0_packet_t pkt;
-  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, 0, &pkt));
-
-  REQUIRE(a0::test::str(pkt.payload) == "pkt_2");
-
-  t.join();
-}
-
-TEST_CASE_FIXTURE(ReaderReadOneFixture, "reader_read_one] blocking await new, empty") {
-  std::thread t([&]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    push_pkt("pkt_0");
-  });
-
-  a0_packet_t pkt;
-  REQUIRE_OK(a0_reader_read_one(arena, a0::test::alloc(), A0_INIT_AWAIT_NEW, 0, &pkt));
-
-  REQUIRE(a0::test::str(pkt.payload) == "pkt_0");
-
-  t.join();
 }

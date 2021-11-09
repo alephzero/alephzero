@@ -93,6 +93,10 @@ a0_err_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync, a0_packet_t* pk
   return a0_reader_sync_next(&sub_sync->_reader_sync, pkt);
 }
 
+a0_err_t a0_subscriber_sync_next_blocking(a0_subscriber_sync_t* sub_sync, a0_packet_t* pkt) {
+  return a0_reader_sync_next_blocking(&sub_sync->_reader_sync, pkt);
+}
+
 // Normal threaded version.
 
 a0_err_t a0_subscriber_init(a0_subscriber_t* sub,
@@ -122,24 +126,4 @@ a0_err_t a0_subscriber_close(a0_subscriber_t* sub) {
   a0_reader_close(&sub->_reader);
   a0_file_close(&sub->_file);
   return A0_OK;
-}
-
-// One-off reader.
-
-a0_err_t a0_subscriber_read_one(a0_pubsub_topic_t topic,
-                                a0_alloc_t alloc,
-                                a0_reader_init_t init,
-                                int flags,
-                                a0_packet_t* out) {
-  a0_file_t file;
-  A0_RETURN_ERR_ON_ERR(a0_pubsub_topic_open(topic, &file));
-
-  a0_err_t err = a0_reader_read_one(file.arena,
-                                    alloc,
-                                    init,
-                                    flags,
-                                    out);
-
-  a0_file_close(&file);
-  return err;
 }

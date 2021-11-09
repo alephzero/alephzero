@@ -59,7 +59,7 @@ Cfg::Cfg(CfgTopic topic) {
       });
 }
 
-Packet Cfg::read(int flags) const {
+Packet Cfg::read() const {
   auto data = std::make_shared<std::vector<uint8_t>>();
 
   a0_alloc_t alloc = {
@@ -74,7 +74,27 @@ Packet Cfg::read(int flags) const {
   };
 
   a0_packet_t pkt;
-  check(a0_cfg_read(&*c, alloc, flags, &pkt));
+  check(a0_cfg_read(&*c, alloc, &pkt));
+
+  return Packet(pkt, [data](a0_packet_t*) {});
+}
+
+Packet Cfg::read_blocking() const {
+  auto data = std::make_shared<std::vector<uint8_t>>();
+
+  a0_alloc_t alloc = {
+      .user_data = data.get(),
+      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
+        auto* data = (std::vector<uint8_t>*)user_data;
+        data->resize(size);
+        *out = {data->data(), size};
+        return A0_OK;
+      },
+      .dealloc = nullptr,
+  };
+
+  a0_packet_t pkt;
+  check(a0_cfg_read_blocking(&*c, alloc, &pkt));
 
   return Packet(pkt, [data](a0_packet_t*) {});
 }

@@ -60,13 +60,13 @@ struct CfgFixture {
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] basic") {
   a0_packet_t pkt;
-  REQUIRE(a0_cfg_read(&cfg, a0::test::alloc(), O_NONBLOCK, &pkt) == A0_ERR_AGAIN);
+  REQUIRE(a0_cfg_read(&cfg, a0::test::alloc(), &pkt) == A0_ERR_AGAIN);
 
   REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt("cfg")));
-  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), O_NONBLOCK, &pkt));
+  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), &pkt));
   REQUIRE(a0::test::str(pkt.payload) == "cfg");
 
-  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), 0, &pkt));
+  REQUIRE_OK(a0_cfg_read_blocking(&cfg, a0::test::alloc(), &pkt));
   REQUIRE(a0::test::str(pkt.payload) == "cfg");
 }
 
@@ -74,12 +74,12 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp basic") {
   a0::Cfg c(a0::env::topic());
 
   REQUIRE_THROWS_WITH(
-      [&]() { c.read(O_NONBLOCK); }(),
+      [&]() { c.read(); }(),
       "Not available yet");
 
   c.write("cfg");
+  REQUIRE(c.read_blocking().payload() == "cfg");
   REQUIRE(c.read().payload() == "cfg");
-  REQUIRE(c.read(O_NONBLOCK).payload() == "cfg");
 }
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] watcher") {
@@ -144,13 +144,13 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp watcher") {
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read empty nonblock") {
   yyjson_doc doc;
-  REQUIRE(a0_cfg_read_yyjson(&cfg, a0::test::alloc(), O_NONBLOCK, &doc) == A0_ERR_AGAIN);
+  REQUIRE(a0_cfg_read_yyjson(&cfg, a0::test::alloc(), &doc) == A0_ERR_AGAIN);
 }
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read nonjson") {
   REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt("cfg")));
   yyjson_doc doc;
-  a0_err_t err = a0_cfg_read_yyjson(&cfg, a0::test::alloc(), 0, &doc);
+  a0_err_t err = a0_cfg_read_yyjson(&cfg, a0::test::alloc(), &doc);
   REQUIRE(err == A0_ERR_CUSTOM_MSG);
   REQUIRE(std::string(a0_err_msg) == "Failed to parse cfg: unexpected character");
 }
@@ -158,7 +158,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read nonjson") {
 TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read valid") {
   REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
   yyjson_doc doc;
-  REQUIRE_OK(a0_cfg_read_yyjson(&cfg, a0::test::alloc(), 0, &doc));
+  REQUIRE_OK(a0_cfg_read_blocking_yyjson(&cfg, a0::test::alloc(), &doc));
   REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "foo")) == 1);
   REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "bar")) == 2);
 }
@@ -170,7 +170,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson write") {
   yyjson_doc_free(doc);
 
   a0_packet_t pkt;
-  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), 0, &pkt));
+  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), &pkt));
   REQUIRE(a0::test::str(pkt.payload) == R"([1,"2","three"])");
 }
 
@@ -186,7 +186,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson mergepatch") {
   yyjson_doc_free(doc);
 
   a0_packet_t pkt;
-  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), 0, &pkt));
+  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), &pkt));
   REQUIRE(a0::test::str(pkt.payload) == R"({"bar":{"baz":3}})");
 }
 

@@ -40,13 +40,12 @@ struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
 
   bool has_next();
   Packet next();
+  Packet next_blocking();
 };
 
 struct Subscriber : details::CppWrap<a0_subscriber_t> {
   Subscriber() = default;
   Subscriber(PubSubTopic, ReaderInit, ReaderIter, std::function<void(Packet)>);
-
-  static Packet read_one(PubSubTopic, ReaderInit, int flags);
 };
 
 }  // namespace a0
