@@ -87,18 +87,18 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
     void create_updater() {
       std::weak_ptr<Impl> weak_impl = impl;
       impl->updater = std::make_shared<std::function<void(const nlohmann::json&)>>(
-        [weak_impl](const nlohmann::json& full_cfg) {
-          auto strong_impl = weak_impl.lock();
-          if (!strong_impl) {
-            return;
-          }
-          try {
-            full_cfg[strong_impl->jptr].get_to(strong_impl->cache);
-            strong_impl->cache_populated = true;
-          } catch (...) {
-            strong_impl->cache_populated = false;
-          }
-        });
+          [weak_impl](const nlohmann::json& full_cfg) {
+            auto strong_impl = weak_impl.lock();
+            if (!strong_impl) {
+              return;
+            }
+            try {
+              full_cfg[strong_impl->jptr].get_to(strong_impl->cache);
+              strong_impl->cache_populated = true;
+            } catch (...) {
+              strong_impl->cache_populated = false;
+            }
+          });
       impl->parent->register_var(impl->updater);
     }
 
@@ -120,7 +120,8 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
         const char* begin = pkt.payload().data();
         const char* end = begin + pkt.payload().size();
         (*impl->updater)(nlohmann::json::parse(begin, end));
-      } catch (...) {}
+      } catch (...) {
+      }
     }
 
     Var& operator=(const Var& other) {

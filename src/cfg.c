@@ -179,7 +179,6 @@ a0_err_t a0_cfg_read_yyjson_action(void* user_data, a0_cfg_t* cfg, a0_alloc_t al
 a0_err_t a0_cfg_read_yyjson(a0_cfg_t* cfg,
                             a0_alloc_t alloc,
                             yyjson_doc* out) {
-
   return a0_cfg_read_yyjson_helper(
       cfg, alloc, out, (a0_cfg_read_yyjson_action_t){NULL, a0_cfg_read_yyjson_action});
 }
