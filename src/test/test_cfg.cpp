@@ -21,7 +21,15 @@
 
 #ifdef A0_EXT_YYJSON
 
+#include <a0/time.h>
+
 #include <yyjson.h>
+
+#include <cerrno>
+#include <chrono>
+#include <thread>
+
+#include "src/err_macro.h"
 
 #endif  // A0_EXT_YYJSON
 
@@ -30,7 +38,6 @@
 #include <nlohmann/json.hpp>
 
 #include <stdexcept>
-#include <vector>
 
 #endif  // A0_EXT_NLOHMANN
 
@@ -157,9 +164,53 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read nonjson") {
 TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read valid") {
   REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
   yyjson_doc doc;
-  REQUIRE_OK(a0_cfg_read_blocking_yyjson(&cfg, a0::test::alloc(), &doc));
+  REQUIRE_OK(a0_cfg_read_yyjson(&cfg, a0::test::alloc(), &doc));
   REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "foo")) == 1);
   REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "bar")) == 2);
+}
+
+TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking") {
+  std::thread t([this]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
+  });
+  yyjson_doc doc;
+  REQUIRE_OK(a0_cfg_read_blocking_yyjson(&cfg, a0::test::alloc(), &doc));
+  t.join();
+
+  REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "foo")) == 1);
+  REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "bar")) == 2);
+}
+
+TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking timeout success") {
+  std::thread t([this]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
+  });
+  a0_time_mono_t timeout;
+  REQUIRE_OK(a0_time_mono_now(&timeout));
+  REQUIRE_OK(a0_time_mono_add(timeout, 5 * 1e6, &timeout));
+
+  yyjson_doc doc;
+  REQUIRE_OK(a0_cfg_read_blocking_timeout_yyjson(&cfg, a0::test::alloc(), timeout, &doc));
+  t.join();
+
+  REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "foo")) == 1);
+  REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "bar")) == 2);
+}
+
+TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking timeout fail") {
+  std::thread t([this]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
+  });
+  a0_time_mono_t timeout;
+  REQUIRE_OK(a0_time_mono_now(&timeout));
+  REQUIRE_OK(a0_time_mono_add(timeout, 1 * 1e6, &timeout));
+
+  yyjson_doc doc;
+  REQUIRE(A0_SYSERR(a0_cfg_read_blocking_timeout_yyjson(&cfg, a0::test::alloc(), timeout, &doc)) == ETIMEDOUT);
+  t.join();
 }
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson write") {

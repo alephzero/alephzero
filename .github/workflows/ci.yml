@@ -220,7 +220,12 @@ jobs:
     - name: install deps
       run: apt update && apt install --no-install-recommends -y clang-9 iwyu make
     - name: run
-      run: make iwyu -j
+      run: |
+        make iwyu -j
+        make clean
+        make iwyu -j A0_EXT_YYJSON=1
+        make clean
+        make iwyu -j A0_EXT_NLOHMANN=1
 
   clang_tidy:
     name: Clang-Tidy

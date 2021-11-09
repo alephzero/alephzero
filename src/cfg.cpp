@@ -32,7 +32,6 @@
 #include <nlohmann/json.hpp>
 
 #include <initializer_list>
-#include <type_traits>
 
 #endif  // A0_EXT_NLOHMANN
 

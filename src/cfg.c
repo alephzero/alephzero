@@ -17,7 +17,6 @@
 
 #include <a0/buf.h>
 #include <a0/empty.h>
-#include <a0/middleware.h>
 #include <a0/transport.h>
 #include <a0/unused.h>
 
@@ -26,6 +25,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <yyjson.h>
 
 #endif  // A0_EXT_YYJSON
