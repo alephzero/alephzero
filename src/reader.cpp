@@ -42,9 +42,9 @@ bool ReaderSyncZeroCopy::can_read() {
 }
 
 A0_STATIC_INLINE
-a0_zero_copy_callback_t ReaderSyncZeroCopy_CallbackWrapper(std::function<void(TransportLocked, FlatPacket)> fn) {
+a0_zero_copy_callback_t ReaderSyncZeroCopy_CallbackWrapper(std::function<void(TransportLocked, FlatPacket)>* fn) {
   return {
-      .user_data = &fn,
+      .user_data = fn,
       .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
         auto* fn = (std::function<void(TransportLocked, FlatPacket)>*)user_data;
         (*fn)(
@@ -56,17 +56,17 @@ a0_zero_copy_callback_t ReaderSyncZeroCopy_CallbackWrapper(std::function<void(Tr
 
 void ReaderSyncZeroCopy::read(std::function<void(TransportLocked, FlatPacket)> fn) {
   CHECK_C;
-  check(a0_reader_sync_zc_read(&*c, ReaderSyncZeroCopy_CallbackWrapper(fn)));
+  check(a0_reader_sync_zc_read(&*c, ReaderSyncZeroCopy_CallbackWrapper(&fn)));
 }
 
 void ReaderSyncZeroCopy::read_blocking(std::function<void(TransportLocked, FlatPacket)> fn) {
   CHECK_C;
-  check(a0_reader_sync_zc_read_blocking(&*c, ReaderSyncZeroCopy_CallbackWrapper(fn)));
+  check(a0_reader_sync_zc_read_blocking(&*c, ReaderSyncZeroCopy_CallbackWrapper(&fn)));
 }
 
 void ReaderSyncZeroCopy::read_blocking(TimeMono timeout, std::function<void(TransportLocked, FlatPacket)> fn) {
   CHECK_C;
-  check(a0_reader_sync_zc_read_blocking_timeout(&*c, *timeout.c, ReaderSyncZeroCopy_CallbackWrapper(fn)));
+  check(a0_reader_sync_zc_read_blocking_timeout(&*c, *timeout.c, ReaderSyncZeroCopy_CallbackWrapper(&fn)));
 }
 
 namespace {

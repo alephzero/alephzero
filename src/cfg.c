@@ -196,10 +196,10 @@ a0_err_t a0_cfg_read_blocking_yyjson(a0_cfg_t* cfg,
   return A0_OK;
 }
 
-a0_err_t a0_cfg_read_blocking_yyjson(a0_cfg_t* cfg,
-                                     a0_alloc_t alloc,
-                                     a0_time_mono_t timeout,
-                                     yyjson_doc* out) {
+a0_err_t a0_cfg_read_blocking_timeout_yyjson(a0_cfg_t* cfg,
+                                             a0_alloc_t alloc,
+                                             a0_time_mono_t timeout,
+                                             yyjson_doc* out) {
   a0_yyjson_alloc_t yyjson_alloc = {alloc, A0_EMPTY, A0_EMPTY};
 
   a0_alloc_t alloc_wrapper = {
