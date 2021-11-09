@@ -7,11 +7,11 @@
 #include <a0/packet.h>
 #include <a0/reader.h>
 #include <a0/tid.h>
+#include <a0/time.h>
 #include <a0/transport.h>
 #include <a0/unused.h>
 
 #include <errno.h>
-#include <fcntl.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
