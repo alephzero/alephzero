@@ -76,6 +76,22 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] basic") {
   REQUIRE(a0::test::str(pkt.payload) == "cfg");
 }
 
+TEST_CASE_FIXTURE(CfgFixture, "cfg] write if empty") {
+  bool written;
+
+  REQUIRE_OK(a0_cfg_write_if_empty(&cfg, a0::test::pkt("cfg 0"), &written));
+  REQUIRE(written);
+
+  REQUIRE_OK(a0_cfg_write_if_empty(&cfg, a0::test::pkt("cfg 1"), &written));
+  REQUIRE(!written);
+
+  REQUIRE_OK(a0_cfg_write_if_empty(&cfg, a0::test::pkt("cfg 2"), nullptr));
+
+  a0_packet_t pkt;
+  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), &pkt));
+  REQUIRE(a0::test::str(pkt.payload) == "cfg 0");
+}
+
 TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp basic") {
   a0::Cfg c(a0::env::topic());
 
@@ -224,6 +240,23 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson write") {
   REQUIRE(a0::test::str(pkt.payload) == R"([1,"2","three"])");
 }
 
+TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson write if empty") {
+  bool written;
+  std::string json_str = R"([1, "2", "three"])";
+  yyjson_doc* doc = yyjson_read(json_str.c_str(), json_str.size(), 0);
+  REQUIRE_OK(a0_cfg_write_if_empty_yyjson(&cfg, *doc, &written));
+  yyjson_doc_free(doc);
+
+  json_str = R"([1, "2", "three", "four"])";
+  doc = yyjson_read(json_str.c_str(), json_str.size(), 0);
+  REQUIRE_OK(a0_cfg_write_if_empty_yyjson(&cfg, *doc, &written));
+  yyjson_doc_free(doc);
+
+  a0_packet_t pkt;
+  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), &pkt));
+  REQUIRE(a0::test::str(pkt.payload) == R"([1,"2","three"])");
+}
+
 TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson mergepatch") {
   std::string mp_str = R"({"foo": 1,"bar": 2})";
   yyjson_doc* doc = yyjson_read(mp_str.c_str(), mp_str.size(), 0);
@@ -266,7 +299,8 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   });
 
   a0::Cfg c(a0::env::topic());
-  c.write(R"({"foo": 1, "bar": 2})");
+  REQUIRE(c.write_if_empty(R"({"foo": 1, "bar": 2})"));
+  REQUIRE(!c.write_if_empty(R"({"foo": 1, "bar": 4})"));
 
   a0::Cfg::Var<MyStruct> my;
 

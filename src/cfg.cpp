@@ -102,6 +102,12 @@ void Cfg::write(Packet pkt) {
   check(a0_cfg_write(&*c, *pkt.c));
 }
 
+bool Cfg::write_if_empty(Packet pkt) {
+  bool written;
+  check(a0_cfg_write_if_empty(&*c, *pkt.c, &written));
+  return written;
+}
+
 #ifdef A0_EXT_NLOHMANN
 
 void Cfg::mergepatch(nlohmann::json update) {

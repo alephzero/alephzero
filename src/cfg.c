@@ -9,7 +9,11 @@
 #include <a0/reader.h>
 #include <a0/time.h>
 #include <a0/topic.h>
+#include <a0/transport.h>
 #include <a0/writer.h>
+
+#include <stdbool.h>
+#include <stddef.h>
 
 #include "err_macro.h"
 
@@ -17,14 +21,11 @@
 
 #include <a0/buf.h>
 #include <a0/empty.h>
-#include <a0/transport.h>
 #include <a0/unused.h>
 
 #include <alloca.h>
 #include <assert.h>
-#include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <yyjson.h>
 
@@ -93,6 +94,47 @@ a0_err_t a0_cfg_read_blocking_timeout(a0_cfg_t* cfg,
 
 a0_err_t a0_cfg_write(a0_cfg_t* cfg, a0_packet_t pkt) {
   return a0_writer_write(&cfg->_writer, pkt);
+}
+
+A0_STATIC_INLINE
+a0_err_t a0_cfg_write_if_empty_process_locked(
+    void* user_data,
+    a0_transport_locked_t tlk,
+    a0_packet_t* pkt,
+    a0_middleware_chain_t chain) {
+  bool* empty = (bool*)user_data;
+  a0_transport_empty(tlk, empty);
+  if (!*empty) {
+    a0_transport_unlock(tlk);
+    return A0_OK;
+  }
+  return a0_middleware_chain(chain, pkt);
+}
+
+// NOLINTNEXTLINE(readability-non-const-parameter): written cannot be const.
+a0_err_t a0_cfg_write_if_empty(a0_cfg_t* cfg, a0_packet_t pkt, bool* written) {
+  bool unused;
+  if (!written) {
+    written = &unused;
+  }
+
+  a0_middleware_t write_if_empty_middleware = {
+      .user_data = written,
+      .close = NULL,
+      .process = NULL,
+      .process_locked = a0_cfg_write_if_empty_process_locked,
+  };
+
+  a0_writer_t write_if_empty_writer;
+  a0_writer_wrap(
+      &cfg->_writer,
+      write_if_empty_middleware,
+      &write_if_empty_writer);
+
+  a0_err_t err = a0_writer_write(&write_if_empty_writer, pkt);
+
+  a0_writer_close(&write_if_empty_writer);
+  return err;
 }
 
 #ifdef A0_EXT_YYJSON
@@ -229,6 +271,29 @@ a0_err_t a0_cfg_write_yyjson(a0_cfg_t* cfg, yyjson_doc doc) {
   pkt.payload = (a0_buf_t){(uint8_t*)data, size};
 
   a0_err_t err = a0_cfg_write(cfg, pkt);
+  free(data);
+  return err;
+}
+
+a0_err_t a0_cfg_write_if_empty_yyjson(a0_cfg_t* cfg, yyjson_doc doc, bool* written) {
+  yyjson_write_err write_err;
+  size_t size;
+  char* data = yyjson_write_opts(
+      &doc,
+      a0_yyjson_write_flags(),
+      NULL,  // TODO(lshamis): Maybe provide an allocator?
+      &size,
+      &write_err);
+
+  if (write_err.code) {
+    return A0_MAKE_MSGERR("Failed to serialize cfg: %s", write_err.msg);
+  }
+
+  a0_packet_t pkt;
+  a0_packet_init(&pkt);
+  pkt.payload = (a0_buf_t){(uint8_t*)data, size};
+
+  a0_err_t err = a0_cfg_write_if_empty(cfg, pkt, written);
   free(data);
   return err;
 }
