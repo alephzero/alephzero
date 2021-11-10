@@ -167,7 +167,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp blocking") {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     a0::RpcClient("test").cancel(pkt_1.id());
   });
-  timeout = a0::TimeMono::now() + std::chrono::milliseconds(20);
+  timeout = a0::TimeMono::now() + std::chrono::seconds(2000);
   REQUIRE_THROWS_WITH(
       [&]() { a0::RpcClient("test").send_blocking(pkt_1, timeout); }(),
       "Operation cancelled");

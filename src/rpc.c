@@ -165,7 +165,7 @@ void a0_rpc_client_onpacket(void* user_data, a0_packet_t pkt) {
   const char* rpctype;
   a0_uuid_t* reqid;
   if (a0_find_rpctype(pkt, &rpctype) ||
-      strcmp(rpctype, RPC_TYPE_RESPONSE) ||
+      strcmp(rpctype, RPC_TYPE_RESPONSE) != 0 ||
       a0_find_reqid(pkt, &reqid)) {
     return;
   }
@@ -285,14 +285,12 @@ a0_err_t a0_rpc_client_send_blocking(a0_rpc_client_t* client, a0_packet_t pkt, a
     }
 
     const char* rpctype;
-    if (a0_find_rpctype(*out, &rpctype)) {
+    a0_uuid_t* reqid;
+    if (a0_find_rpctype(*out, &rpctype) ||
+        a0_find_reqid(*out, &reqid)) {
       continue;
     }
 
-    a0_uuid_t* reqid;
-    if (a0_find_reqid(*out, &reqid)) {
-      continue;
-    }
     if (!memcmp(pkt.id, *reqid, sizeof(a0_uuid_t))) {
       if (!strcmp(rpctype, RPC_TYPE_CANCEL)) {
         err = A0_ERR_CANCELLED;
@@ -322,14 +320,12 @@ a0_err_t a0_rpc_client_send_blocking_timeout(a0_rpc_client_t* client, a0_packet_
     }
 
     const char* rpctype;
-    if (a0_find_rpctype(*out, &rpctype)) {
+    a0_uuid_t* reqid;
+    if (a0_find_rpctype(*out, &rpctype) ||
+        a0_find_reqid(*out, &reqid)) {
       continue;
     }
 
-    a0_uuid_t* reqid;
-    if (a0_find_reqid(*out, &reqid)) {
-      continue;
-    }
     if (!memcmp(pkt.id, *reqid, sizeof(a0_uuid_t))) {
       if (!strcmp(rpctype, RPC_TYPE_CANCEL)) {
         err = A0_ERR_CANCELLED;
