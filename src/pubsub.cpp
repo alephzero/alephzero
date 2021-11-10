@@ -1,11 +1,13 @@
 #include <a0/alloc.h>
 #include <a0/buf.h>
 #include <a0/err.h>
+#include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/pubsub.h>
 #include <a0/pubsub.hpp>
 #include <a0/reader.hpp>
+#include <a0/time.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -69,22 +71,41 @@ SubscriberSync::SubscriberSync(PubSubTopic topic, ReaderInit init, ReaderIter it
       });
 }
 
-bool SubscriberSync::has_next() {
+bool SubscriberSync::can_read() {
   CHECK_C;
   bool ret;
-  check(a0_subscriber_sync_has_next(&*c, &ret));
+  check(a0_subscriber_sync_can_read(&*c, &ret));
   return ret;
 }
 
-Packet SubscriberSync::next() {
-  CHECK_C;
-  auto* impl = c_impl<SubscriberSyncImpl>(&c);
-
+A0_STATIC_INLINE
+Packet SubscriberSync_read(SubscriberSyncImpl* impl, std::function<a0_err_t(a0_packet_t*)> fn) {
   a0_packet_t pkt;
-  check(a0_subscriber_sync_next(&*c, &pkt));
+  check(fn(&pkt));
   auto data = std::make_shared<std::vector<uint8_t>>();
   std::swap(*data, impl->data);
   return Packet(pkt, [data](a0_packet_t*) {});
+}
+
+Packet SubscriberSync::read() {
+  CHECK_C;
+  return SubscriberSync_read(c_impl<SubscriberSyncImpl>(&c), [&](a0_packet_t* pkt) {
+    return a0_subscriber_sync_read(&*c, pkt);
+  });
+}
+
+Packet SubscriberSync::read_blocking() {
+  CHECK_C;
+  return SubscriberSync_read(c_impl<SubscriberSyncImpl>(&c), [&](a0_packet_t* pkt) {
+    return a0_subscriber_sync_read_blocking(&*c, pkt);
+  });
+}
+
+Packet SubscriberSync::read_blocking(TimeMono timeout) {
+  CHECK_C;
+  return SubscriberSync_read(c_impl<SubscriberSyncImpl>(&c), [&](a0_packet_t* pkt) {
+    return a0_subscriber_sync_read_blocking_timeout(&*c, *timeout.c, pkt);
+  });
 }
 
 namespace {
@@ -134,40 +155,6 @@ Subscriber::Subscriber(
       [](a0_subscriber_t* c, SubscriberImpl*) {
         a0_subscriber_close(c);
       });
-}
-
-Packet Subscriber::read_one(PubSubTopic topic, ReaderInit init, int flags) {
-  auto cfo = c_fileopts(topic.file_opts);
-  a0_pubsub_topic_t c_topic{topic.name.c_str(), &cfo};
-
-  auto pkt_data = std::make_shared<std::vector<uint8_t>>();
-
-  // The alloc will be reused for (potentially) multiple packets, especially if blocking.
-  // We only need to keep the first one alive.
-  struct data_t {
-    std::vector<uint8_t>* pkt_data;
-    std::vector<uint8_t> dummy;
-  } data{pkt_data.get(), {}};
-
-  a0_alloc_t alloc = {
-      .user_data = &data,
-      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-        auto* data = (data_t*)user_data;
-        if (data->pkt_data->empty()) {
-          data->pkt_data->resize(size);
-          *out = {data->pkt_data->data(), size};
-        } else {
-          data->dummy.resize(size);
-          *out = {data->dummy.data(), size};
-        }
-        return A0_OK;
-      },
-      .dealloc = nullptr,
-  };
-
-  a0_packet_t c_pkt;
-  check(a0_subscriber_read_one(c_topic, alloc, init, flags, &c_pkt));
-  return Packet(c_pkt, [pkt_data](a0_packet_t*) {});
 }
 
 }  // namespace a0

@@ -51,8 +51,10 @@ a0_err_t a0_subscriber_sync_init(a0_subscriber_sync_t*,
 
 a0_err_t a0_subscriber_sync_close(a0_subscriber_sync_t*);
 
-a0_err_t a0_subscriber_sync_has_next(a0_subscriber_sync_t*, bool*);
-a0_err_t a0_subscriber_sync_next(a0_subscriber_sync_t*, a0_packet_t*);
+a0_err_t a0_subscriber_sync_can_read(a0_subscriber_sync_t*, bool*);
+a0_err_t a0_subscriber_sync_read(a0_subscriber_sync_t*, a0_packet_t*);
+a0_err_t a0_subscriber_sync_read_blocking(a0_subscriber_sync_t*, a0_packet_t*);
+a0_err_t a0_subscriber_sync_read_blocking_timeout(a0_subscriber_sync_t*, a0_time_mono_t, a0_packet_t*);
 
 // Threaded allocated version.
 
@@ -69,18 +71,6 @@ a0_err_t a0_subscriber_init(a0_subscriber_t*,
                             a0_packet_callback_t);
 
 a0_err_t a0_subscriber_close(a0_subscriber_t*);
-
-// One-off reader.
-
-// Defaults to blocking mode.
-// Pass O_NDELAY or O_NONBLOCK to flags to run non-blocking.
-// If non-blocking and transport is empty, returns EAGAIN.
-
-a0_err_t a0_subscriber_read_one(a0_pubsub_topic_t,
-                                a0_alloc_t,
-                                a0_reader_init_t,
-                                int flags,
-                                a0_packet_t*);
 
 #ifdef __cplusplus
 }

@@ -7,6 +7,7 @@
 #include <a0/rpc.h>
 #include <a0/rpc.hpp>
 #include <a0/string_view.hpp>
+#include <a0/time.hpp>
 #include <a0/uuid.h>
 
 #include <algorithm>
@@ -187,6 +188,46 @@ void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply) {
   }
 
   check(a0_rpc_client_send(&*c, *pkt.c, c_onreply));
+}
+
+Packet RpcClient::send_blocking(Packet pkt) {
+  CHECK_C;
+
+  auto data = std::make_shared<std::vector<uint8_t>>();
+  a0_alloc_t alloc = {
+      .user_data = data.get(),
+      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
+        auto* data = (std::vector<uint8_t>*)user_data;
+        data->resize(size);
+        *out = {data->data(), size};
+        return A0_OK;
+      },
+      .dealloc = nullptr,
+  };
+
+  a0_packet_t resp;
+  check(a0_rpc_client_send_blocking(&*c, *pkt.c, alloc, &resp));
+  return Packet(resp, [data](a0_packet_t*) {});
+}
+
+Packet RpcClient::send_blocking(Packet pkt, TimeMono timeout) {
+  CHECK_C;
+
+  auto data = std::make_shared<std::vector<uint8_t>>();
+  a0_alloc_t alloc = {
+      .user_data = data.get(),
+      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
+        auto* data = (std::vector<uint8_t>*)user_data;
+        data->resize(size);
+        *out = {data->data(), size};
+        return A0_OK;
+      },
+      .dealloc = nullptr,
+  };
+
+  a0_packet_t resp;
+  check(a0_rpc_client_send_blocking_timeout(&*c, *pkt.c, *timeout.c, alloc, &resp));
+  return Packet(resp, [data](a0_packet_t*) {});
 }
 
 std::future<Packet> RpcClient::send(Packet pkt) {

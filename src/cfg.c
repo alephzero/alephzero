@@ -7,6 +7,7 @@
 #include <a0/middleware.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
+#include <a0/time.h>
 #include <a0/topic.h>
 #include <a0/writer.h>
 
@@ -16,14 +17,15 @@
 
 #include <a0/buf.h>
 #include <a0/empty.h>
-#include <a0/middleware.h>
 #include <a0/transport.h>
 #include <a0/unused.h>
 
 #include <alloca.h>
+#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <yyjson.h>
 
 #endif  // A0_EXT_YYJSON
@@ -60,13 +62,33 @@ a0_err_t a0_cfg_close(a0_cfg_t* cfg) {
 
 a0_err_t a0_cfg_read(a0_cfg_t* cfg,
                      a0_alloc_t alloc,
-                     int flags,
                      a0_packet_t* out) {
-  return a0_reader_read_one(cfg->_file.arena,
-                            alloc,
-                            A0_INIT_MOST_RECENT,
-                            flags,
-                            out);
+  a0_reader_sync_t reader_sync;
+  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, A0_INIT_MOST_RECENT, A0_ITER_NEXT));
+  a0_err_t err = a0_reader_sync_read(&reader_sync, out);
+  a0_reader_sync_close(&reader_sync);
+  return err;
+}
+
+a0_err_t a0_cfg_read_blocking(a0_cfg_t* cfg,
+                              a0_alloc_t alloc,
+                              a0_packet_t* out) {
+  a0_reader_sync_t reader_sync;
+  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, A0_INIT_MOST_RECENT, A0_ITER_NEXT));
+  a0_err_t err = a0_reader_sync_read_blocking(&reader_sync, out);
+  a0_reader_sync_close(&reader_sync);
+  return err;
+}
+
+a0_err_t a0_cfg_read_blocking_timeout(a0_cfg_t* cfg,
+                                      a0_alloc_t alloc,
+                                      a0_time_mono_t timeout,
+                                      a0_packet_t* out) {
+  a0_reader_sync_t reader_sync;
+  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, A0_INIT_MOST_RECENT, A0_ITER_NEXT));
+  a0_err_t err = a0_reader_sync_read_blocking_timeout(&reader_sync, timeout, out);
+  a0_reader_sync_close(&reader_sync);
+  return err;
 }
 
 a0_err_t a0_cfg_write(a0_cfg_t* cfg, a0_packet_t pkt) {
@@ -76,12 +98,12 @@ a0_err_t a0_cfg_write(a0_cfg_t* cfg, a0_packet_t pkt) {
 #ifdef A0_EXT_YYJSON
 
 A0_STATIC_INLINE
-int a0_yyjson_read_flags() {
+size_t a0_yyjson_read_flags() {
   return YYJSON_READ_ALLOW_TRAILING_COMMAS | YYJSON_READ_ALLOW_COMMENTS | YYJSON_READ_ALLOW_INF_AND_NAN;
 }
 
 A0_STATIC_INLINE
-int a0_yyjson_write_flags() {
+size_t a0_yyjson_write_flags() {
   return YYJSON_WRITE_ESCAPE_UNICODE | YYJSON_WRITE_ESCAPE_SLASHES;
 }
 
@@ -107,10 +129,16 @@ a0_err_t yyjson_alloc_wrapper(void* user_data, size_t size, a0_buf_t* out) {
   return err;
 }
 
-a0_err_t a0_cfg_read_yyjson(a0_cfg_t* cfg,
-                            a0_alloc_t alloc,
-                            int flags,
-                            yyjson_doc* out) {
+typedef struct a0_cfg_read_yyjson_action_s {
+  void* user_data;
+  a0_err_t (*fn)(void* user_data, a0_cfg_t*, a0_alloc_t, a0_packet_t*);
+} a0_cfg_read_yyjson_action_t;
+
+A0_STATIC_INLINE
+a0_err_t a0_cfg_read_yyjson_helper(a0_cfg_t* cfg,
+                                   a0_alloc_t alloc,
+                                   yyjson_doc* out,
+                                   a0_cfg_read_yyjson_action_t action) {
   a0_yyjson_alloc_t yyjson_alloc = {alloc, A0_EMPTY, A0_EMPTY};
 
   a0_alloc_t alloc_wrapper = {
@@ -120,12 +148,7 @@ a0_err_t a0_cfg_read_yyjson(a0_cfg_t* cfg,
   };
 
   a0_packet_t pkt;
-  A0_RETURN_ERR_ON_ERR(a0_reader_read_one(
-      cfg->_file.arena,
-      alloc_wrapper,
-      A0_INIT_MOST_RECENT,
-      flags,
-      &pkt));
+  A0_RETURN_ERR_ON_ERR(action.fn(action.user_data, cfg, alloc_wrapper, &pkt));
 
   yyjson_alc alc;
   yyjson_alc_pool_init(
@@ -147,13 +170,53 @@ a0_err_t a0_cfg_read_yyjson(a0_cfg_t* cfg,
   return A0_OK;
 }
 
+A0_STATIC_INLINE
+a0_err_t a0_cfg_read_yyjson_action(void* user_data, a0_cfg_t* cfg, a0_alloc_t alloc, a0_packet_t* out) {
+  A0_MAYBE_UNUSED(user_data);
+  return a0_cfg_read(cfg, alloc, out);
+}
+
+a0_err_t a0_cfg_read_yyjson(a0_cfg_t* cfg,
+                            a0_alloc_t alloc,
+                            yyjson_doc* out) {
+  return a0_cfg_read_yyjson_helper(
+      cfg, alloc, out, (a0_cfg_read_yyjson_action_t){NULL, a0_cfg_read_yyjson_action});
+}
+
+A0_STATIC_INLINE
+a0_err_t a0_cfg_read_blocking_yyjson_action(void* user_data, a0_cfg_t* cfg, a0_alloc_t alloc, a0_packet_t* out) {
+  A0_MAYBE_UNUSED(user_data);
+  return a0_cfg_read_blocking(cfg, alloc, out);
+}
+
+a0_err_t a0_cfg_read_blocking_yyjson(a0_cfg_t* cfg,
+                                     a0_alloc_t alloc,
+                                     yyjson_doc* out) {
+  return a0_cfg_read_yyjson_helper(
+      cfg, alloc, out, (a0_cfg_read_yyjson_action_t){NULL, a0_cfg_read_blocking_yyjson_action});
+}
+
+A0_STATIC_INLINE
+a0_err_t a0_cfg_read_blocking_timeout_yyjson_action(void* user_data, a0_cfg_t* cfg, a0_alloc_t alloc, a0_packet_t* out) {
+  a0_time_mono_t* timeout = (a0_time_mono_t*)user_data;
+  return a0_cfg_read_blocking_timeout(cfg, alloc, *timeout, out);
+}
+
+a0_err_t a0_cfg_read_blocking_timeout_yyjson(a0_cfg_t* cfg,
+                                             a0_alloc_t alloc,
+                                             a0_time_mono_t timeout,
+                                             yyjson_doc* out) {
+  return a0_cfg_read_yyjson_helper(
+      cfg, alloc, out, (a0_cfg_read_yyjson_action_t){&timeout, a0_cfg_read_blocking_timeout_yyjson_action});
+}
+
 a0_err_t a0_cfg_write_yyjson(a0_cfg_t* cfg, yyjson_doc doc) {
   yyjson_write_err write_err;
   size_t size;
   char* data = yyjson_write_opts(
       &doc,
       a0_yyjson_write_flags(),
-      NULL,  // TODO: Maybe provide an allocator?
+      NULL,  // TODO(lshamis): Maybe provide an allocator?
       &size,
       &write_err);
 
@@ -183,7 +246,7 @@ a0_err_t a0_mergepatch_process_locked_empty(
   char* data = yyjson_write_opts(
       mergepatch,
       a0_yyjson_write_flags(),
-      NULL,  // TODO: Maybe provide an allocator?
+      NULL,  // TODO(lshamis): Maybe provide an allocator?
       &size,
       &write_err);
 
@@ -217,6 +280,7 @@ a0_err_t a0_mergepatch_process_locked_nonempty(
 
   size_t yyjson_size = yyjson_read_max_memory_usage(
       old_payload.size, a0_yyjson_read_flags());
+  assert(yyjson_size > 0);
 
   void* yyjson_data = alloca(yyjson_size);
 
@@ -249,7 +313,7 @@ a0_err_t a0_mergepatch_process_locked_nonempty(
   char* data = yyjson_mut_write_opts(
       merged_doc,
       a0_yyjson_write_flags(),
-      NULL,  // TODO: Maybe provide an allocator?
+      NULL,  // TODO(lshamis): Maybe provide an allocator?
       &size,
       &write_err);
 

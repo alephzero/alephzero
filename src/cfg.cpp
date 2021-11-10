@@ -3,8 +3,10 @@
 #include <a0/cfg.h>
 #include <a0/cfg.hpp>
 #include <a0/err.h>
+#include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
+#include <a0/time.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -30,7 +32,6 @@
 #include <nlohmann/json.hpp>
 
 #include <initializer_list>
-#include <type_traits>
 
 #endif  // A0_EXT_NLOHMANN
 
@@ -59,7 +60,8 @@ Cfg::Cfg(CfgTopic topic) {
       });
 }
 
-Packet Cfg::read(int flags) const {
+A0_STATIC_INLINE
+Packet Cfg_read(std::function<a0_err_t(a0_alloc_t, a0_packet_t*)> fn) {
   auto data = std::make_shared<std::vector<uint8_t>>();
 
   a0_alloc_t alloc = {
@@ -74,9 +76,26 @@ Packet Cfg::read(int flags) const {
   };
 
   a0_packet_t pkt;
-  check(a0_cfg_read(&*c, alloc, flags, &pkt));
-
+  check(fn(alloc, &pkt));
   return Packet(pkt, [data](a0_packet_t*) {});
+}
+
+Packet Cfg::read() const {
+  return Cfg_read([&](a0_alloc_t alloc, a0_packet_t* pkt) {
+    return a0_cfg_read(&*c, alloc, pkt);
+  });
+}
+
+Packet Cfg::read_blocking() const {
+  return Cfg_read([&](a0_alloc_t alloc, a0_packet_t* pkt) {
+    return a0_cfg_read_blocking(&*c, alloc, pkt);
+  });
+}
+
+Packet Cfg::read_blocking(TimeMono timeout) const {
+  return Cfg_read([&](a0_alloc_t alloc, a0_packet_t* pkt) {
+    return a0_cfg_read_blocking_timeout(&*c, alloc, *timeout.c, pkt);
+  });
 }
 
 void Cfg::write(Packet pkt) {
@@ -88,8 +107,8 @@ void Cfg::write(Packet pkt) {
 void Cfg::mergepatch(nlohmann::json update) {
   a0_middleware_t mergepatch_middleware = {
       .user_data = &update,
-      .close = NULL,
-      .process = NULL,
+      .close = nullptr,
+      .process = nullptr,
       .process_locked = [](
                             void* user_data,
                             a0_transport_locked_t tlk,

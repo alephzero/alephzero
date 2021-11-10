@@ -1,6 +1,7 @@
 #include <a0/alloc.h>
 #include <a0/buf.h>
 #include <a0/cmp.h>
+#include <a0/empty.h>
 #include <a0/env.h>
 #include <a0/err.h>
 #include <a0/file.h>
@@ -10,6 +11,7 @@
 #include <a0/packet.h>
 #include <a0/reader.h>
 #include <a0/rpc.h>
+#include <a0/time.h>
 #include <a0/topic.h>
 #include <a0/uuid.h>
 #include <a0/writer.h>
@@ -133,19 +135,44 @@ a0_err_t a0_rpc_server_reply(a0_rpc_request_t req, a0_packet_t resp) {
 ////////////
 
 A0_STATIC_INLINE
-void a0_rpc_client_onpacket(void* user_data, a0_packet_t pkt) {
-  a0_rpc_client_t* client = (a0_rpc_client_t*)user_data;
-
+a0_err_t a0_find_rpctype(a0_packet_t pkt, const char** out) {
   a0_packet_header_t req_id_hdr;
   a0_packet_header_iterator_t hdr_iter;
   a0_packet_header_iterator_init(&hdr_iter, &pkt);
-  if (a0_packet_header_iterator_next_match(&hdr_iter, REQUEST_ID, &req_id_hdr)) {
+  if (!a0_packet_header_iterator_next_match(&hdr_iter, RPC_TYPE, &req_id_hdr)) {
+    *out = req_id_hdr.val;
+    return A0_OK;
+  }
+  return A0_ERR_ITER_DONE;
+}
+
+A0_STATIC_INLINE
+a0_err_t a0_find_reqid(a0_packet_t pkt, a0_uuid_t** out) {
+  a0_packet_header_t req_id_hdr;
+  a0_packet_header_iterator_t hdr_iter;
+  a0_packet_header_iterator_init(&hdr_iter, &pkt);
+  if (!a0_packet_header_iterator_next_match(&hdr_iter, REQUEST_ID, &req_id_hdr)) {
+    *out = (a0_uuid_t*)req_id_hdr.val;
+    return A0_OK;
+  }
+  return A0_ERR_ITER_DONE;
+}
+
+A0_STATIC_INLINE
+void a0_rpc_client_onpacket(void* user_data, a0_packet_t pkt) {
+  a0_rpc_client_t* client = (a0_rpc_client_t*)user_data;
+
+  const char* rpctype;
+  a0_uuid_t* reqid;
+  if (a0_find_rpctype(pkt, &rpctype) ||
+      strcmp(rpctype, RPC_TYPE_RESPONSE) != 0 ||
+      a0_find_reqid(pkt, &reqid)) {
     return;
   }
 
   a0_packet_callback_t cb;
   pthread_mutex_lock(&client->_outstanding_requests_mu);
-  a0_err_t err = a0_map_pop(&client->_outstanding_requests, req_id_hdr.val, &cb);
+  a0_err_t err = a0_map_pop(&client->_outstanding_requests, reqid, &cb);
   pthread_mutex_unlock(&client->_outstanding_requests_mu);
 
   if (!err) {
@@ -239,6 +266,76 @@ a0_err_t a0_rpc_client_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_
   };
 
   return a0_writer_write(&client->_request_writer, full_pkt);
+}
+
+a0_err_t a0_rpc_client_send_blocking(a0_rpc_client_t* client, a0_packet_t pkt, a0_alloc_t alloc, a0_packet_t* out) {
+  a0_reader_sync_t reader_sync;
+  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(
+      &reader_sync,
+      client->_file.arena,
+      alloc,
+      A0_INIT_AWAIT_NEW,
+      A0_ITER_NEXT));
+
+  a0_err_t err = a0_rpc_client_send(client, pkt, (a0_packet_callback_t)A0_EMPTY);
+  while (!err) {
+    err = a0_reader_sync_read_blocking(&reader_sync, out);
+    if (err) {
+      break;
+    }
+
+    const char* rpctype;
+    a0_uuid_t* reqid;
+    if (a0_find_rpctype(*out, &rpctype) ||
+        a0_find_reqid(*out, &reqid)) {
+      continue;
+    }
+
+    if (!memcmp(pkt.id, *reqid, sizeof(a0_uuid_t))) {
+      if (!strcmp(rpctype, RPC_TYPE_CANCEL)) {
+        err = A0_ERR_CANCELLED;
+      }
+      break;
+    }
+  }
+
+  a0_reader_sync_close(&reader_sync);
+  return err;
+}
+
+a0_err_t a0_rpc_client_send_blocking_timeout(a0_rpc_client_t* client, a0_packet_t pkt, a0_time_mono_t timeout, a0_alloc_t alloc, a0_packet_t* out) {
+  a0_reader_sync_t reader_sync;
+  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(
+      &reader_sync,
+      client->_file.arena,
+      alloc,
+      A0_INIT_AWAIT_NEW,
+      A0_ITER_NEXT));
+
+  a0_err_t err = a0_rpc_client_send(client, pkt, (a0_packet_callback_t)A0_EMPTY);
+  while (!err) {
+    err = a0_reader_sync_read_blocking_timeout(&reader_sync, timeout, out);
+    if (err) {
+      break;
+    }
+
+    const char* rpctype;
+    a0_uuid_t* reqid;
+    if (a0_find_rpctype(*out, &rpctype) ||
+        a0_find_reqid(*out, &reqid)) {
+      continue;
+    }
+
+    if (!memcmp(pkt.id, *reqid, sizeof(a0_uuid_t))) {
+      if (!strcmp(rpctype, RPC_TYPE_CANCEL)) {
+        err = A0_ERR_CANCELLED;
+      }
+      break;
+    }
+  }
+
+  a0_reader_sync_close(&reader_sync);
+  return err;
 }
 
 a0_err_t a0_rpc_client_cancel(a0_rpc_client_t* client, const a0_uuid_t uuid) {

@@ -75,10 +75,16 @@ a0_err_t a0_reader_sync_zc_init(a0_reader_sync_zc_t*,
 a0_err_t a0_reader_sync_zc_close(a0_reader_sync_zc_t*);
 
 /// ...
-a0_err_t a0_reader_sync_zc_has_next(a0_reader_sync_zc_t*, bool*);
+a0_err_t a0_reader_sync_zc_can_read(a0_reader_sync_zc_t*, bool*);
 
 /// ...
-a0_err_t a0_reader_sync_zc_next(a0_reader_sync_zc_t*, a0_zero_copy_callback_t);
+a0_err_t a0_reader_sync_zc_read(a0_reader_sync_zc_t*, a0_zero_copy_callback_t);
+
+/// ...
+a0_err_t a0_reader_sync_zc_read_blocking(a0_reader_sync_zc_t*, a0_zero_copy_callback_t);
+
+/// ...
+a0_err_t a0_reader_sync_zc_read_blocking_timeout(a0_reader_sync_zc_t*, a0_time_mono_t, a0_zero_copy_callback_t);
 
 /** @}*/
 
@@ -102,10 +108,16 @@ a0_err_t a0_reader_sync_init(a0_reader_sync_t*,
 a0_err_t a0_reader_sync_close(a0_reader_sync_t*);
 
 /// ...
-a0_err_t a0_reader_sync_has_next(a0_reader_sync_t*, bool*);
+a0_err_t a0_reader_sync_can_read(a0_reader_sync_t*, bool*);
 
 /// ...
-a0_err_t a0_reader_sync_next(a0_reader_sync_t*, a0_packet_t*);
+a0_err_t a0_reader_sync_read(a0_reader_sync_t*, a0_packet_t*);
+
+/// ...
+a0_err_t a0_reader_sync_read_blocking(a0_reader_sync_t*, a0_packet_t*);
+
+/// ...
+a0_err_t a0_reader_sync_read_blocking_timeout(a0_reader_sync_t*, a0_time_mono_t, a0_packet_t*);
 
 /** @}*/
 
@@ -159,23 +171,6 @@ a0_err_t a0_reader_init(a0_reader_t*,
 
 /// ...
 a0_err_t a0_reader_close(a0_reader_t*);
-
-/** @}*/
-
-/** \addtogroup READ_ONE
- *  @{
- */
-
-// One-off reader.
-// Defaults to blocking mode.
-// Pass O_NDELAY or O_NONBLOCK to flags to run non-blocking.
-// If non-blocking and transport is empty, returns EAGAIN.
-
-a0_err_t a0_reader_read_one(a0_arena_t,
-                            a0_alloc_t,
-                            a0_reader_init_t,
-                            int flags,
-                            a0_packet_t*);
 
 /** @}*/
 

@@ -7,10 +7,10 @@
 #include <ostream>
 #include <string>
 
-static const char TMPL[] = "aaa{topic}ccc{topic}{topic}ddd";
+static const char TMPL[] = "aaa{topic}ccc";
 static const char TOPIC[] = "bbb";
-static const char REL_PATH[] = "aaabbbcccbbbbbbddd";
-static const char ABS_PATH[] = "/dev/shm/alephzero/aaabbbcccbbbbbbddd";
+static const char REL_PATH[] = "aaabbbccc";
+static const char ABS_PATH[] = "/dev/shm/alephzero/aaabbbccc";
 
 TEST_CASE("topic] cpp topic_path") {
   REQUIRE(a0::topic_path(TMPL, TOPIC) == REL_PATH);

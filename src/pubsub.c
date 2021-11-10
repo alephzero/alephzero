@@ -7,6 +7,7 @@
 #include <a0/packet.h>
 #include <a0/pubsub.h>
 #include <a0/reader.h>
+#include <a0/time.h>
 #include <a0/topic.h>
 #include <a0/writer.h>
 
@@ -85,12 +86,20 @@ a0_err_t a0_subscriber_sync_close(a0_subscriber_sync_t* sub_sync) {
   return A0_OK;
 }
 
-a0_err_t a0_subscriber_sync_has_next(a0_subscriber_sync_t* sub_sync, bool* has_next) {
-  return a0_reader_sync_has_next(&sub_sync->_reader_sync, has_next);
+a0_err_t a0_subscriber_sync_can_read(a0_subscriber_sync_t* sub_sync, bool* can_read) {
+  return a0_reader_sync_can_read(&sub_sync->_reader_sync, can_read);
 }
 
-a0_err_t a0_subscriber_sync_next(a0_subscriber_sync_t* sub_sync, a0_packet_t* pkt) {
-  return a0_reader_sync_next(&sub_sync->_reader_sync, pkt);
+a0_err_t a0_subscriber_sync_read(a0_subscriber_sync_t* sub_sync, a0_packet_t* pkt) {
+  return a0_reader_sync_read(&sub_sync->_reader_sync, pkt);
+}
+
+a0_err_t a0_subscriber_sync_read_blocking(a0_subscriber_sync_t* sub_sync, a0_packet_t* pkt) {
+  return a0_reader_sync_read_blocking(&sub_sync->_reader_sync, pkt);
+}
+
+a0_err_t a0_subscriber_sync_read_blocking_timeout(a0_subscriber_sync_t* sub_sync, a0_time_mono_t timeout, a0_packet_t* pkt) {
+  return a0_reader_sync_read_blocking_timeout(&sub_sync->_reader_sync, timeout, pkt);
 }
 
 // Normal threaded version.
@@ -122,24 +131,4 @@ a0_err_t a0_subscriber_close(a0_subscriber_t* sub) {
   a0_reader_close(&sub->_reader);
   a0_file_close(&sub->_file);
   return A0_OK;
-}
-
-// One-off reader.
-
-a0_err_t a0_subscriber_read_one(a0_pubsub_topic_t topic,
-                                a0_alloc_t alloc,
-                                a0_reader_init_t init,
-                                int flags,
-                                a0_packet_t* out) {
-  a0_file_t file;
-  A0_RETURN_ERR_ON_ERR(a0_pubsub_topic_open(topic, &file));
-
-  a0_err_t err = a0_reader_read_one(file.arena,
-                                    alloc,
-                                    init,
-                                    flags,
-                                    out);
-
-  a0_file_close(&file);
-  return err;
 }

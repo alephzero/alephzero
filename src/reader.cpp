@@ -2,10 +2,12 @@
 #include <a0/arena.hpp>
 #include <a0/buf.h>
 #include <a0/err.h>
+#include <a0/inline.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/reader.h>
 #include <a0/reader.hpp>
+#include <a0/time.hpp>
 #include <a0/transport.h>
 #include <a0/transport.hpp>
 
@@ -32,18 +34,17 @@ ReaderSyncZeroCopy::ReaderSyncZeroCopy(Arena arena, ReaderInit init, ReaderIter 
       });
 }
 
-bool ReaderSyncZeroCopy::has_next() {
+bool ReaderSyncZeroCopy::can_read() {
   CHECK_C;
   bool ret;
-  check(a0_reader_sync_zc_has_next(&*c, &ret));
+  check(a0_reader_sync_zc_can_read(&*c, &ret));
   return ret;
 }
 
-void ReaderSyncZeroCopy::next(std::function<void(TransportLocked, FlatPacket)> fn) {
-  CHECK_C;
-
-  a0_zero_copy_callback_t cb = {
-      .user_data = &fn,
+A0_STATIC_INLINE
+a0_zero_copy_callback_t ReaderSyncZeroCopy_CallbackWrapper(std::function<void(TransportLocked, FlatPacket)>* fn) {
+  return {
+      .user_data = fn,
       .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
         auto* fn = (std::function<void(TransportLocked, FlatPacket)>*)user_data;
         (*fn)(
@@ -51,8 +52,21 @@ void ReaderSyncZeroCopy::next(std::function<void(TransportLocked, FlatPacket)> f
             cpp_wrap<FlatPacket>(fpkt));
       },
   };
+}
 
-  check(a0_reader_sync_zc_next(&*c, cb));
+void ReaderSyncZeroCopy::read(std::function<void(TransportLocked, FlatPacket)> fn) {
+  CHECK_C;
+  check(a0_reader_sync_zc_read(&*c, ReaderSyncZeroCopy_CallbackWrapper(&fn)));
+}
+
+void ReaderSyncZeroCopy::read_blocking(std::function<void(TransportLocked, FlatPacket)> fn) {
+  CHECK_C;
+  check(a0_reader_sync_zc_read_blocking(&*c, ReaderSyncZeroCopy_CallbackWrapper(&fn)));
+}
+
+void ReaderSyncZeroCopy::read_blocking(TimeMono timeout, std::function<void(TransportLocked, FlatPacket)> fn) {
+  CHECK_C;
+  check(a0_reader_sync_zc_read_blocking_timeout(&*c, *timeout.c, ReaderSyncZeroCopy_CallbackWrapper(&fn)));
 }
 
 namespace {
@@ -87,19 +101,41 @@ ReaderSync::ReaderSync(Arena arena, ReaderInit init, ReaderIter iter) {
       });
 }
 
-bool ReaderSync::has_next() {
+bool ReaderSync::can_read() {
   CHECK_C;
   bool ret;
-  check(a0_reader_sync_has_next(&*c, &ret));
+  check(a0_reader_sync_can_read(&*c, &ret));
   return ret;
 }
 
-Packet ReaderSync::next() {
+Packet ReaderSync::read() {
   CHECK_C;
   auto* impl = c_impl<ReaderSyncImpl>(&c);
 
   a0_packet_t pkt;
-  check(a0_reader_sync_next(&*c, &pkt));
+  check(a0_reader_sync_read(&*c, &pkt));
+  auto data = std::make_shared<std::vector<uint8_t>>();
+  std::swap(*data, impl->data);
+  return Packet(pkt, [data](a0_packet_t*) {});
+}
+
+Packet ReaderSync::read_blocking() {
+  CHECK_C;
+  auto* impl = c_impl<ReaderSyncImpl>(&c);
+
+  a0_packet_t pkt;
+  check(a0_reader_sync_read_blocking(&*c, &pkt));
+  auto data = std::make_shared<std::vector<uint8_t>>();
+  std::swap(*data, impl->data);
+  return Packet(pkt, [data](a0_packet_t*) {});
+}
+
+Packet ReaderSync::read_blocking(TimeMono timeout) {
+  CHECK_C;
+  auto* impl = c_impl<ReaderSyncImpl>(&c);
+
+  a0_packet_t pkt;
+  check(a0_reader_sync_read_blocking_timeout(&*c, *timeout.c, &pkt));
   auto data = std::make_shared<std::vector<uint8_t>>();
   std::swap(*data, impl->data);
   return Packet(pkt, [data](a0_packet_t*) {});
@@ -184,24 +220,6 @@ Reader::Reader(
       [](a0_reader_t* c, ReaderImpl*) {
         a0_reader_close(c);
       });
-}
-
-Packet Reader::read_one(Arena arena, ReaderInit init, int flags) {
-  auto data = std::make_shared<std::vector<uint8_t>>();
-  a0_alloc_t alloc = {
-      .user_data = data.get(),
-      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-        auto* data = (std::vector<uint8_t>*)user_data;
-        data->resize(size);
-        *out = {data->data(), size};
-        return A0_OK;
-      },
-      .dealloc = nullptr,
-  };
-
-  a0_packet_t c_pkt;
-  check(a0_reader_read_one(*arena.c, alloc, init, flags, &c_pkt));
-  return Packet(c_pkt, [data](a0_packet_t*) {});
 }
 
 }  // namespace a0

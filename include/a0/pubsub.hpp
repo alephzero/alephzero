@@ -38,15 +38,15 @@ struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
   SubscriberSync() = default;
   SubscriberSync(PubSubTopic, ReaderInit, ReaderIter);
 
-  bool has_next();
-  Packet next();
+  bool can_read();
+  Packet read();
+  Packet read_blocking();
+  Packet read_blocking(TimeMono);
 };
 
 struct Subscriber : details::CppWrap<a0_subscriber_t> {
   Subscriber() = default;
   Subscriber(PubSubTopic, ReaderInit, ReaderIter, std::function<void(Packet)>);
-
-  static Packet read_one(PubSubTopic, ReaderInit, int flags);
 };
 
 }  // namespace a0

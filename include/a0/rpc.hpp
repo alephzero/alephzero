@@ -67,6 +67,25 @@ struct RpcClient : details::CppWrap<a0_rpc_client_t> {
     send({}, payload, std::move(callback));
   }
 
+  Packet send_blocking(Packet);
+  Packet send_blocking(std::unordered_multimap<std::string, std::string> headers,
+                       string_view payload) {
+    return send_blocking(Packet(std::move(headers), payload, ref));
+  }
+  Packet send_blocking(string_view payload) {
+    return send_blocking({}, payload);
+  }
+
+  Packet send_blocking(Packet, TimeMono);
+  Packet send_blocking(std::unordered_multimap<std::string, std::string> headers,
+                       string_view payload,
+                       TimeMono timeout) {
+    return send_blocking(Packet(std::move(headers), payload, ref), timeout);
+  }
+  Packet send_blocking(string_view payload, TimeMono timeout) {
+    return send_blocking({}, payload, timeout);
+  }
+
   std::future<Packet> send(Packet);
   std::future<Packet> send(std::unordered_multimap<std::string, std::string> headers,
                            string_view payload) {
