@@ -4,12 +4,17 @@
 #include <a0/rpc.h>
 #include <a0/rpc.hpp>
 #include <a0/string_view.hpp>
+#include <a0/time.hpp>
 #include <a0/uuid.h>
 
 #include <doctest.h>
 
+#include <cerrno>
 #include <chrono>
+#include <cstring>
 #include <functional>
+#include <future>
+#include <ostream>
 #include <string>
 #include <thread>
 

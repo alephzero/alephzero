@@ -11,6 +11,7 @@
 #include <a0/packet.h>
 #include <a0/reader.h>
 #include <a0/rpc.h>
+#include <a0/time.h>
 #include <a0/topic.h>
 #include <a0/uuid.h>
 #include <a0/writer.h>

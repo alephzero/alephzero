@@ -7,6 +7,7 @@
 #include <a0/rpc.h>
 #include <a0/rpc.hpp>
 #include <a0/string_view.hpp>
+#include <a0/time.hpp>
 #include <a0/uuid.h>
 
 #include <algorithm>
