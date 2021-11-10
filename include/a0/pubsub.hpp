@@ -31,7 +31,13 @@ struct Publisher : details::CppWrap<a0_publisher_t> {
   explicit Publisher(PubSubTopic);
 
   void pub(Packet);
-  void pub(string_view sv) { pub(Packet(sv, ref)); }
+  void pub(std::unordered_multimap<std::string, std::string> headers,
+           string_view payload) {
+    pub(Packet(std::move(headers), payload, ref));
+  }
+  void pub(string_view payload) {
+    pub({}, payload);
+  }
 };
 
 struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
