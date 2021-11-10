@@ -57,9 +57,13 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
   Packet read_blocking(TimeMono) const;
 
   void write(Packet);
-
   void write(const char cstr[]) {
     write(Packet(cstr, ref));
+  }
+
+  bool write_if_empty(Packet);
+  bool write_if_empty(const char cstr[]) {
+    return write_if_empty(Packet(cstr, ref));
   }
 
 #ifdef A0_EXT_NLOHMANN
@@ -67,6 +71,10 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
   void write(nlohmann::json j) {
     write(Packet(j.dump()));
   }
+  bool write_if_empty(nlohmann::json j) {
+    return write_if_empty(Packet(j.dump()));
+  }
+
   void mergepatch(nlohmann::json);
 
  private:
