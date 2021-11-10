@@ -42,6 +42,9 @@ const char* a0_strerror(a0_err_t err) {
     case A0_ERR_BAD_TOPIC: {
       return "Invalid topic name";
     }
+    case A0_ERR_CANCELLED: {
+      return "Operation cancelled";
+    }
     default: {
       break;
     }

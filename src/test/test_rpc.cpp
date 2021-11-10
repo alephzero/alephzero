@@ -125,6 +125,50 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
   cancel_latch.wait();
 }
 
+TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp blocking") {
+  a0::RpcServer server(
+      "test", [](a0::RpcRequest req) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        req.reply("reply");
+      },
+      nullptr);
+
+  REQUIRE(a0::RpcClient("test").send_blocking("send").payload() == "reply");
+
+  auto timeout = a0::TimeMono::now() + std::chrono::milliseconds(20);
+  REQUIRE(a0::RpcClient("test").send_blocking("send", timeout).payload() == "reply");
+
+  timeout = a0::TimeMono::now() + std::chrono::milliseconds(1);
+  REQUIRE_THROWS_WITH(
+      [&]() { a0::RpcClient("test").send_blocking("send", timeout); }(),
+      strerror(ETIMEDOUT));
+
+  REQUIRE(a0::RpcClient("test").send("send").get().payload() == "reply");
+
+  server = {};
+
+  a0::Packet pkt_0("send");
+  std::thread t_0([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    a0::RpcClient("test").cancel(pkt_0.id());
+  });
+  REQUIRE_THROWS_WITH(
+      [&]() { a0::RpcClient("test").send_blocking(pkt_0); }(),
+      "Operation cancelled");
+  t_0.join();
+
+  a0::Packet pkt_1("send");
+  std::thread t_1([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    a0::RpcClient("test").cancel(pkt_1.id());
+  });
+  timeout = a0::TimeMono::now() + std::chrono::milliseconds(20);
+  REQUIRE_THROWS_WITH(
+      [&]() { a0::RpcClient("test").send_blocking(pkt_1, timeout); }(),
+      "Operation cancelled");
+  t_1.join();
+}
+
 TEST_CASE_FIXTURE(RpcFixture, "rpc] empty oncancel onreply") {
   a0_rpc_request_callback_t onrequest = {
       .user_data = nullptr,

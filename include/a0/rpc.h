@@ -72,6 +72,8 @@ a0_err_t a0_rpc_client_init(a0_rpc_client_t*, a0_rpc_topic_t, a0_alloc_t);
 a0_err_t a0_rpc_client_close(a0_rpc_client_t*);
 
 a0_err_t a0_rpc_client_send(a0_rpc_client_t*, a0_packet_t, a0_packet_callback_t);
+a0_err_t a0_rpc_client_send_blocking(a0_rpc_client_t*, a0_packet_t, a0_alloc_t, a0_packet_t* out);
+a0_err_t a0_rpc_client_send_blocking_timeout(a0_rpc_client_t*, a0_packet_t, a0_time_mono_t, a0_alloc_t, a0_packet_t* out);
 
 // Note: use the id from the packet used in a0_rpc_client_send.
 a0_err_t a0_rpc_client_cancel(a0_rpc_client_t*, const a0_uuid_t);
