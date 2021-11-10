@@ -140,7 +140,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp blocking") {
 
   REQUIRE(a0::RpcClient("test").send_blocking("send").payload() == "reply");
 
-  auto timeout = a0::TimeMono::now() + std::chrono::milliseconds(20);
+  auto timeout = a0::TimeMono::now() + std::chrono::milliseconds(a0::test::is_valgrind() ? 200 : 20);
   REQUIRE(a0::RpcClient("test").send_blocking("send", timeout).payload() == "reply");
 
   timeout = a0::TimeMono::now() + std::chrono::milliseconds(1);
