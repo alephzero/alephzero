@@ -379,6 +379,31 @@ TEST_CASE("file] readonly") {
   }
 }
 
+TEST_CASE("file] local address") {
+  static const char* TEST_FILE = "/tmp/test.file";
+  a0_file_remove(TEST_FILE);
+
+  a0_file_options_t opt = A0_FILE_OPTIONS_DEFAULT;
+  opt.open_options.local_address = 0x400000000000;
+
+  {
+    a0_file_t file;
+    REQUIRE_OK(a0_file_open(TEST_FILE, &opt, &file));
+    REQUIRE((uintptr_t)file.arena.buf.data == 0x400000000000);
+    // Note: this 3 will not be written to the file because of readonly mode.
+    file.arena.buf.data[0] = 3;
+    REQUIRE(file.arena.buf.data[0] == 3);
+    REQUIRE_OK(a0_file_close(&file));
+  }
+
+  {
+    a0_file_t file;
+    REQUIRE_OK(a0_file_open(TEST_FILE, &opt, &file));
+    REQUIRE(*(int*)0x400000000000 == 3);
+    REQUIRE_OK(a0_file_close(&file));
+  }
+}
+
 TEST_CASE("file] cpp") {
   {
     a0::File("/tmp/cpp/a/test.file");
@@ -453,4 +478,34 @@ TEST_CASE("file] cpp") {
         file.size();
       }(),
       "AlephZero method called with NULL object: size_t a0::File::size() const");
+}
+
+TEST_CASE("file] cpp local address") {
+  static const char* TEST_FILE = "/tmp/test.file";
+  a0::File::remove(TEST_FILE);
+
+  a0::File::Options opts = a0::File::Options::DEFAULT;
+  opts.open_options.local_address = 0x400000000000;
+
+  {
+    a0::File file(TEST_FILE, opts);
+    REQUIRE((uintptr_t)file.buf().data() == 0x400000000000);
+    // Note: this 3 will not be written to the file because of readonly mode.
+    file.buf().data()[0] = 3;
+    REQUIRE(file.buf().data()[0] == 3);
+  }
+
+  {
+    a0::File file(TEST_FILE, opts);
+    REQUIRE(*(int*)0x400000000000 == 3);
+  }
+
+  REQUIRE_THROWS_WITH(
+    [&]() {
+      std::unique_ptr<int> dummy(new int{42});
+      a0::File::Options opts = a0::File::Options::DEFAULT;
+      opts.open_options.local_address = (uintptr_t)dummy.get();
+      a0::File file(TEST_FILE, opts);
+    }(),
+    "Invalid argument");
 }

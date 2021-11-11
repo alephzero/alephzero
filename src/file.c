@@ -175,9 +175,10 @@ a0_err_t a0_mmap(a0_file_t* file, const a0_file_open_options_t* open_options) {
   if (open_options->arena_mode == A0_ARENA_MODE_READONLY) {
     mmap_flags = MAP_PRIVATE;
   }
+  mmap_flags |= MAP_FIXED_NOREPLACE;
 
   file->arena.buf.data = (uint8_t*)mmap(
-      /* addr   = */ 0,
+      /* addr   = */ (void*)open_options->local_address,
       /* len    = */ file->arena.buf.size,
       /* prot   = */ PROT_READ | PROT_WRITE,
       /* flags  = */ mmap_flags,
@@ -214,6 +215,7 @@ const a0_file_options_t A0_FILE_OPTIONS_DEFAULT = {
     },
     .open_options = {
         .arena_mode = A0_ARENA_MODE_SHARED,
+        .local_address = 0,
     },
 };
 

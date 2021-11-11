@@ -15,6 +15,7 @@ inline a0_file_options_t c_fileopts(File::Options opts) {
       },
       .open_options = {
           .arena_mode = opts.open_options.arena_mode,
+          .local_address = opts.open_options.local_address,
       },
   };
 }
