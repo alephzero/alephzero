@@ -382,6 +382,8 @@ TEST_CASE("file] readonly") {
 TEST_CASE("file] local address") {
   static const char* TEST_FILE = "/tmp/test.file";
   a0_file_remove(TEST_FILE);
+  static const char* TEST_FILE2 = "/tmp/test2.file";
+  a0_file_remove(TEST_FILE2);
 
   a0_file_options_t opt = A0_FILE_OPTIONS_DEFAULT;
   opt.open_options.local_address = 0x400000000000;
@@ -401,6 +403,14 @@ TEST_CASE("file] local address") {
     REQUIRE_OK(a0_file_open(TEST_FILE, &opt, &file));
     REQUIRE(*(int*)0x400000000000 == 3);
     REQUIRE_OK(a0_file_close(&file));
+  }
+
+  {
+    a0_file_t file_0;
+    a0_file_t file_1;
+    REQUIRE_OK(a0_file_open(TEST_FILE, &opt, &file_0));
+    REQUIRE(A0_SYSERR(a0_file_open(TEST_FILE2, &opt, &file_1)) == EEXIST);
+    REQUIRE_OK(a0_file_close(&file_0));
   }
 
   {
@@ -498,7 +508,6 @@ TEST_CASE("file] cpp local address") {
   {
     a0::File file(TEST_FILE, opts);
     REQUIRE((uintptr_t)file.buf().data() == 0x400000000000);
-    // Note: this 3 will not be written to the file because of readonly mode.
     file.buf().data()[0] = 3;
     REQUIRE(file.buf().data()[0] == 3);
   }
@@ -507,6 +516,13 @@ TEST_CASE("file] cpp local address") {
     a0::File file(TEST_FILE, opts);
     REQUIRE(*(int*)0x400000000000 == 3);
   }
+
+  REQUIRE_THROWS_WITH(
+    [&]() {
+      a0::File file(TEST_FILE, opts);
+      a0::File file2(TEST_FILE, opts);
+    }(),
+    "File exists");
 
   REQUIRE_THROWS_WITH(
     [&]() {

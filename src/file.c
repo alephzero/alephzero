@@ -171,11 +171,27 @@ a0_err_t a0_mmap(a0_file_t* file, const a0_file_open_options_t* open_options) {
   file->arena.mode = open_options->arena_mode;
   file->arena.buf.size = file->stat.st_size;
 
-  int mmap_flags = MAP_SHARED;
+  int mmap_flags = 0;
+
   if (open_options->arena_mode == A0_ARENA_MODE_READONLY) {
-    mmap_flags = MAP_PRIVATE;
+    mmap_flags |= MAP_PRIVATE;
+  } else {
+    mmap_flags |= MAP_SHARED;
   }
-  mmap_flags |= MAP_FIXED_NOREPLACE;
+
+  // Required for Ubuntu 18.04 Bionic.
+#ifndef MAP_FIXED_NOREPLACE
+#define A0_ADDED_MAP_FIXED_NOREPLACE
+#define MAP_FIXED_NOREPLACE 0x100000
+#endif  // MAP_FIXED_NOREPLACE
+
+  if (open_options->local_address) {
+    mmap_flags |= MAP_FIXED_NOREPLACE;
+  }
+
+#ifdef A0_ADDED_MAP_FIXED_NOREPLACE
+#undef MAP_FIXED_NOREPLACE
+#endif
 
   file->arena.buf.data = (uint8_t*)mmap(
       /* addr   = */ (void*)open_options->local_address,
