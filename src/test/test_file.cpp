@@ -402,6 +402,14 @@ TEST_CASE("file] local address") {
     REQUIRE(*(int*)0x400000000000 == 3);
     REQUIRE_OK(a0_file_close(&file));
   }
+
+  {
+    a0_file_options_t opt = A0_FILE_OPTIONS_DEFAULT;
+    opt.open_options.local_address = (uintptr_t)&opt;
+
+    a0_file_t file;
+    REQUIRE(A0_SYSERR(a0_file_open(TEST_FILE, &opt, &file)) == EINVAL);
+  }
 }
 
 TEST_CASE("file] cpp") {
