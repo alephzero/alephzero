@@ -237,10 +237,15 @@ a0_err_t a0_transport_iter_valid(a0_transport_locked_t lk, bool* out) {
 }
 
 a0_err_t a0_transport_jump(a0_transport_locked_t lk, size_t off) {
+  if (a0_max_align(off) != off) {
+    return A0_ERR_RANGE;
+  }
+
   a0_transport_hdr_t* hdr = a0_transport_header(lk);
   if (off + sizeof(a0_transport_frame_hdr_t) >= hdr->arena_size) {
     return A0_ERR_RANGE;
   }
+
   a0_transport_frame_hdr_t* frame_hdr = a0_transport_frame_header(lk, off);
   if (off + sizeof(a0_transport_frame_hdr_t) + frame_hdr->data_size >= hdr->arena_size) {
     return A0_ERR_RANGE;

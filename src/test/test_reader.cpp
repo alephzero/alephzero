@@ -575,7 +575,6 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "read] cpp random access") {
       });
 }
 
-
 struct ReaderSyncFixture : ReaderBaseFixture {
   a0_reader_sync_t rs;
 

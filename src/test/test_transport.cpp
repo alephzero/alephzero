@@ -20,6 +20,7 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -541,13 +542,28 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(a0::test::str(frame) == "CCC");
 
-  REQUIRE_OK(a0_transport_jump(lk, 4055));
-  REQUIRE(a0_transport_jump(lk, 4056) == A0_ERR_RANGE);
+  // Not aligned.
+  REQUIRE(a0_transport_jump(lk, 13) == A0_ERR_RANGE);
 
-  auto* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)lk.transport->_arena.buf.data + 4055);
+  // Aligned.
+  REQUIRE_OK(a0_transport_jump(lk, 2000));
+
+  // Enough space for frame header.
+  REQUIRE_OK(a0_transport_resize(lk, 2000 + sizeof(a0_transport_frame_hdr_t) + 1));
+  REQUIRE_OK(a0_transport_jump(lk, 2000));
+
+  // Not enough space for frame header.
+  REQUIRE_OK(a0_transport_resize(lk, 2000 + sizeof(a0_transport_frame_hdr_t)));
+  REQUIRE(a0_transport_jump(lk, 2000) == A0_ERR_RANGE);
+
+  // Enough space for frame body.
+  REQUIRE_OK(a0_transport_resize(lk, 2000 + sizeof(a0_transport_frame_hdr_t) + 1));
+  auto* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)lk.transport->_arena.buf.data + 2000);
+  REQUIRE(!frame_hdr->data_size);
+
+  // Not enough space for frame body.
   frame_hdr->data_size = 1;
-
-  REQUIRE(a0_transport_jump(lk, 4055) == A0_ERR_RANGE);
+  REQUIRE(a0_transport_jump(lk, 2000) == A0_ERR_RANGE);
 
   REQUIRE_OK(a0_transport_unlock(lk));
 }
@@ -633,17 +649,33 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
   tlk.jump(off_C);
   REQUIRE(a0::test::str(tlk.frame()) == "CCC");
 
+  // Not aligned.
   REQUIRE_THROWS_WITH(
-      tlk.jump(4056),
+      tlk.jump(13),
       "Index out of bounds");
 
-  tlk.jump(4055);
+  // Aligned.
+  tlk.jump(2000);
 
-  auto* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)tlk.c->transport->_arena.buf.data + 4055);
-  frame_hdr->data_size = 1;
+  // Enough space for frame header.
+  tlk.resize(2000 + sizeof(a0_transport_frame_hdr_t) + 1);
+  tlk.jump(2000);
 
+  // Not enough space for frame header.
+  tlk.resize(2000 + sizeof(a0_transport_frame_hdr_t));
   REQUIRE_THROWS_WITH(
-      tlk.jump(4055),
+      tlk.jump(2000),
+      "Index out of bounds");
+
+  // Enough space for frame body.
+  tlk.resize(2000 + sizeof(a0_transport_frame_hdr_t) + 1);
+  auto* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)tlk.c->transport->_arena.buf.data + 2000);
+  REQUIRE(!frame_hdr->data_size);
+
+  // Not enough space for frame body.
+  frame_hdr->data_size = 1;
+  REQUIRE_THROWS_WITH(
+      tlk.jump(2000),
       "Index out of bounds");
 }
 
