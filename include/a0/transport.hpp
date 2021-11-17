@@ -25,6 +25,7 @@ struct TransportLocked : details::CppWrap<a0_transport_locked_t> {
   bool iter_valid() const;
   Frame frame() const;
 
+  void jump(size_t off);
   void jump_head();
   void jump_tail();
   bool has_next() const;

@@ -174,6 +174,9 @@ a0_err_t a0_reader_close(a0_reader_t*);
 
 /** @}*/
 
+/// ...
+a0_err_t a0_read_random_access(a0_arena_t, size_t off, a0_zero_copy_callback_t);
+
 #ifdef __cplusplus
 }
 #endif

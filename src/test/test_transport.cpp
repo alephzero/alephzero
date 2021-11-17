@@ -20,6 +20,7 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -475,6 +476,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
+  size_t off_A = frame.hdr.off;
 
   bool has_next;
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
@@ -488,6 +490,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "BB");
+  size_t off_B = frame.hdr.off;
 
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
   REQUIRE(has_next);
@@ -496,6 +499,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 3);
   REQUIRE(a0::test::str(frame) == "CCC");
+  size_t off_C = frame.hdr.off;
 
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
   REQUIRE(!has_next);
@@ -525,6 +529,41 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
+
+  REQUIRE_OK(a0_transport_jump(lk, off_A));
+  REQUIRE_OK(a0_transport_frame(lk, &frame));
+  REQUIRE(a0::test::str(frame) == "A");
+
+  REQUIRE_OK(a0_transport_jump(lk, off_B));
+  REQUIRE_OK(a0_transport_frame(lk, &frame));
+  REQUIRE(a0::test::str(frame) == "BB");
+
+  REQUIRE_OK(a0_transport_jump(lk, off_C));
+  REQUIRE_OK(a0_transport_frame(lk, &frame));
+  REQUIRE(a0::test::str(frame) == "CCC");
+
+  // Not aligned.
+  REQUIRE(a0_transport_jump(lk, 13) == A0_ERR_RANGE);
+
+  // Aligned.
+  REQUIRE_OK(a0_transport_jump(lk, 2000));
+
+  // Enough space for frame header.
+  REQUIRE_OK(a0_transport_resize(lk, 2000 + sizeof(a0_transport_frame_hdr_t) + 1));
+  REQUIRE_OK(a0_transport_jump(lk, 2000));
+
+  // Not enough space for frame header.
+  REQUIRE_OK(a0_transport_resize(lk, 2000 + sizeof(a0_transport_frame_hdr_t)));
+  REQUIRE(a0_transport_jump(lk, 2000) == A0_ERR_RANGE);
+
+  // Enough space for frame body.
+  REQUIRE_OK(a0_transport_resize(lk, 2000 + sizeof(a0_transport_frame_hdr_t) + 1));
+  auto* frame_hdr = (a0_transport_frame_hdr_t*)(lk.transport->_arena.buf.data + 2000);
+  REQUIRE(!frame_hdr->data_size);
+
+  // Not enough space for frame body.
+  frame_hdr->data_size = 1;
+  REQUIRE(a0_transport_jump(lk, 2000) == A0_ERR_RANGE);
 
   REQUIRE_OK(a0_transport_unlock(lk));
 }
@@ -557,6 +596,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
   auto frame = tlk.frame();
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
+  size_t off_A = frame.hdr.off;
 
   REQUIRE(tlk.has_next());
   REQUIRE(!tlk.has_prev());
@@ -565,6 +605,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
   frame = tlk.frame();
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "BB");
+  size_t off_B = frame.hdr.off;
 
   REQUIRE(tlk.has_next());
 
@@ -572,6 +613,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
   frame = tlk.frame();
   REQUIRE(frame.hdr.seq == 3);
   REQUIRE(a0::test::str(frame) == "CCC");
+  size_t off_C = frame.hdr.off;
 
   REQUIRE(!tlk.has_next());
   REQUIRE(tlk.has_prev());
@@ -597,6 +639,44 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
   frame = tlk.frame();
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
+
+  tlk.jump(off_A);
+  REQUIRE(a0::test::str(tlk.frame()) == "A");
+
+  tlk.jump(off_B);
+  REQUIRE(a0::test::str(tlk.frame()) == "BB");
+
+  tlk.jump(off_C);
+  REQUIRE(a0::test::str(tlk.frame()) == "CCC");
+
+  // Not aligned.
+  REQUIRE_THROWS_WITH(
+      tlk.jump(13),
+      "Index out of bounds");
+
+  // Aligned.
+  tlk.jump(2000);
+
+  // Enough space for frame header.
+  tlk.resize(2000 + sizeof(a0_transport_frame_hdr_t) + 1);
+  tlk.jump(2000);
+
+  // Not enough space for frame header.
+  tlk.resize(2000 + sizeof(a0_transport_frame_hdr_t));
+  REQUIRE_THROWS_WITH(
+      tlk.jump(2000),
+      "Index out of bounds");
+
+  // Enough space for frame body.
+  tlk.resize(2000 + sizeof(a0_transport_frame_hdr_t) + 1);
+  auto* frame_hdr = (a0_transport_frame_hdr_t*)(tlk.c->transport->_arena.buf.data + 2000);
+  REQUIRE(!frame_hdr->data_size);
+
+  // Not enough space for frame body.
+  frame_hdr->data_size = 1;
+  REQUIRE_THROWS_WITH(
+      tlk.jump(2000),
+      "Index out of bounds");
 }
 
 TEST_CASE_FIXTURE(TransportFixture, "transport] empty jumps") {
@@ -1456,6 +1536,16 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp timedwait") {
   REQUIRE_THROWS_WITH(
       tlk.wait_for([]() { return false; }, std::chrono::nanoseconds((uint64_t)1e6)),
       strerror(ETIMEDOUT));
+}
+
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp pred throws") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::TransportLocked tlk = transport.lock();
+
+  std::string want_throw(1023, 'x');
+  REQUIRE_THROWS_WITH(
+      tlk.wait([]() -> bool { throw std::runtime_error(std::string(2048, 'x')); }),
+      want_throw.c_str());
 }
 
 TEST_CASE_FIXTURE(TransportFixture, "transport] disk await") {

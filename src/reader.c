@@ -493,3 +493,23 @@ a0_err_t a0_reader_init(a0_reader_t* reader,
 a0_err_t a0_reader_close(a0_reader_t* reader) {
   return a0_reader_zc_close(&reader->_reader_zc);
 }
+
+a0_err_t a0_read_random_access(a0_arena_t arena, size_t off, a0_zero_copy_callback_t cb) {
+  a0_transport_t transport;
+  A0_RETURN_ERR_ON_ERR(a0_transport_init(&transport, arena));
+
+  a0_transport_locked_t tlk;
+  A0_RETURN_ERR_ON_ERR(a0_transport_lock(&transport, &tlk));
+
+  a0_err_t err = a0_transport_jump(tlk, off);
+  if (err) {
+    a0_transport_unlock(tlk);
+    return err;
+  }
+  a0_transport_frame_t frame;
+  a0_transport_frame(tlk, &frame);
+
+  cb.fn(cb.user_data, tlk, (a0_flat_packet_t){{frame.data, frame.hdr.data_size}});
+
+  return a0_transport_unlock(tlk);
+}
