@@ -92,8 +92,8 @@ a0::Subscriber sub(
     "my_pubsub_topic",
     A0_INIT_AWAIT_NEW,  // or MOST_RECENT or OLDEST
     A0_ITER_NEWEST,     // or NEXT
-    [](a0::PacketView pkt_view) {
-      std::cout << "Got: " << pkt_view.payload() << std::endl;
+    [](a0::Packet pkt) {
+      std::cout << "Got: " << pkt.payload() << std::endl;
     });
 ```
 The callback will trigger whenever a message is published.
@@ -113,8 +113,8 @@ The `A0_ITER` tells the subscriber how to continue reading messages. After each 
 a0::SubscriberSync sub_sync(
     "my_pubsub_topic",
     A0_INIT_OLDEST, A0_ITER_NEXT);
-while (sub_sync.has_next()) {
-  auto pkt = sub_sync.next();
+while (sub_sync.can_read()) {
+  auto pkt = sub_sync.read();
   std::cout << "Got: " << pkt.payload() << std::endl;
 }
 ```
@@ -137,7 +137,7 @@ Create an `RpcClient`:
 
 ```cc
 a0::RpcClient client("my_rpc_topic");
-client.send("client msg", [](a0::PacketView reply) {
+client.send("client msg", [](a0::Packet reply) {
   std::cout << "Got: " << reply.payload() << std::endl;
 });
 ```
