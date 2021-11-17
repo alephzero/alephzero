@@ -558,7 +558,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
 
   // Enough space for frame body.
   REQUIRE_OK(a0_transport_resize(lk, 2000 + sizeof(a0_transport_frame_hdr_t) + 1));
-  auto* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)lk.transport->_arena.buf.data + 2000);
+  auto* frame_hdr = (a0_transport_frame_hdr_t*)(lk.transport->_arena.buf.data + 2000);
   REQUIRE(!frame_hdr->data_size);
 
   // Not enough space for frame body.
@@ -669,7 +669,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
 
   // Enough space for frame body.
   tlk.resize(2000 + sizeof(a0_transport_frame_hdr_t) + 1);
-  auto* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)tlk.c->transport->_arena.buf.data + 2000);
+  auto* frame_hdr = (a0_transport_frame_hdr_t*)(tlk.c->transport->_arena.buf.data + 2000);
   REQUIRE(!frame_hdr->data_size);
 
   // Not enough space for frame body.
@@ -1542,9 +1542,10 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp pred throws") {
   a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
   a0::TransportLocked tlk = transport.lock();
 
+  std::string want_throw(1023, 'x');
   REQUIRE_THROWS_WITH(
       tlk.wait([]() -> bool { throw std::runtime_error(std::string(2048, 'x')); }),
-      std::string(1024, 'x').c_str());
+      want_throw.c_str());
 }
 
 TEST_CASE_FIXTURE(TransportFixture, "transport] disk await") {
