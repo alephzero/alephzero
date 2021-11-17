@@ -493,6 +493,89 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] blocking new not availab
   join_threads();
 }
 
+TEST_CASE_FIXTURE(ReaderSyncZCFixture, "read] random access") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  REQUIRE_OK(a0_reader_sync_zc_init(&rsz, arena, A0_INIT_OLDEST, A0_ITER_NEXT));
+
+  size_t off_0 = 0;
+  a0_zero_copy_callback_t cb_0 = {
+      .user_data = &off_0,
+      .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t) {
+        a0_transport_frame_t frame;
+        a0_transport_frame(tlk, &frame);
+        *(size_t*)user_data = frame.hdr.off;
+      },
+  };
+  REQUIRE_OK(a0_reader_sync_zc_read_blocking(&rsz, cb_0));
+  REQUIRE(off_0 == 144);
+
+  size_t off_1 = 0;
+  a0_zero_copy_callback_t cb_1 = {
+      .user_data = &off_1,
+      .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t) {
+        a0_transport_frame_t frame;
+        a0_transport_frame(tlk, &frame);
+        *(size_t*)user_data = frame.hdr.off;
+      },
+  };
+  REQUIRE_OK(a0_reader_sync_zc_read_blocking(&rsz, cb_1));
+  REQUIRE(off_1 == 256);
+
+  REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
+
+  a0_zero_copy_callback_t verify_0 = {
+      .user_data = nullptr,
+      .fn = [](void*, a0_transport_locked_t, a0_flat_packet_t fpkt) {
+        REQUIRE(a0::test::pkt_cmp(a0::test::pkt("pkt_0"), a0::test::unflatten(fpkt)).content_match);
+      },
+  };
+  REQUIRE_OK(a0_read_random_access(arena, off_0, verify_0));
+
+  a0_zero_copy_callback_t verify_1 = {
+      .user_data = nullptr,
+      .fn = [](void*, a0_transport_locked_t, a0_flat_packet_t fpkt) {
+        REQUIRE(a0::test::pkt_cmp(a0::test::pkt("pkt_1"), a0::test::unflatten(fpkt)).content_match);
+      },
+  };
+  REQUIRE_OK(a0_read_random_access(arena, off_1, verify_1));
+}
+
+TEST_CASE_FIXTURE(ReaderSyncZCFixture, "read] cpp random access") {
+  push_pkt("pkt_0");
+  push_pkt("pkt_1");
+
+  a0::ReaderSyncZeroCopy cpp_rsz(a0::cpp_wrap<a0::Arena>(arena), A0_INIT_OLDEST, A0_ITER_NEXT);
+
+  size_t off_0 = 0;
+  cpp_rsz.read([&](a0::TransportLocked tlk, a0::FlatPacket) {
+    off_0 = tlk.frame().hdr.off;
+  });
+  REQUIRE(off_0 == 144);
+
+  size_t off_1 = 0;
+  cpp_rsz.read([&](a0::TransportLocked tlk, a0::FlatPacket) {
+    off_1 = tlk.frame().hdr.off;
+  });
+  REQUIRE(off_1 == 256);
+
+  a0::read_random_access(
+      a0::cpp_wrap<a0::Arena>(arena),
+      off_0,
+      [](a0::TransportLocked, a0::FlatPacket fpkt) {
+        REQUIRE(fpkt.payload() == "pkt_0");
+      });
+
+  a0::read_random_access(
+      a0::cpp_wrap<a0::Arena>(arena),
+      off_1,
+      [](a0::TransportLocked, a0::FlatPacket fpkt) {
+        REQUIRE(fpkt.payload() == "pkt_1");
+      });
+}
+
+
 struct ReaderSyncFixture : ReaderBaseFixture {
   a0_reader_sync_t rs;
 

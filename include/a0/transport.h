@@ -194,6 +194,11 @@ a0_err_t a0_transport_empty(a0_transport_locked_t, bool*);
 a0_err_t a0_transport_nonempty(a0_transport_locked_t, bool*);
 /// Checks whether the user's transport pointer is valid.
 a0_err_t a0_transport_iter_valid(a0_transport_locked_t, bool*);
+/// Moves the user's transport pointer to the given offset.
+///
+/// Be careful! There is no validation that the offset is the
+/// start of a valid frame.
+a0_err_t a0_transport_jump(a0_transport_locked_t, size_t off);
 /// Moves the user's transport pointer to the oldest frame.
 ///
 /// Note that this is inclusive.

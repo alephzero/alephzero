@@ -43,4 +43,6 @@ struct Reader : details::CppWrap<a0_reader_t> {
   Reader(Arena, ReaderInit, ReaderIter, std::function<void(Packet)>);
 };
 
+void read_random_access(Arena, size_t off, std::function<void(TransportLocked, FlatPacket)>);
+
 }  // namespace a0

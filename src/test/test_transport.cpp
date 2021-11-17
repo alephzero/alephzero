@@ -475,6 +475,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
+  size_t off_A = frame.hdr.off;
 
   bool has_next;
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
@@ -488,6 +489,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "BB");
+  size_t off_B = frame.hdr.off;
 
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
   REQUIRE(has_next);
@@ -496,6 +498,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 3);
   REQUIRE(a0::test::str(frame) == "CCC");
+  size_t off_C = frame.hdr.off;
 
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
   REQUIRE(!has_next);
@@ -525,6 +528,26 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
+
+  REQUIRE_OK(a0_transport_jump(lk, off_A));
+  REQUIRE_OK(a0_transport_frame(lk, &frame));
+  REQUIRE(a0::test::str(frame) == "A");
+
+  REQUIRE_OK(a0_transport_jump(lk, off_B));
+  REQUIRE_OK(a0_transport_frame(lk, &frame));
+  REQUIRE(a0::test::str(frame) == "BB");
+
+  REQUIRE_OK(a0_transport_jump(lk, off_C));
+  REQUIRE_OK(a0_transport_frame(lk, &frame));
+  REQUIRE(a0::test::str(frame) == "CCC");
+
+  REQUIRE_OK(a0_transport_jump(lk, 4055));
+  REQUIRE(a0_transport_jump(lk, 4056) == A0_ERR_RANGE);
+
+  auto* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)lk.transport->_arena.buf.data + 4055);
+  frame_hdr->data_size = 1;
+
+  REQUIRE(a0_transport_jump(lk, 4055) == A0_ERR_RANGE);
 
   REQUIRE_OK(a0_transport_unlock(lk));
 }
@@ -557,6 +580,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
   auto frame = tlk.frame();
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
+  size_t off_A = frame.hdr.off;
 
   REQUIRE(tlk.has_next());
   REQUIRE(!tlk.has_prev());
@@ -565,6 +589,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
   frame = tlk.frame();
   REQUIRE(frame.hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "BB");
+  size_t off_B = frame.hdr.off;
 
   REQUIRE(tlk.has_next());
 
@@ -572,6 +597,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
   frame = tlk.frame();
   REQUIRE(frame.hdr.seq == 3);
   REQUIRE(a0::test::str(frame) == "CCC");
+  size_t off_C = frame.hdr.off;
 
   REQUIRE(!tlk.has_next());
   REQUIRE(tlk.has_prev());
@@ -597,6 +623,28 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
   frame = tlk.frame();
   REQUIRE(frame.hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
+
+  tlk.jump(off_A);
+  REQUIRE(a0::test::str(tlk.frame()) == "A");
+
+  tlk.jump(off_B);
+  REQUIRE(a0::test::str(tlk.frame()) == "BB");
+
+  tlk.jump(off_C);
+  REQUIRE(a0::test::str(tlk.frame()) == "CCC");
+
+  REQUIRE_THROWS_WITH(
+      tlk.jump(4056),
+      "Index out of bounds");
+
+  tlk.jump(4055);
+
+  auto* frame_hdr = (a0_transport_frame_hdr_t*)((uint8_t*)tlk.c->transport->_arena.buf.data + 4055);
+  frame_hdr->data_size = 1;
+
+  REQUIRE_THROWS_WITH(
+      tlk.jump(4055),
+      "Index out of bounds");
 }
 
 TEST_CASE_FIXTURE(TransportFixture, "transport] empty jumps") {
@@ -1456,6 +1504,15 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp timedwait") {
   REQUIRE_THROWS_WITH(
       tlk.wait_for([]() { return false; }, std::chrono::nanoseconds((uint64_t)1e6)),
       strerror(ETIMEDOUT));
+}
+
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp pred throws") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::TransportLocked tlk = transport.lock();
+
+  REQUIRE_THROWS_WITH(
+      tlk.wait([]() -> bool { throw std::runtime_error(std::string(2048, 'x')); }),
+      std::string(1024, 'x').c_str());
 }
 
 TEST_CASE_FIXTURE(TransportFixture, "transport] disk await") {

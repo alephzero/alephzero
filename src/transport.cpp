@@ -64,6 +64,11 @@ Frame TransportLocked::frame() const {
   return ret;
 }
 
+void TransportLocked::jump(size_t off) {
+  CHECK_C;
+  check(a0_transport_jump(*c, off));
+}
+
 void TransportLocked::jump_head() {
   CHECK_C;
   check(a0_transport_jump_head(*c));
