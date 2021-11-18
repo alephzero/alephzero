@@ -55,7 +55,7 @@ void a0_prpc_server_onpacket(void* data, a0_packet_t pkt) {
   } else if (!strcmp(type_hdr.val, PRPC_TYPE_CANCEL)) {
     if (server->_oncancel.fn) {
       a0_uuid_t uuid;
-      memcpy(uuid, pkt.payload.data, A0_UUID_SIZE);
+      memcpy(uuid, pkt.payload.data, sizeof(a0_uuid_t));
       server->_oncancel.fn(server->_oncancel.user_data, uuid);
     }
   }
@@ -281,7 +281,7 @@ a0_err_t a0_prpc_client_cancel(a0_prpc_client_t* client, const a0_uuid_t uuid) {
       .size = num_headers,
       .next_block = NULL,
   };
-  pkt.payload = (a0_buf_t){(uint8_t*)uuid, A0_UUID_SIZE};
+  pkt.payload = (a0_buf_t){(uint8_t*)uuid, sizeof(a0_uuid_t)};
 
   return a0_writer_write(&client->_connection_writer, pkt);
 }
