@@ -5,7 +5,6 @@
 #include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
-#include <a0/uuid.h>
 
 #include <sys/wait.h>
 #include <unistd.h>
@@ -15,7 +14,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -172,7 +170,7 @@ inline pkt_cmp_t pkt_cmp(a0_packet_t lhs, a0_packet_t rhs) {
   pkt_cmp_t ret;
   ret.payload_match = (str(lhs.payload) == str(rhs.payload));
   ret.content_match = ret.payload_match && (hdr(lhs) == hdr(rhs));
-  ret.full_match = ret.content_match && (memcmp(lhs.id, rhs.id, sizeof(a0_uuid_t)) == 0);
+  ret.full_match = ret.content_match && (std::string(lhs.id) == std::string(rhs.id));
   return ret;
 }
 

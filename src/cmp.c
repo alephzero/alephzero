@@ -188,7 +188,7 @@ const a0_hash_t A0_HASH_UUID = {
 
 a0_err_t a0_cmp_uuid_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
   A0_MAYBE_UNUSED(user_data);
-  *out = memcmp(*(a0_uuid_t*)lhs, *(a0_uuid_t*)rhs, A0_UUID_SIZE);
+  *out = memcmp(*(a0_uuid_t*)lhs, *(a0_uuid_t*)rhs, sizeof(a0_uuid_t));
   return A0_OK;
 }
 

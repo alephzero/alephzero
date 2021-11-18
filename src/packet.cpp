@@ -39,9 +39,8 @@ std::shared_ptr<a0_packet_t> make_cpp_packet(
         if (id.empty()) {
           // Create a new ID.
           A0_RETURN_ERR_ON_ERR(a0_packet_init(&*c));
-        } else if (id.size() == A0_UUID_SIZE - 1) {
-          memcpy(c->id, id.data(), A0_UUID_SIZE - 1);
-          c->id[A0_UUID_SIZE - 1] = '\0';
+        } else if (id.size() == A0_UUID_SIZE) {
+          memcpy(c->id, id.data(), sizeof(a0_uuid_t));
         } else {
           return A0_ERR_INVALID_ARG;
         }
@@ -145,7 +144,7 @@ string_view FlatPacket::id() const {
   CHECK_C;
   a0_uuid_t* uuid;
   check(a0_flat_packet_id(*c, &uuid));
-  return string_view(*uuid, sizeof(a0_uuid_t));
+  return string_view(*uuid, A0_UUID_SIZE);
 }
 
 string_view FlatPacket::payload() const {

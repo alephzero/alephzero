@@ -22,7 +22,7 @@ TEST_CASE("packet] init") {
   a0_packet_t pkt;
   REQUIRE_OK(a0_packet_init(&pkt));
 
-  for (int i = 0; i < 36; i++) {
+  for (int i = 0; i < A0_UUID_SIZE; i++) {
     if (i == 8 || i == 13 || i == 18 || i == 23) {
       REQUIRE(pkt.id[i] == '-');
     } else {
@@ -85,7 +85,7 @@ TEST_CASE("packet] stats") {
     // Serialized buffer has the content
     size_t want_serial_size = want_content_size;
     // and an ID
-    want_serial_size += A0_UUID_SIZE;
+    want_serial_size += sizeof(a0_uuid_t);
     // and the number of headers
     want_serial_size += sizeof(size_t);
     // and an offset for each header key & value
@@ -144,7 +144,7 @@ TEST_CASE("flat_packet] stats") {
     // Serialized buffer has the content
     size_t want_serial_size = want_content_size;
     // and an ID
-    want_serial_size += A0_UUID_SIZE;
+    want_serial_size += sizeof(a0_uuid_t);
     // and the number of headers
     want_serial_size += sizeof(size_t);
     // and an offset for each header key & value
@@ -163,7 +163,7 @@ TEST_CASE("flat_packet] id") {
     a0_uuid_t* fpkt_id;
     REQUIRE_OK(a0_flat_packet_id(fpkt, &fpkt_id));
 
-    REQUIRE(std::string(pkt.id).size() == 36);
+    REQUIRE(std::string(pkt.id).size() == A0_UUID_SIZE);
     REQUIRE(std::string(pkt.id) == std::string(*fpkt_id));
   });
 }
@@ -193,12 +193,12 @@ TEST_CASE("flat_packet] header") {
 TEST_CASE("packet] cpp") {
   a0::Packet pkt0;
   REQUIRE(pkt0.payload() == "");
-  REQUIRE(pkt0.id().size() == 36);
+  REQUIRE(pkt0.id().size() == A0_UUID_SIZE);
   REQUIRE(pkt0.headers().empty());
 
   a0::Packet pkt1({{"hdr-key", "hdr-val"}}, "Hello, World!");
   REQUIRE(pkt1.payload() == "Hello, World!");
-  REQUIRE(pkt1.id().size() == 36);
+  REQUIRE(pkt1.id().size() == A0_UUID_SIZE);
   REQUIRE(pkt1.headers() == std::unordered_multimap<std::string, std::string>{{"hdr-key", "hdr-val"}});
 
   a0::Packet pkt2 = pkt1;
@@ -211,7 +211,7 @@ TEST_CASE("packet] cpp") {
   a0::Packet pkt3("Hello, World!");
   REQUIRE(pkt3.payload() == "Hello, World!");
   REQUIRE(pkt3.headers().empty());
-  REQUIRE(pkt3.id().size() == 36);
+  REQUIRE(pkt3.id().size() == A0_UUID_SIZE);
 
   std::string owner = "Hello, World!";
 
@@ -230,7 +230,7 @@ TEST_CASE("flat_packet] cpp") {
     fpkt.c = std::make_shared<a0_flat_packet_t>();
     REQUIRE_OK(a0_packet_serialize(pkt, a0::test::alloc(), fpkt.c.get()));
 
-    REQUIRE(fpkt.id().size() == 37);
+    REQUIRE(fpkt.id().size() == A0_UUID_SIZE);
     REQUIRE(fpkt.num_headers() == 5);
 
     std::unordered_multimap<a0::string_view, a0::string_view> hdrs;
