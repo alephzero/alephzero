@@ -5,7 +5,6 @@
 #include <a0/err.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
-#include <a0/uuid.h>
 
 #include <sys/wait.h>
 #include <unistd.h>
@@ -15,7 +14,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <map>
 #include <memory>
 #include <mutex>
