@@ -26,6 +26,7 @@ File::Options File::Options::DEFAULT = {
     },
     .open_options = {
         .arena_mode = A0_FILE_OPTIONS_DEFAULT.open_options.arena_mode,
+        .local_address = A0_FILE_OPTIONS_DEFAULT.open_options.local_address,
     },
 };
 

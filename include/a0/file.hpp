@@ -27,6 +27,8 @@ struct File : details::CppWrap<a0_file_t> {
     struct OpenOptions {
       /// ...
       a0_arena_mode_t arena_mode;
+      /// ...
+      uintptr_t local_address;
     } open_options;
 
     /// Default file creation options.

@@ -79,6 +79,9 @@ typedef struct a0_file_open_options_s {
   /// It is unspecified whether changes made to the file are visible in
   /// the mapped region.
   a0_arena_mode_t arena_mode;
+  /// Local process address to place memory mapped data.
+  /// A value of 0 will auto-select an address.
+  uintptr_t local_address;
 } a0_file_open_options_t;
 
 /// File options.
