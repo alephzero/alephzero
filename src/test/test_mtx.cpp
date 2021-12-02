@@ -1,7 +1,4 @@
-#include <a0/arena.h>
-#include <a0/buf.h>
 #include <a0/empty.h>
-#include <a0/file.h>
 #include <a0/mtx.h>
 #include <a0/time.h>
 
@@ -14,45 +11,14 @@
 #include <cerrno>
 #include <chrono>
 #include <memory>
-#include <new>
-#include <string>
 #include <thread>
-#include <utility>
 #include <vector>
 
 #include "src/err_macro.h"
 #include "src/test_util.hpp"
 
 struct MtxTestFixture {
-  std::vector<a0_file_t> files;
-
-  MtxTestFixture() = default;
-
-  ~MtxTestFixture() {
-    for (auto&& file : files) {
-      a0_file_close(&file);
-      a0_file_remove(file.path);
-    }
-  }
-
-  uint8_t* ipc_buffer(uint32_t size) {
-    std::string name = "alephzero_test/mtx/buf_" + std::to_string(files.size());
-    a0_file_remove(name.c_str());
-
-    a0_file_t file;
-    a0_file_options_t fileopt = A0_FILE_OPTIONS_DEFAULT;
-    fileopt.create_options.size = size;
-    REQUIRE_OK(a0_file_open(name.c_str(), &fileopt, &file));
-    files.push_back(file);
-
-    return file.arena.buf.data;
-  }
-
-  template <typename T, typename... Args>
-  T* make_ipc(Args&&... args) {
-    auto* buf = ipc_buffer(sizeof(T));
-    return new (buf) T(std::forward<Args>(args)...);
-  }
+  a0::test::IpcPool ipc_pool;
 
   a0_time_mono_t delay(int64_t add_ns) {
     a0_time_mono_t now;
@@ -194,7 +160,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] unlock in wrong thread") {
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] trylock in different thread") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   event_t event_0;
   event_t event_1;
@@ -230,7 +196,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] timedlock") {
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] consistent call must be from owner") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
   event_t event_0;
@@ -249,9 +215,9 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] consistent call must be from owner") {
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] robust chain") {
-  auto* mtx1 = make_ipc<a0_mtx_t>();
-  auto* mtx2 = make_ipc<a0_mtx_t>();
-  auto* mtx3 = make_ipc<a0_mtx_t>();
+  auto* mtx1 = ipc_pool.make<a0_mtx_t>();
+  auto* mtx2 = ipc_pool.make<a0_mtx_t>();
+  auto* mtx3 = ipc_pool.make<a0_mtx_t>();
 
   REQUIRE_EXIT({
     REQUIRE_OK(a0_mtx_lock(mtx1));
@@ -273,7 +239,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] robust chain") {
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] multiple waiters") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   REQUIRE_OK(a0_mtx_lock(mtx));
 
@@ -294,7 +260,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] multiple waiters") {
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, not consistent, lock") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
@@ -304,7 +270,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, not consistent, lo
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, lock") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
@@ -316,7 +282,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, lock")
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, not consistent, trylock") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
@@ -326,7 +292,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, not consistent, tr
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, trylock") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
@@ -338,7 +304,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, tryloc
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] fuzz (lock, unlock)") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   auto body = [&]() {
     auto err = a0_mtx_lock(mtx);
@@ -365,7 +331,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] fuzz (lock, unlock)") {
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] fuzz (trylock, unlock)") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   auto body = [&]() {
     auto err = a0_mtx_trylock(mtx);
@@ -611,10 +577,10 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout") {
 }
 
 TEST_CASE_FIXTURE(MtxTestFixture, "cnd] robust") {
-  auto* cnd = make_ipc<a0_cnd_t>();
-  auto* mtx = make_ipc<a0_mtx_t>();
+  auto* cnd = ipc_pool.make<a0_cnd_t>();
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
-  latch_t* latch = make_ipc<latch_t>(2);
+  latch_t* latch = ipc_pool.make<latch_t>(2);
 
   auto child = a0::test::subproc([&]() {
     REQUIRE_OK(a0_mtx_lock(mtx));

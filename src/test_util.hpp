@@ -1,22 +1,27 @@
 #pragma once
 
 #include <a0/alloc.h>
+#include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/err.h>
+#include <a0/file.h>
 #include <a0/packet.h>
 #include <a0/transport.h>
 
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <condition_variable>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <new>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -229,12 +234,60 @@ class Event {
   }
 };
 
+inline std::string random_string(size_t length) {
+  auto randchar = []() -> char {
+    const char charset[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+    const size_t max_index = (sizeof(charset) - 1);
+    return charset[rand() % max_index];
+  };
+  std::string str(length, 0);
+  std::generate_n(str.begin(), length, randchar);
+  return str;
+}
+
+class IpcPool {
+  std::vector<a0_file_t> files;
+  std::string key{random_string(8)};
+
+ public:
+  ~IpcPool() {
+    for (auto&& file : files) {
+      std::string path = file.path;
+      a0_file_close(&file);
+      a0_file_remove(path.c_str());
+    }
+  }
+
+  uint8_t* make_buffer(uint32_t size) {
+    std::string name = "ipcpool/" + key + "_" + std::to_string(files.size());
+    a0_file_remove(name.c_str());
+
+    a0_file_t file;
+    a0_file_options_t fileopt = A0_FILE_OPTIONS_DEFAULT;
+    fileopt.create_options.size = size;
+    REQUIRE_OK(a0_file_open(name.c_str(), &fileopt, &file));
+    files.push_back(file);
+
+    return file.arena.buf.data;
+  }
+
+  template <typename T, typename... Args>
+  T* make(Args&&... args) {
+    auto* buf = make_buffer(sizeof(T));
+    return new (buf) T(std::forward<Args>(args)...);
+  }
+};
+
 inline bool is_valgrind() {
 #ifdef RUNNING_ON_VALGRIND
   return RUNNING_ON_VALGRIND;
-#endif
+#else
   char* env = getenv("RUNNING_ON_VALGRIND");
-  return env && std::string(env) != "0";
+  return env && memcmp(env, "0", 2);
+#endif
 }
 
 inline bool is_debug_mode() {
