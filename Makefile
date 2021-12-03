@@ -142,26 +142,26 @@ uninstall:
 	  $(DESTDIR)$(PREFIX)/lib/pkgconfig/$(A0).pc
 
 test: $(BIN_DIR)/test
-	$(BIN_DIR)/test
+	$(BIN_DIR)/test -tc="$(TESTCASE)"
 
 bench: $(BIN_DIR)/bench
 	$(BIN_DIR)/bench
 
 asan ubsan: $(BIN_DIR)/test
-	$(BIN_DIR)/test
+	$(BIN_DIR)/test -tc="$(TESTCASE)"
 
 tsan: $(BIN_DIR)/test
-	RUNNING_ON_VALGRIND=1 $(BIN_DIR)/test
+	RUNNING_ON_VALGRIND=1 $(BIN_DIR)/test -tc="$(TESTCASE)"
 
 valgrind: $(BIN_DIR)/test
 	@command -v valgrind >/dev/null 2>&1 || {                   \
 		echo "\e[01;31mError: valgrind is not installed\e[0m";  \
 		exit 1;                                                 \
 	}
-	RUNNING_ON_VALGRIND=1 valgrind --tool=memcheck --leak-check=yes -q ./bin/test
+	RUNNING_ON_VALGRIND=1 valgrind --tool=memcheck --leak-check=yes -q ./bin/test -tc="$(TESTCASE)"
 
 cov: $(BIN_DIR)/test
-	$(BIN_DIR)/test
+	$(BIN_DIR)/test -tc="$(TESTCASE)"
 	gcov -o $(OBJ_DIR) -bmr $(SRC_DIR)/*
 	gcov -o $(OBJ_DIR)/test -bmr $(SRC_DIR)/test/*
 

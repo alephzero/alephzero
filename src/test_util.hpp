@@ -281,6 +281,18 @@ class IpcPool {
   }
 };
 
+inline a0_time_mono_t timeout_in(std::chrono::nanoseconds dur) {
+  a0_time_mono_t now;
+  REQUIRE_OK(a0_time_mono_now(&now));
+  a0_time_mono_t target;
+  REQUIRE_OK(a0_time_mono_add(now, dur.count(), &target));
+  return target;
+}
+
+inline a0_time_mono_t timeout_now() {
+  return timeout_in(std::chrono::nanoseconds(0));
+}
+
 inline bool is_valgrind() {
 #ifdef RUNNING_ON_VALGRIND
   return RUNNING_ON_VALGRIND;

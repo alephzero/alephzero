@@ -29,6 +29,9 @@ struct RwmtxTestFixture {
   std::vector<std::string> history;
   std::mutex history_mtx;
 
+  std::chrono::nanoseconds short_sleep{std::chrono::milliseconds(10)};
+  std::chrono::nanoseconds long_sleep{std::chrono::milliseconds(50)};
+
   RwmtxTestFixture() {
     rmtx_span = {_slots, 4};
   }
@@ -36,7 +39,7 @@ struct RwmtxTestFixture {
   void push_history(std::string str) {
     std::unique_lock<std::mutex> lk{history_mtx};
     history.push_back(std::move(str));
-  };
+  }
 };
 
 TEST_CASE_FIXTURE(RwmtxTestFixture, "rwmtx] basic wlock") {
@@ -92,13 +95,13 @@ TEST_CASE_FIXTURE(RwmtxTestFixture, "rwmtx] wlock rlock") {
       a0_rwmtx_tkn_t tkn_r;
       REQUIRE_OK(a0_rwmtx_rlock(&rwmtx, rmtx_span, &tkn_r));
       push_history("r_lock");
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      std::this_thread::sleep_for(long_sleep);
       push_history("r_unlock");
       REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_r));
     });
   }
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  std::this_thread::sleep_for(long_sleep);
   push_history("w_unlock");
   REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_w));
 
@@ -123,13 +126,13 @@ TEST_CASE_FIXTURE(RwmtxTestFixture, "rwmtx] rlock wlock") {
       a0_rwmtx_tkn_t tkn_w;
       REQUIRE_OK(a0_rwmtx_wlock(&rwmtx, rmtx_span, &tkn_w));
       push_history("w_lock");
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      std::this_thread::sleep_for(long_sleep);
       push_history("w_unlock");
       REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_w));
     });
   }
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  std::this_thread::sleep_for(long_sleep);
   push_history("r_unlock");
   REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_r));
 
@@ -178,7 +181,7 @@ TEST_CASE_FIXTURE(RwmtxTestFixture, "rwmtx] tryrlock more than slots") {
       a0_rwmtx_tkn_t tkn;
       if (!a0_rwmtx_tryrlock(&rwmtx, rmtx_span, &tkn)) {
         lock_cnt++;
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(long_sleep);
         REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn));
       } else {
         nolock_cnt++;
@@ -213,14 +216,12 @@ TEST_CASE_FIXTURE(RwmtxTestFixture, "rwmtx] timedwlock success") {
   REQUIRE_OK(a0_rwmtx_wlock(&rwmtx, rmtx_span, &tkn_0));
 
   std::thread t([&]() {
-    auto timeout = a0::TimeMono::now() + std::chrono::milliseconds(50);
-
     a0_rwmtx_tkn_t tkn_1;
-    REQUIRE_OK(a0_rwmtx_timedwlock(&rwmtx, rmtx_span, *timeout.c, &tkn_1));
+    REQUIRE_OK(a0_rwmtx_timedwlock(&rwmtx, rmtx_span, a0::test::timeout_in(long_sleep), &tkn_1));
     REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_1));
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  std::this_thread::sleep_for(short_sleep);
   REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_0));
 
   t.join();
@@ -231,17 +232,59 @@ TEST_CASE_FIXTURE(RwmtxTestFixture, "rwmtx] timedwlock timeout") {
   REQUIRE_OK(a0_rwmtx_wlock(&rwmtx, rmtx_span, &tkn_0));
 
   std::thread t([&]() {
-    auto timeout = a0::TimeMono::now() + std::chrono::milliseconds(10);
-
     a0_rwmtx_tkn_t tkn_1;
-    REQUIRE(A0_SYSERR(a0_rwmtx_timedwlock(&rwmtx, rmtx_span, *timeout.c, &tkn_1))
+    REQUIRE(A0_SYSERR(a0_rwmtx_timedwlock(&rwmtx, rmtx_span, a0::test::timeout_in(short_sleep), &tkn_1))
             == ETIMEDOUT);
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  std::this_thread::sleep_for(long_sleep);
   REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_0));
 
   t.join();
+}
+
+TEST_CASE_FIXTURE(RwmtxTestFixture, "rwmtx] rlocks, then wlock") {
+  for (size_t i = 0; i < 6; i++) {
+    a0_rwmtx_tkn_t tkn_r;
+    REQUIRE_OK(a0_rwmtx_rlock(&rwmtx, rmtx_span, &tkn_r));
+    REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_r));
+  }
+  a0_rwmtx_tkn_t tkn_w;
+  REQUIRE_OK(a0_rwmtx_wlock(&rwmtx, rmtx_span, &tkn_w));
+  REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_w));
+}
+
+TEST_CASE_FIXTURE(RwmtxTestFixture, "rwmtx] rlocks, then trywlock") {
+  for (size_t i = 0; i < 6; i++) {
+    a0_rwmtx_tkn_t tkn_r;
+    REQUIRE_OK(a0_rwmtx_rlock(&rwmtx, rmtx_span, &tkn_r));
+    REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_r));
+  }
+  a0_rwmtx_tkn_t tkn_w;
+  REQUIRE_OK(a0_rwmtx_trywlock(&rwmtx, rmtx_span, &tkn_w));
+  REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_w));
+}
+
+TEST_CASE_FIXTURE(RwmtxTestFixture, "rwmtx] rlocks, then timedwlock") {
+  for (size_t i = 0; i < 6; i++) {
+    a0_rwmtx_tkn_t tkn_r;
+    REQUIRE_OK(a0_rwmtx_rlock(&rwmtx, rmtx_span, &tkn_r));
+    REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_r));
+  }
+  a0_rwmtx_tkn_t tkn_w;
+  REQUIRE_OK(a0_rwmtx_trywlock(&rwmtx, rmtx_span, &tkn_w));
+  REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_w));
+}
+
+TEST_CASE_FIXTURE(RwmtxTestFixture, "rwmtx] trywlock with active rlock") {
+  a0_rwmtx_tkn_t tkn_r;
+  REQUIRE_OK(a0_rwmtx_rlock(&rwmtx, rmtx_span, &tkn_r));
+
+  a0_rwmtx_tkn_t tkn_w;
+  REQUIRE(A0_SYSERR(a0_rwmtx_trywlock(&rwmtx, rmtx_span, &tkn_w))
+          == EBUSY);
+
+  REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_r));
 }
 
 TEST_CASE("rwmtx] wlock died") {
