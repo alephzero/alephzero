@@ -27,11 +27,11 @@ extern "C" {
 // found to have died.
 typedef struct a0_rwmtx_s {
   // guard protects changes to the internal state of the rwmtx.
-  a0_mtx_t guard;
+  a0_mtx_t _guard;
   // cnd is used to wait on changes, blocked by guard.
-  a0_cnd_t cnd;
+  a0_cnd_t _cnd;
   // wmtx is the exclusive write mutex.
-  a0_mtx_t wmtx;
+  a0_mtx_t _wmtx;
 
   // _next_rmtx_idx is an internal accounting variable, used to speed up operations.
   size_t _next_rmtx_idx;
@@ -48,7 +48,7 @@ typedef struct a0_rwmtx_rmtx_span_s {
 // Token emitted by a locking operation.
 // Used to efficiently unlock.
 typedef struct a0_rwmtx_tkn_s {
-  a0_mtx_t* mtx;
+  a0_mtx_t* _mtx;
 } a0_rwmtx_tkn_t;
 
 a0_err_t a0_rwmtx_rlock(a0_rwmtx_t*, a0_rwmtx_rmtx_span_t, a0_rwmtx_tkn_t*);
@@ -61,6 +61,17 @@ a0_err_t a0_rwmtx_timedrlock(a0_rwmtx_t*, a0_rwmtx_rmtx_span_t, a0_time_mono_t, 
 a0_err_t a0_rwmtx_timedwlock(a0_rwmtx_t*, a0_rwmtx_rmtx_span_t, a0_time_mono_t, a0_rwmtx_tkn_t*);
 
 a0_err_t a0_rwmtx_unlock(a0_rwmtx_t*, a0_rwmtx_tkn_t);
+
+
+typedef struct a0_rwcnd_s {
+  a0_mtx_t _mtx;
+  a0_cnd_t _cnd;
+} a0_rwcnd_t;
+
+a0_err_t a0_rwcnd_wait(a0_rwcnd_t*, a0_rwmtx_t*, a0_rwmtx_rmtx_span_t, a0_rwmtx_tkn_t*);
+a0_err_t a0_rwcnd_timedwait(a0_rwcnd_t*, a0_rwmtx_t*, a0_rwmtx_rmtx_span_t, a0_time_mono_t, a0_rwmtx_tkn_t*);
+a0_err_t a0_rwcnd_signal(a0_rwcnd_t*);
+a0_err_t a0_rwcnd_broadcast(a0_rwcnd_t*);
 
 #ifdef __cplusplus
 }

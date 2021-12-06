@@ -318,3 +318,41 @@ TEST_CASE("rwmtx] rlock died") {
   REQUIRE_OK(a0_rwmtx_wlock(rwmtx, rmtx_span, &tkn));
   REQUIRE_OK(a0_rwmtx_unlock(rwmtx, tkn));
 }
+
+TEST_CASE_FIXTURE(RwmtxTestFixture, "rwcnd] simple signal wait wlock") {
+  a0_rwcnd_t rwcnd = A0_EMPTY;
+
+  a0_rwmtx_tkn_t tkn_0;
+  REQUIRE_OK(a0_rwmtx_wlock(&rwmtx, rmtx_span, &tkn_0));
+
+  std::thread t([&]() {
+    a0_rwmtx_tkn_t tkn_1;
+    REQUIRE_OK(a0_rwmtx_wlock(&rwmtx, rmtx_span, &tkn_1));
+    REQUIRE_OK(a0_rwcnd_signal(&rwcnd));
+    REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_1));
+  });
+
+  REQUIRE_OK(a0_rwcnd_wait(&rwcnd, &rwmtx, rmtx_span, &tkn_0));
+  REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_0));
+
+  t.join();
+}
+
+TEST_CASE_FIXTURE(RwmtxTestFixture, "rwcnd] simple signal wait rlock") {
+  a0_rwcnd_t rwcnd = A0_EMPTY;
+
+  a0_rwmtx_tkn_t tkn_0;
+  REQUIRE_OK(a0_rwmtx_rlock(&rwmtx, rmtx_span, &tkn_0));
+
+  std::thread t([&]() {
+    a0_rwmtx_tkn_t tkn_1;
+    REQUIRE_OK(a0_rwmtx_wlock(&rwmtx, rmtx_span, &tkn_1));
+    REQUIRE_OK(a0_rwcnd_signal(&rwcnd));
+    REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_1));
+  });
+
+  REQUIRE_OK(a0_rwcnd_wait(&rwcnd, &rwmtx, rmtx_span, &tkn_0));
+  REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_0));
+
+  t.join();
+}
