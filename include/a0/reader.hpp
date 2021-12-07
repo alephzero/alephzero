@@ -18,9 +18,9 @@ struct ReaderSyncZeroCopy : details::CppWrap<a0_reader_sync_zc_t> {
   ReaderSyncZeroCopy(Arena, ReaderInit, ReaderIter);
 
   bool can_read();
-  void read(std::function<void(TransportLocked, FlatPacket)>);
-  void read_blocking(std::function<void(TransportLocked, FlatPacket)>);
-  void read_blocking(TimeMono, std::function<void(TransportLocked, FlatPacket)>);
+  void read(std::function<void(TransportReaderLocked, FlatPacket)>);
+  void read_blocking(std::function<void(TransportReaderLocked, FlatPacket)>);
+  void read_blocking(TimeMono, std::function<void(TransportReaderLocked, FlatPacket)>);
 };
 
 struct ReaderSync : details::CppWrap<a0_reader_sync_t> {
@@ -35,7 +35,7 @@ struct ReaderSync : details::CppWrap<a0_reader_sync_t> {
 
 struct ReaderZeroCopy : details::CppWrap<a0_reader_zc_t> {
   ReaderZeroCopy() = default;
-  ReaderZeroCopy(Arena, ReaderInit, ReaderIter, std::function<void(TransportLocked, FlatPacket)>);
+  ReaderZeroCopy(Arena, ReaderInit, ReaderIter, std::function<void(TransportReaderLocked, FlatPacket)>);
 };
 
 struct Reader : details::CppWrap<a0_reader_t> {
@@ -43,6 +43,6 @@ struct Reader : details::CppWrap<a0_reader_t> {
   Reader(Arena, ReaderInit, ReaderIter, std::function<void(Packet)>);
 };
 
-void read_random_access(Arena, size_t off, std::function<void(TransportLocked, FlatPacket)>);
+void read_random_access(Arena, size_t off, std::function<void(TransportReaderLocked, FlatPacket)>);
 
 }  // namespace a0

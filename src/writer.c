@@ -27,12 +27,12 @@ a0_err_t a0_writer_write_impl(a0_middleware_chain_node_t node, a0_packet_t* pkt)
       ._node = {
           ._curr = node._curr->_next,
           ._head = node._head,
-          ._tlk = node._tlk,
+          ._twl = node._twl,
       },
       ._chain_fn = a0_writer_write_impl,
   };
 
-  if (!node._tlk.transport) {
+  if (!node._twl) {
     if (!action.process) {
       return a0_middleware_chain(chain, pkt);
     }
@@ -41,67 +41,67 @@ a0_err_t a0_writer_write_impl(a0_middleware_chain_node_t node, a0_packet_t* pkt)
     if (!action.process_locked) {
       return a0_middleware_chain(chain, pkt);
     }
-    return action.process_locked(action.user_data, node._tlk, pkt, chain);
+    return action.process_locked(action.user_data, node._twl, pkt, chain);
   }
 }
 
 A0_STATIC_INLINE
 a0_err_t a0_write_action_init(a0_arena_t arena, void** user_data) {
-  a0_transport_t transport;
-  A0_RETURN_ERR_ON_ERR(a0_transport_init(&transport, arena));
+  a0_transport_writer_t tw;
+  A0_RETURN_ERR_ON_ERR(a0_transport_writer_init(&tw, arena));
 
 #ifdef DEBUG
   A0_ASSERT_OK(a0_ref_cnt_inc(arena.buf.data, NULL), "");
 #endif
 
-  a0_transport_t* heap_transport = (a0_transport_t*)malloc(sizeof(a0_transport_t));
-  *heap_transport = transport;
-  *user_data = heap_transport;
+  a0_transport_writer_t* heap_tw = (a0_transport_writer_t*)malloc(sizeof(a0_transport_writer_t));
+  *heap_tw = tw;
+  *user_data = heap_tw;
 
   return A0_OK;
 }
 
 A0_STATIC_INLINE
 a0_err_t a0_write_action_close(void* user_data) {
-  a0_transport_t* transport = (a0_transport_t*)user_data;
+  a0_transport_writer_t* tw = (a0_transport_writer_t*)user_data;
 
 #ifdef DEBUG
   A0_ASSERT_OK(
-      a0_ref_cnt_dec(transport->_arena.buf.data, NULL),
+      a0_ref_cnt_dec(tw->_arena.buf.data, NULL),
       "Writer closing. User bug detected. Dependent arena was closed prior to writer.");
 #endif
 
-  free(transport);
+  free(tw);
 
   return A0_OK;
 }
 
 A0_STATIC_INLINE
 a0_err_t a0_write_action_process(void* user_data, a0_packet_t* pkt, a0_middleware_chain_t chain) {
-  a0_transport_t* transport = (a0_transport_t*)user_data;
-  a0_transport_locked_t tlk;
-  A0_RETURN_ERR_ON_ERR(a0_transport_lock(transport, &tlk));
+  a0_transport_writer_t* tw = (a0_transport_writer_t*)user_data;
+  a0_transport_writer_locked_t twl;
+  A0_RETURN_ERR_ON_ERR(a0_transport_writer_lock(tw, &twl));
 
   a0_middleware_chain_node_t next_node = {
       ._curr = chain._node._head,
       ._head = chain._node._head,
-      ._tlk = tlk,
+      ._twl = &twl,
   };
 
   return a0_writer_write_impl(next_node, pkt);
 }
 
 A0_STATIC_INLINE
-a0_err_t a0_write_action_process_locked(void* user_data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
+a0_err_t a0_write_action_process_locked(void* user_data, a0_transport_writer_locked_t* twl, a0_packet_t* pkt, a0_middleware_chain_t chain) {
   A0_MAYBE_UNUSED(user_data);
   A0_MAYBE_UNUSED(chain);
 
   a0_alloc_t alloc;
-  a0_transport_allocator(&tlk, &alloc);
+  a0_transport_writer_allocator(twl, &alloc);
   a0_packet_serialize(*pkt, alloc, NULL);
 
-  a0_transport_commit(tlk);
-  a0_transport_unlock(tlk);
+  a0_transport_writer_commit(twl);
+  a0_transport_writer_unlock(twl);
 
   return A0_OK;
 }
@@ -154,7 +154,7 @@ a0_err_t a0_writer_write(a0_writer_t* w, a0_packet_t pkt) {
   a0_middleware_chain_node_t node = {
       ._curr = w,
       ._head = w,
-      ._tlk = A0_EMPTY,
+      ._twl = NULL,
   };
   return a0_writer_write_impl(node, &pkt);
 }
@@ -224,8 +224,8 @@ a0_err_t a0_compose_process(void* user_data, a0_packet_t* pkt, a0_middleware_cha
 }
 
 A0_STATIC_INLINE
-a0_err_t a0_compose_process_locked(void* user_data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
-  A0_MAYBE_UNUSED(tlk);
+a0_err_t a0_compose_process_locked(void* user_data, a0_transport_writer_locked_t* twl, a0_packet_t* pkt, a0_middleware_chain_t chain) {
+  A0_MAYBE_UNUSED(twl);
   return a0_compose_process(user_data, pkt, chain);
 }
 

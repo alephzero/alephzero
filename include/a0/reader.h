@@ -51,7 +51,7 @@ typedef enum a0_reader_iter_s {
 /// ...
 typedef struct a0_zero_copy_callback_s {
   void* user_data;
-  void (*fn)(void* user_data, a0_transport_locked_t, a0_flat_packet_t);
+  void (*fn)(void* user_data, a0_transport_reader_locked_t*, a0_flat_packet_t);
 } a0_zero_copy_callback_t;
 
 /** \addtogroup READER_SYNC_ZC
@@ -59,7 +59,7 @@ typedef struct a0_zero_copy_callback_s {
  */
 
 typedef struct a0_reader_sync_zc_s {
-  a0_transport_t _transport;
+  a0_transport_reader_t _tr;
   a0_reader_init_t _init;
   a0_reader_iter_t _iter;
   bool _first_read_done;
@@ -126,7 +126,7 @@ a0_err_t a0_reader_sync_read_blocking_timeout(a0_reader_sync_t*, a0_time_mono_t,
  */
 
 typedef struct a0_reader_zc_s {
-  a0_transport_t _transport;
+  a0_transport_reader_t _tr;
   bool _started_empty;
 
   a0_reader_init_t _init;

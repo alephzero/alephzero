@@ -99,13 +99,13 @@ a0_err_t a0_cfg_write(a0_cfg_t* cfg, a0_packet_t pkt) {
 A0_STATIC_INLINE
 a0_err_t a0_cfg_write_if_empty_process_locked(
     void* user_data,
-    a0_transport_locked_t tlk,
+    a0_transport_writer_locked_t* twl,
     a0_packet_t* pkt,
     a0_middleware_chain_t chain) {
   bool* empty = (bool*)user_data;
-  a0_transport_empty(tlk, empty);
+  a0_transport_writer_empty(twl, empty);
   if (!*empty) {
-    a0_transport_unlock(tlk);
+    a0_transport_writer_unlock(twl);
     return A0_OK;
   }
   return a0_middleware_chain(chain, pkt);
@@ -301,10 +301,10 @@ a0_err_t a0_cfg_write_if_empty_yyjson(a0_cfg_t* cfg, yyjson_doc doc, bool* writt
 A0_STATIC_INLINE
 a0_err_t a0_mergepatch_process_locked_empty(
     yyjson_doc* mergepatch,
-    a0_transport_locked_t tlk,
+    a0_transport_writer_locked_t* twl,
     a0_packet_t* pkt,
     a0_middleware_chain_t chain) {
-  A0_MAYBE_UNUSED(tlk);
+  A0_MAYBE_UNUSED(twl);
 
   yyjson_write_err write_err;
   size_t size;
@@ -330,12 +330,12 @@ a0_err_t a0_mergepatch_process_locked_empty(
 A0_STATIC_INLINE
 a0_err_t a0_mergepatch_process_locked_nonempty(
     yyjson_doc* mergepatch,
-    a0_transport_locked_t tlk,
+    a0_transport_writer_locked_t* twl,
     a0_packet_t* pkt,
     a0_middleware_chain_t chain) {
-  a0_transport_jump_tail(tlk);
+  a0_transport_jump_tail(twl);
   a0_transport_frame_t frame;
-  a0_transport_frame(tlk, &frame);
+  a0_transport_frame(twl, &frame);
 
   a0_flat_packet_t flat_packet = {
       .buf = {frame.data, frame.hdr.data_size},
@@ -399,18 +399,18 @@ a0_err_t a0_mergepatch_process_locked_nonempty(
 A0_STATIC_INLINE
 a0_err_t a0_mergepatch_process_locked(
     void* user_data,
-    a0_transport_locked_t tlk,
+    a0_transport_writer_locked_t* twl,
     a0_packet_t* pkt,
     a0_middleware_chain_t chain) {
   yyjson_doc* mergepatch = (yyjson_doc*)user_data;
 
   bool empty;
-  a0_transport_empty(tlk, &empty);
+  a0_transport_writer_empty(twl, &empty);
 
   if (empty) {
-    return a0_mergepatch_process_locked_empty(mergepatch, tlk, pkt, chain);
+    return a0_mergepatch_process_locked_empty(mergepatch, twl, pkt, chain);
   }
-  return a0_mergepatch_process_locked_nonempty(mergepatch, tlk, pkt, chain);
+  return a0_mergepatch_process_locked_nonempty(mergepatch, twl, pkt, chain);
 }
 
 a0_err_t a0_cfg_mergepatch_yyjson(a0_cfg_t* cfg, yyjson_doc mergepatch) {

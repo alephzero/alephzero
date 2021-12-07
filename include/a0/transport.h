@@ -118,6 +118,7 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/callback.h>
+#include <a0/rwmtx.h>
 #include <a0/time.h>
 
 #include <stdbool.h>
@@ -181,55 +182,54 @@ a0_err_t a0_transport_reader_lock(a0_transport_reader_t*, a0_transport_reader_lo
 /// Unlocks the transport.
 ///
 /// The locked_transport object is invalid afterwards.
-a0_err_t a0_transport_reader_unlock(a0_transport_reader_locked_t);
-a0_err_t a0_transport_writer_unlock(a0_transport_writer_locked_t);
+a0_err_t a0_transport_reader_unlock(a0_transport_reader_locked_t*);
 
 /// Shuts down the notification mechanism and waits for all waiters to return.
-a0_err_t a0_transport_reader_shutdown(a0_transport_reader_locked_t);
+a0_err_t a0_transport_reader_shutdown(a0_transport_reader_locked_t*);
 
 /// Checks whether the transport is empty.
-a0_err_t a0_transport_reader_empty(a0_transport_reader_locked_t, bool*);
+a0_err_t a0_transport_reader_empty(a0_transport_reader_locked_t*, bool*);
 /// Checks whether the transport is not empty.
-a0_err_t a0_transport_reader_nonempty(a0_transport_reader_locked_t, bool*);
+a0_err_t a0_transport_reader_nonempty(a0_transport_reader_locked_t*, bool*);
 /// Checks whether the user's transport pointer is valid.
-a0_err_t a0_transport_reader_iter_valid(a0_transport_reader_locked_t, bool*);
+a0_err_t a0_transport_reader_iter_valid(a0_transport_reader_locked_t*, bool*);
 /// Moves the user's transport pointer to the given offset.
 ///
 /// Be careful! There is no validation that the offset is the
 /// start of a valid frame.
-a0_err_t a0_transport_reader_jump(a0_transport_reader_locked_t, size_t off);
+a0_err_t a0_transport_reader_jump(a0_transport_reader_locked_t*, size_t off);
 /// Moves the user's transport pointer to the oldest frame.
 ///
 /// Note that this is inclusive.
-a0_err_t a0_transport_reader_jump_head(a0_transport_reader_locked_t);
+a0_err_t a0_transport_reader_jump_head(a0_transport_reader_locked_t*);
 /// Moves the user's transport pointer to the newest frame.
 ///
 /// Note that this is inclusive.
-a0_err_t a0_transport_reader_jump_tail(a0_transport_reader_locked_t);
+a0_err_t a0_transport_reader_jump_tail(a0_transport_reader_locked_t*);
 /// Checks whether a newer frame exists than that at the current
 /// user's transport pointer.
-a0_err_t a0_transport_reader_has_next(a0_transport_reader_locked_t, bool*);
+a0_err_t a0_transport_reader_has_next(a0_transport_reader_locked_t*, bool*);
 /// Step the user's transport pointer forward by one frame.
 ///
 /// Note: This steps to the oldest frame, still available, that was added
 /// after the current frame. If the sequentially next frame has already
 /// been evicted, this will effectively jump to head.
-a0_err_t a0_transport_reader_step_next(a0_transport_reader_locked_t);
+a0_err_t a0_transport_reader_step_next(a0_transport_reader_locked_t*);
 /// Checks whether a earlier frame exists than that at the current
 /// user's transport pointer.
-a0_err_t a0_transport_reader_has_prev(a0_transport_reader_locked_t, bool*);
+a0_err_t a0_transport_reader_has_prev(a0_transport_reader_locked_t*, bool*);
 /// Step the user's transport pointer backward by one frame.
-a0_err_t a0_transport_reader_step_prev(a0_transport_reader_locked_t);
+a0_err_t a0_transport_reader_step_prev(a0_transport_reader_locked_t*);
 
 /// Wait until the given predicate is satisfied.
 ///
 /// The predicate is checked when an unlock event occurs following a commit or eviction.
-a0_err_t a0_transport_reader_wait(a0_transport_reader_locked_t, a0_predicate_t);
+a0_err_t a0_transport_reader_wait(a0_transport_reader_locked_t*, a0_predicate_t);
 
 /// Wait until the given predicate is satisfied or the timeout expires.
 ///
 /// The predicate is checked when an unlock event occurs following a commit or eviction.
-a0_err_t a0_transport_reader_timedwait(a0_transport_reader_locked_t, a0_predicate_t, a0_time_mono_t);
+a0_err_t a0_transport_reader_timedwait(a0_transport_reader_locked_t*, a0_predicate_t, a0_time_mono_t);
 
 /// Predicate that is satisfied when the transport is empty.
 a0_predicate_t a0_transport_reader_empty_pred(a0_transport_reader_locked_t*);
@@ -239,15 +239,15 @@ a0_predicate_t a0_transport_reader_nonempty_pred(a0_transport_reader_locked_t*);
 a0_predicate_t a0_transport_reader_has_next_pred(a0_transport_reader_locked_t*);
 
 /// Returns the earliest available sequence number.
-a0_err_t a0_transport_reader_seq_low(a0_transport_reader_locked_t, uint64_t* out);
+a0_err_t a0_transport_reader_seq_low(a0_transport_reader_locked_t*, uint64_t* out);
 
 /// Returns the latest available sequence number.
-a0_err_t a0_transport_reader_seq_high(a0_transport_reader_locked_t, uint64_t* out);
+a0_err_t a0_transport_reader_seq_high(a0_transport_reader_locked_t*, uint64_t* out);
 
 /// Accesses the frame within the arena, at the current transport pointer.
 ///
 /// Caller does NOT own `frame_out->data` and should not clean it up!
-a0_err_t a0_transport_reader_frame(a0_transport_reader_locked_t, a0_transport_frame_t* frame_out);
+a0_err_t a0_transport_reader_frame(a0_transport_reader_locked_t*, a0_transport_frame_t* frame_out);
 
 
 
@@ -264,6 +264,12 @@ typedef struct a0_transport_writer_locked_s {
 
 a0_err_t a0_transport_writer_init(a0_transport_writer_t*, a0_arena_t);
 a0_err_t a0_transport_writer_lock(a0_transport_writer_t*, a0_transport_writer_locked_t* lk_out);
+a0_err_t a0_transport_writer_unlock(a0_transport_writer_locked_t*);
+
+
+a0_err_t a0_transport_writer_empty(a0_transport_writer_locked_t*, bool*);
+a0_err_t a0_transport_writer_seq_low(a0_transport_writer_locked_t*, uint64_t* out);
+a0_err_t a0_transport_writer_seq_high(a0_transport_writer_locked_t*, uint64_t* out);
 
 
 /// Allocates a new frame within the arena.
@@ -278,18 +284,18 @@ a0_err_t a0_transport_writer_lock(a0_transport_writer_t*, a0_transport_writer_lo
 ///     If an alloc evicts an old frame, that frame is lost, even if no
 ///     commit call is issued.
 /// \endrst
-a0_err_t a0_transport_writer_alloc(a0_transport_locked_t, size_t, a0_transport_frame_t* frame_out);
+a0_err_t a0_transport_writer_alloc(a0_transport_writer_locked_t*, size_t, a0_transport_frame_t* frame_out);
 /// Checks whether an alloc call would evict.
-a0_err_t a0_transport_writer_alloc_evicts(a0_transport_locked_t, size_t, bool*);
+a0_err_t a0_transport_writer_alloc_evicts(a0_transport_writer_locked_t*, size_t, bool*);
 /// Creates an allocator that allocates within the transport.
-a0_err_t a0_transport_writer_allocator(a0_transport_locked_t*, a0_alloc_t*);
+a0_err_t a0_transport_writer_allocator(a0_transport_writer_locked_t*, a0_alloc_t*);
 /// Commits the allocated frames.
-a0_err_t a0_transport_writer_commit(a0_transport_locked_t);
+a0_err_t a0_transport_writer_commit(a0_transport_writer_locked_t*);
 
 /// Returns the arena space in use.
-a0_err_t a0_transport_writer_used_space(a0_transport_locked_t, size_t*);
+a0_err_t a0_transport_writer_used_space(a0_transport_writer_locked_t*, size_t*);
 /// Resizes the underlying arena. Fails with A0_ERR_INVALID_ARG if this would delete active data.
-a0_err_t a0_transport_writer_resize(a0_transport_locked_t, size_t);
+a0_err_t a0_transport_writer_resize(a0_transport_writer_locked_t*, size_t);
 
 /** @}*/
 

@@ -14,13 +14,10 @@ namespace a0 {
 
 using Frame = a0_transport_frame_t;
 
-struct TransportLocked : details::CppWrap<a0_transport_locked_t> {
+struct TransportReaderLocked : details::CppWrap<a0_transport_reader_locked_t> {
   bool empty() const;
   uint64_t seq_low() const;
   uint64_t seq_high() const;
-
-  size_t used_space() const;
-  void resize(size_t);
 
   bool iter_valid() const;
   Frame frame() const;
@@ -33,21 +30,38 @@ struct TransportLocked : details::CppWrap<a0_transport_locked_t> {
   bool has_prev() const;
   void step_prev();
 
-  Frame alloc(size_t);
-  bool alloc_evicts(size_t) const;
-
-  void commit();
-
   void wait(std::function<bool()>);
   void wait_for(std::function<bool()>, std::chrono::nanoseconds);
   void wait_until(std::function<bool()>, TimeMono);
 };
 
-struct Transport : details::CppWrap<a0_transport_t> {
-  Transport() = default;
-  explicit Transport(Arena);
+struct TransportReader : details::CppWrap<a0_transport_reader_t> {
+  TransportReader() = default;
+  explicit TransportReader(Arena);
 
-  TransportLocked lock();
+  TransportReaderLocked lock();
+};
+
+
+struct TransportWriterLocked : details::CppWrap<a0_transport_writer_locked_t> {
+  bool empty() const;
+  uint64_t seq_low() const;
+  uint64_t seq_high() const;
+
+  size_t used_space() const;
+  void resize(size_t);
+
+  Frame alloc(size_t);
+  bool alloc_evicts(size_t) const;
+
+  void commit();
+};
+
+struct TransportWriter : details::CppWrap<a0_transport_writer_t> {
+  TransportWriter() = default;
+  explicit TransportWriter(Arena);
+
+  TransportWriterLocked lock();
 };
 
 }  // namespace a0

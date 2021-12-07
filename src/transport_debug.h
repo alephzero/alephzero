@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-void a0_transport_debugstr(a0_transport_locked_t, a0_buf_t* out);
+void a0_transport_writer_debugstr(a0_transport_writer_locked_t*, a0_buf_t* out);
 
 #ifdef __cplusplus
 }

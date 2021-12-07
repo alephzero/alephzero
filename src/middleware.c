@@ -14,9 +14,9 @@
 #include "strconv.h"
 
 A0_STATIC_INLINE
-a0_err_t a0_add_time_mono_header_process_locked(void* data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
+a0_err_t a0_add_time_mono_header_process_locked(void* data, a0_transport_writer_locked_t* twl, a0_packet_t* pkt, a0_middleware_chain_t chain) {
   A0_MAYBE_UNUSED(data);
-  A0_MAYBE_UNUSED(tlk);
+  A0_MAYBE_UNUSED(twl);
 
   a0_time_mono_t time_mono;
   a0_time_mono_now(&time_mono);
@@ -156,11 +156,11 @@ a0_middleware_t a0_add_writer_seq_header() {
 }
 
 A0_STATIC_INLINE
-a0_err_t a0_add_transport_seq_header_process_locked(void* data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
+a0_err_t a0_add_transport_seq_header_process_locked(void* data, a0_transport_writer_locked_t* twl, a0_packet_t* pkt, a0_middleware_chain_t chain) {
   A0_MAYBE_UNUSED(data);
 
   uint64_t seq;
-  a0_transport_seq_high(tlk, &seq);
+  a0_transport_writer_seq_high(twl, &seq);
 
   char seq_buf[20];
   char* seq_str;

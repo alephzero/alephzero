@@ -32,18 +32,18 @@ a0_err_t a0_reader_sync_zc_init(a0_reader_sync_zc_t* reader_sync_zc,
   reader_sync_zc->_init = init;
   reader_sync_zc->_iter = iter;
   reader_sync_zc->_first_read_done = false;
-  A0_RETURN_ERR_ON_ERR(a0_transport_init(&reader_sync_zc->_transport, arena));
+  A0_RETURN_ERR_ON_ERR(a0_transport_reader_init(&reader_sync_zc->_tr, arena));
 
-  a0_transport_locked_t tlk;
-  A0_RETURN_ERR_ON_ERR(a0_transport_lock(&reader_sync_zc->_transport, &tlk));
+  a0_transport_reader_locked_t trl;
+  A0_RETURN_ERR_ON_ERR(a0_transport_reader_lock(&reader_sync_zc->_tr, &trl));
 
   if (init == A0_INIT_OLDEST) {
-    a0_transport_jump_head(tlk);
+    a0_transport_reader_jump_head(&trl);
   } else if (init == A0_INIT_MOST_RECENT || init == A0_INIT_AWAIT_NEW) {
-    a0_transport_jump_tail(tlk);
+    a0_transport_reader_jump_tail(&trl);
   }
 
-  A0_RETURN_ERR_ON_ERR(a0_transport_unlock(tlk));
+  A0_RETURN_ERR_ON_ERR(a0_transport_reader_unlock(&trl));
 
 #ifdef DEBUG
   A0_ASSERT_OK(a0_ref_cnt_inc(arena.buf.data, NULL), "");
@@ -58,7 +58,7 @@ a0_err_t a0_reader_sync_zc_close(a0_reader_sync_zc_t* reader_sync_zc) {
   A0_ASSERT(reader_sync_zc, "Cannot close null reader (sync+zc).");
 
   A0_ASSERT_OK(
-      a0_ref_cnt_dec(reader_sync_zc->_transport._arena.buf.data, NULL),
+      a0_ref_cnt_dec(reader_sync_zc->_tr._arena.buf.data, NULL),
       "Reader (sync+zc) closing. Arena was previously closed.");
 #endif
 
@@ -71,22 +71,22 @@ a0_err_t a0_reader_sync_zc_can_read(a0_reader_sync_zc_t* reader_sync_zc, bool* c
 #endif
 
   a0_err_t err;
-  a0_transport_locked_t tlk;
-  A0_RETURN_ERR_ON_ERR(a0_transport_lock(&reader_sync_zc->_transport, &tlk));
+  a0_transport_reader_locked_t trl;
+  A0_RETURN_ERR_ON_ERR(a0_transport_reader_lock(&reader_sync_zc->_tr, &trl));
 
   if (reader_sync_zc->_first_read_done || reader_sync_zc->_init == A0_INIT_AWAIT_NEW) {
-    err = a0_transport_has_next(tlk, can_read);
+    err = a0_transport_reader_has_next(&trl, can_read);
   } else {
-    err = a0_transport_nonempty(tlk, can_read);
+    err = a0_transport_reader_nonempty(&trl, can_read);
   }
 
-  a0_transport_unlock(tlk);
+  a0_transport_reader_unlock(&trl);
   return err;
 }
 
 typedef struct a0_reader_sync_zc_align_read_callback_s {
   void* user_data;
-  a0_err_t (*fn)(void* user_data, a0_reader_sync_zc_t*, a0_transport_locked_t);
+  a0_err_t (*fn)(void* user_data, a0_reader_sync_zc_t*, a0_transport_reader_locked_t*);
 } a0_reader_sync_zc_read_align_callback_t;
 
 A0_STATIC_INLINE
@@ -97,41 +97,41 @@ a0_err_t a0_reader_sync_zc_read_helper(a0_reader_sync_zc_t* reader_sync_zc,
   A0_ASSERT(reader_sync_zc, "Cannot read from null reader (sync+zc).");
 #endif
 
-  a0_transport_locked_t tlk;
-  A0_RETURN_ERR_ON_ERR(a0_transport_lock(&reader_sync_zc->_transport, &tlk));
+  a0_transport_reader_locked_t trl;
+  A0_RETURN_ERR_ON_ERR(a0_transport_reader_lock(&reader_sync_zc->_tr, &trl));
 
-  a0_err_t err = align_read.fn(align_read.user_data, reader_sync_zc, tlk);
+  a0_err_t err = align_read.fn(align_read.user_data, reader_sync_zc, &trl);
   if (err) {
-    a0_transport_unlock(tlk);
+    a0_transport_reader_unlock(&trl);
     return err;
   }
 
   reader_sync_zc->_first_read_done = true;
 
   a0_transport_frame_t frame;
-  a0_transport_frame(tlk, &frame);
+  a0_transport_reader_frame(&trl, &frame);
 
   a0_flat_packet_t flat_packet = {
       .buf = {frame.data, frame.hdr.data_size},
   };
 
-  cb.fn(cb.user_data, tlk, flat_packet);
+  cb.fn(cb.user_data, &trl, flat_packet);
 
-  return a0_transport_unlock(tlk);
+  return a0_transport_reader_unlock(&trl);
 }
 
 A0_STATIC_INLINE
-a0_err_t a0_reader_sync_zc_read_align(void* unused, a0_reader_sync_zc_t* reader_sync_zc, a0_transport_locked_t tlk) {
+a0_err_t a0_reader_sync_zc_read_align(void* unused, a0_reader_sync_zc_t* reader_sync_zc, a0_transport_reader_locked_t* trl) {
   A0_MAYBE_UNUSED(unused);
   bool empty;
-  a0_transport_empty(tlk, &empty);
+  a0_transport_reader_empty(trl, &empty);
   if (empty) {
     return A0_ERR_AGAIN;
   }
 
   if (reader_sync_zc->_first_read_done || reader_sync_zc->_init == A0_INIT_AWAIT_NEW) {
     bool has_next = true;
-    a0_transport_has_next(tlk, &has_next);
+    a0_transport_reader_has_next(trl, &has_next);
     if (!has_next) {
       return A0_ERR_AGAIN;
     }
@@ -140,15 +140,15 @@ a0_err_t a0_reader_sync_zc_read_align(void* unused, a0_reader_sync_zc_t* reader_
   bool should_step = reader_sync_zc->_first_read_done || reader_sync_zc->_init == A0_INIT_AWAIT_NEW;
   if (!should_step) {
     bool is_valid;
-    a0_transport_iter_valid(tlk, &is_valid);
+    a0_transport_reader_iter_valid(trl, &is_valid);
     should_step = !is_valid;
   }
 
   if (should_step) {
     if (reader_sync_zc->_iter == A0_ITER_NEXT) {
-      a0_transport_step_next(tlk);
+      a0_transport_reader_step_next(trl);
     } else if (reader_sync_zc->_iter == A0_ITER_NEWEST) {
-      a0_transport_jump_tail(tlk);
+      a0_transport_reader_jump_tail(trl);
     }
   }
 
@@ -164,23 +164,23 @@ a0_err_t a0_reader_sync_zc_read(a0_reader_sync_zc_t* reader_sync_zc,
 }
 
 A0_STATIC_INLINE
-a0_err_t a0_reader_sync_zc_read_blocking_align(void* unused, a0_reader_sync_zc_t* reader_sync_zc, a0_transport_locked_t tlk) {
+a0_err_t a0_reader_sync_zc_read_blocking_align(void* unused, a0_reader_sync_zc_t* reader_sync_zc, a0_transport_reader_locked_t* trl) {
   A0_MAYBE_UNUSED(unused);
-  A0_RETURN_ERR_ON_ERR(a0_transport_wait(tlk, a0_transport_nonempty_pred(&tlk)));
+  A0_RETURN_ERR_ON_ERR(a0_transport_reader_wait(trl, a0_transport_reader_nonempty_pred(trl)));
 
   bool should_step = reader_sync_zc->_first_read_done || reader_sync_zc->_init == A0_INIT_AWAIT_NEW;
   if (!should_step) {
     bool is_valid;
-    a0_transport_iter_valid(tlk, &is_valid);
+    a0_transport_reader_iter_valid(trl, &is_valid);
     should_step = !is_valid;
   }
 
   if (should_step) {
-    A0_RETURN_ERR_ON_ERR(a0_transport_wait(tlk, a0_transport_has_next_pred(&tlk)));
+    A0_RETURN_ERR_ON_ERR(a0_transport_reader_wait(trl, a0_transport_reader_has_next_pred(trl)));
     if (reader_sync_zc->_iter == A0_ITER_NEXT) {
-      a0_transport_step_next(tlk);
+      a0_transport_reader_step_next(trl);
     } else if (reader_sync_zc->_iter == A0_ITER_NEWEST) {
-      a0_transport_jump_tail(tlk);
+      a0_transport_reader_jump_tail(trl);
     }
   }
 
@@ -196,23 +196,23 @@ a0_err_t a0_reader_sync_zc_read_blocking(a0_reader_sync_zc_t* reader_sync_zc,
 }
 
 A0_STATIC_INLINE
-a0_err_t a0_reader_sync_zc_read_blocking_timeout_align(void* user_data, a0_reader_sync_zc_t* reader_sync_zc, a0_transport_locked_t tlk) {
+a0_err_t a0_reader_sync_zc_read_blocking_timeout_align(void* user_data, a0_reader_sync_zc_t* reader_sync_zc, a0_transport_reader_locked_t* trl) {
   a0_time_mono_t* timeout = (a0_time_mono_t*)user_data;
-  A0_RETURN_ERR_ON_ERR(a0_transport_timedwait(tlk, a0_transport_nonempty_pred(&tlk), *timeout));
+  A0_RETURN_ERR_ON_ERR(a0_transport_reader_timedwait(trl, a0_transport_reader_nonempty_pred(trl), *timeout));
 
   bool should_step = reader_sync_zc->_first_read_done || reader_sync_zc->_init == A0_INIT_AWAIT_NEW;
   if (!should_step) {
     bool is_valid;
-    a0_transport_iter_valid(tlk, &is_valid);
+    a0_transport_reader_iter_valid(trl, &is_valid);
     should_step = !is_valid;
   }
 
   if (should_step) {
-    A0_RETURN_ERR_ON_ERR(a0_transport_timedwait(tlk, a0_transport_has_next_pred(&tlk), *timeout));
+    A0_RETURN_ERR_ON_ERR(a0_transport_reader_timedwait(trl, a0_transport_reader_has_next_pred(trl), *timeout));
     if (reader_sync_zc->_iter == A0_ITER_NEXT) {
-      a0_transport_step_next(tlk);
+      a0_transport_reader_step_next(trl);
     } else if (reader_sync_zc->_iter == A0_ITER_NEWEST) {
-      a0_transport_jump_tail(tlk);
+      a0_transport_reader_jump_tail(trl);
     }
   }
 
@@ -261,8 +261,8 @@ typedef struct a0_reader_sync_read_data_s {
 } a0_reader_sync_read_data_t;
 
 A0_STATIC_INLINE
-void a0_reader_sync_read_impl(void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
-  A0_MAYBE_UNUSED(tlk);
+void a0_reader_sync_read_impl(void* user_data, a0_transport_reader_locked_t* trl, a0_flat_packet_t fpkt) {
+  A0_MAYBE_UNUSED(trl);
   a0_reader_sync_read_data_t* data = (a0_reader_sync_read_data_t*)user_data;
   a0_buf_t unused;
   a0_packet_deserialize(fpkt, data->alloc, data->out_pkt, &unused);
@@ -319,35 +319,35 @@ a0_err_t a0_reader_sync_read_blocking_timeout(a0_reader_sync_t* reader_sync, a0_
 // Threaded zero-copy version.
 
 A0_STATIC_INLINE
-void a0_reader_zc_thread_handle_pkt(a0_reader_zc_t* reader_zc, a0_transport_locked_t tlk) {
+void a0_reader_zc_thread_handle_pkt(a0_reader_zc_t* reader_zc, a0_transport_reader_locked_t* trl) {
   a0_transport_frame_t frame;
-  a0_transport_frame(tlk, &frame);
+  a0_transport_reader_frame(trl, &frame);
 
   a0_flat_packet_t fpkt = {
       .buf = {frame.data, frame.hdr.data_size},
   };
 
-  reader_zc->_onpacket.fn(reader_zc->_onpacket.user_data, tlk, fpkt);
+  reader_zc->_onpacket.fn(reader_zc->_onpacket.user_data, trl, fpkt);
 }
 
 A0_STATIC_INLINE
-bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_t* reader_zc, a0_transport_locked_t tlk) {
-  if (a0_transport_wait(tlk, a0_transport_nonempty_pred(&tlk)) == A0_OK) {
+bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_t* reader_zc, a0_transport_reader_locked_t* trl) {
+  if (a0_transport_reader_wait(trl, a0_transport_reader_nonempty_pred(trl)) == A0_OK) {
     bool reset = false;
     if (reader_zc->_started_empty) {
       reset = true;
     } else {
       bool ptr_valid;
-      a0_transport_iter_valid(tlk, &ptr_valid);
+      a0_transport_reader_iter_valid(trl, &ptr_valid);
       reset = !ptr_valid;
     }
 
     if (reset) {
-      a0_transport_jump_head(tlk);
+      a0_transport_reader_jump_head(trl);
     }
 
     if (reset || reader_zc->_init == A0_INIT_OLDEST || reader_zc->_init == A0_INIT_MOST_RECENT) {
-      a0_reader_zc_thread_handle_pkt(reader_zc, tlk);
+      a0_reader_zc_thread_handle_pkt(reader_zc, trl);
     }
 
     return true;
@@ -357,15 +357,15 @@ bool a0_reader_zc_thread_handle_first_pkt(a0_reader_zc_t* reader_zc, a0_transpor
 }
 
 A0_STATIC_INLINE
-bool a0_reader_zc_thread_handle_next_pkt(a0_reader_zc_t* reader_zc, a0_transport_locked_t tlk) {
-  if (a0_transport_wait(tlk, a0_transport_has_next_pred(&tlk)) == A0_OK) {
+bool a0_reader_zc_thread_handle_next_pkt(a0_reader_zc_t* reader_zc, a0_transport_reader_locked_t* trl) {
+  if (a0_transport_reader_wait(trl, a0_transport_reader_has_next_pred(trl)) == A0_OK) {
     if (reader_zc->_iter == A0_ITER_NEXT) {
-      a0_transport_step_next(tlk);
+      a0_transport_reader_step_next(trl);
     } else if (reader_zc->_iter == A0_ITER_NEWEST) {
-      a0_transport_jump_tail(tlk);
+      a0_transport_reader_jump_tail(trl);
     }
 
-    a0_reader_zc_thread_handle_pkt(reader_zc, tlk);
+    a0_reader_zc_thread_handle_pkt(reader_zc, trl);
 
     return true;
   }
@@ -382,17 +382,17 @@ void* a0_reader_zc_thread_main(void* data) {
 
   // Lock until shutdown.
   // Lock will release lock while awaiting packets.
-  a0_transport_locked_t tlk;
-  a0_transport_lock(&reader_zc->_transport, &tlk);
+  a0_transport_reader_locked_t trl;
+  a0_transport_reader_lock(&reader_zc->_tr, &trl);
 
   // Loop until shutdown is triggered.
-  if (a0_reader_zc_thread_handle_first_pkt(reader_zc, tlk)) {
-    while (a0_reader_zc_thread_handle_next_pkt(reader_zc, tlk)) {
+  if (a0_reader_zc_thread_handle_first_pkt(reader_zc, &trl)) {
+    while (a0_reader_zc_thread_handle_next_pkt(reader_zc, &trl)) {
     }
   }
 
   // Shutting down.
-  a0_transport_unlock(tlk);
+  a0_transport_reader_unlock(&trl);
 
   return NULL;
 }
@@ -406,25 +406,25 @@ a0_err_t a0_reader_zc_init(a0_reader_zc_t* reader_zc,
   reader_zc->_iter = iter;
   reader_zc->_onpacket = onpacket;
 
-  A0_RETURN_ERR_ON_ERR(a0_transport_init(&reader_zc->_transport, arena));
+  A0_RETURN_ERR_ON_ERR(a0_transport_reader_init(&reader_zc->_tr, arena));
 
 #ifdef DEBUG
   a0_ref_cnt_inc(arena.buf.data, NULL);
 #endif
 
-  a0_transport_locked_t tlk;
-  a0_transport_lock(&reader_zc->_transport, &tlk);
+  a0_transport_reader_locked_t trl;
+  a0_transport_reader_lock(&reader_zc->_tr, &trl);
 
-  a0_transport_empty(tlk, &reader_zc->_started_empty);
+  a0_transport_reader_empty(&trl, &reader_zc->_started_empty);
   if (!reader_zc->_started_empty) {
     if (init == A0_INIT_OLDEST) {
-      a0_transport_jump_head(tlk);
+      a0_transport_reader_jump_head(&trl);
     } else if (init == A0_INIT_MOST_RECENT || init == A0_INIT_AWAIT_NEW) {
-      a0_transport_jump_tail(tlk);
+      a0_transport_reader_jump_tail(&trl);
     }
   }
 
-  a0_transport_unlock(tlk);
+  a0_transport_reader_unlock(&trl);
 
   a0_event_init(&reader_zc->_thread_start_event);
 
@@ -443,13 +443,13 @@ a0_err_t a0_reader_zc_close(a0_reader_zc_t* reader_zc) {
     return A0_MAKE_SYSERR(EDEADLK);
   }
 #ifdef DEBUG
-  a0_ref_cnt_dec(reader_zc->_transport._arena.buf.data, NULL);
+  a0_ref_cnt_dec(reader_zc->_tr._arena.buf.data, NULL);
 #endif
 
-  a0_transport_locked_t tlk;
-  a0_transport_lock(&reader_zc->_transport, &tlk);
-  a0_transport_shutdown(tlk);
-  a0_transport_unlock(tlk);
+  a0_transport_reader_locked_t trl;
+  a0_transport_reader_lock(&reader_zc->_tr, &trl);
+  a0_transport_reader_shutdown(&trl);
+  a0_transport_reader_unlock(&trl);
 
   a0_event_close(&reader_zc->_thread_start_event);
   pthread_join(reader_zc->_thread, NULL);
@@ -460,17 +460,17 @@ a0_err_t a0_reader_zc_close(a0_reader_zc_t* reader_zc) {
 // Threaded version.
 
 A0_STATIC_INLINE
-void a0_reader_onpacket_wrapper(void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
+void a0_reader_onpacket_wrapper(void* user_data, a0_transport_reader_locked_t* trl, a0_flat_packet_t fpkt) {
   a0_reader_t* reader = (a0_reader_t*)user_data;
   a0_packet_t pkt;
   a0_buf_t buf;
   a0_packet_deserialize(fpkt, reader->_alloc, &pkt, &buf);
-  a0_transport_unlock(tlk);
+  a0_transport_reader_unlock(trl);
 
   a0_packet_callback_call(reader->_onpacket, pkt);
   a0_dealloc(reader->_alloc, buf);
 
-  a0_transport_lock(tlk.transport, &tlk);
+  a0_transport_reader_lock(trl->_tr, trl);
 }
 
 a0_err_t a0_reader_init(a0_reader_t* reader,
@@ -495,21 +495,21 @@ a0_err_t a0_reader_close(a0_reader_t* reader) {
 }
 
 a0_err_t a0_read_random_access(a0_arena_t arena, size_t off, a0_zero_copy_callback_t cb) {
-  a0_transport_t transport;
-  A0_RETURN_ERR_ON_ERR(a0_transport_init(&transport, arena));
+  a0_transport_reader_t transport;
+  A0_RETURN_ERR_ON_ERR(a0_transport_reader_init(&transport, arena));
 
-  a0_transport_locked_t tlk;
-  A0_RETURN_ERR_ON_ERR(a0_transport_lock(&transport, &tlk));
+  a0_transport_reader_locked_t trl;
+  A0_RETURN_ERR_ON_ERR(a0_transport_reader_lock(&transport, &trl));
 
-  a0_err_t err = a0_transport_jump(tlk, off);
+  a0_err_t err = a0_transport_reader_jump(&trl, off);
   if (err) {
-    a0_transport_unlock(tlk);
+    a0_transport_reader_unlock(&trl);
     return err;
   }
   a0_transport_frame_t frame;
-  a0_transport_frame(tlk, &frame);
+  a0_transport_reader_frame(&trl, &frame);
 
-  cb.fn(cb.user_data, tlk, (a0_flat_packet_t){{frame.data, frame.hdr.data_size}});
+  cb.fn(cb.user_data, &trl, (a0_flat_packet_t){{frame.data, frame.hdr.data_size}});
 
-  return a0_transport_unlock(tlk);
+  return a0_transport_reader_unlock(&trl);
 }

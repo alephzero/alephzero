@@ -34,24 +34,24 @@ struct WriterFixture {
   }
 
   void require_transport_state(std::vector<std::pair<std::vector<std::pair<std::string, std::string>>, std::string>> want_pkts) {
-    a0_transport_t transport;
-    REQUIRE_OK(a0_transport_init(&transport, arena));
+    a0_transport_reader_t tr;
+    REQUIRE_OK(a0_transport_reader_init(&tr, arena));
 
-    a0_transport_locked_t lk;
-    REQUIRE_OK(a0_transport_lock(&transport, &lk));
+    a0_transport_reader_locked_t trl;
+    REQUIRE_OK(a0_transport_reader_lock(&tr, &trl));
 
     bool empty;
-    REQUIRE_OK(a0_transport_empty(lk, &empty));
+    REQUIRE_OK(a0_transport_reader_empty(&trl, &empty));
     REQUIRE(empty == want_pkts.empty());
 
     a0_transport_frame_t frame;
 
-    REQUIRE_OK(a0_transport_jump_head(lk));
+    REQUIRE_OK(a0_transport_reader_jump_head(&trl));
 
     for (size_t i = 0; i < want_pkts.size(); i++) {
       auto&& want_hdrs = want_pkts[i].first;
       auto&& want_payload = want_pkts[i].second;
-      REQUIRE_OK(a0_transport_frame(lk, &frame));
+      REQUIRE_OK(a0_transport_reader_frame(&trl, &frame));
       a0_packet_t got_pkt = a0::test::unflatten(a0_flat_packet_t{a0::test::buf(frame)});
       REQUIRE(got_pkt.headers_block.size == want_hdrs.size());
 
@@ -67,16 +67,16 @@ struct WriterFixture {
       REQUIRE(a0::test::str(got_pkt.payload) == want_payload);
 
       bool has_next;
-      REQUIRE_OK(a0_transport_has_next(lk, &has_next));
+      REQUIRE_OK(a0_transport_reader_has_next(&trl, &has_next));
       if (i + 1 == want_pkts.size()) {
         REQUIRE(!has_next);
       } else {
         REQUIRE(has_next);
-        REQUIRE_OK(a0_transport_step_next(lk));
+        REQUIRE_OK(a0_transport_reader_step_next(&trl));
       }
     }
 
-    REQUIRE_OK(a0_transport_unlock(lk));
+    REQUIRE_OK(a0_transport_reader_unlock(&trl));
   }
 };
 

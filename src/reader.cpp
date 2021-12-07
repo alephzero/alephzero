@@ -42,29 +42,29 @@ bool ReaderSyncZeroCopy::can_read() {
 }
 
 A0_STATIC_INLINE
-a0_zero_copy_callback_t ReadZeroCopy_CallbackWrapper(std::function<void(TransportLocked, FlatPacket)>* fn) {
+a0_zero_copy_callback_t ReadZeroCopy_CallbackWrapper(std::function<void(TransportReaderLocked, FlatPacket)>* fn) {
   return {
       .user_data = fn,
-      .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
-        auto* fn = (std::function<void(TransportLocked, FlatPacket)>*)user_data;
+      .fn = [](void* user_data, a0_transport_reader_locked_t* trl, a0_flat_packet_t fpkt) {
+        auto* fn = (std::function<void(TransportReaderLocked, FlatPacket)>*)user_data;
         (*fn)(
-            cpp_wrap<TransportLocked>(tlk),
+            cpp_wrap<TransportReaderLocked>(trl),
             cpp_wrap<FlatPacket>(fpkt));
       },
   };
 }
 
-void ReaderSyncZeroCopy::read(std::function<void(TransportLocked, FlatPacket)> fn) {
+void ReaderSyncZeroCopy::read(std::function<void(TransportReaderLocked, FlatPacket)> fn) {
   CHECK_C;
   check(a0_reader_sync_zc_read(&*c, ReadZeroCopy_CallbackWrapper(&fn)));
 }
 
-void ReaderSyncZeroCopy::read_blocking(std::function<void(TransportLocked, FlatPacket)> fn) {
+void ReaderSyncZeroCopy::read_blocking(std::function<void(TransportReaderLocked, FlatPacket)> fn) {
   CHECK_C;
   check(a0_reader_sync_zc_read_blocking(&*c, ReadZeroCopy_CallbackWrapper(&fn)));
 }
 
-void ReaderSyncZeroCopy::read_blocking(TimeMono timeout, std::function<void(TransportLocked, FlatPacket)> fn) {
+void ReaderSyncZeroCopy::read_blocking(TimeMono timeout, std::function<void(TransportReaderLocked, FlatPacket)> fn) {
   CHECK_C;
   check(a0_reader_sync_zc_read_blocking_timeout(&*c, *timeout.c, ReadZeroCopy_CallbackWrapper(&fn)));
 }
@@ -144,7 +144,7 @@ Packet ReaderSync::read_blocking(TimeMono timeout) {
 namespace {
 
 struct ReaderZeroCopyImpl {
-  std::function<void(TransportLocked, FlatPacket)> cb;
+  std::function<void(TransportReaderLocked, FlatPacket)> cb;
 };
 
 }  // namespace
@@ -153,7 +153,7 @@ ReaderZeroCopy::ReaderZeroCopy(
     Arena arena,
     ReaderInit init,
     ReaderIter iter,
-    std::function<void(TransportLocked, FlatPacket)> cb) {
+    std::function<void(TransportReaderLocked, FlatPacket)> cb) {
   set_c_impl<ReaderZeroCopyImpl>(
       &c,
       [&](a0_reader_zc_t* c, ReaderZeroCopyImpl* impl) {
@@ -161,9 +161,9 @@ ReaderZeroCopy::ReaderZeroCopy(
 
         a0_zero_copy_callback_t c_cb = {
             .user_data = impl,
-            .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
+            .fn = [](void* user_data, a0_transport_reader_locked_t* trl, a0_flat_packet_t fpkt) {
               auto* impl = (ReaderZeroCopyImpl*)user_data;
-              impl->cb(cpp_wrap<TransportLocked>(tlk), cpp_wrap<FlatPacket>(fpkt));
+              impl->cb(cpp_wrap<TransportReaderLocked>(trl), cpp_wrap<FlatPacket>(fpkt));
             },
         };
 
@@ -222,7 +222,7 @@ Reader::Reader(
       });
 }
 
-void read_random_access(Arena arena, size_t off, std::function<void(TransportLocked, FlatPacket)> fn) {
+void read_random_access(Arena arena, size_t off, std::function<void(TransportReaderLocked, FlatPacket)> fn) {
   check(a0_read_random_access(*arena.c, off, ReadZeroCopy_CallbackWrapper(&fn)));
 }
 

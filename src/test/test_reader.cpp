@@ -41,18 +41,18 @@ struct ReaderBaseFixture {
   }
 
   void push_pkt(std::string payload) {
-    a0_transport_t transport;
-    REQUIRE_OK(a0_transport_init(&transport, arena));
+    a0_transport_writer_t tw;
+    REQUIRE_OK(a0_transport_writer_init(&tw, arena));
 
-    a0_transport_locked_t lk;
-    REQUIRE_OK(a0_transport_lock(&transport, &lk));
+    a0_transport_writer_locked_t twl;
+    REQUIRE_OK(a0_transport_writer_lock(&tw, &twl));
 
     a0_alloc_t alloc;
-    a0_transport_allocator(&lk, &alloc);
+    a0_transport_writer_allocator(&twl, &alloc);
     a0_packet_serialize(a0::test::pkt(std::move(payload)), alloc, NULL);
-    a0_transport_commit(lk);
+    a0_transport_writer_commit(&twl);
 
-    REQUIRE_OK(a0_transport_unlock(lk));
+    REQUIRE_OK(a0_transport_writer_unlock(&twl));
   }
 
   void thread_sleep_push_pkt(std::string payload) {
@@ -87,7 +87,7 @@ struct ReaderSyncZCFixture : ReaderBaseFixture {
 
     a0_zero_copy_callback_t cb = {
         .user_data = &data,
-        .fn = [](void* user_data, a0_transport_locked_t, a0_flat_packet_t fpkt) {
+        .fn = [](void* user_data, a0_transport_reader_locked_t*, a0_flat_packet_t fpkt) {
           auto* want = (data_t*)user_data;
           REQUIRE(a0::test::pkt_cmp(want->pkt, a0::test::unflatten(fpkt)).content_match);
           want->executed = true;
@@ -106,7 +106,7 @@ struct ReaderSyncZCFixture : ReaderBaseFixture {
 
     a0_zero_copy_callback_t cb = {
         .user_data = &data,
-        .fn = [](void* user_data, a0_transport_locked_t, a0_flat_packet_t fpkt) {
+        .fn = [](void* user_data, a0_transport_reader_locked_t*, a0_flat_packet_t fpkt) {
           auto* want = (data_t*)user_data;
           REQUIRE(a0::test::pkt_cmp(want->pkt, a0::test::unflatten(fpkt)).content_match);
           want->executed = true;
@@ -119,7 +119,7 @@ struct ReaderSyncZCFixture : ReaderBaseFixture {
 
   void REQUIRE_READ_CPP(a0::ReaderSyncZeroCopy cpp_rsz, std::string want_payload) {
     bool executed = false;
-    cpp_rsz.read([&](a0::TransportLocked, a0::FlatPacket fpkt) {
+    cpp_rsz.read([&](a0::TransportReaderLocked, a0::FlatPacket fpkt) {
       REQUIRE(fpkt.payload() == want_payload);
       executed = true;
     });
@@ -128,7 +128,7 @@ struct ReaderSyncZCFixture : ReaderBaseFixture {
 
   void REQUIRE_READ_BLOCKING_CPP(a0::ReaderSyncZeroCopy cpp_rsz, std::string want_payload) {
     bool executed = false;
-    cpp_rsz.read_blocking([&](a0::TransportLocked, a0::FlatPacket fpkt) {
+    cpp_rsz.read_blocking([&](a0::TransportReaderLocked, a0::FlatPacket fpkt) {
       REQUIRE(fpkt.payload() == want_payload);
       executed = true;
     });
@@ -365,7 +365,7 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "reader_sync_zc] next without can_read") 
 
   a0_zero_copy_callback_t cb = {
       .user_data = &data,
-      .fn = [](void* user_data, a0_transport_locked_t, a0_flat_packet_t) {
+      .fn = [](void* user_data, a0_transport_reader_locked_t*, a0_flat_packet_t) {
         ((data_t*)user_data)->executed = true;
       },
   };
@@ -502,32 +502,32 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "read] random access") {
   size_t off_0 = 0;
   a0_zero_copy_callback_t cb_0 = {
       .user_data = &off_0,
-      .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t) {
+      .fn = [](void* user_data, a0_transport_reader_locked_t* trl, a0_flat_packet_t) {
         a0_transport_frame_t frame;
-        a0_transport_frame(tlk, &frame);
+        a0_transport_reader_frame(trl, &frame);
         *(size_t*)user_data = frame.hdr.off;
       },
   };
   REQUIRE_OK(a0_reader_sync_zc_read_blocking(&rsz, cb_0));
-  REQUIRE(off_0 == 144);
+  REQUIRE(off_0 == 592);
 
   size_t off_1 = 0;
   a0_zero_copy_callback_t cb_1 = {
       .user_data = &off_1,
-      .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t) {
+      .fn = [](void* user_data, a0_transport_reader_locked_t* trl, a0_flat_packet_t) {
         a0_transport_frame_t frame;
-        a0_transport_frame(tlk, &frame);
+        a0_transport_reader_frame(trl, &frame);
         *(size_t*)user_data = frame.hdr.off;
       },
   };
   REQUIRE_OK(a0_reader_sync_zc_read_blocking(&rsz, cb_1));
-  REQUIRE(off_1 == 256);
+  REQUIRE(off_1 == 704);
 
   REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
 
   a0_zero_copy_callback_t verify_0 = {
       .user_data = nullptr,
-      .fn = [](void*, a0_transport_locked_t, a0_flat_packet_t fpkt) {
+      .fn = [](void*, a0_transport_reader_locked_t*, a0_flat_packet_t fpkt) {
         REQUIRE(a0::test::pkt_cmp(a0::test::pkt("pkt_0"), a0::test::unflatten(fpkt)).content_match);
       },
   };
@@ -535,7 +535,7 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "read] random access") {
 
   a0_zero_copy_callback_t verify_1 = {
       .user_data = nullptr,
-      .fn = [](void*, a0_transport_locked_t, a0_flat_packet_t fpkt) {
+      .fn = [](void*, a0_transport_reader_locked_t*, a0_flat_packet_t fpkt) {
         REQUIRE(a0::test::pkt_cmp(a0::test::pkt("pkt_1"), a0::test::unflatten(fpkt)).content_match);
       },
   };
@@ -549,28 +549,28 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "read] cpp random access") {
   a0::ReaderSyncZeroCopy cpp_rsz(a0::cpp_wrap<a0::Arena>(arena), A0_INIT_OLDEST, A0_ITER_NEXT);
 
   size_t off_0 = 0;
-  cpp_rsz.read([&](a0::TransportLocked tlk, a0::FlatPacket) {
-    off_0 = tlk.frame().hdr.off;
+  cpp_rsz.read([&](a0::TransportReaderLocked trl, a0::FlatPacket) {
+    off_0 = trl.frame().hdr.off;
   });
-  REQUIRE(off_0 == 144);
+  REQUIRE(off_0 == 592);
 
   size_t off_1 = 0;
-  cpp_rsz.read([&](a0::TransportLocked tlk, a0::FlatPacket) {
-    off_1 = tlk.frame().hdr.off;
+  cpp_rsz.read([&](a0::TransportReaderLocked trl, a0::FlatPacket) {
+    off_1 = trl.frame().hdr.off;
   });
-  REQUIRE(off_1 == 256);
+  REQUIRE(off_1 == 704);
 
   a0::read_random_access(
       a0::cpp_wrap<a0::Arena>(arena),
       off_0,
-      [](a0::TransportLocked, a0::FlatPacket fpkt) {
+      [](a0::TransportReaderLocked, a0::FlatPacket fpkt) {
         REQUIRE(fpkt.payload() == "pkt_0");
       });
 
   a0::read_random_access(
       a0::cpp_wrap<a0::Arena>(arena),
       off_1,
-      [](a0::TransportLocked, a0::FlatPacket fpkt) {
+      [](a0::TransportReaderLocked, a0::FlatPacket fpkt) {
         REQUIRE(fpkt.payload() == "pkt_1");
       });
 }
@@ -1009,7 +1009,7 @@ struct ReaderZCFixture : ReaderBaseFixture {
   a0_zero_copy_callback_t make_callback() {
     return a0_zero_copy_callback_t{
         .user_data = &data,
-        .fn = [](void* user_data, a0_transport_locked_t, a0_flat_packet_t fpkt) {
+        .fn = [](void* user_data, a0_transport_reader_locked_t*, a0_flat_packet_t fpkt) {
           auto* data = (data_t*)user_data;
           a0_buf_t payload;
           a0_flat_packet_payload(fpkt, &payload);
@@ -1021,8 +1021,8 @@ struct ReaderZCFixture : ReaderBaseFixture {
     };
   }
 
-  std::function<void(a0::TransportLocked, a0::FlatPacket)> make_cpp_callback() {
-    return [&](a0::TransportLocked, a0::FlatPacket fpkt) {
+  std::function<void(a0::TransportReaderLocked, a0::FlatPacket)> make_cpp_callback() {
+    return [&](a0::TransportReaderLocked, a0::FlatPacket fpkt) {
       std::unique_lock<std::mutex> lk{data.mu};
       data.collected_payloads.push_back(std::string(fpkt.payload()));
       data.cv.notify_all();
@@ -1157,22 +1157,22 @@ TEST_CASE_FIXTURE(ReaderZCFixture, "reader_zc] await new-newest") {
   WAIT_AND_REQUIRE_PAYLOADS({"pkt_2"});
 
   {
-    a0_transport_t transport;
-    REQUIRE_OK(a0_transport_init(&transport, arena));
+    a0_transport_writer_t tw;
+    REQUIRE_OK(a0_transport_writer_init(&tw, arena));
 
-    a0_transport_locked_t lk;
-    REQUIRE_OK(a0_transport_lock(&transport, &lk));
+    a0_transport_writer_locked_t twl;
+    REQUIRE_OK(a0_transport_writer_lock(&tw, &twl));
 
     a0_alloc_t alloc;
-    a0_transport_allocator(&lk, &alloc);
+    a0_transport_writer_allocator(&twl, &alloc);
     a0_packet_serialize(a0::test::pkt("pkt_3"), alloc, NULL);
-    a0_transport_commit(lk);
+    a0_transport_writer_commit(&twl);
 
-    a0_transport_allocator(&lk, &alloc);
+    a0_transport_writer_allocator(&twl, &alloc);
     a0_packet_serialize(a0::test::pkt("pkt_4"), alloc, NULL);
-    a0_transport_commit(lk);
+    a0_transport_writer_commit(&twl);
 
-    REQUIRE_OK(a0_transport_unlock(lk));
+    REQUIRE_OK(a0_transport_writer_unlock(&twl));
   }
 
   WAIT_AND_REQUIRE_PAYLOADS({"pkt_2", "pkt_4"});

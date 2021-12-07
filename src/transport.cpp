@@ -17,109 +17,78 @@
 
 namespace a0 {
 
-bool TransportLocked::empty() const {
+bool TransportReaderLocked::empty() const {
   CHECK_C;
   bool ret;
-  check(a0_transport_empty(*c, &ret));
+  check(a0_transport_reader_empty(&*c, &ret));
   return ret;
 }
 
-uint64_t TransportLocked::seq_low() const {
+uint64_t TransportReaderLocked::seq_low() const {
   CHECK_C;
   uint64_t ret;
-  check(a0_transport_seq_low(*c, &ret));
+  check(a0_transport_reader_seq_low(&*c, &ret));
   return ret;
 }
 
-uint64_t TransportLocked::seq_high() const {
+uint64_t TransportReaderLocked::seq_high() const {
   CHECK_C;
   uint64_t ret;
-  check(a0_transport_seq_high(*c, &ret));
+  check(a0_transport_reader_seq_high(&*c, &ret));
   return ret;
 }
 
-size_t TransportLocked::used_space() const {
-  CHECK_C;
-  size_t ret;
-  check(a0_transport_used_space(*c, &ret));
-  return ret;
-}
-
-void TransportLocked::resize(size_t size) {
-  CHECK_C;
-  check(a0_transport_resize(*c, size));
-}
-
-bool TransportLocked::iter_valid() const {
+bool TransportReaderLocked::iter_valid() const {
   CHECK_C;
   bool ret;
-  check(a0_transport_iter_valid(*c, &ret));
+  check(a0_transport_reader_iter_valid(&*c, &ret));
   return ret;
 }
 
-Frame TransportLocked::frame() const {
+Frame TransportReaderLocked::frame() const {
   CHECK_C;
   Frame ret;
-  check(a0_transport_frame(*c, &ret));
+  check(a0_transport_reader_frame(&*c, &ret));
   return ret;
 }
 
-void TransportLocked::jump(size_t off) {
+void TransportReaderLocked::jump(size_t off) {
   CHECK_C;
-  check(a0_transport_jump(*c, off));
+  check(a0_transport_reader_jump(&*c, off));
 }
 
-void TransportLocked::jump_head() {
+void TransportReaderLocked::jump_head() {
   CHECK_C;
-  check(a0_transport_jump_head(*c));
+  check(a0_transport_reader_jump_head(&*c));
 }
 
-void TransportLocked::jump_tail() {
+void TransportReaderLocked::jump_tail() {
   CHECK_C;
-  check(a0_transport_jump_tail(*c));
+  check(a0_transport_reader_jump_tail(&*c));
 }
 
-bool TransportLocked::has_next() const {
+bool TransportReaderLocked::has_next() const {
   CHECK_C;
   bool ret;
-  check(a0_transport_has_next(*c, &ret));
+  check(a0_transport_reader_has_next(&*c, &ret));
   return ret;
 }
 
-void TransportLocked::step_next() {
+void TransportReaderLocked::step_next() {
   CHECK_C;
-  check(a0_transport_step_next(*c));
+  check(a0_transport_reader_step_next(&*c));
 }
 
-bool TransportLocked::has_prev() const {
+bool TransportReaderLocked::has_prev() const {
   CHECK_C;
   bool ret;
-  check(a0_transport_has_prev(*c, &ret));
+  check(a0_transport_reader_has_prev(&*c, &ret));
   return ret;
 }
 
-void TransportLocked::step_prev() {
+void TransportReaderLocked::step_prev() {
   CHECK_C;
-  check(a0_transport_step_prev(*c));
-}
-
-Frame TransportLocked::alloc(size_t size) {
-  CHECK_C;
-  Frame ret;
-  check(a0_transport_alloc(*c, size, &ret));
-  return ret;
-}
-
-bool TransportLocked::alloc_evicts(size_t size) const {
-  CHECK_C;
-  bool ret;
-  check(a0_transport_alloc_evicts(*c, size, &ret));
-  return ret;
-}
-
-void TransportLocked::commit() {
-  CHECK_C;
-  check(a0_transport_commit(*c));
+  check(a0_transport_reader_step_prev(&*c));
 }
 
 namespace {
@@ -143,38 +112,111 @@ a0_predicate_t pred(std::function<bool()>* fn) {
 
 }  // namespace
 
-void TransportLocked::wait(std::function<bool()> fn) {
+void TransportReaderLocked::wait(std::function<bool()> fn) {
   CHECK_C;
-  check(a0_transport_wait(*c, pred(&fn)));
+  check(a0_transport_reader_wait(&*c, pred(&fn)));
 }
 
-void TransportLocked::wait_for(std::function<bool()> fn, std::chrono::nanoseconds dur) {
+void TransportReaderLocked::wait_for(std::function<bool()> fn, std::chrono::nanoseconds dur) {
   wait_until(fn, TimeMono::now() + dur);
 }
 
-void TransportLocked::wait_until(std::function<bool()> fn, TimeMono tm) {
+void TransportReaderLocked::wait_until(std::function<bool()> fn, TimeMono tm) {
   CHECK_C;
-  check(a0_transport_timedwait(*c, pred(&fn), *tm.c));
+  check(a0_transport_reader_timedwait(&*c, pred(&fn), *tm.c));
 }
 
-Transport::Transport(Arena arena) {
+TransportReader::TransportReader(Arena arena) {
   set_c(
       &c,
-      [&](a0_transport_t* c) {
-        return a0_transport_init(c, *arena.c);
+      [&](a0_transport_reader_t* c) {
+        return a0_transport_reader_init(c, *arena.c);
       },
-      [arena](a0_transport_t*) {});
+      [arena](a0_transport_reader_t*) {});
 }
 
-TransportLocked Transport::lock() {
+TransportReaderLocked TransportReader::lock() {
   CHECK_C;
   auto save = c;
-  return make_cpp<TransportLocked>(
-      [&](a0_transport_locked_t* lk) {
-        return a0_transport_lock(&*c, lk);
+  return make_cpp<TransportReaderLocked>(
+      [&](a0_transport_reader_locked_t* trl) {
+        return a0_transport_reader_lock(&*c, trl);
       },
-      [save](a0_transport_locked_t* lk) {
-        a0_transport_unlock(*lk);
+      [save](a0_transport_reader_locked_t* trl) {
+        a0_transport_reader_unlock(trl);
+      });
+}
+
+bool TransportWriterLocked::empty() const {
+  CHECK_C;
+  bool ret;
+  check(a0_transport_writer_empty(&*c, &ret));
+  return ret;
+}
+
+uint64_t TransportWriterLocked::seq_low() const {
+  CHECK_C;
+  uint64_t ret;
+  check(a0_transport_writer_seq_low(&*c, &ret));
+  return ret;
+}
+
+uint64_t TransportWriterLocked::seq_high() const {
+  CHECK_C;
+  uint64_t ret;
+  check(a0_transport_writer_seq_high(&*c, &ret));
+  return ret;
+}
+
+size_t TransportWriterLocked::used_space() const {
+  CHECK_C;
+  size_t ret;
+  check(a0_transport_writer_used_space(&*c, &ret));
+  return ret;
+}
+
+void TransportWriterLocked::resize(size_t size) {
+  CHECK_C;
+  check(a0_transport_writer_resize(&*c, size));
+}
+
+Frame TransportWriterLocked::alloc(size_t size) {
+  CHECK_C;
+  Frame ret;
+  check(a0_transport_writer_alloc(&*c, size, &ret));
+  return ret;
+}
+
+bool TransportWriterLocked::alloc_evicts(size_t size) const {
+  CHECK_C;
+  bool ret;
+  check(a0_transport_writer_alloc_evicts(&*c, size, &ret));
+  return ret;
+}
+
+void TransportWriterLocked::commit() {
+  CHECK_C;
+  check(a0_transport_writer_commit(&*c));
+}
+
+TransportWriter::TransportWriter(Arena arena) {
+  set_c(
+      &c,
+      [&](a0_transport_writer_t* c) {
+        return a0_transport_writer_init(c, *arena.c);
+      },
+      [arena](a0_transport_writer_t*) {});
+}
+
+TransportWriterLocked TransportWriter::lock() {
+  CHECK_C;
+  auto save = c;
+  return make_cpp<TransportWriterLocked>(
+      [&](a0_transport_writer_locked_t* twl) {
+        return a0_transport_writer_lock(&*c, twl);
+      },
+      [save](a0_transport_writer_locked_t* twl) {
+        a0_transport_writer_unlock(twl);
       });
 }
 
