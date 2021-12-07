@@ -117,19 +117,20 @@ void Cfg::mergepatch(nlohmann::json update) {
       .process = nullptr,
       .process_locked = [](
                             void* user_data,
-                            a0_transport_locked_t tlk,
+                            a0_transport_writer_locked_t* twl,
                             a0_packet_t* pkt,
                             a0_middleware_chain_t chain) mutable {
         auto* update = (nlohmann::json*)user_data;
-        auto cpp_tlk = cpp_wrap<TransportLocked>(tlk);
+        auto cpp_twl = cpp_wrap<TransportWriterLocked>(twl);
 
         std::string serial;
 
-        if (cpp_tlk.empty()) {
+        if (cpp_twl.empty()) {
           serial = update->dump();
         } else {
-          cpp_tlk.jump_tail();
-          auto frame = cpp_tlk.frame();
+          auto cpp_trl = cpp_twl.as_reader();
+          cpp_trl.jump_tail();
+          auto frame = cpp_trl.frame();
           auto flat_packet = cpp_wrap<FlatPacket>({frame.data, frame.hdr.data_size});
           auto doc = nlohmann::json::parse(flat_packet.payload());
           doc.merge_patch(*update);

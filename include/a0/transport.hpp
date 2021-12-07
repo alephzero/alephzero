@@ -55,6 +55,8 @@ struct TransportWriterLocked : details::CppWrap<a0_transport_writer_locked_t> {
   bool alloc_evicts(size_t) const;
 
   void commit();
+
+  TransportReaderLocked as_reader();
 };
 
 struct TransportWriter : details::CppWrap<a0_transport_writer_t> {

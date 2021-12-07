@@ -218,6 +218,14 @@ a0_err_t a0_transport_writer_unlock(a0_transport_writer_locked_t* twl) {
   return A0_OK;
 }
 
+a0_err_t a0_transport_writer_as_reader(a0_transport_writer_locked_t* twl, a0_transport_reader_t* tr_out, a0_transport_reader_locked_t* trl_out) {
+  memset(tr_out, 0, sizeof(a0_transport_reader_t));
+  memset(trl_out, 0, sizeof(a0_transport_reader_locked_t));
+  tr_out->_arena = twl->_tw->_arena;
+  trl_out->_tr = tr_out;
+  return A0_OK;
+}
+
 a0_err_t a0_transport_writer_empty(a0_transport_writer_locked_t* twl, bool* out) {
   a0_transport_state_t* working_page = twl_working_page(twl);
   *out = !working_page->seq_high | (working_page->seq_low > working_page->seq_high);

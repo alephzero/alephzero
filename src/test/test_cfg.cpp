@@ -289,18 +289,18 @@ void from_json(const nlohmann::json& j, MyStruct& my) {
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   std::vector<nlohmann::json> saved_cfgs;
-  a0::test::Event got_final_cfg;
+  std::unique_ptr<a0::test::Latch> latch;
 
   a0::CfgWatcher watcher(topic.name, [&](nlohmann::json j) {
     saved_cfgs.push_back(j);
-    if (j.count("done")) {
-      got_final_cfg.set();
-    }
+    latch->count_down();
   });
 
+  latch.reset(new a0::test::Latch(2));
   a0::Cfg c(a0::env::topic());
   REQUIRE(c.write_if_empty(R"({"foo": 1, "bar": 2})"));
-  REQUIRE(!c.write_if_empty(R"({"foo": 1, "bar": 4})"));
+  REQUIRE(!c.write_if_empty(R"({"foo": 1, "bar": 5})"));
+  latch->arrive_and_wait();
 
   a0::Cfg::Var<MyStruct> my;
 
@@ -311,6 +311,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 1);
 
+  latch.reset(new a0::test::Latch(2));
   c.write({{"foo", 3}, {"bar", 2}});
   REQUIRE(my->foo == 1);
   REQUIRE(my->bar == 2);
@@ -320,21 +321,20 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   REQUIRE(my->foo == 3);
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 3);
+  latch->arrive_and_wait();
 
+  latch.reset(new a0::test::Latch(2));
   c.mergepatch({{"foo", 4}});
   c.update_var();
   REQUIRE(my->foo == 4);
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 4);
+  latch->arrive_and_wait();
 
-  c.mergepatch({{"done", true}});
-  got_final_cfg.wait();
-
-  REQUIRE(saved_cfgs.size() == 4);
+  REQUIRE(saved_cfgs.size() == 3);
   REQUIRE(saved_cfgs[0] == nlohmann::json{{"bar", 2}, {"foo", 1}});
   REQUIRE(saved_cfgs[1] == nlohmann::json{{"bar", 2}, {"foo", 3}});
   REQUIRE(saved_cfgs[2] == nlohmann::json{{"bar", 2}, {"foo", 4}});
-  REQUIRE(saved_cfgs[3] == nlohmann::json{{"bar", 2}, {"foo", 4}, {"done", true}});
   watcher = {};
 
   c.write("cfg");

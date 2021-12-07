@@ -199,6 +199,18 @@ void TransportWriterLocked::commit() {
   check(a0_transport_writer_commit(&*c));
 }
 
+TransportReaderLocked TransportWriterLocked::as_reader() {
+  CHECK_C;
+  auto save = c;
+  auto tr = std::make_shared<a0_transport_reader_t>();
+  return make_cpp<TransportReaderLocked>(
+      [&](a0_transport_reader_locked_t* trl) {
+        return a0_transport_writer_as_reader(&*c, &*tr, trl);
+      },
+      [save, tr](a0_transport_reader_locked_t*) {
+      });
+}
+
 TransportWriter::TransportWriter(Arena arena) {
   set_c(
       &c,

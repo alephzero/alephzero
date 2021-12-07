@@ -271,6 +271,7 @@ a0_err_t a0_transport_writer_empty(a0_transport_writer_locked_t*, bool*);
 a0_err_t a0_transport_writer_seq_low(a0_transport_writer_locked_t*, uint64_t* out);
 a0_err_t a0_transport_writer_seq_high(a0_transport_writer_locked_t*, uint64_t* out);
 
+a0_err_t a0_transport_writer_as_reader(a0_transport_writer_locked_t*, a0_transport_reader_t* out_tr, a0_transport_reader_locked_t* out_trl);
 
 /// Allocates a new frame within the arena.
 ///

@@ -333,9 +333,13 @@ a0_err_t a0_mergepatch_process_locked_nonempty(
     a0_transport_writer_locked_t* twl,
     a0_packet_t* pkt,
     a0_middleware_chain_t chain) {
-  a0_transport_jump_tail(twl);
+  a0_transport_reader_t tr;
+  a0_transport_reader_locked_t trl;
+  a0_transport_writer_as_reader(twl, &tr, &trl);
+
+  a0_transport_reader_jump_tail(&trl);
   a0_transport_frame_t frame;
-  a0_transport_frame(twl, &frame);
+  a0_transport_reader_frame(&trl, &frame);
 
   a0_flat_packet_t flat_packet = {
       .buf = {frame.data, frame.hdr.data_size},
