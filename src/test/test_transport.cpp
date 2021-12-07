@@ -99,14 +99,14 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] construct") {
       "seq_high": 0,
       "off_head": 0,
       "off_tail": 0,
-      "high_water_mark": 592
+      "high_water_mark": 624
     },
     "working_state": {
       "seq_low": 0,
       "seq_high": 0,
       "off_head": 0,
       "off_tail": 0,
-      "high_water_mark": 592
+      "high_water_mark": 624
     }
   },
   "data": [
@@ -130,14 +130,14 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp construct") {
       "seq_high": 0,
       "off_head": 0,
       "off_tail": 0,
-      "high_water_mark": 592
+      "high_water_mark": 624
     },
     "working_state": {
       "seq_low": 0,
       "seq_high": 0,
       "off_head": 0,
       "off_tail": 0,
-      "high_water_mark": 592
+      "high_water_mark": 624
     }
   },
   "data": [
@@ -166,14 +166,14 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] alloc/commit") {
       "seq_high": 0,
       "off_head": 0,
       "off_tail": 0,
-      "high_water_mark": 592
+      "high_water_mark": 624
     },
     "working_state": {
       "seq_low": 0,
       "seq_high": 0,
       "off_head": 0,
       "off_tail": 0,
-      "high_water_mark": 592
+      "high_water_mark": 624
     }
   },
   "data": [
@@ -197,32 +197,32 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] alloc/commit") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 642
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 674
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 592,
-      "off_tail": 656,
-      "high_water_mark": 736
+      "off_head": 624,
+      "off_tail": 688,
+      "high_water_mark": 768
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 656,
+      "next_off": 688,
       "data_size": 10,
       "data": "0123456789"
     },
     {
       "committed": false,
-      "off": 656,
+      "off": 688,
       "seq": 2,
-      "prev_off": 592,
+      "prev_off": 624,
       "next_off": 0,
       "data_size": 40,
       "data": "01234567890123456789012345678..."
@@ -240,31 +240,31 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] alloc/commit") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 592,
-      "off_tail": 656,
-      "high_water_mark": 736
+      "off_head": 624,
+      "off_tail": 688,
+      "high_water_mark": 768
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 592,
-      "off_tail": 656,
-      "high_water_mark": 736
+      "off_head": 624,
+      "off_tail": 688,
+      "high_water_mark": 768
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 656,
+      "next_off": 688,
       "data_size": 10,
       "data": "0123456789"
     },
     {
-      "off": 656,
+      "off": 688,
       "seq": 2,
-      "prev_off": 592,
+      "prev_off": 624,
       "next_off": 0,
       "data_size": 40,
       "data": "01234567890123456789012345678..."
@@ -291,14 +291,14 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp alloc/commit") {
       "seq_high": 0,
       "off_head": 0,
       "off_tail": 0,
-      "high_water_mark": 592
+      "high_water_mark": 624
     },
     "working_state": {
       "seq_low": 0,
       "seq_high": 0,
       "off_head": 0,
       "off_tail": 0,
-      "high_water_mark": 592
+      "high_water_mark": 624
     }
   },
   "data": [
@@ -320,32 +320,32 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp alloc/commit") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 642
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 674
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 592,
-      "off_tail": 656,
-      "high_water_mark": 736
+      "off_head": 624,
+      "off_tail": 688,
+      "high_water_mark": 768
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 656,
+      "next_off": 688,
       "data_size": 10,
       "data": "0123456789"
     },
     {
       "committed": false,
-      "off": 656,
+      "off": 688,
       "seq": 2,
-      "prev_off": 592,
+      "prev_off": 624,
       "next_off": 0,
       "data_size": 40,
       "data": "01234567890123456789012345678..."
@@ -363,31 +363,31 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp alloc/commit") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 592,
-      "off_tail": 656,
-      "high_water_mark": 736
+      "off_head": 624,
+      "off_tail": 688,
+      "high_water_mark": 768
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 592,
-      "off_tail": 656,
-      "high_water_mark": 736
+      "off_head": 624,
+      "off_tail": 688,
+      "high_water_mark": 768
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 656,
+      "next_off": 688,
       "data_size": 10,
       "data": "0123456789"
     },
     {
-      "off": 656,
+      "off": 688,
       "seq": 2,
-      "prev_off": 592,
+      "prev_off": 624,
       "next_off": 0,
       "data_size": 40,
       "data": "01234567890123456789012345678..."
@@ -785,39 +785,39 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] wrap around") {
     "committed_state": {
       "seq_low": 18,
       "seq_high": 20,
-      "off_head": 2736,
-      "off_tail": 1664,
-      "high_water_mark": 3800
+      "off_head": 2768,
+      "off_tail": 1696,
+      "high_water_mark": 3832
     },
     "working_state": {
       "seq_low": 18,
       "seq_high": 20,
-      "off_head": 2736,
-      "off_tail": 1664,
-      "high_water_mark": 3800
+      "off_head": 2768,
+      "off_tail": 1696,
+      "high_water_mark": 3832
     }
   },
   "data": [
     {
-      "off": 2736,
+      "off": 2768,
       "seq": 18,
-      "prev_off": 1664,
-      "next_off": 592,
+      "prev_off": 1696,
+      "next_off": 624,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     },
     {
-      "off": 592,
+      "off": 624,
       "seq": 19,
-      "prev_off": 2736,
-      "next_off": 1664,
+      "prev_off": 2768,
+      "next_off": 1696,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     },
     {
-      "off": 1664,
+      "off": 1696,
       "seq": 20,
-      "prev_off": 592,
+      "prev_off": 624,
       "next_off": 0,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
@@ -848,39 +848,39 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp wrap around") {
     "committed_state": {
       "seq_low": 18,
       "seq_high": 20,
-      "off_head": 2736,
-      "off_tail": 1664,
-      "high_water_mark": 3800
+      "off_head": 2768,
+      "off_tail": 1696,
+      "high_water_mark": 3832
     },
     "working_state": {
       "seq_low": 18,
       "seq_high": 20,
-      "off_head": 2736,
-      "off_tail": 1664,
-      "high_water_mark": 3800
+      "off_head": 2768,
+      "off_tail": 1696,
+      "high_water_mark": 3832
     }
   },
   "data": [
     {
-      "off": 2736,
+      "off": 2768,
       "seq": 18,
-      "prev_off": 1664,
-      "next_off": 592,
+      "prev_off": 1696,
+      "next_off": 624,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     },
     {
-      "off": 592,
+      "off": 624,
       "seq": 19,
-      "prev_off": 2736,
-      "next_off": 1664,
+      "prev_off": 2768,
+      "next_off": 1696,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
     },
     {
-      "off": 1664,
+      "off": 1696,
       "seq": 20,
-      "prev_off": 592,
+      "prev_off": 624,
       "next_off": 0,
       "data_size": 1024,
       "data": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
@@ -1018,21 +1018,21 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] large alloc") {
     "committed_state": {
       "seq_low": 5,
       "seq_high": 5,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 3704
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 3736
     },
     "working_state": {
       "seq_low": 5,
       "seq_high": 5,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 3704
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 3736
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 5,
       "prev_off": 0,
       "next_off": 0,
@@ -1064,21 +1064,21 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp large alloc") {
     "committed_state": {
       "seq_low": 5,
       "seq_high": 5,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 3704
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 3736
     },
     "working_state": {
       "seq_low": 5,
       "seq_high": 5,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 3704
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 3736
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 5,
       "prev_off": 0,
       "next_off": 0,
@@ -1103,7 +1103,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
 
   size_t used_space;
   REQUIRE_OK(a0_transport_writer_used_space(&twl, &used_space));
-  REQUIRE(used_space == 592);
+  REQUIRE(used_space == 624);
 
   std::string data(1024, 'a');
   a0_transport_frame_t frame;
@@ -1113,11 +1113,11 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   REQUIRE_OK(a0_transport_writer_commit(&twl));
 
   REQUIRE_OK(a0_transport_writer_used_space(&twl, &used_space));
-  REQUIRE(used_space == 1656);
+  REQUIRE(used_space == 1688);
 
   REQUIRE(a0_transport_writer_resize(&twl, 0) == A0_ERR_INVALID_ARG);
   REQUIRE(a0_transport_writer_resize(&twl, 1207) == A0_ERR_INVALID_ARG);
-  REQUIRE_OK(a0_transport_writer_resize(&twl, 1656));
+  REQUIRE_OK(a0_transport_writer_resize(&twl, 1688));
 
   data = std::string(1024 + 1, 'a');  // 1 byte larger than previous.
   REQUIRE(a0_transport_writer_alloc(&twl, data.size(), &frame) == A0_ERR_FRAME_LARGE);
@@ -1135,7 +1135,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   REQUIRE(frame.hdr.data_size == 1024);
   REQUIRE(a0::test::str(frame) == data);
   REQUIRE(arena.buf.data[1207] == 'b');
-  REQUIRE(arena.buf.data[1656] != 'b');
+  REQUIRE(arena.buf.data[1688] != 'b');
 
   REQUIRE_OK(a0_transport_reader_unlock(&trl));
   REQUIRE_OK(a0_transport_writer_lock(&tw, &twl));
@@ -1143,25 +1143,25 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   require_debugstr(&twl, R"(
 {
   "header": {
-    "arena_size": 1656,
+    "arena_size": 1688,
     "committed_state": {
       "seq_low": 2,
       "seq_high": 2,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 1656
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 1688
     },
     "working_state": {
       "seq_low": 2,
       "seq_high": 2,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 1656
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 1688
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 2,
       "prev_off": 0,
       "next_off": 0,
@@ -1173,7 +1173,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
 )");
 
   REQUIRE_OK(a0_transport_writer_used_space(&twl, &used_space));
-  REQUIRE(used_space == 1656);
+  REQUIRE(used_space == 1688);
 
   REQUIRE_OK(a0_transport_writer_resize(&twl, 4096));
 
@@ -1183,7 +1183,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   REQUIRE_OK(a0_transport_writer_commit(&twl));
 
   REQUIRE_OK(a0_transport_writer_used_space(&twl, &used_space));
-  REQUIRE(used_space == 3752);
+  REQUIRE(used_space == 3784);
 
   require_debugstr(&twl, R"(
 {
@@ -1192,31 +1192,31 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
     "committed_state": {
       "seq_low": 2,
       "seq_high": 3,
-      "off_head": 592,
-      "off_tail": 1664,
-      "high_water_mark": 3752
+      "off_head": 624,
+      "off_tail": 1696,
+      "high_water_mark": 3784
     },
     "working_state": {
       "seq_low": 2,
       "seq_high": 3,
-      "off_head": 592,
-      "off_tail": 1664,
-      "high_water_mark": 3752
+      "off_head": 624,
+      "off_tail": 1696,
+      "high_water_mark": 3784
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 2,
       "prev_off": 0,
-      "next_off": 1664,
+      "next_off": 1696,
       "data_size": 1024,
       "data": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbb..."
     },
     {
-      "off": 1664,
+      "off": 1696,
       "seq": 3,
-      "prev_off": 592,
+      "prev_off": 624,
       "next_off": 0,
       "data_size": 2048,
       "data": "ccccccccccccccccccccccccccccc..."
@@ -1233,7 +1233,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   REQUIRE_OK(a0_transport_writer_commit(&twl));
 
   REQUIRE_OK(a0_transport_writer_used_space(&twl, &used_space));
-  REQUIRE(used_space == 3816);
+  REQUIRE(used_space == 3848);
 
   data = std::string(3129, 'e');
   REQUIRE_OK(a0_transport_writer_alloc(&twl, data.size(), &frame));
@@ -1241,7 +1241,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   REQUIRE_OK(a0_transport_writer_commit(&twl));
 
   REQUIRE_OK(a0_transport_writer_used_space(&twl, &used_space));
-  REQUIRE(used_space == 3761);
+  REQUIRE(used_space == 3793);
 
   data = std::string(16, 'f');
   REQUIRE_OK(a0_transport_writer_alloc(&twl, data.size(), &frame));
@@ -1249,7 +1249,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   REQUIRE_OK(a0_transport_writer_commit(&twl));
 
   REQUIRE_OK(a0_transport_writer_used_space(&twl, &used_space));
-  REQUIRE(used_space == 3832);
+  REQUIRE(used_space == 3864);
 
   require_debugstr(&twl, R"(
 {
@@ -1258,31 +1258,31 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
     "committed_state": {
       "seq_low": 5,
       "seq_high": 6,
-      "off_head": 592,
-      "off_tail": 3776,
-      "high_water_mark": 3832
+      "off_head": 624,
+      "off_tail": 3808,
+      "high_water_mark": 3864
     },
     "working_state": {
       "seq_low": 5,
       "seq_high": 6,
-      "off_head": 592,
-      "off_tail": 3776,
-      "high_water_mark": 3832
+      "off_head": 624,
+      "off_tail": 3808,
+      "high_water_mark": 3864
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 5,
       "prev_off": 0,
-      "next_off": 3776,
+      "next_off": 3808,
       "data_size": 3129,
       "data": "eeeeeeeeeeeeeeeeeeeeeeeeeeeee..."
     },
     {
-      "off": 3776,
+      "off": 3808,
       "seq": 6,
-      "prev_off": 592,
+      "prev_off": 624,
       "next_off": 0,
       "data_size": 16,
       "data": "ffffffffffffffff"
@@ -1299,7 +1299,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   REQUIRE_OK(a0_transport_writer_commit(&twl));
 
   REQUIRE_OK(a0_transport_writer_used_space(&twl, &used_space));
-  REQUIRE(used_space == (592 + 40 + 3264));
+  REQUIRE(used_space == (624 + 40 + 3264));
 
   uint64_t seq_low;
   REQUIRE_OK(a0_transport_writer_seq_low(&twl, &seq_low));
@@ -1316,7 +1316,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   REQUIRE_OK(a0_transport_writer_lock(&tw, &twl));
 
   REQUIRE_OK(a0_transport_writer_used_space(&twl, &used_space));
-  REQUIRE(used_space == 592);
+  REQUIRE(used_space == 624);
 
   REQUIRE_OK(a0_transport_writer_seq_low(&twl, &seq_low));
   REQUIRE(seq_low == 8);
@@ -1332,14 +1332,14 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
   a0::TransportReader tr(a0::cpp_wrap<a0::Arena>(arena));
   auto twl = tw.lock();
 
-  REQUIRE(twl.used_space() == 592);
+  REQUIRE(twl.used_space() == 624);
 
   std::string data(1024, 'a');
   auto frame = twl.alloc(data.size());
   memcpy(frame.data, data.c_str(), data.size());
   twl.commit();
 
-  REQUIRE(twl.used_space() == 1656);
+  REQUIRE(twl.used_space() == 1688);
 
   REQUIRE_THROWS_WITH(
       twl.resize(0),
@@ -1349,7 +1349,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
       twl.resize(1207),
       "Invalid argument");
 
-  twl.resize(1656);
+  twl.resize(1688);
 
   data = std::string(1024 + 1, 'a');  // 1 byte larger than previous.
 
@@ -1373,32 +1373,32 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
   REQUIRE(frame.hdr.data_size == 1024);
   REQUIRE(a0::test::str(frame) == data);
   REQUIRE(arena.buf.data[1207] == 'b');
-  REQUIRE(arena.buf.data[1656] != 'b');
+  REQUIRE(arena.buf.data[1688] != 'b');
   trl = {};
   twl = tw.lock();
 
   require_debugstr(&*twl.c, R"(
 {
   "header": {
-    "arena_size": 1656,
+    "arena_size": 1688,
     "committed_state": {
       "seq_low": 2,
       "seq_high": 2,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 1656
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 1688
     },
     "working_state": {
       "seq_low": 2,
       "seq_high": 2,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 1656
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 1688
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 2,
       "prev_off": 0,
       "next_off": 0,
@@ -1409,7 +1409,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
 }
 )");
 
-  REQUIRE(twl.used_space() == 1656);
+  REQUIRE(twl.used_space() == 1688);
 
   twl.resize(4096);
 
@@ -1418,7 +1418,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
   memcpy(frame.data, data.c_str(), data.size());
   twl.commit();
 
-  REQUIRE(twl.used_space() == 3752);
+  REQUIRE(twl.used_space() == 3784);
 
   require_debugstr(&*twl.c, R"(
 {
@@ -1427,31 +1427,31 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
     "committed_state": {
       "seq_low": 2,
       "seq_high": 3,
-      "off_head": 592,
-      "off_tail": 1664,
-      "high_water_mark": 3752
+      "off_head": 624,
+      "off_tail": 1696,
+      "high_water_mark": 3784
     },
     "working_state": {
       "seq_low": 2,
       "seq_high": 3,
-      "off_head": 592,
-      "off_tail": 1664,
-      "high_water_mark": 3752
+      "off_head": 624,
+      "off_tail": 1696,
+      "high_water_mark": 3784
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 2,
       "prev_off": 0,
-      "next_off": 1664,
+      "next_off": 1696,
       "data_size": 1024,
       "data": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbb..."
     },
     {
-      "off": 1664,
+      "off": 1696,
       "seq": 3,
-      "prev_off": 592,
+      "prev_off": 624,
       "next_off": 0,
       "data_size": 2048,
       "data": "ccccccccccccccccccccccccccccc..."
@@ -1467,21 +1467,21 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
   memcpy(frame.data, data.c_str(), data.size());
   twl.commit();
 
-  REQUIRE(twl.used_space() == 3816);
+  REQUIRE(twl.used_space() == 3848);
 
   data = std::string(3129, 'e');
   frame = twl.alloc(data.size());
   memcpy(frame.data, data.c_str(), data.size());
   twl.commit();
 
-  REQUIRE(twl.used_space() == 3761);
+  REQUIRE(twl.used_space() == 3793);
 
   data = std::string(16, 'f');
   frame = twl.alloc(data.size());
   memcpy(frame.data, data.c_str(), data.size());
   twl.commit();
 
-  REQUIRE(twl.used_space() == 3832);
+  REQUIRE(twl.used_space() == 3864);
 
   require_debugstr(&*twl.c, R"(
 {
@@ -1490,31 +1490,31 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
     "committed_state": {
       "seq_low": 5,
       "seq_high": 6,
-      "off_head": 592,
-      "off_tail": 3776,
-      "high_water_mark": 3832
+      "off_head": 624,
+      "off_tail": 3808,
+      "high_water_mark": 3864
     },
     "working_state": {
       "seq_low": 5,
       "seq_high": 6,
-      "off_head": 592,
-      "off_tail": 3776,
-      "high_water_mark": 3832
+      "off_head": 624,
+      "off_tail": 3808,
+      "high_water_mark": 3864
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 5,
       "prev_off": 0,
-      "next_off": 3776,
+      "next_off": 3808,
       "data_size": 3129,
       "data": "eeeeeeeeeeeeeeeeeeeeeeeeeeeee..."
     },
     {
-      "off": 3776,
+      "off": 3808,
       "seq": 6,
-      "prev_off": 592,
+      "prev_off": 624,
       "next_off": 0,
       "data_size": 16,
       "data": "ffffffffffffffff"
@@ -1530,7 +1530,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
   memcpy(frame.data, data.c_str(), data.size());
   twl.commit();
 
-  REQUIRE(twl.used_space() == (592 + 40 + 3264));
+  REQUIRE(twl.used_space() == (624 + 40 + 3264));
 
   REQUIRE(twl.seq_low() == 7);
   REQUIRE(twl.seq_high() == 7);
@@ -1542,7 +1542,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
   twl = {};
   twl = tw.lock();
 
-  REQUIRE(twl.used_space() == 592);
+  REQUIRE(twl.used_space() == 624);
 
   REQUIRE(twl.seq_low() == 8);
   REQUIRE(twl.seq_high() == 7);
@@ -1727,8 +1727,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp shm await") {
 }
 
 TEST_CASE_FIXTURE(TransportFixture, "transport] robust") {
-  int child_pid = fork();
-  if (!child_pid) {
+  REQUIRE_EXIT({
     a0_transport_writer_t tw;
     REQUIRE_OK(a0_transport_writer_init(&tw, shm.arena));
 
@@ -1761,32 +1760,32 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 635
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 667
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 2,
-      "off_head": 592,
-      "off_tail": 640,
-      "high_water_mark": 682
+      "off_head": 624,
+      "off_tail": 672,
+      "high_water_mark": 714
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 640,
+      "next_off": 672,
       "data_size": 3,
       "data": "YES"
     },
     {
       "committed": false,
-      "off": 640,
+      "off": 672,
       "seq": 2,
-      "prev_off": 592,
+      "prev_off": 624,
       "next_off": 0,
       "data_size": 2,
       "data": "NO"
@@ -1798,10 +1797,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust") {
       // Exit without cleaning resources.
       std::quick_exit(0);
     }
-  }
-  int child_status;
-  waitpid(child_pid, &child_status, 0);
-  (void)child_status;
+  });
 
   a0_transport_writer_t tw;
   REQUIRE_OK(a0_transport_writer_init(&tw, shm.arena));
@@ -1816,24 +1812,24 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust") {
     "committed_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 635
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 667
     },
     "working_state": {
       "seq_low": 1,
       "seq_high": 1,
-      "off_head": 592,
-      "off_tail": 592,
-      "high_water_mark": 635
+      "off_head": 624,
+      "off_tail": 624,
+      "high_water_mark": 667
     }
   },
   "data": [
     {
-      "off": 592,
+      "off": 624,
       "seq": 1,
       "prev_off": 0,
-      "next_off": 640,
+      "next_off": 672,
       "data_size": 3,
       "data": "YES"
     }
@@ -2023,4 +2019,27 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust copy disk->shm->disk") {
   a0_file_close(&copied_disk);
   a0_file_remove(COPY_DISK);
   a0_file_remove(COPY_SHM);
+}
+
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp simultaneous readers") {
+  a0::TransportWriter tw(a0::cpp_wrap<a0::Arena>(arena));
+  auto twl = tw.lock();
+
+  a0::Frame frame = twl.alloc(10);
+  memcpy(frame.data, "0123456789", 10);
+  twl.commit();
+
+  twl = {};
+
+  std::vector<a0::TransportReader> readers;
+  std::vector<a0::TransportReaderLocked> readers_locked;
+  for (int i = 0; i < 10; i++) {
+    readers.emplace_back(a0::cpp_wrap<a0::Arena>(arena));
+    readers_locked.push_back(readers.back().lock());
+  }
+
+  for (auto&& trl : readers_locked) {
+    trl.jump_tail();
+    REQUIRE(a0::test::str(trl.frame()) == "0123456789");
+  }
 }

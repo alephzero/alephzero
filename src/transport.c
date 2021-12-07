@@ -42,6 +42,8 @@ typedef struct a0_transport_hdr_s {
   a0_transport_version_t version;
   bool initialized;
 
+  a0_mtx_t init_mtx;
+
   a0_rwmtx_t rwmtx;
   a0_mtx_t rwmtx_rslots[A0_NUM_RMTX_SLOT];
   a0_rwcnd_t rwcnd;
@@ -52,8 +54,7 @@ typedef struct a0_transport_hdr_s {
   size_t arena_size;
 } a0_transport_hdr_t;
 
-// TODO(lshamis): Consider packing or reordering fields to reduce this.
-_Static_assert(sizeof(a0_transport_hdr_t) == 592, "Unexpected transport binary representation.");
+_Static_assert(sizeof(a0_transport_hdr_t) == 616, "Unexpected transport binary representation.");
 
 A0_STATIC_INLINE
 a0_arena_t twl_arena(a0_transport_writer_locked_t* twl) {
@@ -138,10 +139,9 @@ a0_err_t transport_init(a0_arena_t arena) {
     memset(&hdr->rwmtx_rslots, 0, sizeof(hdr->rwmtx_rslots));
   }
 
-  a0_transport_writer_t wl = (a0_transport_writer_t){arena};
-
-  a0_transport_writer_locked_t twl;
-  A0_RETURN_ERR_ON_ERR(a0_transport_writer_lock(&wl, &twl));
+  if (A0_SYSERR(a0_mtx_lock(&hdr->init_mtx)) == EOWNERDEAD) {
+    a0_mtx_consistent(&hdr->init_mtx);
+  }
 
   if (!hdr->initialized) {
     memcpy(hdr->magic, "ALEPHZERO", 9);
@@ -156,7 +156,7 @@ a0_err_t transport_init(a0_arena_t arena) {
     // TODO(lshamis): Verify magic + version.
   }
 
-  a0_transport_writer_unlock(&twl);
+  a0_mtx_unlock(&hdr->init_mtx);
 
   return A0_OK;
 }
@@ -199,6 +199,7 @@ a0_err_t a0_transport_writer_lock(a0_transport_writer_t* tw, a0_transport_writer
   twl_out->_tw = tw;
   if (tw->_arena.mode == A0_ARENA_MODE_SHARED) {
     a0_rwmtx_wlock(&twl_header(twl_out)->rwmtx, twl_rwmtx_span(twl_out), &twl_out->_tkn);
+    *twl_working_page(twl_out) = *twl_committed_page(twl_out);
   }
   return A0_OK;
 }

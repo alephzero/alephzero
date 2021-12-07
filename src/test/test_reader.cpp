@@ -509,7 +509,7 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "read] random access") {
       },
   };
   REQUIRE_OK(a0_reader_sync_zc_read_blocking(&rsz, cb_0));
-  REQUIRE(off_0 == 592);
+  REQUIRE(off_0 == 624);
 
   size_t off_1 = 0;
   a0_zero_copy_callback_t cb_1 = {
@@ -521,7 +521,7 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "read] random access") {
       },
   };
   REQUIRE_OK(a0_reader_sync_zc_read_blocking(&rsz, cb_1));
-  REQUIRE(off_1 == 704);
+  REQUIRE(off_1 == 736);
 
   REQUIRE_OK(a0_reader_sync_zc_close(&rsz));
 
@@ -552,13 +552,13 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "read] cpp random access") {
   cpp_rsz.read([&](a0::TransportReaderLocked trl, a0::FlatPacket) {
     off_0 = trl.frame().hdr.off;
   });
-  REQUIRE(off_0 == 592);
+  REQUIRE(off_0 == 624);
 
   size_t off_1 = 0;
   cpp_rsz.read([&](a0::TransportReaderLocked trl, a0::FlatPacket) {
     off_1 = trl.frame().hdr.off;
   });
-  REQUIRE(off_1 == 704);
+  REQUIRE(off_1 == 736);
 
   a0::read_random_access(
       a0::cpp_wrap<a0::Arena>(arena),
