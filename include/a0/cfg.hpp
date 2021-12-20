@@ -89,6 +89,7 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
       std::shared_ptr<std::function<void(const nlohmann::json&)>> updater;
       T cache;
       bool cache_populated{false};
+      std::string parse_error;
     };
     std::shared_ptr<Impl> impl;
 
@@ -100,11 +101,13 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
             if (!strong_impl) {
               return;
             }
+            strong_impl->cache_populated = false;
+            strong_impl->parse_error.clear();
             try {
-              full_cfg[strong_impl->jptr].get_to(strong_impl->cache);
+              full_cfg.at(strong_impl->jptr).get_to(strong_impl->cache);
               strong_impl->cache_populated = true;
-            } catch (...) {
-              strong_impl->cache_populated = false;
+            } catch (const std::exception& e) {
+              strong_impl->parse_error = e.what();
             }
           });
       impl->parent->register_var(impl->updater);
@@ -144,7 +147,9 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
 
     const T& operator*() const {
       if (!impl->cache_populated) {
-        throw std::runtime_error("Cfg::Var has no data.");
+        std::string err = "Cfg::Var(jptr=" + std::string(impl->jptr) + ") ";
+        err += impl->parse_error.empty() ? "has no data" : "parse error: " + impl->parse_error;
+        throw std::runtime_error(err);
       }
       return impl->cache;
     }
