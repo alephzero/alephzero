@@ -16,8 +16,8 @@
 #include <utility>
 #include <vector>
 
+#include "c_opts.hpp"
 #include "c_wrap.hpp"
-#include "file_opts.hpp"
 
 namespace a0 {
 
@@ -74,8 +74,7 @@ struct LogListenerImpl {
 LogListener::LogListener(
     LogTopic topic,
     LogLevel lvl,
-    ReaderInit init,
-    ReaderIter iter,
+    Reader::Qos qos,
     std::function<void(Packet)> onpacket) {
   set_c_impl<LogListenerImpl>(
       &c,
@@ -105,7 +104,7 @@ LogListener::LogListener(
               impl->onpacket(Packet(pkt, [data](a0_packet_t*) {}));
             }};
 
-        return a0_log_listener_init(c, c_topic, alloc, (a0_log_level_t)lvl, init, iter, c_onpacket);
+        return a0_log_listener_init(c, c_topic, alloc, (a0_log_level_t)lvl, c_qos(qos), c_onpacket);
       },
       [](a0_log_listener_t* c, LogListenerImpl*) {
         a0_log_listener_close(c);

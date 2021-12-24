@@ -61,7 +61,7 @@ struct Logger : details::CppWrap<a0_logger_t> {
 
 struct LogListener : details::CppWrap<a0_log_listener_t> {
   LogListener() = default;
-  LogListener(LogTopic, LogLevel, ReaderInit, ReaderIter, std::function<void(Packet)>);
+  LogListener(LogTopic, LogLevel, Reader::Qos, std::function<void(Packet)>);
 };
 
 }  // namespace a0

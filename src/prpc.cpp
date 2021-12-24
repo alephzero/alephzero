@@ -20,8 +20,8 @@
 #include <utility>
 #include <vector>
 
+#include "c_opts.hpp"
 #include "c_wrap.hpp"
-#include "file_opts.hpp"
 
 namespace a0 {
 
