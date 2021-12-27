@@ -28,8 +28,8 @@ struct Reader : details::CppWrap<a0_reader_t> {
     static Qos DEFAULT;
 
     Qos() : Qos{DEFAULT} {}
-    Qos(Init init_) : Qos() { init = init_; }
-    Qos(Iter iter_) : Qos() { iter = iter_; }
+    explicit Qos(Init init_) : Qos() { init = init_; }
+    explicit Qos(Iter iter_) : Qos() { iter = iter_; }
     Qos(Init init_, Iter iter_) : Qos() { init = init_; iter = iter_; }
   };
 
@@ -56,7 +56,7 @@ struct ReaderSyncZeroCopy : details::CppWrap<a0_reader_sync_zc_t> {
   ReaderSyncZeroCopy() = default;
   ReaderSyncZeroCopy(Arena, Reader::Qos);
 
-  ReaderSyncZeroCopy(Arena arena)
+  explicit ReaderSyncZeroCopy(Arena arena)
       : ReaderSyncZeroCopy(arena, Reader::Qos()) {}
   ReaderSyncZeroCopy(Arena arena, Reader::Init init)
       : ReaderSyncZeroCopy(arena, Reader::Qos(init)) {}
@@ -75,7 +75,7 @@ struct ReaderSync : details::CppWrap<a0_reader_sync_t> {
   ReaderSync() = default;
   ReaderSync(Arena, Reader::Qos);
 
-  ReaderSync(Arena arena)
+  explicit ReaderSync(Arena arena)
       : ReaderSync(arena, Reader::Qos()) {}
   ReaderSync(Arena arena, Reader::Init init)
       : ReaderSync(arena, Reader::Qos(init)) {}

@@ -44,7 +44,7 @@ struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
   SubscriberSync() = default;
   SubscriberSync(PubSubTopic, Reader::Qos);
 
-  SubscriberSync(PubSubTopic topic)
+  explicit SubscriberSync(PubSubTopic topic)
       : SubscriberSync(topic, Reader::Qos()) {}
   SubscriberSync(PubSubTopic topic, Reader::Init init)
       : SubscriberSync(topic, Reader::Qos(init)) {}

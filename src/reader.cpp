@@ -25,8 +25,8 @@
 namespace a0 {
 
 Reader::Qos Reader::Qos::DEFAULT = {
-    .init = (Reader::Init)A0_READER_QOS_DEFAULT.init,
-    .iter = (Reader::Iter)A0_READER_QOS_DEFAULT.iter,
+    (Reader::Init)A0_READER_QOS_DEFAULT.init,
+    (Reader::Iter)A0_READER_QOS_DEFAULT.iter,
 };
 
 ReaderSyncZeroCopy::ReaderSyncZeroCopy(Arena arena, Reader::Qos qos) {
