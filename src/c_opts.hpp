@@ -2,6 +2,7 @@
 
 #include <a0/file.h>
 #include <a0/file.hpp>
+#include <a0/reader.h>
 #include <a0/reader.hpp>
 
 namespace a0 {
