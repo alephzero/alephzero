@@ -35,6 +35,26 @@ static a0_reader_qos_t C_QOS_AWAIT_NEW_NEXT{A0_INIT_AWAIT_NEW, A0_ITER_NEXT};
 static a0_reader_qos_t C_QOS_MOST_RECENT_NEWEST{A0_INIT_MOST_RECENT, A0_ITER_NEWEST};
 static a0_reader_qos_t C_QOS_AWAIT_NEW_NEWEST{A0_INIT_AWAIT_NEW, A0_ITER_NEWEST};
 
+TEST_CASE("reader_qos] construct") {
+  REQUIRE(A0_READER_QOS_DEFAULT.init == A0_INIT_AWAIT_NEW);
+  REQUIRE(A0_READER_QOS_DEFAULT.iter == A0_ITER_NEXT);
+
+  REQUIRE(a0::Reader::Qos::DEFAULT.init == a0::INIT_AWAIT_NEW);
+  REQUIRE(a0::Reader::Qos::DEFAULT.iter == a0::ITER_NEXT);
+
+  REQUIRE(a0::Reader::Qos{}.init == a0::INIT_AWAIT_NEW);
+  REQUIRE(a0::Reader::Qos{}.iter == a0::ITER_NEXT);
+
+  REQUIRE(a0::Reader::Qos(a0::INIT_OLDEST).init == a0::INIT_OLDEST);
+  REQUIRE(a0::Reader::Qos(a0::INIT_OLDEST).iter == a0::ITER_NEXT);
+
+  REQUIRE(a0::Reader::Qos(a0::ITER_NEWEST).init == a0::INIT_AWAIT_NEW);
+  REQUIRE(a0::Reader::Qos(a0::ITER_NEWEST).iter == a0::ITER_NEWEST);
+
+  REQUIRE(a0::Reader::Qos(a0::INIT_OLDEST, a0::ITER_NEWEST).init == a0::INIT_OLDEST);
+  REQUIRE(a0::Reader::Qos(a0::INIT_OLDEST, a0::ITER_NEWEST).iter == a0::ITER_NEWEST);
+}
+
 struct ReaderBaseFixture {
   std::vector<uint8_t> arena_data;
   a0_arena_t arena;

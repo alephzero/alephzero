@@ -27,10 +27,17 @@ struct Reader : details::CppWrap<a0_reader_t> {
     Iter iter;
     static Qos DEFAULT;
 
-    Qos() : Qos{DEFAULT} {}
-    explicit Qos(Init init_) : Qos() { init = init_; }
-    explicit Qos(Iter iter_) : Qos() { iter = iter_; }
-    Qos(Init init_, Iter iter_) : Qos() { init = init_; iter = iter_; }
+    Qos()
+        : Qos{DEFAULT} {}
+    explicit Qos(Init init_)
+        : Qos() { init = init_; }
+    explicit Qos(Iter iter_)
+        : Qos() { iter = iter_; }
+    Qos(Init init_, Iter iter_)
+        : Qos() {
+      init = init_;
+      iter = iter_;
+    }
   };
 
   Reader() = default;
