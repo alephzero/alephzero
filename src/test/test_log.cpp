@@ -4,6 +4,7 @@
 #include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/reader.h>
+#include <a0/reader.hpp>
 
 #include <doctest.h>
 #include <stddef.h>
@@ -63,8 +64,7 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
       topic,
       a0::test::alloc(),
       A0_LOG_LEVEL_INFO,
-      A0_INIT_AWAIT_NEW,
-      A0_ITER_NEXT,
+      A0_READER_QOS_DEFAULT,
       onmsg));
 
   a0_logger_t logger;
@@ -98,8 +98,7 @@ TEST_CASE_FIXTURE(LogFixture, "logger] cpp basic") {
   a0::LogListener log_listener(
       "topic",
       a0::LogLevel::INFO,
-      A0_INIT_AWAIT_NEW,
-      A0_ITER_NEXT,
+      a0::Reader::Qos::DEFAULT,
       [&](a0::Packet pkt) {
         std::unique_lock<std::mutex> lk{mu};
 

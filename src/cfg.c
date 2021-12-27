@@ -65,7 +65,7 @@ a0_err_t a0_cfg_read(a0_cfg_t* cfg,
                      a0_alloc_t alloc,
                      a0_packet_t* out) {
   a0_reader_sync_t reader_sync;
-  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, A0_INIT_MOST_RECENT, A0_ITER_NEXT));
+  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, (a0_reader_qos_t){A0_INIT_MOST_RECENT, A0_ITER_NEXT}));
   a0_err_t err = a0_reader_sync_read(&reader_sync, out);
   a0_reader_sync_close(&reader_sync);
   return err;
@@ -75,7 +75,7 @@ a0_err_t a0_cfg_read_blocking(a0_cfg_t* cfg,
                               a0_alloc_t alloc,
                               a0_packet_t* out) {
   a0_reader_sync_t reader_sync;
-  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, A0_INIT_MOST_RECENT, A0_ITER_NEXT));
+  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, (a0_reader_qos_t){A0_INIT_MOST_RECENT, A0_ITER_NEXT}));
   a0_err_t err = a0_reader_sync_read_blocking(&reader_sync, out);
   a0_reader_sync_close(&reader_sync);
   return err;
@@ -86,7 +86,7 @@ a0_err_t a0_cfg_read_blocking_timeout(a0_cfg_t* cfg,
                                       a0_time_mono_t timeout,
                                       a0_packet_t* out) {
   a0_reader_sync_t reader_sync;
-  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, A0_INIT_MOST_RECENT, A0_ITER_NEXT));
+  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, (a0_reader_qos_t){A0_INIT_MOST_RECENT, A0_ITER_NEXT}));
   a0_err_t err = a0_reader_sync_read_blocking_timeout(&reader_sync, timeout, out);
   a0_reader_sync_close(&reader_sync);
   return err;
@@ -447,8 +447,7 @@ a0_err_t a0_cfg_watcher_init(a0_cfg_watcher_t* cw,
       &cw->_reader,
       cw->_file.arena,
       alloc,
-      A0_INIT_MOST_RECENT,
-      A0_ITER_NEWEST,
+      (a0_reader_qos_t){A0_INIT_MOST_RECENT, A0_ITER_NEWEST},
       onpacket);
   if (err) {
     a0_file_close(&cw->_file);

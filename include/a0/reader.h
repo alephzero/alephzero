@@ -48,6 +48,13 @@ typedef enum a0_reader_iter_s {
 
 /** @}*/
 
+typedef struct a0_reader_qos_s {
+  a0_reader_init_t init;
+  a0_reader_iter_t iter;
+} a0_reader_qos_t;
+
+extern const a0_reader_qos_t A0_READER_QOS_DEFAULT;
+
 /// ...
 typedef struct a0_zero_copy_callback_s {
   void* user_data;
@@ -60,16 +67,14 @@ typedef struct a0_zero_copy_callback_s {
 
 typedef struct a0_reader_sync_zc_s {
   a0_transport_t _transport;
-  a0_reader_init_t _init;
-  a0_reader_iter_t _iter;
+  a0_reader_qos_t _qos;
   bool _first_read_done;
 } a0_reader_sync_zc_t;
 
 /// ...
 a0_err_t a0_reader_sync_zc_init(a0_reader_sync_zc_t*,
                                 a0_arena_t,
-                                a0_reader_init_t,
-                                a0_reader_iter_t);
+                                a0_reader_qos_t);
 
 /// ...
 a0_err_t a0_reader_sync_zc_close(a0_reader_sync_zc_t*);
@@ -101,8 +106,7 @@ typedef struct a0_reader_sync_s {
 a0_err_t a0_reader_sync_init(a0_reader_sync_t*,
                              a0_arena_t,
                              a0_alloc_t,
-                             a0_reader_init_t,
-                             a0_reader_iter_t);
+                             a0_reader_qos_t);
 
 /// ...
 a0_err_t a0_reader_sync_close(a0_reader_sync_t*);
@@ -129,8 +133,7 @@ typedef struct a0_reader_zc_s {
   a0_transport_t _transport;
   bool _started_empty;
 
-  a0_reader_init_t _init;
-  a0_reader_iter_t _iter;
+  a0_reader_qos_t _qos;
 
   a0_zero_copy_callback_t _onpacket;
 
@@ -142,8 +145,7 @@ typedef struct a0_reader_zc_s {
 /// ...
 a0_err_t a0_reader_zc_init(a0_reader_zc_t*,
                            a0_arena_t,
-                           a0_reader_init_t,
-                           a0_reader_iter_t,
+                           a0_reader_qos_t,
                            a0_zero_copy_callback_t);
 
 /// May not be called from within a callback.
@@ -165,8 +167,7 @@ typedef struct a0_reader_s {
 a0_err_t a0_reader_init(a0_reader_t*,
                         a0_arena_t,
                         a0_alloc_t,
-                        a0_reader_init_t,
-                        a0_reader_iter_t,
+                        a0_reader_qos_t,
                         a0_packet_callback_t);
 
 /// ...

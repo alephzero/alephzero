@@ -62,16 +62,14 @@ a0_err_t a0_publisher_pub(a0_publisher_t* pub, a0_packet_t pkt) {
 a0_err_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
                                  a0_pubsub_topic_t topic,
                                  a0_alloc_t alloc,
-                                 a0_reader_init_t init,
-                                 a0_reader_iter_t iter) {
+                                 a0_reader_qos_t qos) {
   A0_RETURN_ERR_ON_ERR(a0_pubsub_topic_open(topic, &sub_sync->_file));
 
   a0_err_t err = a0_reader_sync_init(
       &sub_sync->_reader_sync,
       sub_sync->_file.arena,
       alloc,
-      init,
-      iter);
+      qos);
   if (err) {
     a0_file_close(&sub_sync->_file);
     return err;
@@ -107,8 +105,7 @@ a0_err_t a0_subscriber_sync_read_blocking_timeout(a0_subscriber_sync_t* sub_sync
 a0_err_t a0_subscriber_init(a0_subscriber_t* sub,
                             a0_pubsub_topic_t topic,
                             a0_alloc_t alloc,
-                            a0_reader_init_t init,
-                            a0_reader_iter_t iter,
+                            a0_reader_qos_t qos,
                             a0_packet_callback_t onpacket) {
   A0_RETURN_ERR_ON_ERR(a0_pubsub_topic_open(topic, &sub->_file));
 
@@ -116,8 +113,7 @@ a0_err_t a0_subscriber_init(a0_subscriber_t* sub,
       &sub->_reader,
       sub->_file.arena,
       alloc,
-      init,
-      iter,
+      qos,
       onpacket);
   if (err) {
     a0_file_close(&sub->_file);
