@@ -97,8 +97,6 @@ TEST_CASE_FIXTURE(LogFixture, "logger] cpp basic") {
 
   a0::LogListener log_listener(
       "topic",
-      a0::LogLevel::INFO,
-      a0::Reader::Qos::DEFAULT,
       [&](a0::Packet pkt) {
         std::unique_lock<std::mutex> lk{mu};
 
