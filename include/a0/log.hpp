@@ -74,6 +74,8 @@ struct LogListener : details::CppWrap<a0_log_listener_t> {
 
   LogListener(LogTopic topic, std::function<void(Packet)> fn)
       : LogListener(topic, LogLevel::INFO, fn) {}
+  LogListener(LogTopic topic, Reader::Qos qos, std::function<void(Packet)> fn)
+      : LogListener(topic, LogLevel::INFO, qos, fn) {}
   LogListener(LogTopic topic, Reader::Init init, std::function<void(Packet)> fn)
       : LogListener(topic, LogLevel::INFO, init, fn) {}
   LogListener(LogTopic topic, Reader::Iter iter, std::function<void(Packet)> fn)
