@@ -47,7 +47,7 @@ struct SubscriberSyncImpl {
 
 }  // namespace
 
-SubscriberSync::SubscriberSync(PubSubTopic topic, Reader::Qos qos) {
+SubscriberSync::SubscriberSync(PubSubTopic topic, Reader::Options opts) {
   set_c_impl<SubscriberSyncImpl>(
       &c,
       [&](a0_subscriber_sync_t* c, SubscriberSyncImpl* impl) {
@@ -64,7 +64,7 @@ SubscriberSync::SubscriberSync(PubSubTopic topic, Reader::Qos qos) {
             },
             .dealloc = nullptr,
         };
-        return a0_subscriber_sync_init(c, c_topic, alloc, c_qos(qos));
+        return a0_subscriber_sync_init(c, c_topic, alloc, c_readeropts(opts));
       },
       [](a0_subscriber_sync_t* c, SubscriberSyncImpl*) {
         a0_subscriber_sync_close(c);
@@ -119,7 +119,7 @@ struct SubscriberImpl {
 
 Subscriber::Subscriber(
     PubSubTopic topic,
-    Reader::Qos qos,
+    Reader::Options opts,
     std::function<void(Packet)> onpacket) {
   set_c_impl<SubscriberImpl>(
       &c,
@@ -149,7 +149,7 @@ Subscriber::Subscriber(
               impl->onpacket(Packet(pkt, [data](a0_packet_t*) {}));
             }};
 
-        return a0_subscriber_init(c, c_topic, alloc, c_qos(qos), c_onpacket);
+        return a0_subscriber_init(c, c_topic, alloc, c_readeropts(opts), c_onpacket);
       },
       [](a0_subscriber_t* c, SubscriberImpl*) {
         a0_subscriber_close(c);

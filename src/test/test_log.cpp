@@ -63,7 +63,7 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
       topic,
       a0::test::alloc(),
       A0_LOG_LEVEL_INFO,
-      A0_READER_QOS_DEFAULT,
+      A0_READER_OPTIONS_DEFAULT,
       onmsg));
 
   a0_logger_t logger;

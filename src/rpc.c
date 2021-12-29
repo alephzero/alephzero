@@ -90,7 +90,7 @@ a0_err_t a0_rpc_server_init(a0_rpc_server_t* server,
       &server->_request_reader,
       server->_file.arena,
       alloc,
-      (a0_reader_qos_t){A0_INIT_AWAIT_NEW, A0_ITER_NEXT},
+      (a0_reader_options_t){A0_INIT_AWAIT_NEW, A0_ITER_NEXT},
       (a0_packet_callback_t){
           .user_data = server,
           .fn = a0_rpc_server_onpacket,
@@ -220,7 +220,7 @@ a0_err_t a0_rpc_client_init(a0_rpc_client_t* client,
       &client->_response_reader,
       client->_file.arena,
       alloc,
-      (a0_reader_qos_t){A0_INIT_AWAIT_NEW, A0_ITER_NEXT},
+      (a0_reader_options_t){A0_INIT_AWAIT_NEW, A0_ITER_NEXT},
       (a0_packet_callback_t){
           .user_data = client,
           .fn = a0_rpc_client_onpacket,
@@ -272,7 +272,7 @@ a0_err_t a0_rpc_client_send_blocking(a0_rpc_client_t* client, a0_packet_t pkt, a
       &reader_sync,
       client->_file.arena,
       alloc,
-      (a0_reader_qos_t){A0_INIT_AWAIT_NEW, A0_ITER_NEXT}));
+      (a0_reader_options_t){A0_INIT_AWAIT_NEW, A0_ITER_NEXT}));
 
   a0_err_t err = a0_rpc_client_send(client, pkt, (a0_packet_callback_t)A0_EMPTY);
   while (!err) {
@@ -306,7 +306,7 @@ a0_err_t a0_rpc_client_send_blocking_timeout(a0_rpc_client_t* client, a0_packet_
       &reader_sync,
       client->_file.arena,
       alloc,
-      (a0_reader_qos_t){A0_INIT_AWAIT_NEW, A0_ITER_NEXT}));
+      (a0_reader_options_t){A0_INIT_AWAIT_NEW, A0_ITER_NEXT}));
 
   a0_err_t err = a0_rpc_client_send(client, pkt, (a0_packet_callback_t)A0_EMPTY);
   while (!err) {

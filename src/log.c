@@ -143,7 +143,7 @@ a0_err_t a0_log_listener_init(a0_log_listener_t* log_list,
                               a0_log_topic_t topic,
                               a0_alloc_t alloc,
                               a0_log_level_t level,
-                              a0_reader_qos_t qos,
+                              a0_reader_options_t opts,
                               a0_packet_callback_t onmsg) {
   log_list->_level = level;
   log_list->_onmsg = onmsg;
@@ -153,7 +153,7 @@ a0_err_t a0_log_listener_init(a0_log_listener_t* log_list,
       &log_list->_reader,
       log_list->_file.arena,
       alloc,
-      qos,
+      opts,
       (a0_packet_callback_t){log_list, a0_log_listener_callback});
   if (err) {
     a0_file_close(&log_list->_file);

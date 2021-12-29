@@ -42,16 +42,16 @@ struct Publisher : details::CppWrap<a0_publisher_t> {
 
 struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
   SubscriberSync() = default;
-  SubscriberSync(PubSubTopic, Reader::Qos);
+  SubscriberSync(PubSubTopic, Reader::Options);
 
   explicit SubscriberSync(PubSubTopic topic)
-      : SubscriberSync(topic, Reader::Qos()) {}
+      : SubscriberSync(topic, Reader::Options()) {}
   SubscriberSync(PubSubTopic topic, Reader::Init init)
-      : SubscriberSync(topic, Reader::Qos(init)) {}
+      : SubscriberSync(topic, Reader::Options(init)) {}
   SubscriberSync(PubSubTopic topic, Reader::Iter iter)
-      : SubscriberSync(topic, Reader::Qos(iter)) {}
+      : SubscriberSync(topic, Reader::Options(iter)) {}
   SubscriberSync(PubSubTopic topic, Reader::Init init, Reader::Iter iter)
-      : SubscriberSync(topic, Reader::Qos(init, iter)) {}
+      : SubscriberSync(topic, Reader::Options(init, iter)) {}
 
   bool can_read();
   Packet read();
@@ -61,16 +61,16 @@ struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
 
 struct Subscriber : details::CppWrap<a0_subscriber_t> {
   Subscriber() = default;
-  Subscriber(PubSubTopic, Reader::Qos, std::function<void(Packet)>);
+  Subscriber(PubSubTopic, Reader::Options, std::function<void(Packet)>);
 
   Subscriber(PubSubTopic topic, std::function<void(Packet)> fn)
-      : Subscriber(topic, Reader::Qos(), fn) {}
+      : Subscriber(topic, Reader::Options(), fn) {}
   Subscriber(PubSubTopic topic, Reader::Init init, std::function<void(Packet)> fn)
-      : Subscriber(topic, Reader::Qos(init), fn) {}
+      : Subscriber(topic, Reader::Options(init), fn) {}
   Subscriber(PubSubTopic topic, Reader::Iter iter, std::function<void(Packet)> fn)
-      : Subscriber(topic, Reader::Qos(iter), fn) {}
+      : Subscriber(topic, Reader::Options(iter), fn) {}
   Subscriber(PubSubTopic topic, Reader::Init init, Reader::Iter iter, std::function<void(Packet)> fn)
-      : Subscriber(topic, Reader::Qos(init, iter), fn) {}
+      : Subscriber(topic, Reader::Options(init, iter), fn) {}
 };
 
 }  // namespace a0
