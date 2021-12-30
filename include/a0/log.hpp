@@ -61,21 +61,21 @@ struct Logger : details::CppWrap<a0_logger_t> {
 
 struct LogListener : details::CppWrap<a0_log_listener_t> {
   LogListener() = default;
-  LogListener(LogTopic, LogLevel, Reader::Qos, std::function<void(Packet)>);
+  LogListener(LogTopic, LogLevel, Reader::Options, std::function<void(Packet)>);
 
   LogListener(LogTopic topic, LogLevel level, std::function<void(Packet)> fn)
-      : LogListener(topic, level, Reader::Qos(), fn) {}
+      : LogListener(topic, level, Reader::Options(), fn) {}
   LogListener(LogTopic topic, LogLevel level, Reader::Init init, std::function<void(Packet)> fn)
-      : LogListener(topic, level, Reader::Qos(init), fn) {}
+      : LogListener(topic, level, Reader::Options(init), fn) {}
   LogListener(LogTopic topic, LogLevel level, Reader::Iter iter, std::function<void(Packet)> fn)
-      : LogListener(topic, level, Reader::Qos(iter), fn) {}
+      : LogListener(topic, level, Reader::Options(iter), fn) {}
   LogListener(LogTopic topic, LogLevel level, Reader::Init init, Reader::Iter iter, std::function<void(Packet)> fn)
-      : LogListener(topic, level, Reader::Qos(init, iter), fn) {}
+      : LogListener(topic, level, Reader::Options(init, iter), fn) {}
 
   LogListener(LogTopic topic, std::function<void(Packet)> fn)
       : LogListener(topic, LogLevel::INFO, fn) {}
-  LogListener(LogTopic topic, Reader::Qos qos, std::function<void(Packet)> fn)
-      : LogListener(topic, LogLevel::INFO, qos, fn) {}
+  LogListener(LogTopic topic, Reader::Options opts, std::function<void(Packet)> fn)
+      : LogListener(topic, LogLevel::INFO, opts, fn) {}
   LogListener(LogTopic topic, Reader::Init init, std::function<void(Packet)> fn)
       : LogListener(topic, LogLevel::INFO, init, fn) {}
   LogListener(LogTopic topic, Reader::Iter iter, std::function<void(Packet)> fn)

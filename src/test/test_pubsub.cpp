@@ -80,7 +80,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
     REQUIRE_OK(a0_subscriber_sync_init(&sub,
                                        topic,
                                        a0::test::alloc(),
-                                       (a0_reader_qos_t){A0_INIT_OLDEST, A0_ITER_NEXT}));
+                                       (a0_reader_options_t){A0_INIT_OLDEST, A0_ITER_NEXT}));
 
     uint64_t pkt1_time_mono;
 
@@ -181,7 +181,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] sync") {
     REQUIRE_OK(a0_subscriber_sync_init(&sub,
                                        topic,
                                        a0::test::alloc(),
-                                       (a0_reader_qos_t){A0_INIT_MOST_RECENT, A0_ITER_NEWEST}));
+                                       (a0_reader_options_t){A0_INIT_MOST_RECENT, A0_ITER_NEWEST}));
 
     {
       bool can_read;
@@ -314,7 +314,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] await_new") {
   REQUIRE_OK(a0_subscriber_init(&sub,
                                 topic,
                                 a0::test::alloc(),
-                                (a0_reader_qos_t){A0_INIT_AWAIT_NEW, A0_ITER_NEXT},
+                                (a0_reader_options_t){A0_INIT_AWAIT_NEW, A0_ITER_NEXT},
                                 cb));
 
   REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg after")));
@@ -371,7 +371,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] most_recent") {
   REQUIRE_OK(a0_subscriber_init(&sub,
                                 topic,
                                 a0::test::alloc(),
-                                (a0_reader_qos_t){A0_INIT_MOST_RECENT, A0_ITER_NEXT},
+                                (a0_reader_options_t){A0_INIT_MOST_RECENT, A0_ITER_NEXT},
                                 cb));
 
   REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg after")));
@@ -442,7 +442,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
   REQUIRE_OK(a0_subscriber_init(&sub,
                                 topic,
                                 a0::test::alloc(),
-                                (a0_reader_qos_t){A0_INIT_OLDEST, A0_ITER_NEXT},
+                                (a0_reader_options_t){A0_INIT_OLDEST, A0_ITER_NEXT},
                                 cb));
 
   data.latch.wait();
@@ -537,7 +537,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
   REQUIRE_OK(a0_subscriber_sync_init(&sub,
                                      topic,
                                      a0::test::alloc(),
-                                     (a0_reader_qos_t){A0_INIT_OLDEST, A0_ITER_NEXT}));
+                                     (a0_reader_options_t){A0_INIT_OLDEST, A0_ITER_NEXT}));
 
   while (true) {
     a0_packet_t pkt;

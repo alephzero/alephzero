@@ -24,16 +24,16 @@
 
 namespace a0 {
 
-Reader::Qos Reader::Qos::DEFAULT = {
-    (Reader::Init)A0_READER_QOS_DEFAULT.init,
-    (Reader::Iter)A0_READER_QOS_DEFAULT.iter,
+Reader::Options Reader::Options::DEFAULT = {
+    (Reader::Init)A0_READER_OPTIONS_DEFAULT.init,
+    (Reader::Iter)A0_READER_OPTIONS_DEFAULT.iter,
 };
 
-ReaderSyncZeroCopy::ReaderSyncZeroCopy(Arena arena, Reader::Qos qos) {
+ReaderSyncZeroCopy::ReaderSyncZeroCopy(Arena arena, Reader::Options opts) {
   set_c(
       &c,
       [&](a0_reader_sync_zc_t* c) {
-        return a0_reader_sync_zc_init(c, *arena.c, c_qos(qos));
+        return a0_reader_sync_zc_init(c, *arena.c, c_readeropts(opts));
       },
       [arena](a0_reader_sync_zc_t* c) {
         a0_reader_sync_zc_close(c);
@@ -84,7 +84,7 @@ struct ReaderSyncImpl {
 
 }  // namespace
 
-ReaderSync::ReaderSync(Arena arena, Reader::Qos qos) {
+ReaderSync::ReaderSync(Arena arena, Reader::Options opts) {
   set_c_impl<ReaderSyncImpl>(
       &c,
       [&](a0_reader_sync_t* c, ReaderSyncImpl* impl) {
@@ -100,7 +100,7 @@ ReaderSync::ReaderSync(Arena arena, Reader::Qos qos) {
             },
             .dealloc = nullptr,
         };
-        return a0_reader_sync_init(c, *arena.c, alloc, c_qos(qos));
+        return a0_reader_sync_init(c, *arena.c, alloc, c_readeropts(opts));
       },
       [](a0_reader_sync_t* c, ReaderSyncImpl*) {
         a0_reader_sync_close(c);
@@ -157,7 +157,7 @@ struct ReaderZeroCopyImpl {
 
 ReaderZeroCopy::ReaderZeroCopy(
     Arena arena,
-    Reader::Qos qos,
+    Reader::Options opts,
     std::function<void(TransportLocked, FlatPacket)> cb) {
   set_c_impl<ReaderZeroCopyImpl>(
       &c,
@@ -172,7 +172,7 @@ ReaderZeroCopy::ReaderZeroCopy(
             },
         };
 
-        return a0_reader_zc_init(c, *arena.c, c_qos(qos), c_cb);
+        return a0_reader_zc_init(c, *arena.c, c_readeropts(opts), c_cb);
       },
       [arena](a0_reader_zc_t* c, ReaderZeroCopyImpl*) {
         a0_reader_zc_close(c);
@@ -191,7 +191,7 @@ struct ReaderImpl {
 
 Reader::Reader(
     Arena arena,
-    Reader::Qos qos,
+    Reader::Options opts,
     std::function<void(Packet)> cb) {
   set_c_impl<ReaderImpl>(
       &c,
@@ -219,7 +219,7 @@ Reader::Reader(
               impl->cb(Packet(pkt, [data](a0_packet_t*) {}));
             }};
 
-        return a0_reader_init(c, *arena.c, alloc, c_qos(qos), c_cb);
+        return a0_reader_init(c, *arena.c, alloc, c_readeropts(opts), c_cb);
       },
       [](a0_reader_t* c, ReaderImpl*) {
         a0_reader_close(c);

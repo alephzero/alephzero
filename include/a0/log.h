@@ -55,7 +55,7 @@ a0_err_t a0_log_listener_init(a0_log_listener_t*,
                               a0_log_topic_t,
                               a0_alloc_t,
                               a0_log_level_t,
-                              a0_reader_qos_t,
+                              a0_reader_options_t,
                               a0_packet_callback_t);
 a0_err_t a0_log_listener_close(a0_log_listener_t*);
 

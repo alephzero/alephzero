@@ -21,10 +21,10 @@ inline a0_file_options_t c_fileopts(File::Options opts) {
   };
 }
 
-inline a0_reader_qos_t c_qos(Reader::Qos qos) {
+inline a0_reader_options_t c_readeropts(Reader::Options opts) {
   return {
-      .init = (a0_reader_init_t)qos.init,
-      .iter = (a0_reader_iter_t)qos.iter,
+      .init = (a0_reader_init_t)opts.init,
+      .iter = (a0_reader_iter_t)opts.iter,
   };
 }
 

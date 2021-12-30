@@ -22,35 +22,35 @@ struct Reader : details::CppWrap<a0_reader_t> {
     NEWEST = A0_ITER_NEWEST,
   };
 
-  struct Qos {
+  struct Options {
     Init init;
     Iter iter;
-    static Qos DEFAULT;
+    static Options DEFAULT;
 
-    Qos()
-        : Qos{DEFAULT} {}
-    explicit Qos(Init init_)
-        : Qos() { init = init_; }
-    explicit Qos(Iter iter_)
-        : Qos() { iter = iter_; }
-    Qos(Init init_, Iter iter_)
-        : Qos() {
+    Options()
+        : Options{DEFAULT} {}
+    explicit Options(Init init_)
+        : Options() { init = init_; }
+    explicit Options(Iter iter_)
+        : Options() { iter = iter_; }
+    Options(Init init_, Iter iter_)
+        : Options() {
       init = init_;
       iter = iter_;
     }
   };
 
   Reader() = default;
-  Reader(Arena, Qos, std::function<void(Packet)>);
+  Reader(Arena, Options, std::function<void(Packet)>);
 
   Reader(Arena arena, std::function<void(Packet)> fn)
-      : Reader(arena, Qos(), fn) {}
+      : Reader(arena, Options(), fn) {}
   Reader(Arena arena, Init init, std::function<void(Packet)> fn)
-      : Reader(arena, Qos(init), fn) {}
+      : Reader(arena, Options(init), fn) {}
   Reader(Arena arena, Iter iter, std::function<void(Packet)> fn)
-      : Reader(arena, Qos(iter), fn) {}
+      : Reader(arena, Options(iter), fn) {}
   Reader(Arena arena, Init init, Iter iter, std::function<void(Packet)> fn)
-      : Reader(arena, Qos(init, iter), fn) {}
+      : Reader(arena, Options(init, iter), fn) {}
 };
 
 static const Reader::Init& INIT_OLDEST = Reader::Init::OLDEST;
@@ -61,16 +61,16 @@ static const Reader::Iter& ITER_NEWEST = Reader::Iter::NEWEST;
 
 struct ReaderSyncZeroCopy : details::CppWrap<a0_reader_sync_zc_t> {
   ReaderSyncZeroCopy() = default;
-  ReaderSyncZeroCopy(Arena, Reader::Qos);
+  ReaderSyncZeroCopy(Arena, Reader::Options);
 
   explicit ReaderSyncZeroCopy(Arena arena)
-      : ReaderSyncZeroCopy(arena, Reader::Qos()) {}
+      : ReaderSyncZeroCopy(arena, Reader::Options()) {}
   ReaderSyncZeroCopy(Arena arena, Reader::Init init)
-      : ReaderSyncZeroCopy(arena, Reader::Qos(init)) {}
+      : ReaderSyncZeroCopy(arena, Reader::Options(init)) {}
   ReaderSyncZeroCopy(Arena arena, Reader::Iter iter)
-      : ReaderSyncZeroCopy(arena, Reader::Qos(iter)) {}
+      : ReaderSyncZeroCopy(arena, Reader::Options(iter)) {}
   ReaderSyncZeroCopy(Arena arena, Reader::Init init, Reader::Iter iter)
-      : ReaderSyncZeroCopy(arena, Reader::Qos(init, iter)) {}
+      : ReaderSyncZeroCopy(arena, Reader::Options(init, iter)) {}
 
   bool can_read();
   void read(std::function<void(TransportLocked, FlatPacket)>);
@@ -80,16 +80,16 @@ struct ReaderSyncZeroCopy : details::CppWrap<a0_reader_sync_zc_t> {
 
 struct ReaderSync : details::CppWrap<a0_reader_sync_t> {
   ReaderSync() = default;
-  ReaderSync(Arena, Reader::Qos);
+  ReaderSync(Arena, Reader::Options);
 
   explicit ReaderSync(Arena arena)
-      : ReaderSync(arena, Reader::Qos()) {}
+      : ReaderSync(arena, Reader::Options()) {}
   ReaderSync(Arena arena, Reader::Init init)
-      : ReaderSync(arena, Reader::Qos(init)) {}
+      : ReaderSync(arena, Reader::Options(init)) {}
   ReaderSync(Arena arena, Reader::Iter iter)
-      : ReaderSync(arena, Reader::Qos(iter)) {}
+      : ReaderSync(arena, Reader::Options(iter)) {}
   ReaderSync(Arena arena, Reader::Init init, Reader::Iter iter)
-      : ReaderSync(arena, Reader::Qos(init, iter)) {}
+      : ReaderSync(arena, Reader::Options(init, iter)) {}
 
   bool can_read();
   Packet read();
@@ -99,16 +99,16 @@ struct ReaderSync : details::CppWrap<a0_reader_sync_t> {
 
 struct ReaderZeroCopy : details::CppWrap<a0_reader_zc_t> {
   ReaderZeroCopy() = default;
-  ReaderZeroCopy(Arena, Reader::Qos, std::function<void(TransportLocked, FlatPacket)>);
+  ReaderZeroCopy(Arena, Reader::Options, std::function<void(TransportLocked, FlatPacket)>);
 
   ReaderZeroCopy(Arena arena, std::function<void(TransportLocked, FlatPacket)> fn)
-      : ReaderZeroCopy(arena, Reader::Qos(), fn) {}
+      : ReaderZeroCopy(arena, Reader::Options(), fn) {}
   ReaderZeroCopy(Arena arena, Reader::Init init, std::function<void(TransportLocked, FlatPacket)> fn)
-      : ReaderZeroCopy(arena, Reader::Qos(init), fn) {}
+      : ReaderZeroCopy(arena, Reader::Options(init), fn) {}
   ReaderZeroCopy(Arena arena, Reader::Iter iter, std::function<void(TransportLocked, FlatPacket)> fn)
-      : ReaderZeroCopy(arena, Reader::Qos(iter), fn) {}
+      : ReaderZeroCopy(arena, Reader::Options(iter), fn) {}
   ReaderZeroCopy(Arena arena, Reader::Init init, Reader::Iter iter, std::function<void(TransportLocked, FlatPacket)> fn)
-      : ReaderZeroCopy(arena, Reader::Qos(init, iter), fn) {}
+      : ReaderZeroCopy(arena, Reader::Options(init, iter), fn) {}
 };
 
 void read_random_access(Arena, size_t off, std::function<void(TransportLocked, FlatPacket)>);
