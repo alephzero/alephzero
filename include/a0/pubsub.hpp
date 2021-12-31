@@ -53,6 +53,10 @@ struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
   SubscriberSync(PubSubTopic topic, Reader::Init init, Reader::Iter iter)
       : SubscriberSync(topic, Reader::Options(init, iter)) {}
 
+  // Deprecated.
+  SubscriberSync(PubSubTopic topic, a0_reader_init_t init, a0_reader_iter_t iter)
+      : SubscriberSync(topic, Reader::Init(init), Reader::Iter(iter)) {}
+
   bool can_read();
   Packet read();
   Packet read_blocking();
@@ -71,6 +75,10 @@ struct Subscriber : details::CppWrap<a0_subscriber_t> {
       : Subscriber(topic, Reader::Options(iter), fn) {}
   Subscriber(PubSubTopic topic, Reader::Init init, Reader::Iter iter, std::function<void(Packet)> fn)
       : Subscriber(topic, Reader::Options(init, iter), fn) {}
+
+  // Deprecated.
+  Subscriber(PubSubTopic topic, a0_reader_init_t init, a0_reader_iter_t iter, std::function<void(Packet)> fn)
+      : Subscriber(topic, Reader::Init(init), Reader::Iter(iter), fn) {}
 };
 
 }  // namespace a0
