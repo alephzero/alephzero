@@ -90,8 +90,6 @@ To read those message, you can create a subscriber on the same topic:
 ```cc
 a0::Subscriber sub(
     "my_pubsub_topic",
-    A0_INIT_AWAIT_NEW,  // or MOST_RECENT or OLDEST
-    A0_ITER_NEWEST,     // or NEXT
     [](a0::Packet pkt) {
       std::cout << "Got: " << pkt.payload() << std::endl;
     });
@@ -100,24 +98,27 @@ The callback will trigger whenever a message is published.
 
 The `Subscriber` object spawns a thread that will read the topic and call the callback.
 
-The `A0_INIT` tells the subscriber where to start reading. 
-* `A0_INIT_AWAIT_NEW`: Start with messages published after the creation of the subscriber.
-* `A0_INIT_MOST_RECENT`: Start with the most recently published message. Useful for state and configuration. But be careful, this can be quite old!
-* `A0_INIT_OLDEST`: Topics keep a history of 16MB (unless configures otherwise). Start with the oldest thing still in there.
-
-The `A0_ITER` tells the subscriber how to continue reading messages. After each callback:
-* `A0_ITER_NEXT`: grab the sequentially next message. When you don't want to miss a thing.
-* `A0_ITER_NEWEST`: grab the newest available unread message. When you want to keep up with the firehose.
-
+To avoid thread creation and manually probe for messages:
 ```cc
-a0::SubscriberSync sub_sync(
-    "my_pubsub_topic",
-    A0_INIT_OLDEST, A0_ITER_NEXT);
+a0::SubscriberSync sub_sync("my_pubsub_topic");
 while (sub_sync.can_read()) {
   auto pkt = sub_sync.read();
   std::cout << "Got: " << pkt.payload() << std::endl;
 }
 ```
+
+An optional `init` and `iter` flag can be added.
+    A0_INIT_AWAIT_NEW,  // or MOST_RECENT or OLDEST
+    A0_ITER_NEWEST,     // or NEXT
+
+An optional `INIT` can be added to specify where the subscriber starts reading. 
+* `INIT_AWAIT_NEW` (default): Start with messages published after the creation of the subscriber.
+* `INIT_MOST_RECENT`: Start with the most recently published message. Useful for state and configuration. But be careful, this can be quite old!
+* `INIT_OLDEST`: Topics keep a history of 16MB (unless configures otherwise). Start with the oldest thing still in there.
+
+An optional `ITER` can be added to specify how to continue reading messages. After each callback:
+* `ITER_NEXT` (default): grab the sequentially next message. When you don't want to miss a thing.
+* `ITER_NEWEST`: grab the newest available unread message. When you want to keep up with the firehose.
 
 ## RPC
 
