@@ -4,7 +4,7 @@
 #include <a0/buf.h>
 #include <a0/err.h>
 
-#include <stdbool.h>
+#include <stdbool.h>  // IWYU pragma: keep
 #include <stddef.h>
 
 #ifdef __cplusplus

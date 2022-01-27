@@ -3,7 +3,6 @@
 
 #include <memory>
 #include <string>
-#include <utility>
 
 #include "c_wrap.hpp"
 
