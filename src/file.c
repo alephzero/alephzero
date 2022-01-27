@@ -42,7 +42,7 @@ a0_err_t a0_mkdir(const char* path, mode_t mode) {
 }
 
 A0_STATIC_INLINE
-a0_err_t a0_mkpath(const char* path, mode_t mode) {
+a0_err_t a0_makedirs(const char* path, mode_t mode) {
   char* path_copy = strdup(path);
 
   a0_err_t err = A0_OK;
@@ -79,7 +79,7 @@ a0_err_t a0_joinpath(const char* dir, const char* fil, char** out) {
   return A0_OK;
 }
 
-A0_STATIC_INLINE
+// TODO(lshamis): Used by other c files. Move somewhere better.
 a0_err_t a0_abspath(const char* rel, char** out) {
   if (!rel || !*rel) {
     return A0_MAKE_SYSERR(ENOENT);
@@ -287,7 +287,7 @@ a0_err_t a0_file_open(
 
   char* filepath;
   A0_RETURN_ERR_ON_ERR(a0_abspath(path, &filepath));
-  a0_err_t err = a0_mkpath(filepath, opts->create_options.dir_mode);
+  a0_err_t err = a0_makedirs(filepath, opts->create_options.dir_mode);
   if (err) {
     free(filepath);
     return err;

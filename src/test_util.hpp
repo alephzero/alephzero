@@ -229,6 +229,31 @@ class Event {
   }
 };
 
+class scope_env {
+  std::string name;
+  bool has_orig_val{false};
+  std::string orig_val;
+
+ public:
+  scope_env(std::string name, std::string val)
+      : name{name} {
+    const char* orig_val_c = getenv(name.c_str());
+    if (orig_val_c) {
+      has_orig_val = true;
+      orig_val = orig_val_c;
+    }
+    setenv(name.c_str(), val.c_str(), true);
+  }
+
+  ~scope_env() {
+    if (has_orig_val) {
+      setenv(name.c_str(), orig_val.c_str(), true);
+    } else {
+      unsetenv(name.c_str());
+    }
+  }
+};
+
 inline bool is_valgrind() {
 #ifdef RUNNING_ON_VALGRIND
   return RUNNING_ON_VALGRIND;
