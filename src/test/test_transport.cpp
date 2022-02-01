@@ -1487,6 +1487,80 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
   REQUIRE(tlk.seq_high() == 7);
 }
 
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp clear") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::TransportLocked tlk = transport.lock();
+
+  REQUIRE(tlk.empty());
+  REQUIRE(tlk.used_space() == 144);
+  REQUIRE(tlk.seq_low() == 0);
+  REQUIRE(tlk.seq_high() == 0);
+
+  tlk.clear();
+
+  REQUIRE(tlk.empty());
+  REQUIRE(tlk.used_space() == 144);
+  REQUIRE(tlk.seq_low() == 1);
+  REQUIRE(tlk.seq_high() == 0);
+
+  auto frame = tlk.alloc(512);
+  tlk.commit();
+
+  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(!tlk.empty());
+  REQUIRE(tlk.used_space() == 696);
+  REQUIRE(tlk.seq_low() == 1);
+  REQUIRE(tlk.seq_high() == 1);
+
+  frame = tlk.alloc(1024);
+  tlk.commit();
+
+  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(!tlk.empty());
+  REQUIRE(tlk.used_space() == 1768);
+  REQUIRE(tlk.seq_low() == 1);
+  REQUIRE(tlk.seq_high() == 2);
+
+  tlk.clear();
+
+  REQUIRE(tlk.empty());
+  REQUIRE(tlk.used_space() == 144);
+  REQUIRE(tlk.seq_low() == 3);
+  REQUIRE(tlk.seq_high() == 2);
+
+  frame = tlk.alloc(512);
+  tlk.commit();
+
+  REQUIRE(frame.hdr.seq == 3);
+  REQUIRE(!tlk.empty());
+  REQUIRE(tlk.used_space() == 696);
+  REQUIRE(tlk.seq_low() == 3);
+  REQUIRE(tlk.seq_high() == 3);
+
+  frame = tlk.alloc(1024);
+  tlk.commit();
+
+  REQUIRE(frame.hdr.seq == 4);
+  REQUIRE(!tlk.empty());
+  REQUIRE(tlk.used_space() == 1768);
+  REQUIRE(tlk.seq_low() == 3);
+  REQUIRE(tlk.seq_high() == 4);
+
+  tlk.clear();
+
+  REQUIRE(tlk.empty());
+  REQUIRE(tlk.used_space() == 144);
+  REQUIRE(tlk.seq_low() == 5);
+  REQUIRE(tlk.seq_high() == 4);
+
+  tlk.clear();
+
+  REQUIRE(tlk.empty());
+  REQUIRE(tlk.used_space() == 144);
+  REQUIRE(tlk.seq_low() == 5);
+  REQUIRE(tlk.seq_high() == 4);
+}
+
 void fork_sleep_push(a0_transport_t* transport, const std::string& str) {
   if (!fork()) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
