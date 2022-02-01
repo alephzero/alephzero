@@ -122,6 +122,11 @@ void TransportLocked::commit() {
   check(a0_transport_commit(*c));
 }
 
+void TransportLocked::clear() {
+  CHECK_C;
+  check(a0_transport_clear(*c));
+}
+
 namespace {
 
 a0_predicate_t pred(std::function<bool()>* fn) {

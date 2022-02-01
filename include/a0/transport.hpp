@@ -38,6 +38,8 @@ struct TransportLocked : details::CppWrap<a0_transport_locked_t> {
 
   void commit();
 
+  void clear();
+
   void wait(std::function<bool()>);
   void wait_for(std::function<bool()>, std::chrono::nanoseconds);
   void wait_until(std::function<bool()>, TimeMono);

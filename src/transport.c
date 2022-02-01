@@ -708,6 +708,15 @@ a0_err_t a0_transport_resize(a0_transport_locked_t lk, size_t arena_size) {
   return A0_OK;
 }
 
+a0_err_t a0_transport_clear(a0_transport_locked_t lk) {
+  a0_transport_state_t* state = a0_transport_working_page(lk);
+  state->seq_low = state->seq_high + 1;
+  state->off_head = 0;
+  state->off_tail = 0;
+  state->high_water_mark = a0_transport_workspace_off();
+  return a0_transport_commit(lk);
+}
+
 A0_STATIC_INLINE
 void write_limited(FILE* f, a0_buf_t str) {
   size_t line_size = str.size;

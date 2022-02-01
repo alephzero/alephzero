@@ -275,6 +275,9 @@ a0_err_t a0_transport_used_space(a0_transport_locked_t, size_t*);
 /// Resizes the underlying arena. Fails with A0_ERR_INVALID_ARG if this would delete active data.
 a0_err_t a0_transport_resize(a0_transport_locked_t, size_t);
 
+/// Clears the transport.
+a0_err_t a0_transport_clear(a0_transport_locked_t);
+
 /** @}*/
 
 #ifdef __cplusplus
