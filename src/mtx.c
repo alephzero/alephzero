@@ -182,13 +182,13 @@ a0_err_t a0_mtx_timedlock_robust(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
 
   int syserr = EINTR;
   while (syserr == EINTR) {
-    // Can't lock if borked.
-    if (ftx_notrecoverable(a0_atomic_load(&mtx->ftx))) {
-      return A0_MAKE_SYSERR(ENOTRECOVERABLE);
+    // Try to lock without kernel involvement.
+    if (a0_cas(&mtx->ftx, 0, tid)) {
+      return A0_OK;
     }
 
     // Try to lock without kernel involvement.
-    if (a0_cas(&mtx->ftx, 0, tid)) {
+    if (a0_cas(&mtx->ftx, FUTEX_TID_MASK | FUTEX_OWNER_DIED, tid)) {
       return A0_OK;
     }
 
@@ -242,9 +242,13 @@ a0_err_t a0_mtx_trylock_impl(a0_mtx_t* mtx) {
     return A0_OK;
   }
 
-  // Is the lock still usable?
-  if (ftx_notrecoverable(old)) {
-    return A0_MAKE_SYSERR(ENOTRECOVERABLE);
+  // Try to lock without kernel involvement.
+  old = a0_cas_val(&mtx->ftx, FUTEX_TID_MASK | FUTEX_OWNER_DIED, tid);
+
+  // Did it work?
+  if (old == (FUTEX_TID_MASK | FUTEX_OWNER_DIED)) {
+    robust_op_add(mtx);
+    return A0_OK;
   }
 
   // Is the owner still alive?
@@ -283,24 +287,24 @@ a0_err_t a0_mtx_trylock(a0_mtx_t* mtx) {
   return err;
 }
 
-a0_err_t a0_mtx_consistent(a0_mtx_t* mtx) {
-  const uint32_t val = a0_atomic_load(&mtx->ftx);
+// a0_err_t a0_mtx_consistent(a0_mtx_t* mtx) {
+//   const uint32_t val = a0_atomic_load(&mtx->ftx);
 
-  // Why fix what isn't broken?
-  if (!ftx_owner_died(val)) {
-    return A0_MAKE_SYSERR(EINVAL);
-  }
+//   // Why fix what isn't broken?
+//   if (!ftx_owner_died(val)) {
+//     return A0_MAKE_SYSERR(EINVAL);
+//   }
 
-  // Is it yours to fix?
-  if (ftx_tid(val) != a0_tid()) {
-    return A0_MAKE_SYSERR(EPERM);
-  }
+//   // Is it yours to fix?
+//   if (ftx_tid(val) != a0_tid()) {
+//     return A0_MAKE_SYSERR(EPERM);
+//   }
 
-  // Fix it!
-  a0_atomic_and_fetch(&mtx->ftx, ~FUTEX_OWNER_DIED);
+//   // Fix it!
+//   a0_atomic_and_fetch(&mtx->ftx, ~FUTEX_OWNER_DIED);
 
-  return A0_OK;
-}
+//   return A0_OK;
+// }
 
 a0_err_t a0_mtx_unlock(a0_mtx_t* mtx) {
   const uint32_t tid = a0_tid();

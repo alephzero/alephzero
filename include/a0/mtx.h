@@ -26,6 +26,10 @@ typedef struct a0_mtx_s a0_mtx_t;
 //
 // Unlike pthread_mutex_t, timespec are expected to use CLOCK_BOOTTIME.
 //
+// There is no equivalent to pthread_mutex_consistent, since the mutex is
+// always consistent.
+// a0_mtx_lock and a0_mtx_trylock will report if the previous owner died.
+//
 // struct a0_mtx_s "Inherits" from robust_list, which requires:
 // * The first field MUST be a next pointer.
 // * There must be a futex, which makes the mutex immovable.
@@ -40,7 +44,6 @@ struct a0_mtx_s {
 a0_err_t a0_mtx_lock(a0_mtx_t*) A0_WARN_UNUSED_RESULT;
 a0_err_t a0_mtx_timedlock(a0_mtx_t*, a0_time_mono_t) A0_WARN_UNUSED_RESULT;
 a0_err_t a0_mtx_trylock(a0_mtx_t*) A0_WARN_UNUSED_RESULT;
-a0_err_t a0_mtx_consistent(a0_mtx_t*);
 a0_err_t a0_mtx_unlock(a0_mtx_t*);
 
 typedef a0_ftx_t a0_cnd_t;

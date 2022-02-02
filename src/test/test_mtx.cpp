@@ -105,10 +105,10 @@ TEST_CASE("mtx] lock, (unlock)*") {
   REQUIRE(A0_SYSERR(a0_mtx_unlock(&mtx)) == EPERM);
 }
 
-TEST_CASE("mtx] consistent") {
-  a0_mtx_t mtx = A0_EMPTY;
-  REQUIRE(A0_SYSERR(a0_mtx_consistent(&mtx)) == EINVAL);
-}
+// TEST_CASE("mtx] consistent") {
+//   a0_mtx_t mtx = A0_EMPTY;
+//   REQUIRE(A0_SYSERR(a0_mtx_consistent(&mtx)) == EINVAL);
+// }
 
 TEST_CASE("mtx] lock, lock2, unlock2, unlock") {
   a0_mtx_t mtx1 = A0_EMPTY;
@@ -184,25 +184,25 @@ TEST_CASE("mtx] timedlock") {
   REQUIRE(duration > 0.9 * std::chrono::seconds(1));
 }
 
-TEST_CASE("mtx] consistent call must be from owner") {
-  a0::test::IpcPool ipc_pool;
-  auto* mtx = ipc_pool.make<a0_mtx_t>();
-  REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
+// TEST_CASE("mtx] consistent call must be from owner") {
+//   a0::test::IpcPool ipc_pool;
+//   auto* mtx = ipc_pool.make<a0_mtx_t>();
+//   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
-  event_t event_0;
-  event_t event_1;
-  std::thread t([&]() {
-    REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == EOWNERDEAD);
-    event_0.set();
-    event_1.wait();
-    REQUIRE_OK(a0_mtx_consistent(mtx));
-    REQUIRE_OK(a0_mtx_unlock(mtx));
-  });
-  event_0.wait();
-  REQUIRE(A0_SYSERR(a0_mtx_consistent(mtx)) == EPERM);
-  event_1.set();
-  t.join();
-}
+//   event_t event_0;
+//   event_t event_1;
+//   std::thread t([&]() {
+//     REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == EOWNERDEAD);
+//     event_0.set();
+//     event_1.wait();
+//     REQUIRE_OK(a0_mtx_consistent(mtx));
+//     REQUIRE_OK(a0_mtx_unlock(mtx));
+//   });
+//   event_0.wait();
+//   REQUIRE(A0_SYSERR(a0_mtx_consistent(mtx)) == EPERM);
+//   event_1.set();
+//   t.join();
+// }
 
 TEST_CASE("mtx] robust chain") {
   a0::test::IpcPool ipc_pool;
@@ -220,9 +220,9 @@ TEST_CASE("mtx] robust chain") {
   REQUIRE(A0_SYSERR(a0_mtx_lock(mtx2)) == EOWNERDEAD);
   REQUIRE(A0_SYSERR(a0_mtx_lock(mtx3)) == EOWNERDEAD);
 
-  REQUIRE_OK(a0_mtx_consistent(mtx1));
-  REQUIRE_OK(a0_mtx_consistent(mtx2));
-  REQUIRE_OK(a0_mtx_consistent(mtx3));
+  // REQUIRE_OK(a0_mtx_consistent(mtx1));
+  // REQUIRE_OK(a0_mtx_consistent(mtx2));
+  // REQUIRE_OK(a0_mtx_consistent(mtx3));
 
   REQUIRE_OK(a0_mtx_unlock(mtx1));
   REQUIRE_OK(a0_mtx_unlock(mtx2));
@@ -251,7 +251,7 @@ TEST_CASE("mtx] multiple waiters") {
   }
 }
 
-TEST_CASE("mtx] owner died with lock, not consistent, lock") {
+TEST_CASE("mtx] owner died with lock, lock") {
   a0::test::IpcPool ipc_pool;
   auto* mtx = ipc_pool.make<a0_mtx_t>();
 
@@ -259,45 +259,70 @@ TEST_CASE("mtx] owner died with lock, not consistent, lock") {
 
   REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == EOWNERDEAD);
   REQUIRE_OK(a0_mtx_unlock(mtx));
-  REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == ENOTRECOVERABLE);
-}
-
-TEST_CASE("mtx] owner died with lock, consistent, lock") {
-  a0::test::IpcPool ipc_pool;
-  auto* mtx = ipc_pool.make<a0_mtx_t>();
-
-  REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
-
-  REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == EOWNERDEAD);
-  REQUIRE_OK(a0_mtx_consistent(mtx));
-  REQUIRE_OK(a0_mtx_unlock(mtx));
-  REQUIRE_OK(a0_mtx_lock(mtx));
+  REQUIRE_OK(A0_SYSERR(a0_mtx_lock(mtx)));
   REQUIRE_OK(a0_mtx_unlock(mtx));
 }
 
-TEST_CASE("mtx] owner died with lock, not consistent, trylock") {
+// TEST_CASE("mtx] owner died with lock, not consistent, lock") {
+//   a0::test::IpcPool ipc_pool;
+//   auto* mtx = ipc_pool.make<a0_mtx_t>();
+
+//   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
+
+//   REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == EOWNERDEAD);
+//   REQUIRE_OK(a0_mtx_unlock(mtx));
+//   REQUIRE_OK(A0_SYSERR(a0_mtx_lock(mtx)));
+//   REQUIRE_OK(a0_mtx_unlock(mtx));
+// }
+
+// TEST_CASE("mtx] owner died with lock, consistent, lock") {
+//   a0::test::IpcPool ipc_pool;
+//   auto* mtx = ipc_pool.make<a0_mtx_t>();
+
+//   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
+
+//   REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == EOWNERDEAD);
+//   REQUIRE_OK(a0_mtx_consistent(mtx));
+//   REQUIRE_OK(a0_mtx_unlock(mtx));
+//   REQUIRE_OK(a0_mtx_lock(mtx));
+//   REQUIRE_OK(a0_mtx_unlock(mtx));
+// }
+
+TEST_CASE("mtx] owner died with lock, trylock") {
   a0::test::IpcPool ipc_pool;
   auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
 
   REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == EOWNERDEAD);
-  REQUIRE_OK(a0_mtx_unlock(mtx));
-  REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == ENOTRECOVERABLE);
-}
-
-TEST_CASE("mtx] owner died with lock, consistent, trylock") {
-  a0::test::IpcPool ipc_pool;
-  auto* mtx = ipc_pool.make<a0_mtx_t>();
-
-  REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
-
-  REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == EOWNERDEAD);
-  REQUIRE_OK(a0_mtx_consistent(mtx));
   REQUIRE_OK(a0_mtx_unlock(mtx));
   REQUIRE_OK(a0_mtx_trylock(mtx));
   REQUIRE_OK(a0_mtx_unlock(mtx));
 }
+
+// TEST_CASE("mtx] owner died with lock, not consistent, trylock") {
+//   a0::test::IpcPool ipc_pool;
+//   auto* mtx = ipc_pool.make<a0_mtx_t>();
+
+//   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
+
+//   REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == EOWNERDEAD);
+//   REQUIRE_OK(a0_mtx_unlock(mtx));
+//   REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == ENOTRECOVERABLE);
+// }
+
+// TEST_CASE("mtx] owner died with lock, consistent, trylock") {
+//   a0::test::IpcPool ipc_pool;
+//   auto* mtx = ipc_pool.make<a0_mtx_t>();
+
+//   REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
+
+//   REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == EOWNERDEAD);
+//   REQUIRE_OK(a0_mtx_consistent(mtx));
+//   REQUIRE_OK(a0_mtx_unlock(mtx));
+//   REQUIRE_OK(a0_mtx_trylock(mtx));
+//   REQUIRE_OK(a0_mtx_unlock(mtx));
+// }
 
 TEST_CASE("mtx] fuzz (lock, unlock)") {
   a0::test::IpcPool ipc_pool;
@@ -305,9 +330,10 @@ TEST_CASE("mtx] fuzz (lock, unlock)") {
 
   auto body = [&]() {
     auto err = a0_mtx_lock(mtx);
-    if (A0_SYSERR(err) == EOWNERDEAD) {
-      REQUIRE_OK(a0_mtx_consistent(mtx));
-    }
+    A0_MAYBE_UNUSED(err);
+    // if (A0_SYSERR(err) == EOWNERDEAD) {
+    //   REQUIRE_OK(a0_mtx_consistent(mtx));
+    // }
     REQUIRE_OK(a0_mtx_unlock(mtx));
   };
 

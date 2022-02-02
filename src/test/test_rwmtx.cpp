@@ -287,7 +287,7 @@ TEST_CASE_FIXTURE(RwmtxTestFixture, "rwmtx] trywlock with active rlock") {
   REQUIRE_OK(a0_rwmtx_unlock(&rwmtx, tkn_r));
 }
 
-TEST_CASE("rwmtx] wlock died") {
+TEST_CASE("rwmtx] wlock died, then wlock") {
   a0::test::IpcPool ipc_pool;
   auto* rwmtx = ipc_pool.make<a0_rwmtx_t>();
   auto* _slots = ipc_pool.make<std::array<a0_mtx_t, 4>>();
@@ -299,7 +299,23 @@ TEST_CASE("rwmtx] wlock died") {
   });
 
   a0_rwmtx_tkn_t tkn;
-  REQUIRE_OK(a0_rwmtx_wlock(rwmtx, rmtx_span, &tkn));
+  REQUIRE(A0_SYSERR(a0_rwmtx_wlock(rwmtx, rmtx_span, &tkn)) == EOWNERDEAD);
+  REQUIRE_OK(a0_rwmtx_unlock(rwmtx, tkn));
+}
+
+TEST_CASE("rwmtx] wlock died, then trywlock") {
+  a0::test::IpcPool ipc_pool;
+  auto* rwmtx = ipc_pool.make<a0_rwmtx_t>();
+  auto* _slots = ipc_pool.make<std::array<a0_mtx_t, 4>>();
+  a0_rwmtx_rmtx_span_t rmtx_span = {_slots->data(), 4};
+
+  REQUIRE_EXIT({
+    a0_rwmtx_tkn_t tkn;
+    REQUIRE_OK(a0_rwmtx_wlock(rwmtx, rmtx_span, &tkn));
+  });
+
+  a0_rwmtx_tkn_t tkn;
+  REQUIRE(A0_SYSERR(a0_rwmtx_trywlock(rwmtx, rmtx_span, &tkn)) == EOWNERDEAD);
   REQUIRE_OK(a0_rwmtx_unlock(rwmtx, tkn));
 }
 

@@ -139,9 +139,8 @@ a0_err_t transport_init(a0_arena_t arena) {
     memset(&hdr->rwmtx_rslots, 0, sizeof(hdr->rwmtx_rslots));
   }
 
-  if (A0_SYSERR(a0_mtx_lock(&hdr->init_mtx)) == EOWNERDEAD) {
-    a0_mtx_consistent(&hdr->init_mtx);
-  }
+  a0_err_t owner_died = a0_mtx_lock(&hdr->init_mtx);
+  A0_MAYBE_UNUSED(owner_died);
 
   if (!hdr->initialized) {
     memcpy(hdr->magic, "ALEPHZERO", 9);

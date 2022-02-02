@@ -9,41 +9,11 @@
 
 #include "err_macro.h"
 
-// Lock a mutex, ignoring whether the owner died.
-A0_STATIC_INLINE
-a0_err_t lock_consistent(a0_mtx_t* mtx) {
-  a0_err_t err = a0_mtx_lock(mtx);
-  if (A0_SYSERR(err) == EOWNERDEAD) {
-    err = a0_mtx_consistent(mtx);
-  }
-  return err;
-}
-
-// Try locking a mutex, ignoring whether the owner died.
-A0_STATIC_INLINE
-a0_err_t trylock_consistent(a0_mtx_t* mtx) {
-  a0_err_t err = a0_mtx_trylock(mtx);
-  if (A0_SYSERR(err) == EOWNERDEAD) {
-    err = a0_mtx_consistent(mtx);
-  }
-  return err;
-}
-
-// ...
-A0_STATIC_INLINE
-a0_err_t timedlock_consistent(a0_mtx_t* mtx, a0_time_mono_t timeout) {
-  a0_err_t err = a0_mtx_timedlock(mtx, timeout);
-  if (A0_SYSERR(err) == EOWNERDEAD) {
-    err = a0_mtx_consistent(mtx);
-  }
-  return err;
-}
-
 // Lock a given mutex, relaxing the guard to let another thread release the lock in question.
 A0_STATIC_INLINE
 a0_err_t guarded_lock(a0_mtx_t* guard, a0_cnd_t* cnd, a0_mtx_t* mtx) {
   a0_err_t err;
-  while (A0_SYSERR(err = trylock_consistent(mtx)) == EBUSY) {
+  while (A0_SYSERR(err = a0_mtx_trylock(mtx)) == EBUSY) {
     a0_cnd_wait(cnd, guard);
   }
   return err;
@@ -54,7 +24,7 @@ a0_err_t guarded_lock(a0_mtx_t* guard, a0_cnd_t* cnd, a0_mtx_t* mtx) {
 A0_STATIC_INLINE
 a0_err_t guarded_timedlock(a0_mtx_t* guard, a0_cnd_t* cnd, a0_mtx_t* mtx, a0_time_mono_t timeout) {
   a0_err_t err;
-  while (A0_SYSERR(err = trylock_consistent(mtx)) == EBUSY) {
+  while (A0_SYSERR(err = a0_mtx_trylock(mtx)) == EBUSY) {
     A0_RETURN_ERR_ON_ERR(a0_cnd_timedwait(cnd, guard, timeout));
   }
   return err;
@@ -68,7 +38,7 @@ a0_err_t a0_rwmtx_tryrlock_impl(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_spa
   // This happens if there have been fewer readers than slots, since the last writer-lock was acquired.
   if (rwmtx->_next_rmtx_idx < rmtx_span.size) {
     a0_mtx_t* rmtx = &rmtx_span.arr[rwmtx->_next_rmtx_idx];
-    lock_consistent(rmtx);
+    a0_mtx_lock(rmtx);
     tkn->_mtx = rmtx;
     rwmtx->_next_rmtx_idx++;
     return A0_OK;
@@ -78,7 +48,7 @@ a0_err_t a0_rwmtx_tryrlock_impl(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_spa
   // Check if any have been released.
   for (size_t i = 0; i < rmtx_span.size; i++) {
     a0_mtx_t* rmtx = &rmtx_span.arr[i];
-    if (!trylock_consistent(rmtx)) {
+    if (!a0_mtx_trylock(rmtx)) {
       tkn->_mtx = rmtx;
       return A0_OK;
     }
@@ -89,11 +59,11 @@ a0_err_t a0_rwmtx_tryrlock_impl(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_spa
 }
 
 a0_err_t a0_rwmtx_tryrlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0_rwmtx_tkn_t* tkn) {
-  lock_consistent(&rwmtx->_guard);
+  a0_mtx_lock(&rwmtx->_guard);
 
   // Try to grab and release the writer mutex.
   // Failing indicates a writer is active and this try-rlock fails.
-  a0_err_t err = trylock_consistent(&rwmtx->_wmtx);
+  a0_err_t err = a0_mtx_trylock(&rwmtx->_wmtx);
   if (!err) {
     a0_mtx_unlock(&rwmtx->_wmtx);
     // Try to grab an available reader slot.
@@ -105,7 +75,7 @@ a0_err_t a0_rwmtx_tryrlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0
 }
 
 a0_err_t a0_rwmtx_rlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0_rwmtx_tkn_t* tkn) {
-  lock_consistent(&rwmtx->_guard);
+  a0_mtx_lock(&rwmtx->_guard);
 
   // Try rlock, until success.
   while (true) {
@@ -131,7 +101,7 @@ a0_err_t a0_rwmtx_rlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0_rw
 
 a0_err_t a0_rwmtx_timedrlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0_time_mono_t timeout, a0_rwmtx_tkn_t* tkn) {
   a0_err_t err;
-  lock_consistent(&rwmtx->_guard);
+  a0_mtx_lock(&rwmtx->_guard);
 
   // Try rlock, until success or timeout.
   while (true) {
@@ -162,11 +132,11 @@ a0_err_t a0_rwmtx_timedrlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, 
 }
 
 a0_err_t a0_rwmtx_trywlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0_rwmtx_tkn_t* tkn) {
-  lock_consistent(&rwmtx->_guard);
+  a0_mtx_lock(&rwmtx->_guard);
 
   // Try to grab the writer-lock.
-  a0_err_t err = trylock_consistent(&rwmtx->_wmtx);
-  if (err) {
+  a0_err_t err = a0_mtx_trylock(&rwmtx->_wmtx);
+  if (err && A0_SYSERR(err) != EOWNERDEAD) {
     a0_mtx_unlock(&rwmtx->_guard);
     return err;
   }
@@ -174,7 +144,7 @@ a0_err_t a0_rwmtx_trywlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0
   // Check whether there are any active readers.
   for (; rwmtx->_next_rmtx_idx; rwmtx->_next_rmtx_idx--) {
     a0_mtx_t* rmtx = &rmtx_span.arr[rwmtx->_next_rmtx_idx - 1];
-    err = trylock_consistent(rmtx);
+    err = a0_mtx_trylock(rmtx);
     if (err) {
       a0_mtx_unlock(&rwmtx->_wmtx);
       a0_mtx_unlock(&rwmtx->_guard);
@@ -186,15 +156,15 @@ a0_err_t a0_rwmtx_trywlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0
   tkn->_mtx = &rwmtx->_wmtx;
 
   a0_mtx_unlock(&rwmtx->_guard);
-  return A0_OK;
+  return err;
 }
 
 a0_err_t a0_rwmtx_wlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0_rwmtx_tkn_t* tkn) {
-  lock_consistent(&rwmtx->_guard);
+  a0_mtx_lock(&rwmtx->_guard);
 
   // Grab the writer-lock. Wait if necessary.
   a0_err_t err = guarded_lock(&rwmtx->_guard, &rwmtx->_cnd, &rwmtx->_wmtx);
-  if (err) {
+  if (err && A0_SYSERR(err) != EOWNERDEAD) {
     a0_mtx_unlock(&rwmtx->_guard);
     return err;
   }
@@ -209,15 +179,15 @@ a0_err_t a0_rwmtx_wlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0_rw
   tkn->_mtx = &rwmtx->_wmtx;
 
   a0_mtx_unlock(&rwmtx->_guard);
-  return A0_OK;
+  return err;
 }
 
 a0_err_t a0_rwmtx_timedwlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0_time_mono_t timeout, a0_rwmtx_tkn_t* tkn) {
-  lock_consistent(&rwmtx->_guard);
+  a0_mtx_lock(&rwmtx->_guard);
 
   // Grab the writer-lock. Wait if necessary, but not to exceed the timeout.
   a0_err_t err = guarded_timedlock(&rwmtx->_guard, &rwmtx->_cnd, &rwmtx->_wmtx, timeout);
-  if (err) {
+  if (err && A0_SYSERR(err) != EOWNERDEAD) {
     a0_mtx_unlock(&rwmtx->_guard);
     return err;
   }
@@ -238,7 +208,7 @@ a0_err_t a0_rwmtx_timedwlock(a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, 
   tkn->_mtx = &rwmtx->_wmtx;
 
   a0_mtx_unlock(&rwmtx->_guard);
-  return A0_OK;
+  return err;
 }
 
 a0_err_t a0_rwmtx_unlock(a0_rwmtx_t* rwmtx, a0_rwmtx_tkn_t tkn) {
@@ -246,14 +216,14 @@ a0_err_t a0_rwmtx_unlock(a0_rwmtx_t* rwmtx, a0_rwmtx_tkn_t tkn) {
   a0_mtx_unlock(tkn._mtx);
 
   // Notify that a lock slot is available.
-  lock_consistent(&rwmtx->_guard);
+  a0_mtx_lock(&rwmtx->_guard);
   a0_cnd_broadcast(&rwmtx->_cnd, &rwmtx->_guard);
   a0_mtx_unlock(&rwmtx->_guard);
   return A0_OK;
 }
 
 a0_err_t a0_rwcnd_wait(a0_rwcnd_t* rwcnd, a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0_rwmtx_tkn_t* tkn) {
-  lock_consistent(&rwcnd->_mtx);
+  a0_mtx_lock(&rwcnd->_mtx);
   a0_rwmtx_unlock(rwmtx, *tkn);
   a0_cnd_wait(&rwcnd->_cnd, &rwcnd->_mtx);
   a0_mtx_unlock(&rwcnd->_mtx);
@@ -268,7 +238,7 @@ a0_err_t a0_rwcnd_wait(a0_rwcnd_t* rwcnd, a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_
 }
 
 a0_err_t a0_rwcnd_timedwait(a0_rwcnd_t* rwcnd, a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_span_t rmtx_span, a0_time_mono_t timeout, a0_rwmtx_tkn_t* tkn) {
-  A0_RETURN_ERR_ON_ERR(timedlock_consistent(&rwcnd->_mtx, timeout));
+  A0_RETURN_ERR_ON_ERR(a0_mtx_timedlock(&rwcnd->_mtx, timeout));
 
   a0_rwmtx_unlock(rwmtx, *tkn);
   a0_err_t err = a0_cnd_timedwait(&rwcnd->_cnd, &rwcnd->_mtx, timeout);
@@ -284,14 +254,14 @@ a0_err_t a0_rwcnd_timedwait(a0_rwcnd_t* rwcnd, a0_rwmtx_t* rwmtx, a0_rwmtx_rmtx_
 }
 
 a0_err_t a0_rwcnd_signal(a0_rwcnd_t* rwcnd) {
-  lock_consistent(&rwcnd->_mtx);
+  a0_mtx_lock(&rwcnd->_mtx);
   a0_err_t err = a0_cnd_signal(&rwcnd->_cnd, &rwcnd->_mtx);
   a0_mtx_unlock(&rwcnd->_mtx);
   return err;
 }
 
 a0_err_t a0_rwcnd_broadcast(a0_rwcnd_t* rwcnd) {
-  lock_consistent(&rwcnd->_mtx);
+  a0_mtx_lock(&rwcnd->_mtx);
   a0_err_t err = a0_cnd_broadcast(&rwcnd->_cnd, &rwcnd->_mtx);
   a0_mtx_unlock(&rwcnd->_mtx);
   return err;
