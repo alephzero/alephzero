@@ -9,6 +9,8 @@
 #include <a0/time.hpp>
 
 #include <doctest.h>
+#include <signal.h>
+#include <stdlib.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -561,4 +563,35 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] many publisher fuzz") {
       REQUIRE(msgs.count(a0::test::fmt("pub %d msg %d", i, j)));
     }
   }
+}
+
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp multiproc fuzz") {
+  std::vector<pid_t> children;
+  for (int i = 0; i < 100; i++) {
+    children.push_back(a0::test::subproc([&]() {
+      while (true) {
+        a0::Publisher p(topic.name);
+        p.pub(a0::test::random_ascii_string(rand() % 1024));
+      }
+    }));
+  }
+
+  // Wait for child to run for a while, then violently kill it.
+  if (a0::test::is_debug_mode()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  } else {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+  for (auto pid : children) {
+    kill(pid, SIGKILL);
+    REQUIRE_SUBPROC_SIGNALED(pid);
+  }
+
+  a0::Publisher p(topic.name);
+  p.pub("Still Works");
+
+  a0::SubscriberSync ss(topic.name, a0::Reader::Init::MOST_RECENT);
+  REQUIRE(ss.can_read());
+  auto pkt = ss.read();
+  REQUIRE(pkt.payload() == "Still Works");
 }

@@ -1851,39 +1851,28 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust") {
   REQUIRE_OK(a0_transport_unlock(lk));
 }
 
-std::string random_string(size_t length) {
-  auto randchar = []() -> char {
-    const char charset[] =
-        "0123456789"
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "abcdefghijklmnopqrstuvwxyz";
-    const size_t max_index = (sizeof(charset) - 1);
-    return charset[rand() % max_index];
-  };
-  std::string str(length, 0);
-  std::generate_n(str.begin(), length, randchar);
-  return str;
-}
-
 TEST_CASE_FIXTURE(TransportFixture, "transport] robust fuzz") {
-  pid_t pid = a0::test::subproc([&]() {
-    a0_transport_t transport;
-    REQUIRE_OK(a0_transport_init(&transport, shm.arena));
+  std::vector<pid_t> children;
+  for (int i = 0; i < 100; i++) {
+    children.push_back(a0::test::subproc([&]() {
+      a0_transport_t transport;
+      REQUIRE_OK(a0_transport_init(&transport, shm.arena));
 
-    while (true) {
-      a0_transport_locked_t lk;
-      REQUIRE_OK(a0_transport_lock(&transport, &lk));
+      while (true) {
+        a0_transport_locked_t lk;
+        REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
-      auto str = random_string(rand() % 1024);
+        auto str = a0::test::random_ascii_string(rand() % 1024);
 
-      a0_transport_frame_t frame;
-      REQUIRE_OK(a0_transport_alloc(lk, str.size(), &frame));
-      memcpy(frame.data, str.c_str(), str.size());
-      REQUIRE_OK(a0_transport_commit(lk));
+        a0_transport_frame_t frame;
+        REQUIRE_OK(a0_transport_alloc(lk, str.size(), &frame));
+        memcpy(frame.data, str.c_str(), str.size());
+        REQUIRE_OK(a0_transport_commit(lk));
 
-      REQUIRE_OK(a0_transport_unlock(lk));
-    }
-  });
+        REQUIRE_OK(a0_transport_unlock(lk));
+      }
+    }));
+  }
 
   // Wait for child to run for a while, then violently kill it.
   if (a0::test::is_debug_mode()) {
@@ -1891,8 +1880,10 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust fuzz") {
   } else {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
-  kill(pid, SIGKILL);
-  REQUIRE_SUBPROC_SIGNALED(pid);
+  for (auto pid : children) {
+    kill(pid, SIGKILL);
+    REQUIRE_SUBPROC_SIGNALED(pid);
+  }
 
   // Connect to the transport.
   a0_transport_t transport;
