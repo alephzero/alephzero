@@ -169,24 +169,12 @@ bool ftx_owner_died(a0_ftx_t ftx) {
   return ftx & FUTEX_OWNER_DIED;
 }
 
-static const uint32_t FTX_NOTRECOVERABLE = FUTEX_TID_MASK | FUTEX_OWNER_DIED;
-
-A0_STATIC_INLINE
-bool ftx_notrecoverable(a0_ftx_t ftx) {
-  return (ftx & FTX_NOTRECOVERABLE) == FTX_NOTRECOVERABLE;
-}
-
 A0_STATIC_INLINE
 a0_err_t a0_mtx_timedlock_robust(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   const uint32_t tid = a0_tid();
 
   int syserr = EINTR;
   while (syserr == EINTR) {
-    // Can't lock if borked.
-    if (ftx_notrecoverable(a0_atomic_load(&mtx->ftx))) {
-      return A0_MAKE_SYSERR(ENOTRECOVERABLE);
-    }
-
     // Try to lock without kernel involvement.
     if (a0_cas(&mtx->ftx, 0, tid)) {
       return A0_OK;
@@ -242,11 +230,6 @@ a0_err_t a0_mtx_trylock_impl(a0_mtx_t* mtx) {
     return A0_OK;
   }
 
-  // Is the lock still usable?
-  if (ftx_notrecoverable(old)) {
-    return A0_MAKE_SYSERR(ENOTRECOVERABLE);
-  }
-
   // Is the owner still alive?
   if (!ftx_owner_died(old)) {
     return A0_MAKE_SYSERR(EBUSY);
@@ -267,7 +250,7 @@ a0_err_t a0_mtx_trylock_impl(a0_mtx_t* mtx) {
   if (A0_SYSERR(err) == EAGAIN) {
     return A0_MAKE_SYSERR(EBUSY);
   }
-  return A0_MAKE_SYSERR(ENOTRECOVERABLE);
+  return err;
 }
 
 a0_err_t a0_mtx_trylock(a0_mtx_t* mtx) {
@@ -283,25 +266,6 @@ a0_err_t a0_mtx_trylock(a0_mtx_t* mtx) {
   return err;
 }
 
-a0_err_t a0_mtx_consistent(a0_mtx_t* mtx) {
-  const uint32_t val = a0_atomic_load(&mtx->ftx);
-
-  // Why fix what isn't broken?
-  if (!ftx_owner_died(val)) {
-    return A0_MAKE_SYSERR(EINVAL);
-  }
-
-  // Is it yours to fix?
-  if (ftx_tid(val) != a0_tid()) {
-    return A0_MAKE_SYSERR(EPERM);
-  }
-
-  // Fix it!
-  a0_atomic_and_fetch(&mtx->ftx, ~FUTEX_OWNER_DIED);
-
-  return A0_OK;
-}
-
 a0_err_t a0_mtx_unlock(a0_mtx_t* mtx) {
   const uint32_t tid = a0_tid();
 
@@ -314,26 +278,16 @@ a0_err_t a0_mtx_unlock(a0_mtx_t* mtx) {
 
   __tsan_mutex_pre_unlock(mtx, 0);
 
-  // If the mutex was acquired with EOWNERDEAD, the caller is responsible
-  // for fixing the state and marking the mutex consistent. If they did
-  // not mark it consistent and are unlocking... then we are unrecoverably
-  // borked!
-  uint32_t new_val = 0;
-  if (ftx_owner_died(val)) {
-    new_val = FTX_NOTRECOVERABLE;
-  }
-
   robust_op_start(mtx);
   robust_op_del(mtx);
 
+  a0_atomic_and_fetch(&mtx->ftx, ~FUTEX_OWNER_DIED);
+
   // If the futex is exactly equal to tid, then there are no waiters and the
   // kernel doesn't need to get involved.
-  if (!a0_cas(&mtx->ftx, tid, new_val)) {
+  if (!a0_cas(&mtx->ftx, tid, 0)) {
     // Ask the kernel to wake up a waiter.
     a0_ftx_unlock_pi(&mtx->ftx);
-    if (new_val) {
-      a0_atomic_or_fetch(&mtx->ftx, new_val);
-    }
   }
 
   robust_op_end(mtx);
