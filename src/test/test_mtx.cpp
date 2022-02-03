@@ -4,11 +4,12 @@
 #include <a0/file.h>
 #include <a0/mtx.h>
 #include <a0/time.h>
+#include <a0/unused.h>
 
 #include <doctest.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <stdint.h>
-#include <time.h>
 
 #include <algorithm>
 #include <cerrno>

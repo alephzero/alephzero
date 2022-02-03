@@ -7,6 +7,7 @@
 #include <a0/mtx.h>
 #include <a0/time.h>
 #include <a0/transport.h>
+#include <a0/unused.h>
 
 #include <errno.h>
 #include <stdalign.h>
