@@ -9,6 +9,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <condition_variable>
 #include <csignal>
 #include <cstdint>
@@ -38,6 +39,20 @@ static std::string fmt(const std::string& format, Args... args) {
   std::vector<char> buf(size + 1);
   sprintf(buf.data(), format.data(), args...);
   return std::string(buf.data(), size);
+}
+
+inline std::string random_ascii_string(size_t length) {
+  auto randchar = []() -> char {
+    const char charset[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+    const size_t max_index = (sizeof(charset) - 1);
+    return charset[rand() % max_index];
+  };
+  std::string str(length, 0);
+  std::generate_n(str.begin(), length, randchar);
+  return str;
 }
 
 inline a0_buf_t buf(a0_transport_frame_t frame) {
