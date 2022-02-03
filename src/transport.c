@@ -194,16 +194,13 @@ a0_err_t a0_transport_lock(a0_transport_t* transport, a0_transport_locked_t* lk_
 
   a0_transport_hdr_t* hdr = a0_transport_header(*lk_out);
 
-  a0_err_t lock_status = a0_mtx_lock(&hdr->mtx);
-  if (A0_SYSERR(lock_status) == EOWNERDEAD) {
-    // The data is always consistent by design.
-    lock_status = a0_mtx_consistent(&hdr->mtx);
-  }
+  a0_err_t prior_owner_died = a0_mtx_lock(&hdr->mtx);
+  A0_MAYBE_UNUSED(prior_owner_died);
 
   // Clear any incomplete changes.
   *a0_transport_working_page(*lk_out) = *a0_transport_committed_page(*lk_out);
 
-  return lock_status;
+  return A0_OK;
 }
 
 a0_err_t a0_transport_unlock(a0_transport_locked_t lk) {

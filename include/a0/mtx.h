@@ -24,7 +24,13 @@ typedef struct a0_mtx_s a0_mtx_t;
 // * Error checking.
 // * Priority inheriting.
 //
-// Unlike pthread_mutex_t, timespec are expected to use CLOCK_BOOTTIME.
+// Unlike pthread_mutex_t:
+// * timespec are expected to use CLOCK_BOOTTIME.
+// * The protected resource is expected to be consistent independently.
+//   pthread expects pthread_mutex_consistent to be called after a lock
+//   returns EOWNERDEAD. Failing to do so may result in ENOTRECOVERABLE.
+//
+// A successful lock returns A0_OK or A0_SYSERR(lock) == EOWNERDEAD.
 //
 // struct a0_mtx_s "Inherits" from robust_list, which requires:
 // * The first field MUST be a next pointer.
@@ -40,7 +46,6 @@ struct a0_mtx_s {
 a0_err_t a0_mtx_lock(a0_mtx_t*) A0_WARN_UNUSED_RESULT;
 a0_err_t a0_mtx_timedlock(a0_mtx_t*, a0_time_mono_t) A0_WARN_UNUSED_RESULT;
 a0_err_t a0_mtx_trylock(a0_mtx_t*) A0_WARN_UNUSED_RESULT;
-a0_err_t a0_mtx_consistent(a0_mtx_t*);
 a0_err_t a0_mtx_unlock(a0_mtx_t*);
 
 typedef a0_ftx_t a0_cnd_t;

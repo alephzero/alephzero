@@ -151,11 +151,6 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, (unlock)*") {
   REQUIRE(A0_SYSERR(a0_mtx_unlock(&mtx)) == EPERM);
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] consistent") {
-  a0_mtx_t mtx = A0_EMPTY;
-  REQUIRE(A0_SYSERR(a0_mtx_consistent(&mtx)) == EINVAL);
-}
-
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, lock2, unlock2, unlock") {
   a0_mtx_t mtx1 = A0_EMPTY;
   a0_mtx_t mtx2 = A0_EMPTY;
@@ -229,25 +224,6 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] timedlock") {
   REQUIRE(duration_ms.count() > 900);
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] consistent call must be from owner") {
-  auto* mtx = make_ipc<a0_mtx_t>();
-  REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
-
-  event_t event_0;
-  event_t event_1;
-  std::thread t([&]() {
-    REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == EOWNERDEAD);
-    event_0.set();
-    event_1.wait();
-    REQUIRE_OK(a0_mtx_consistent(mtx));
-    REQUIRE_OK(a0_mtx_unlock(mtx));
-  });
-  event_0.wait();
-  REQUIRE(A0_SYSERR(a0_mtx_consistent(mtx)) == EPERM);
-  event_1.set();
-  t.join();
-}
-
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] robust chain") {
   auto* mtx1 = make_ipc<a0_mtx_t>();
   auto* mtx2 = make_ipc<a0_mtx_t>();
@@ -262,10 +238,6 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] robust chain") {
   REQUIRE(A0_SYSERR(a0_mtx_lock(mtx1)) == EOWNERDEAD);
   REQUIRE(A0_SYSERR(a0_mtx_lock(mtx2)) == EOWNERDEAD);
   REQUIRE(A0_SYSERR(a0_mtx_lock(mtx3)) == EOWNERDEAD);
-
-  REQUIRE_OK(a0_mtx_consistent(mtx1));
-  REQUIRE_OK(a0_mtx_consistent(mtx2));
-  REQUIRE_OK(a0_mtx_consistent(mtx3));
 
   REQUIRE_OK(a0_mtx_unlock(mtx1));
   REQUIRE_OK(a0_mtx_unlock(mtx2));
@@ -293,57 +265,14 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] multiple waiters") {
   }
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, not consistent, lock") {
-  auto* mtx = make_ipc<a0_mtx_t>();
-
-  REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
-
-  REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == EOWNERDEAD);
-  REQUIRE_OK(a0_mtx_unlock(mtx));
-  REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == ENOTRECOVERABLE);
-}
-
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, lock") {
-  auto* mtx = make_ipc<a0_mtx_t>();
-
-  REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
-
-  REQUIRE(A0_SYSERR(a0_mtx_lock(mtx)) == EOWNERDEAD);
-  REQUIRE_OK(a0_mtx_consistent(mtx));
-  REQUIRE_OK(a0_mtx_unlock(mtx));
-  REQUIRE_OK(a0_mtx_lock(mtx));
-  REQUIRE_OK(a0_mtx_unlock(mtx));
-}
-
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, not consistent, trylock") {
-  auto* mtx = make_ipc<a0_mtx_t>();
-
-  REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
-
-  REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == EOWNERDEAD);
-  REQUIRE_OK(a0_mtx_unlock(mtx));
-  REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == ENOTRECOVERABLE);
-}
-
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] owner died with lock, consistent, trylock") {
-  auto* mtx = make_ipc<a0_mtx_t>();
-
-  REQUIRE_EXIT({ REQUIRE_OK(a0_mtx_lock(mtx)); });
-
-  REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == EOWNERDEAD);
-  REQUIRE_OK(a0_mtx_consistent(mtx));
-  REQUIRE_OK(a0_mtx_unlock(mtx));
-  REQUIRE_OK(a0_mtx_trylock(mtx));
-  REQUIRE_OK(a0_mtx_unlock(mtx));
-}
-
 TEST_CASE_FIXTURE(MtxTestFixture, "mtx] fuzz (lock, unlock)") {
   auto* mtx = make_ipc<a0_mtx_t>();
 
   auto body = [&]() {
-    auto err = a0_mtx_lock(mtx);
-    if (A0_SYSERR(err) == EOWNERDEAD) {
-      REQUIRE_OK(a0_mtx_consistent(mtx));
+    auto prior_owner_died = a0_mtx_lock(mtx);
+    A0_MAYBE_UNUSED(prior_owner_died);
+    if (rand() % 2) {
+      std::this_thread::sleep_for(std::chrono::microseconds(1));
     }
     REQUIRE_OK(a0_mtx_unlock(mtx));
   };

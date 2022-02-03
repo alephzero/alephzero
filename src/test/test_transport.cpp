@@ -1562,7 +1562,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp clear") {
 }
 
 void fork_sleep_push(a0_transport_t* transport, const std::string& str) {
-  if (!fork()) {
+  a0::test::subproc([&]() {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
     a0_transport_locked_t lk;
@@ -1574,9 +1574,7 @@ void fork_sleep_push(a0_transport_t* transport, const std::string& str) {
     REQUIRE_OK(a0_transport_commit(lk));
 
     REQUIRE_OK(a0_transport_unlock(lk));
-
-    exit(0);
-  }
+  });
 }
 
 TEST_CASE_FIXTURE(TransportFixture, "transport] timedwait") {
@@ -1741,8 +1739,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp shm await") {
 }
 
 TEST_CASE_FIXTURE(TransportFixture, "transport] robust") {
-  int child_pid = fork();
-  if (!child_pid) {
+  REQUIRE_EXIT({
     a0_transport_t transport;
     REQUIRE_OK(a0_transport_init(&transport, shm.arena));
 
@@ -1812,10 +1809,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust") {
       // Exit without cleaning resources.
       std::quick_exit(0);
     }
-  }
-  int child_status;
-  waitpid(child_pid, &child_status, 0);
-  (void)child_status;
+  });
 
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, shm.arena));
@@ -1874,8 +1868,7 @@ std::string random_string(size_t length) {
 }
 
 TEST_CASE_FIXTURE(TransportFixture, "transport] robust fuzz") {
-  int child_pid = fork();
-  if (!child_pid) {
+  pid_t pid = a0::test::subproc([&]() {
     a0_transport_t transport;
     REQUIRE_OK(a0_transport_init(&transport, shm.arena));
 
@@ -1892,7 +1885,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust fuzz") {
 
       REQUIRE_OK(a0_transport_unlock(lk));
     }
-  }
+  });
 
   // Wait for child to run for a while, then violently kill it.
   if (a0::test::is_debug_mode()) {
@@ -1900,9 +1893,8 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust fuzz") {
   } else {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
-  kill(child_pid, SIGKILL);
-  int wstatus;
-  REQUIRE(waitpid(child_pid, &wstatus, 0) == child_pid);
+  kill(pid, SIGKILL);
+  REQUIRE_SUBPROC_SIGNALED(pid);
 
   // Connect to the transport.
   a0_transport_t transport;
@@ -1940,8 +1932,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust copy shm->disk->shm") {
 
   std::string str = "Original String";
 
-  int child_pid = fork();
-  if (!child_pid) {
+  REQUIRE_EXIT({
     a0_transport_t transport;
     REQUIRE_OK(a0_transport_init(&transport, shm.arena));
 
@@ -1958,11 +1949,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust copy shm->disk->shm") {
 
     // Exit without cleaning resources.
     std::quick_exit(0);
-  }
-
-  int child_status;
-  waitpid(child_pid, &child_status, 0);
-  (void)child_status;
+  });
 
   // Copy the shm file to disk.
   copy_file(TEST_SHM_ABS, COPY_DISK);
@@ -1997,8 +1984,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust copy disk->shm->disk") {
 
   std::string str = "Original String";
 
-  int child_pid = fork();
-  if (!child_pid) {
+  REQUIRE_EXIT({
     a0_transport_t transport;
     REQUIRE_OK(a0_transport_init(&transport, disk.arena));
 
@@ -2015,11 +2001,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust copy disk->shm->disk") {
 
     // Exit without cleaning resources.
     std::quick_exit(0);
-  }
-
-  int child_status;
-  waitpid(child_pid, &child_status, 0);
-  (void)child_status;
+  });
 
   // Copy the shm file to disk.
   copy_file(TEST_DISK, COPY_SHM_ABS);
