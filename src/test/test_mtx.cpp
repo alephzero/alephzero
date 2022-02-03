@@ -7,9 +7,9 @@
 #include <a0/unused.h>
 
 #include <doctest.h>
-#include <stdlib.h>
 #include <signal.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include <algorithm>
 #include <cerrno>
