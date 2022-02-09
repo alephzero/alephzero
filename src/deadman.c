@@ -1,20 +1,15 @@
 #include <a0/callback.h>
 #include <a0/deadman.h>
+#include <a0/err.h>
 #include <a0/inline.h>
+#include <a0/mtx.h>
+#include <a0/time.h>
+#include <a0/unused.h>
 
 #include <errno.h>
-#include <fcntl.h>
-#include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/epoll.h>
-#include <sys/file.h>
-#include <sys/inotify.h>
-#include <sys/mman.h>
-#include <sys/syscall.h>
-#include <sys/wait.h>
-#include <unistd.h>
 
 #include "err_macro.h"
 

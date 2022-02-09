@@ -1,10 +1,21 @@
 #include <a0/deadman.h>
 #include <a0/empty.h>
+#include <a0/err.h>
+#include <a0/mtx.h>
 
 #include <doctest.h>
+#include <errno.h>
+#include <signal.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <sys/wait.h>
 
+#include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #include "src/err_macro.h"
 #include "src/test_util.hpp"

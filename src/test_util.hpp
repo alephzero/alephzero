@@ -1,10 +1,12 @@
 #pragma once
 
 #include <a0/alloc.h>
+#include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/packet.h>
+#include <a0/time.h>
 #include <a0/transport.h>
 
 #include <sys/wait.h>
@@ -12,6 +14,7 @@
 
 #include <algorithm>
 #include <condition_variable>
+#include <chrono>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
@@ -19,6 +22,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <new>
 #include <set>
 #include <string>
 #include <unordered_map>

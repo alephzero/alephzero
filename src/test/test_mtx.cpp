@@ -1,7 +1,4 @@
-#include <a0/arena.h>
-#include <a0/buf.h>
 #include <a0/empty.h>
-#include <a0/file.h>
 #include <a0/mtx.h>
 #include <a0/time.h>
 #include <a0/unused.h>
@@ -15,10 +12,7 @@
 #include <cerrno>
 #include <chrono>
 #include <memory>
-#include <new>
-#include <string>
 #include <thread>
-#include <utility>
 #include <vector>
 
 #include "src/err_macro.h"
