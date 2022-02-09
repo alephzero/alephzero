@@ -267,40 +267,10 @@ a0_err_t a0_rpc_client_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_
 }
 
 a0_err_t a0_rpc_client_send_blocking(a0_rpc_client_t* client, a0_packet_t pkt, a0_alloc_t alloc, a0_packet_t* out) {
-  a0_reader_sync_t reader_sync;
-  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(
-      &reader_sync,
-      client->_file.arena,
-      alloc,
-      (a0_reader_options_t){A0_INIT_AWAIT_NEW, A0_ITER_NEXT}));
-
-  a0_err_t err = a0_rpc_client_send(client, pkt, (a0_packet_callback_t)A0_EMPTY);
-  while (!err) {
-    err = a0_reader_sync_read_blocking(&reader_sync, out);
-    if (err) {
-      break;
-    }
-
-    const char* rpctype;
-    a0_uuid_t* reqid;
-    if (a0_find_rpctype(*out, &rpctype) ||
-        a0_find_reqid(*out, &reqid)) {
-      continue;
-    }
-
-    if (!memcmp(pkt.id, *reqid, sizeof(a0_uuid_t))) {
-      if (!strcmp(rpctype, RPC_TYPE_CANCEL)) {
-        err = A0_ERR_CANCELLED;
-      }
-      break;
-    }
-  }
-
-  a0_reader_sync_close(&reader_sync);
-  return err;
+  return a0_rpc_client_send_blocking_timeout(client, pkt, NULL, alloc, out);
 }
 
-a0_err_t a0_rpc_client_send_blocking_timeout(a0_rpc_client_t* client, a0_packet_t pkt, a0_time_mono_t timeout, a0_alloc_t alloc, a0_packet_t* out) {
+a0_err_t a0_rpc_client_send_blocking_timeout(a0_rpc_client_t* client, a0_packet_t pkt, a0_time_mono_t* timeout, a0_alloc_t alloc, a0_packet_t* out) {
   a0_reader_sync_t reader_sync;
   A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(
       &reader_sync,

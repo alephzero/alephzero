@@ -20,7 +20,7 @@ typedef struct a0_counters_s {
 } a0_counters_t;
 
 A0_STATIC_INLINE
-void _global_counters_init(void* user_data) {
+a0_err_t _global_counters_init(void* user_data) {
   a0_counters_t* cnts = (a0_counters_t*)user_data;
   a0_map_init(
       &cnts->map,
@@ -29,6 +29,7 @@ void _global_counters_init(void* user_data) {
       A0_HASH_PTR,
       A0_CMP_PTR);
   pthread_mutex_init(&cnts->mu, NULL);
+  return A0_OK;
 }
 
 A0_STATIC_INLINE

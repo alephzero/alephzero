@@ -53,7 +53,7 @@ a0_err_t a0_subscriber_sync_close(a0_subscriber_sync_t*);
 a0_err_t a0_subscriber_sync_can_read(a0_subscriber_sync_t*, bool*);
 a0_err_t a0_subscriber_sync_read(a0_subscriber_sync_t*, a0_packet_t*);
 a0_err_t a0_subscriber_sync_read_blocking(a0_subscriber_sync_t*, a0_packet_t*);
-a0_err_t a0_subscriber_sync_read_blocking_timeout(a0_subscriber_sync_t*, a0_time_mono_t, a0_packet_t*);
+a0_err_t a0_subscriber_sync_read_blocking_timeout(a0_subscriber_sync_t*, a0_time_mono_t*, a0_packet_t*);
 
 // Threaded allocated version.
 

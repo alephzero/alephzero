@@ -226,7 +226,7 @@ Packet RpcClient::send_blocking(Packet pkt, TimeMono timeout) {
   };
 
   a0_packet_t resp;
-  check(a0_rpc_client_send_blocking_timeout(&*c, *pkt.c, *timeout.c, alloc, &resp));
+  check(a0_rpc_client_send_blocking_timeout(&*c, *pkt.c, &*timeout.c, alloc, &resp));
   return Packet(resp, [data](a0_packet_t*) {});
 }
 

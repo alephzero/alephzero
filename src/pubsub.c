@@ -96,7 +96,7 @@ a0_err_t a0_subscriber_sync_read_blocking(a0_subscriber_sync_t* sub_sync, a0_pac
   return a0_reader_sync_read_blocking(&sub_sync->_reader_sync, pkt);
 }
 
-a0_err_t a0_subscriber_sync_read_blocking_timeout(a0_subscriber_sync_t* sub_sync, a0_time_mono_t timeout, a0_packet_t* pkt) {
+a0_err_t a0_subscriber_sync_read_blocking_timeout(a0_subscriber_sync_t* sub_sync, a0_time_mono_t* timeout, a0_packet_t* pkt) {
   return a0_reader_sync_read_blocking_timeout(&sub_sync->_reader_sync, timeout, pkt);
 }
 

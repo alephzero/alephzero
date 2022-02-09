@@ -230,7 +230,7 @@ a0_err_t a0_transport_wait(a0_transport_locked_t, a0_predicate_t);
 /// Wait until the given predicate is satisfied or the timeout expires.
 ///
 /// The predicate is checked when an unlock event occurs following a commit or eviction.
-a0_err_t a0_transport_timedwait(a0_transport_locked_t, a0_predicate_t, a0_time_mono_t);
+a0_err_t a0_transport_timedwait(a0_transport_locked_t, a0_predicate_t, a0_time_mono_t*);
 
 /// Predicate that is satisfied when the transport is empty.
 a0_predicate_t a0_transport_empty_pred(a0_transport_locked_t*);

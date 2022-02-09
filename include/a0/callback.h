@@ -15,14 +15,15 @@ extern "C" {
 
 typedef struct a0_callback_s {
   void* user_data;
-  void (*fn)(void* user_data);
+  a0_err_t (*fn)(void* user_data);
 } a0_callback_t;
 
 A0_STATIC_INLINE
-void a0_callback_call(a0_callback_t callback) {
+a0_err_t a0_callback_call(a0_callback_t callback) {
   if (callback.fn) {
-    callback.fn(callback.user_data);
+    return callback.fn(callback.user_data);
   }
+  return A0_OK;
 }
 
 typedef struct a0_predicate_s {
