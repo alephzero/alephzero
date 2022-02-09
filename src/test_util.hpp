@@ -3,6 +3,7 @@
 #include <a0/alloc.h>
 #include <a0/arena.h>
 #include <a0/buf.h>
+#include <a0/empty.h>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/packet.h>
@@ -13,8 +14,8 @@
 #include <unistd.h>
 
 #include <algorithm>
-#include <condition_variable>
 #include <chrono>
+#include <condition_variable>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
@@ -291,7 +292,7 @@ class IpcPool {
     std::string name = "ipcpool/" + key + "_" + std::to_string(files.size());
     a0_file_remove(name.c_str());
 
-    a0_file_t file;
+    a0_file_t file = A0_EMPTY;
     a0_file_options_t fileopt = A0_FILE_OPTIONS_DEFAULT;
     fileopt.create_options.size = size;
     REQUIRE_OK(a0_file_open(name.c_str(), &fileopt, &file));
