@@ -27,36 +27,47 @@ typedef struct a0_deadman_timeout_s {
 } a0_deadman_timeout_t;
 
 A0_STATIC_INLINE
-a0_err_t a0_deadman_acquire_impl(a0_deadman_t* d, uint64_t* out_tkn, a0_err_t owner_lock_status) {
+a0_err_t a0_deadman_acquire_impl(a0_deadman_t* d, a0_err_t owner_lock_status) {
+  // Failed to lock. Return the error.
   if (!a0_mtx_lock_successful(owner_lock_status)) {
     return owner_lock_status;
   }
 
+  // The lock is successful.
+
   IGNORE_OWNERDEAD(a0_mtx_lock(&d->_guard));
-  *out_tkn = d->_tkn++;
+  // Update to a new unique token.
+  d->_tkn++;
+  // Mark the deadman as acquired.
   d->_acquired = true;
+  // Wake wait_acquired calls.
   a0_cnd_broadcast(&d->_acquire_cnd, &d->_guard);
   a0_mtx_unlock(&d->_guard);
 
   return owner_lock_status;
 }
 
-a0_err_t a0_deadman_acquire(a0_deadman_t* d, uint64_t* out_tkn) {
-  return a0_deadman_acquire_impl(d, out_tkn, a0_mtx_lock(&d->_owner_mtx));
+a0_err_t a0_deadman_acquire(a0_deadman_t* d) {
+  return a0_deadman_acquire_impl(d, a0_mtx_lock(&d->_owner_mtx));
 }
 
-a0_err_t a0_deadman_tryacquire(a0_deadman_t* d, uint64_t* out_tkn) {
-  return a0_deadman_acquire_impl(d, out_tkn, a0_mtx_trylock(&d->_owner_mtx));
+a0_err_t a0_deadman_tryacquire(a0_deadman_t* d) {
+  return a0_deadman_acquire_impl(d, a0_mtx_trylock(&d->_owner_mtx));
 }
 
-a0_err_t a0_deadman_timedacquire(a0_deadman_t* d, a0_time_mono_t* timeout, uint64_t* out_tkn) {
-  return a0_deadman_acquire_impl(d, out_tkn, a0_mtx_timedlock(&d->_owner_mtx, timeout));
+a0_err_t a0_deadman_timedacquire(a0_deadman_t* d, a0_time_mono_t* timeout) {
+  return a0_deadman_acquire_impl(d, a0_mtx_timedlock(&d->_owner_mtx, timeout));
 }
 
 a0_err_t a0_deadman_release(a0_deadman_t* d) {
+  // Expect the called to own the deadman (owner_mtx).
+
+  // Guard protects the acquired flag.
   IGNORE_OWNERDEAD(a0_mtx_lock(&d->_guard));
   d->_acquired = false;
   a0_mtx_unlock(&d->_guard);
+
+  // Release the deadman.
   a0_mtx_unlock(&d->_owner_mtx);
   return A0_OK;
 }
@@ -68,24 +79,32 @@ a0_err_t a0_deadman_wait_acquired_impl(a0_deadman_t* d, a0_callback_t acquire_cn
     out_tkn = &unused_tkn;
   }
 
+  // Nothing protected by the guard may block!
   IGNORE_OWNERDEAD(a0_mtx_lock(&d->_guard));
 
   while (true) {
+    // Check if the deadman is acquired.
+    // Note: The acquired flag is not enough to determine if the deadman is acquired.
+    //       The owning process may have died.
     a0_err_t lock_result = a0_mtx_trylock(&d->_owner_mtx);
+
     if (a0_mtx_lock_successful(lock_result)) {
+      // The owning process may have died. Reset the acquired flag.
       d->_acquired = false;
+
+      // Release the deadman and wait on the acquire condition.
       a0_mtx_unlock(&d->_owner_mtx);
       a0_err_t cnd_err = a0_callback_call(acquire_cnd);
       if (cnd_err) {
         a0_mtx_unlock(&d->_guard);
         return cnd_err;
       }
-    } else if (A0_SYSERR(lock_result) == EBUSY) {
-      // Either the deadman is acquired or there is a race with wait_released.
-      if (d->_acquired) {
-        break;
-      }
-      // spin conflict with wait_released
+    } else if (d->_acquired) {
+      // The deadman is acquired.
+      break;
+    } else {
+      // There was a race with wait_released.
+      // This is a very short period. Spin.
       a0_mtx_unlock(&d->_guard);
       IGNORE_OWNERDEAD(a0_mtx_lock(&d->_guard));
     }
@@ -139,14 +158,23 @@ a0_err_t a0_deadman_wait_released(a0_deadman_t* d, uint64_t tkn) {
 }
 
 a0_err_t a0_deadman_timedwait_released(a0_deadman_t* d, a0_time_mono_t* timeout, uint64_t tkn) {
+  // Nothing protected by the guard may block!
   IGNORE_OWNERDEAD(a0_mtx_lock(&d->_guard));
   a0_err_t err = A0_OK;
   while (d->_tkn == tkn) {
+    // Check if the deadman is acquired.
     err = a0_mtx_trylock(&d->_owner_mtx);
     if (a0_mtx_lock_successful(err)) {
+      // If not, we're done
       break;
     } else if (A0_SYSERR(err) == EBUSY) {
-      // another owner exists
+      // The deadman is acquired.
+      //
+      // Locking the owner_mtx (without guard) will block until the owner
+      // releases or dies.
+      //
+      // wait_released owns the owner_mtx for a very short time.
+      // wait_acquired has special logic to detect that this is not an owner.
       a0_mtx_unlock(&d->_guard);
       err = a0_mtx_timedlock(&d->_owner_mtx, timeout);
       if (A0_SYSERR(err) == ETIMEDOUT) {
@@ -154,24 +182,16 @@ a0_err_t a0_deadman_timedwait_released(a0_deadman_t* d, a0_time_mono_t* timeout,
       }
       a0_mtx_unlock(&d->_owner_mtx);
       IGNORE_OWNERDEAD(a0_mtx_lock(&d->_guard));
+
+      // Reset err and try again.
       err = A0_OK;
     }
   }
+
+  // The owner_mtx is locked here, but the deadman is not acquired.
   d->_acquired = false;
+
   a0_mtx_unlock(&d->_owner_mtx);
   a0_mtx_unlock(&d->_guard);
-  return err;
-}
-
-a0_err_t a0_deadman_wait_released_any(a0_deadman_t* d) {
-  return a0_deadman_timedwait_released_any(d, NULL);
-}
-
-a0_err_t a0_deadman_timedwait_released_any(a0_deadman_t* d, a0_time_mono_t* timeout) {
-  a0_err_t err = a0_mtx_timedlock(&d->_owner_mtx, timeout);
-  if (a0_mtx_lock_successful(err)) {
-    d->_acquired = false;
-    a0_mtx_unlock(&d->_owner_mtx);
-  }
   return err;
 }

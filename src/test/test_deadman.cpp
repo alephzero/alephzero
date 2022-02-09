@@ -31,13 +31,25 @@ void REQUIRE_OK_OR_SYSERR(a0_err_t err, int syserr_1, int syserr_2) {
 TEST_CASE("deadman] acquire, release") {
   a0_deadman_t d = A0_EMPTY;
 
+  bool acquired = false;
   uint64_t tkn;
-  REQUIRE_OK(a0_deadman_acquire(&d, &tkn));
-  REQUIRE(tkn == 0);
+
+  // Pass 1
+  REQUIRE_OK(a0_deadman_acquire(&d));
+
+  REQUIRE_OK(a0_deadman_isacquired(&d, &acquired, &tkn));
+  REQUIRE(acquired);
+  REQUIRE(tkn == 1);
+
   REQUIRE_OK(a0_deadman_release(&d));
 
-  REQUIRE_OK(a0_deadman_acquire(&d, &tkn));
-  REQUIRE(tkn == 1);
+  // Pass 2
+  REQUIRE_OK(a0_deadman_acquire(&d));
+
+  REQUIRE_OK(a0_deadman_isacquired(&d, &acquired, &tkn));
+  REQUIRE(acquired);
+  REQUIRE(tkn == 2);
+
   REQUIRE_OK(a0_deadman_release(&d));
 }
 
@@ -50,8 +62,7 @@ TEST_CASE("deadman] thread") {
   REQUIRE(!acquired);
 
   std::thread t([&]() {
-    uint64_t tkn;
-    REQUIRE_OK(a0_deadman_acquire(&d, &tkn));
+    REQUIRE_OK(a0_deadman_acquire(&d));
     evt.wait();
     REQUIRE_OK(a0_deadman_release(&d));
   });
@@ -73,14 +84,11 @@ TEST_CASE("deadman] death") {
   auto* d = ipc_pool.make<a0_deadman_t>();
 
   REQUIRE_EXIT({
-    uint64_t tkn;
-    REQUIRE_OK(a0_deadman_acquire(d, &tkn));
+    REQUIRE_OK(a0_deadman_acquire(d));
   });
 
-  uint64_t tkn;
-  REQUIRE(a0_mtx_previous_owner_died(a0_deadman_acquire(d, &tkn)));
-  REQUIRE(tkn == 1);
-  REQUIRE_OK(a0_deadman_wait_released(d, tkn));
+  REQUIRE(a0_mtx_previous_owner_died(a0_deadman_acquire(d)));
+  REQUIRE_OK(a0_deadman_release(d));
 }
 
 TEST_CASE("deadman] fuzz") {
@@ -99,23 +107,21 @@ TEST_CASE("deadman] fuzz") {
 
         int acquire_action = rand() % 4;
         if (acquire_action == 0) {
-          a0_err_t err = a0_deadman_acquire(d, &tkn);
+          a0_err_t err = a0_deadman_acquire(d);
           REQUIRE_OK_OR_SYSERR(err, EOWNERDEAD);
           acquired = true;
         } else if (acquire_action == 1) {
-          a0_err_t err = a0_deadman_tryacquire(d, &tkn);
+          a0_err_t err = a0_deadman_tryacquire(d);
           REQUIRE_OK_OR_SYSERR(err, EBUSY);
           acquired = !err;
         } else if (acquire_action == 2) {
           auto timeout = a0::test::timeout_in(std::chrono::microseconds(100));
-          a0_err_t err = a0_deadman_timedacquire(d, &timeout, &tkn);
+          a0_err_t err = a0_deadman_timedacquire(d, &timeout);
           REQUIRE_OK_OR_SYSERR(err, ETIMEDOUT);
           acquired = !err;
         } else if (acquire_action == 3) {
           REQUIRE_OK(a0_deadman_wait_acquired(d, &tkn));
           acquired = false;
-        } else {
-          REQUIRE(false);
         }
 
         if (acquired) {
@@ -126,23 +132,14 @@ TEST_CASE("deadman] fuzz") {
           std::this_thread::sleep_for(std::chrono::microseconds(10));
           REQUIRE_OK(a0_deadman_release(d));
         } else {
-          int wait_release_action = rand() % 4;
+          int wait_release_action = rand() % 2;
           if (wait_release_action == 0) {
             a0_err_t err = a0_deadman_wait_released(d, tkn);
             REQUIRE_OK_OR_SYSERR(err, EOWNERDEAD);
           } else if (wait_release_action == 1) {
-            a0_err_t err = a0_deadman_wait_released_any(d);
-            REQUIRE_OK_OR_SYSERR(err, EOWNERDEAD);
-          } else if (wait_release_action == 2) {
             auto timeout = a0::test::timeout_in(std::chrono::microseconds(100));
             a0_err_t err = a0_deadman_timedwait_released(d, &timeout, tkn);
             REQUIRE_OK_OR_SYSERR(err, EOWNERDEAD, ETIMEDOUT);
-          } else if (wait_release_action == 3) {
-            auto timeout = a0::test::timeout_in(std::chrono::microseconds(100));
-            a0_err_t err = a0_deadman_timedwait_released_any(d, &timeout);
-            REQUIRE_OK_OR_SYSERR(err, EOWNERDEAD, ETIMEDOUT);
-          } else {
-            REQUIRE(false);
           }
         }
       }
@@ -165,8 +162,7 @@ TEST_CASE("deadman] fuzz") {
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
   *done = true;
-  uint64_t tkn;
-  REQUIRE_OK_OR_SYSERR(a0_deadman_acquire(d, &tkn), EOWNERDEAD);
+  REQUIRE_OK_OR_SYSERR(a0_deadman_acquire(d), EOWNERDEAD);
   REQUIRE_OK(a0_deadman_release(d));
 
   for (auto& child : children) {
