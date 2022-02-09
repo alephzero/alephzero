@@ -72,7 +72,7 @@ void ReaderSyncZeroCopy::read_blocking(std::function<void(TransportLocked, FlatP
 
 void ReaderSyncZeroCopy::read_blocking(TimeMono timeout, std::function<void(TransportLocked, FlatPacket)> fn) {
   CHECK_C;
-  check(a0_reader_sync_zc_read_blocking_timeout(&*c, *timeout.c, ReadZeroCopy_CallbackWrapper(&fn)));
+  check(a0_reader_sync_zc_read_blocking_timeout(&*c, &*timeout.c, ReadZeroCopy_CallbackWrapper(&fn)));
 }
 
 namespace {
@@ -141,7 +141,7 @@ Packet ReaderSync::read_blocking(TimeMono timeout) {
   auto* impl = c_impl<ReaderSyncImpl>(&c);
 
   a0_packet_t pkt;
-  check(a0_reader_sync_read_blocking_timeout(&*c, *timeout.c, &pkt));
+  check(a0_reader_sync_read_blocking_timeout(&*c, &*timeout.c, &pkt));
   auto data = std::make_shared<std::vector<uint8_t>>();
   std::swap(*data, impl->data);
   return Packet(pkt, [data](a0_packet_t*) {});

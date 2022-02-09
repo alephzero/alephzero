@@ -170,7 +170,7 @@ bool ftx_owner_died(a0_ftx_t ftx) {
 }
 
 A0_STATIC_INLINE
-a0_err_t a0_mtx_timedlock_robust(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
+a0_err_t a0_mtx_timedlock_robust(a0_mtx_t* mtx, a0_time_mono_t* timeout) {
   const uint32_t tid = a0_tid();
 
   int syserr = EINTR;
@@ -194,8 +194,7 @@ a0_err_t a0_mtx_timedlock_robust(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   return A0_MAKE_SYSERR(syserr);
 }
 
-A0_STATIC_INLINE
-a0_err_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
+a0_err_t a0_mtx_timedlock(a0_mtx_t* mtx, a0_time_mono_t* timeout) {
   // Note: __tsan_mutex_pre_lock should come here, but tsan doesn't provide
   //       a way to "fail" a lock. Only a trylock.
   robust_op_start(mtx);
@@ -209,12 +208,8 @@ a0_err_t a0_mtx_timedlock_impl(a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
   return err;
 }
 
-a0_err_t a0_mtx_timedlock(a0_mtx_t* mtx, a0_time_mono_t timeout) {
-  return a0_mtx_timedlock_impl(mtx, &timeout);
-}
-
 a0_err_t a0_mtx_lock(a0_mtx_t* mtx) {
-  return a0_mtx_timedlock_impl(mtx, NULL);
+  return a0_mtx_timedlock(mtx, NULL);
 }
 
 A0_STATIC_INLINE
@@ -296,9 +291,22 @@ a0_err_t a0_mtx_unlock(a0_mtx_t* mtx) {
   return A0_OK;
 }
 
-// TODO(lshamis): Handle ENOTRECOVERABLE
-A0_STATIC_INLINE
-a0_err_t a0_cnd_timedwait_impl(a0_cnd_t* cnd, a0_mtx_t* mtx, const a0_time_mono_t* timeout) {
+bool a0_mtx_lock_successful(a0_err_t err) {
+  return !err || a0_mtx_previous_owner_died(err);
+}
+
+bool a0_mtx_previous_owner_died(a0_err_t err) {
+  return A0_SYSERR(err) == EOWNERDEAD;
+}
+
+a0_err_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, a0_time_mono_t* timeout) {
+  if (timeout) {
+    // Let's not unlock the mutex if we're going to get EINVAL due to a bad timeout.
+    if ((timeout->ts.tv_sec < 0 || timeout->ts.tv_nsec < 0 || (!timeout->ts.tv_sec && !timeout->ts.tv_nsec) || timeout->ts.tv_nsec >= NS_PER_SEC)) {
+      return A0_MAKE_SYSERR(EINVAL);
+    }
+  }
+
   const uint32_t init_cnd = a0_atomic_load(cnd);
 
   // Unblock other threads to do the things that will eventually signal this wait.
@@ -338,16 +346,8 @@ a0_err_t a0_cnd_timedwait_impl(a0_cnd_t* cnd, a0_mtx_t* mtx, const a0_time_mono_
   return err;
 }
 
-a0_err_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, a0_time_mono_t timeout) {
-  // Let's not unlock the mutex if we're going to get EINVAL due to a bad timeout.
-  if ((timeout.ts.tv_sec < 0 || timeout.ts.tv_nsec < 0 || (!timeout.ts.tv_sec && !timeout.ts.tv_nsec) || timeout.ts.tv_nsec >= NS_PER_SEC)) {
-    return A0_MAKE_SYSERR(EINVAL);
-  }
-  return a0_cnd_timedwait_impl(cnd, mtx, &timeout);
-}
-
 a0_err_t a0_cnd_wait(a0_cnd_t* cnd, a0_mtx_t* mtx) {
-  return a0_cnd_timedwait_impl(cnd, mtx, NULL);
+  return a0_cnd_timedwait(cnd, mtx, NULL);
 }
 
 A0_STATIC_INLINE

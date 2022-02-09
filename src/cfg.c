@@ -74,16 +74,12 @@ a0_err_t a0_cfg_read(a0_cfg_t* cfg,
 a0_err_t a0_cfg_read_blocking(a0_cfg_t* cfg,
                               a0_alloc_t alloc,
                               a0_packet_t* out) {
-  a0_reader_sync_t reader_sync;
-  A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, (a0_reader_options_t){A0_INIT_MOST_RECENT, A0_ITER_NEXT}));
-  a0_err_t err = a0_reader_sync_read_blocking(&reader_sync, out);
-  a0_reader_sync_close(&reader_sync);
-  return err;
+  return a0_cfg_read_blocking_timeout(cfg, alloc, NULL, out);
 }
 
 a0_err_t a0_cfg_read_blocking_timeout(a0_cfg_t* cfg,
                                       a0_alloc_t alloc,
-                                      a0_time_mono_t timeout,
+                                      a0_time_mono_t* timeout,
                                       a0_packet_t* out) {
   a0_reader_sync_t reader_sync;
   A0_RETURN_ERR_ON_ERR(a0_reader_sync_init(&reader_sync, cfg->_file.arena, alloc, (a0_reader_options_t){A0_INIT_MOST_RECENT, A0_ITER_NEXT}));
@@ -225,31 +221,24 @@ a0_err_t a0_cfg_read_yyjson(a0_cfg_t* cfg,
       cfg, alloc, out, (a0_cfg_read_yyjson_action_t){NULL, a0_cfg_read_yyjson_action});
 }
 
-A0_STATIC_INLINE
-a0_err_t a0_cfg_read_blocking_yyjson_action(void* user_data, a0_cfg_t* cfg, a0_alloc_t alloc, a0_packet_t* out) {
-  A0_MAYBE_UNUSED(user_data);
-  return a0_cfg_read_blocking(cfg, alloc, out);
-}
-
 a0_err_t a0_cfg_read_blocking_yyjson(a0_cfg_t* cfg,
                                      a0_alloc_t alloc,
                                      yyjson_doc* out) {
-  return a0_cfg_read_yyjson_helper(
-      cfg, alloc, out, (a0_cfg_read_yyjson_action_t){NULL, a0_cfg_read_blocking_yyjson_action});
+  return a0_cfg_read_blocking_timeout_yyjson(cfg, alloc, NULL, out);
 }
 
 A0_STATIC_INLINE
 a0_err_t a0_cfg_read_blocking_timeout_yyjson_action(void* user_data, a0_cfg_t* cfg, a0_alloc_t alloc, a0_packet_t* out) {
   a0_time_mono_t* timeout = (a0_time_mono_t*)user_data;
-  return a0_cfg_read_blocking_timeout(cfg, alloc, *timeout, out);
+  return a0_cfg_read_blocking_timeout(cfg, alloc, timeout, out);
 }
 
 a0_err_t a0_cfg_read_blocking_timeout_yyjson(a0_cfg_t* cfg,
                                              a0_alloc_t alloc,
-                                             a0_time_mono_t timeout,
+                                             a0_time_mono_t* timeout,
                                              yyjson_doc* out) {
   return a0_cfg_read_yyjson_helper(
-      cfg, alloc, out, (a0_cfg_read_yyjson_action_t){&timeout, a0_cfg_read_blocking_timeout_yyjson_action});
+      cfg, alloc, out, (a0_cfg_read_yyjson_action_t){timeout, a0_cfg_read_blocking_timeout_yyjson_action});
 }
 
 a0_err_t a0_cfg_write_yyjson(a0_cfg_t* cfg, yyjson_doc doc) {

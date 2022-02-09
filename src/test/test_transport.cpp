@@ -1586,11 +1586,11 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] timedwait") {
   a0_time_mono_t now;
   a0_time_mono_now(&now);
 
-  REQUIRE(A0_SYSERR(a0_transport_timedwait(lk, a0_transport_nonempty_pred(&lk), now)) == ETIMEDOUT);
+  REQUIRE(A0_SYSERR(a0_transport_timedwait(lk, a0_transport_nonempty_pred(&lk), &now)) == ETIMEDOUT);
 
   a0_time_mono_t fut;
   a0_time_mono_add(now, 1e6, &fut);
-  REQUIRE(A0_SYSERR(a0_transport_timedwait(lk, a0_transport_nonempty_pred(&lk), fut)) == ETIMEDOUT);
+  REQUIRE(A0_SYSERR(a0_transport_timedwait(lk, a0_transport_nonempty_pred(&lk), &fut)) == ETIMEDOUT);
 
   REQUIRE_OK(a0_transport_unlock(lk));
 }

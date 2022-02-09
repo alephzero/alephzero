@@ -334,29 +334,22 @@ a0_err_t a0_transport_step_prev(a0_transport_locked_t lk) {
   return A0_OK;
 }
 
-typedef struct a0_transport_timedwait_data_s {
-  a0_predicate_t user_pred;
-  a0_time_mono_t timeout;
-} a0_transport_timedwait_data_t;
-
 A0_STATIC_INLINE
-a0_err_t a0_transport_timedwait_predicate(void* data_, bool* out) {
-  a0_transport_timedwait_data_t* data = (a0_transport_timedwait_data_t*)data_;
+bool a0_transport_timedwait_istimeout(a0_time_mono_t* timeout) {
+  if (!timeout) {
+    return false;
+  }
 
   a0_time_mono_t now;
   a0_time_mono_now(&now);
 
   uint64_t now_ns = now.ts.tv_sec * NS_PER_SEC + now.ts.tv_nsec;
-  uint64_t timeout_ns = data->timeout.ts.tv_sec * NS_PER_SEC + data->timeout.ts.tv_nsec;
+  uint64_t timeout_ns = timeout->ts.tv_sec * NS_PER_SEC + timeout->ts.tv_nsec;
 
-  if (now_ns >= timeout_ns) {
-    return A0_MAKE_SYSERR(ETIMEDOUT);
-  }
-  return a0_predicate_eval(data->user_pred, out);
+  return now_ns >= timeout_ns;
 }
 
-A0_STATIC_INLINE
-a0_err_t a0_transport_timedwait_impl(a0_transport_locked_t lk, a0_predicate_t pred, const a0_time_mono_t* timeout) {
+a0_err_t a0_transport_timedwait(a0_transport_locked_t lk, a0_predicate_t pred, a0_time_mono_t* timeout) {
   if (lk.transport->_shutdown) {
     return A0_MAKE_SYSERR(ESHUTDOWN);
   }
@@ -366,7 +359,7 @@ a0_err_t a0_transport_timedwait_impl(a0_transport_locked_t lk, a0_predicate_t pr
   a0_transport_hdr_t* hdr = a0_transport_header(lk);
 
   bool sat = false;
-  a0_err_t err = a0_predicate_eval(pred, &sat);
+  a0_err_t err = a0_transport_timedwait_istimeout(timeout) ? A0_MAKE_SYSERR(ETIMEDOUT) : a0_predicate_eval(pred, &sat);
   if (err | sat) {
     return err;
   }
@@ -374,16 +367,12 @@ a0_err_t a0_transport_timedwait_impl(a0_transport_locked_t lk, a0_predicate_t pr
   lk.transport->_wait_cnt++;
 
   while (!lk.transport->_shutdown) {
-    if (timeout) {
-      err = a0_cnd_timedwait(&hdr->cnd, &hdr->mtx, *timeout);
-      if (A0_SYSERR(err) == ETIMEDOUT) {
-        break;
-      }
-    } else {
-      a0_cnd_wait(&hdr->cnd, &hdr->mtx);
+    err = a0_cnd_timedwait(&hdr->cnd, &hdr->mtx, timeout);
+    if (A0_SYSERR(err) == ETIMEDOUT) {
+      break;
     }
 
-    err = a0_predicate_eval(pred, &sat);
+    err = a0_transport_timedwait_istimeout(timeout) ? A0_MAKE_SYSERR(ETIMEDOUT) : a0_predicate_eval(pred, &sat);
     if (err | sat) {
       break;
     }
@@ -398,21 +387,8 @@ a0_err_t a0_transport_timedwait_impl(a0_transport_locked_t lk, a0_predicate_t pr
   return err;
 }
 
-a0_err_t a0_transport_timedwait(a0_transport_locked_t lk, a0_predicate_t pred, a0_time_mono_t timeout) {
-  a0_transport_timedwait_data_t data = (a0_transport_timedwait_data_t){
-      .user_pred = pred,
-      .timeout = timeout,
-  };
-  a0_predicate_t full_pred = (a0_predicate_t){
-      .user_data = &data,
-      .fn = a0_transport_timedwait_predicate,
-  };
-
-  return a0_transport_timedwait_impl(lk, full_pred, &timeout);
-}
-
 a0_err_t a0_transport_wait(a0_transport_locked_t lk, a0_predicate_t pred) {
-  return a0_transport_timedwait_impl(lk, pred, NULL);
+  return a0_transport_timedwait(lk, pred, NULL);
 }
 
 A0_STATIC_INLINE

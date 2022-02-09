@@ -1,7 +1,4 @@
-#include <a0/arena.h>
-#include <a0/buf.h>
 #include <a0/empty.h>
-#include <a0/file.h>
 #include <a0/mtx.h>
 #include <a0/time.h>
 #include <a0/unused.h>
@@ -15,54 +12,11 @@
 #include <cerrno>
 #include <chrono>
 #include <memory>
-#include <new>
-#include <string>
 #include <thread>
-#include <utility>
 #include <vector>
 
 #include "src/err_macro.h"
 #include "src/test_util.hpp"
-
-struct MtxTestFixture {
-  std::vector<a0_file_t> files;
-
-  MtxTestFixture() = default;
-
-  ~MtxTestFixture() {
-    for (auto&& file : files) {
-      a0_file_close(&file);
-      a0_file_remove(file.path);
-    }
-  }
-
-  uint8_t* ipc_buffer(uint32_t size) {
-    std::string name = "alephzero_test/mtx/buf_" + std::to_string(files.size());
-    a0_file_remove(name.c_str());
-
-    a0_file_t file;
-    a0_file_options_t fileopt = A0_FILE_OPTIONS_DEFAULT;
-    fileopt.create_options.size = size;
-    REQUIRE_OK(a0_file_open(name.c_str(), &fileopt, &file));
-    files.push_back(file);
-
-    return file.arena.buf.data;
-  }
-
-  template <typename T, typename... Args>
-  T* make_ipc(Args&&... args) {
-    auto* buf = ipc_buffer(sizeof(T));
-    return new (buf) T(std::forward<Args>(args)...);
-  }
-
-  a0_time_mono_t delay(int64_t add_ns) {
-    a0_time_mono_t now;
-    REQUIRE_OK(a0_time_mono_now(&now));
-    a0_time_mono_t target;
-    REQUIRE_OK(a0_time_mono_add(now, add_ns, &target));
-    return target;
-  }
-};
 
 class latch_t {
   int32_t val;
@@ -118,21 +72,21 @@ class event_t {
   }
 };
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, trylock") {
+TEST_CASE("mtx] lock, trylock") {
   a0_mtx_t mtx = A0_EMPTY;
   REQUIRE_OK(a0_mtx_lock(&mtx));
   REQUIRE(A0_SYSERR(a0_mtx_trylock(&mtx)) == EBUSY);
   REQUIRE_OK(a0_mtx_unlock(&mtx));
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] (lock)*") {
+TEST_CASE("mtx] (lock)*") {
   a0_mtx_t mtx = A0_EMPTY;
   REQUIRE_OK(a0_mtx_lock(&mtx));
   REQUIRE(A0_SYSERR(a0_mtx_lock(&mtx)) == EDEADLK);
   REQUIRE_OK(a0_mtx_unlock(&mtx));
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] (lock, unlock)*") {
+TEST_CASE("mtx] (lock, unlock)*") {
   a0_mtx_t mtx = A0_EMPTY;
   for (int i = 0; i < 2; i++) {
     REQUIRE_OK(a0_mtx_lock(&mtx));
@@ -140,19 +94,19 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] (lock, unlock)*") {
   }
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] unlock") {
+TEST_CASE("mtx] unlock") {
   a0_mtx_t mtx = A0_EMPTY;
   REQUIRE(A0_SYSERR(a0_mtx_unlock(&mtx)) == EPERM);
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, (unlock)*") {
+TEST_CASE("mtx] lock, (unlock)*") {
   a0_mtx_t mtx = A0_EMPTY;
   REQUIRE_OK(a0_mtx_lock(&mtx));
   REQUIRE_OK(a0_mtx_unlock(&mtx));
   REQUIRE(A0_SYSERR(a0_mtx_unlock(&mtx)) == EPERM);
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, lock2, unlock2, unlock") {
+TEST_CASE("mtx] lock, lock2, unlock2, unlock") {
   a0_mtx_t mtx1 = A0_EMPTY;
   a0_mtx_t mtx2 = A0_EMPTY;
 
@@ -162,7 +116,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, lock2, unlock2, unlock") {
   REQUIRE_OK(a0_mtx_unlock(&mtx1));
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, lock2, unlock, unlock2") {
+TEST_CASE("mtx] lock, lock2, unlock, unlock2") {
   a0_mtx_t mtx1 = A0_EMPTY;
   a0_mtx_t mtx2 = A0_EMPTY;
 
@@ -172,7 +126,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] lock, lock2, unlock, unlock2") {
   REQUIRE_OK(a0_mtx_unlock(&mtx2));
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] unlock in wrong thread") {
+TEST_CASE("mtx] unlock in wrong thread") {
   a0_mtx_t mtx = A0_EMPTY;
 
   event_t event_0;
@@ -189,8 +143,9 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] unlock in wrong thread") {
   t.join();
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] trylock in different thread") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+TEST_CASE("mtx] trylock in different thread") {
+  a0::test::IpcPool ipc_pool;
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   event_t event_0;
   event_t event_1;
@@ -207,14 +162,14 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] trylock in different thread") {
   t.join();
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] timedlock") {
+TEST_CASE("mtx] timedlock") {
   a0_mtx_t mtx = A0_EMPTY;
 
   auto start = std::chrono::steady_clock::now();
   REQUIRE_OK(a0_mtx_lock(&mtx));
   std::thread t([&]() {
-    auto wake_time = delay(1e9);
-    REQUIRE(A0_SYSERR(a0_mtx_timedlock(&mtx, wake_time)) == ETIMEDOUT);
+    auto wake_time = a0::test::timeout_in(std::chrono::seconds(1));
+    REQUIRE(A0_SYSERR(a0_mtx_timedlock(&mtx, &wake_time)) == ETIMEDOUT);
   });
   t.join();
   REQUIRE_OK(a0_mtx_unlock(&mtx));
@@ -225,10 +180,11 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] timedlock") {
   REQUIRE(duration_ms.count() > 900);
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] robust chain") {
-  auto* mtx1 = make_ipc<a0_mtx_t>();
-  auto* mtx2 = make_ipc<a0_mtx_t>();
-  auto* mtx3 = make_ipc<a0_mtx_t>();
+TEST_CASE("mtx] robust chain") {
+  a0::test::IpcPool ipc_pool;
+  auto* mtx1 = ipc_pool.make<a0_mtx_t>();
+  auto* mtx2 = ipc_pool.make<a0_mtx_t>();
+  auto* mtx3 = ipc_pool.make<a0_mtx_t>();
 
   REQUIRE_EXIT({
     REQUIRE_OK(a0_mtx_lock(mtx1));
@@ -245,8 +201,9 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] robust chain") {
   REQUIRE_OK(a0_mtx_unlock(mtx3));
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] multiple waiters") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+TEST_CASE("mtx] multiple waiters") {
+  a0::test::IpcPool ipc_pool;
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   REQUIRE_OK(a0_mtx_lock(mtx));
 
@@ -266,8 +223,9 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] multiple waiters") {
   }
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] fuzz (lock, unlock)") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+TEST_CASE("mtx] fuzz (lock, unlock)") {
+  a0::test::IpcPool ipc_pool;
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   auto body = [&]() {
     auto prior_owner_died = a0_mtx_lock(mtx);
@@ -294,8 +252,9 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] fuzz (lock, unlock)") {
   }
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "mtx] fuzz (trylock, unlock)") {
-  auto* mtx = make_ipc<a0_mtx_t>();
+TEST_CASE("mtx] fuzz (trylock, unlock)") {
+  a0::test::IpcPool ipc_pool;
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
   auto body = [&]() {
     auto err = a0_mtx_trylock(mtx);
@@ -320,7 +279,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "mtx] fuzz (trylock, unlock)") {
   }
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "cnd] simple signal wait") {
+TEST_CASE("cnd] simple signal wait") {
   a0_cnd_t cnd = A0_EMPTY;
   a0_mtx_t mtx = A0_EMPTY;
 
@@ -338,25 +297,25 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] simple signal wait") {
   t.join();
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout fail") {
+TEST_CASE("cnd] timeout fail") {
   a0_cnd_t cnd = A0_EMPTY;
   a0_mtx_t mtx = A0_EMPTY;
 
   REQUIRE_OK(a0_mtx_lock(&mtx));
 
-  auto wake_time = delay(0);
-  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == ETIMEDOUT);
+  auto wake_time = a0::test::timeout_now();
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, &wake_time)) == ETIMEDOUT);
 
-  wake_time = delay(0.1 * 1e9);
-  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == ETIMEDOUT);
+  wake_time = a0::test::timeout_in(std::chrono::milliseconds(100));
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, &wake_time)) == ETIMEDOUT);
 
-  wake_time = delay(-0.1 * 1e9);
-  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == ETIMEDOUT);
+  wake_time = a0::test::timeout_in(std::chrono::milliseconds(-100));
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, &wake_time)) == ETIMEDOUT);
 
   REQUIRE_OK(a0_mtx_unlock(&mtx));
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "cnd] many waiters") {
+TEST_CASE("cnd] many waiters") {
   std::vector<std::thread> threads;
   a0_cnd_t cnd = A0_EMPTY;
   a0_mtx_t mtx = A0_EMPTY;
@@ -391,7 +350,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] many waiters") {
   }
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "cnd] signal chain") {
+TEST_CASE("cnd] signal chain") {
   std::vector<std::thread> threads;
   a0_cnd_t cnd = A0_EMPTY;
   a0_mtx_t mtx = A0_EMPTY;
@@ -422,7 +381,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] signal chain") {
   REQUIRE(state == num_threads);
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "cnd] broadcast chain") {
+TEST_CASE("cnd] broadcast chain") {
   std::vector<std::thread> threads;
   a0_cnd_t cnd = A0_EMPTY;
   a0_mtx_t mtx = A0_EMPTY;
@@ -452,7 +411,7 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] broadcast chain") {
   REQUIRE(state == num_threads);
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "cnd] signal ping broadcast pong") {
+TEST_CASE("cnd] signal ping broadcast pong") {
   std::vector<std::thread> threads;
   a0_cnd_t cnd_pre = A0_EMPTY;
   a0_cnd_t cnd_post = A0_EMPTY;
@@ -493,27 +452,27 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] signal ping broadcast pong") {
   REQUIRE(post == 10);
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "cnd] wait must lock") {
+TEST_CASE("cnd] wait must lock") {
   a0_cnd_t cnd = A0_EMPTY;
   a0_mtx_t mtx = A0_EMPTY;
 
-  auto wake_time = delay(0.1 * 1e9);
+  auto wake_time = a0::test::timeout_in(std::chrono::milliseconds(100));
 
   REQUIRE(A0_SYSERR(a0_cnd_wait(&cnd, &mtx)) == EPERM);
-  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == EPERM);
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, &wake_time)) == EPERM);
 
   REQUIRE_OK(a0_mtx_lock(&mtx));
 
   std::thread t([&]() {
     REQUIRE(A0_SYSERR(a0_cnd_wait(&cnd, &mtx)) == EPERM);
-    REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == EPERM);
+    REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, &wake_time)) == EPERM);
   });
   t.join();
 
   REQUIRE_OK(a0_mtx_unlock(&mtx));
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout") {
+TEST_CASE("cnd] timeout") {
   a0_cnd_t cnd = A0_EMPTY;
   a0_mtx_t mtx = A0_EMPTY;
 
@@ -521,16 +480,16 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout") {
   REQUIRE_OK(a0_mtx_lock(&mtx));
 
   a0_time_mono_t wake_time = A0_EMPTY;
-  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == EINVAL);
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, &wake_time)) == EINVAL);
 
-  wake_time = delay(0);
-  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == ETIMEDOUT);
+  wake_time = a0::test::timeout_now();
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, &wake_time)) == ETIMEDOUT);
 
-  wake_time = delay(-1e9);
-  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == ETIMEDOUT);
+  wake_time = a0::test::timeout_in(std::chrono::seconds(-1));
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, &wake_time)) == ETIMEDOUT);
 
-  wake_time = delay(1e9);
-  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, wake_time)) == ETIMEDOUT);
+  wake_time = a0::test::timeout_in(std::chrono::seconds(1));
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(&cnd, &mtx, &wake_time)) == ETIMEDOUT);
 
   REQUIRE_OK(a0_mtx_unlock(&mtx));
   auto end = std::chrono::steady_clock::now();
@@ -540,11 +499,12 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] timeout") {
   REQUIRE(duration_ms.count() > 900);
 }
 
-TEST_CASE_FIXTURE(MtxTestFixture, "cnd] robust") {
-  auto* cnd = make_ipc<a0_cnd_t>();
-  auto* mtx = make_ipc<a0_mtx_t>();
+TEST_CASE("cnd] robust") {
+  a0::test::IpcPool ipc_pool;
+  auto* cnd = ipc_pool.make<a0_cnd_t>();
+  auto* mtx = ipc_pool.make<a0_mtx_t>();
 
-  latch_t* latch = make_ipc<latch_t>(2);
+  latch_t* latch = ipc_pool.make<latch_t>(2);
 
   auto child = a0::test::subproc([&]() {
     REQUIRE_OK(a0_mtx_lock(mtx));
@@ -559,8 +519,8 @@ TEST_CASE_FIXTURE(MtxTestFixture, "cnd] robust") {
   REQUIRE_OK(kill(child, SIGKILL));  // send kill command
   REQUIRE_SUBPROC_SIGNALED(child);
 
-  auto wake_time = delay(0);
-  REQUIRE(A0_SYSERR(a0_cnd_timedwait(cnd, mtx, wake_time)) == ETIMEDOUT);
+  auto wake_time = a0::test::timeout_now();
+  REQUIRE(A0_SYSERR(a0_cnd_timedwait(cnd, mtx, &wake_time)) == ETIMEDOUT);
 
   REQUIRE_OK(a0_mtx_unlock(mtx));
 }

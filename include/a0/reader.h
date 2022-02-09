@@ -89,7 +89,7 @@ a0_err_t a0_reader_sync_zc_read(a0_reader_sync_zc_t*, a0_zero_copy_callback_t);
 a0_err_t a0_reader_sync_zc_read_blocking(a0_reader_sync_zc_t*, a0_zero_copy_callback_t);
 
 /// ...
-a0_err_t a0_reader_sync_zc_read_blocking_timeout(a0_reader_sync_zc_t*, a0_time_mono_t, a0_zero_copy_callback_t);
+a0_err_t a0_reader_sync_zc_read_blocking_timeout(a0_reader_sync_zc_t*, a0_time_mono_t*, a0_zero_copy_callback_t);
 
 /** @}*/
 
@@ -121,7 +121,7 @@ a0_err_t a0_reader_sync_read(a0_reader_sync_t*, a0_packet_t*);
 a0_err_t a0_reader_sync_read_blocking(a0_reader_sync_t*, a0_packet_t*);
 
 /// ...
-a0_err_t a0_reader_sync_read_blocking_timeout(a0_reader_sync_t*, a0_time_mono_t, a0_packet_t*);
+a0_err_t a0_reader_sync_read_blocking_timeout(a0_reader_sync_t*, a0_time_mono_t*, a0_packet_t*);
 
 /** @}*/
 

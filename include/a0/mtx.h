@@ -5,6 +5,8 @@
 #include <a0/time.h>
 #include <a0/unused.h>
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,14 +46,19 @@ struct a0_mtx_s {
 };
 
 a0_err_t a0_mtx_lock(a0_mtx_t*) A0_WARN_UNUSED_RESULT;
-a0_err_t a0_mtx_timedlock(a0_mtx_t*, a0_time_mono_t) A0_WARN_UNUSED_RESULT;
+a0_err_t a0_mtx_timedlock(a0_mtx_t*, a0_time_mono_t*) A0_WARN_UNUSED_RESULT;
 a0_err_t a0_mtx_trylock(a0_mtx_t*) A0_WARN_UNUSED_RESULT;
 a0_err_t a0_mtx_unlock(a0_mtx_t*);
+
+// Returns true if the mutex is locked, regardless of whether the previous owner died.
+bool a0_mtx_lock_successful(a0_err_t);
+// Returns true if the mutex is locked and the previous owner died.
+bool a0_mtx_previous_owner_died(a0_err_t);
 
 typedef a0_ftx_t a0_cnd_t;
 
 a0_err_t a0_cnd_wait(a0_cnd_t*, a0_mtx_t*);
-a0_err_t a0_cnd_timedwait(a0_cnd_t*, a0_mtx_t*, a0_time_mono_t);
+a0_err_t a0_cnd_timedwait(a0_cnd_t*, a0_mtx_t*, a0_time_mono_t*);
 a0_err_t a0_cnd_signal(a0_cnd_t*, a0_mtx_t*);
 a0_err_t a0_cnd_broadcast(a0_cnd_t*, a0_mtx_t*);
 

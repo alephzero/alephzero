@@ -157,9 +157,9 @@ void TransportLocked::wait_for(std::function<bool()> fn, std::chrono::nanosecond
   wait_until(fn, TimeMono::now() + dur);
 }
 
-void TransportLocked::wait_until(std::function<bool()> fn, TimeMono tm) {
+void TransportLocked::wait_until(std::function<bool()> fn, TimeMono timeout) {
   CHECK_C;
-  check(a0_transport_timedwait(*c, pred(&fn), *tm.c));
+  check(a0_transport_timedwait(*c, pred(&fn), &*timeout.c));
 }
 
 Transport::Transport(Arena arena) {

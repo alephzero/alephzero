@@ -201,7 +201,7 @@ a0_err_t a0_reader_sync_zc_read_blocking(a0_reader_sync_zc_t* reader_sync_zc,
 A0_STATIC_INLINE
 a0_err_t a0_reader_sync_zc_read_blocking_timeout_align(void* user_data, a0_reader_sync_zc_t* reader_sync_zc, a0_transport_locked_t tlk) {
   a0_time_mono_t* timeout = (a0_time_mono_t*)user_data;
-  A0_RETURN_ERR_ON_ERR(a0_transport_timedwait(tlk, a0_transport_nonempty_pred(&tlk), *timeout));
+  A0_RETURN_ERR_ON_ERR(a0_transport_timedwait(tlk, a0_transport_nonempty_pred(&tlk), timeout));
 
   bool should_step = reader_sync_zc->_first_read_done || reader_sync_zc->_opts.init == A0_INIT_AWAIT_NEW;
   if (!should_step) {
@@ -211,7 +211,7 @@ a0_err_t a0_reader_sync_zc_read_blocking_timeout_align(void* user_data, a0_reade
   }
 
   if (should_step) {
-    A0_RETURN_ERR_ON_ERR(a0_transport_timedwait(tlk, a0_transport_has_next_pred(&tlk), *timeout));
+    A0_RETURN_ERR_ON_ERR(a0_transport_timedwait(tlk, a0_transport_has_next_pred(&tlk), timeout));
     if (reader_sync_zc->_opts.iter == A0_ITER_NEXT) {
       a0_transport_step_next(tlk);
     } else if (reader_sync_zc->_opts.iter == A0_ITER_NEWEST) {
@@ -223,12 +223,12 @@ a0_err_t a0_reader_sync_zc_read_blocking_timeout_align(void* user_data, a0_reade
 }
 
 a0_err_t a0_reader_sync_zc_read_blocking_timeout(a0_reader_sync_zc_t* reader_sync_zc,
-                                                 a0_time_mono_t timeout,
+                                                 a0_time_mono_t* timeout,
                                                  a0_zero_copy_callback_t cb) {
   return a0_reader_sync_zc_read_helper(
       reader_sync_zc,
       cb,
-      (a0_reader_sync_zc_read_align_callback_t){&timeout, a0_reader_sync_zc_read_blocking_timeout_align});
+      (a0_reader_sync_zc_read_align_callback_t){timeout, a0_reader_sync_zc_read_blocking_timeout_align});
 }
 
 // Synchronous version.
@@ -287,22 +287,10 @@ a0_err_t a0_reader_sync_read(a0_reader_sync_t* reader_sync, a0_packet_t* pkt) {
 }
 
 a0_err_t a0_reader_sync_read_blocking(a0_reader_sync_t* reader_sync, a0_packet_t* pkt) {
-#ifdef DEBUG
-  A0_ASSERT(reader_sync, "Cannot read from null reader (sync).");
-#endif
-
-  a0_reader_sync_read_data_t data = (a0_reader_sync_read_data_t){
-      .alloc = reader_sync->_alloc,
-      .out_pkt = pkt,
-  };
-  a0_zero_copy_callback_t zc_cb = (a0_zero_copy_callback_t){
-      .user_data = &data,
-      .fn = a0_reader_sync_read_impl,
-  };
-  return a0_reader_sync_zc_read_blocking(&reader_sync->_reader_sync_zc, zc_cb);
+  return a0_reader_sync_read_blocking_timeout(reader_sync, NULL, pkt);
 }
 
-a0_err_t a0_reader_sync_read_blocking_timeout(a0_reader_sync_t* reader_sync, a0_time_mono_t timeout, a0_packet_t* pkt) {
+a0_err_t a0_reader_sync_read_blocking_timeout(a0_reader_sync_t* reader_sync, a0_time_mono_t* timeout, a0_packet_t* pkt) {
 #ifdef DEBUG
   A0_ASSERT(reader_sync, "Cannot read from null reader (sync).");
 #endif

@@ -210,7 +210,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking timeout success") {
   REQUIRE_OK(a0_time_mono_add(timeout, 5 * 1e6, &timeout));
 
   yyjson_doc doc;
-  REQUIRE_OK(a0_cfg_read_blocking_timeout_yyjson(&cfg, a0::test::alloc(), timeout, &doc));
+  REQUIRE_OK(a0_cfg_read_blocking_timeout_yyjson(&cfg, a0::test::alloc(), &timeout, &doc));
   t.join();
 
   REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "foo")) == 1);
@@ -227,7 +227,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking timeout fail") {
   REQUIRE_OK(a0_time_mono_add(timeout, 1 * 1e6, &timeout));
 
   yyjson_doc doc;
-  REQUIRE(A0_SYSERR(a0_cfg_read_blocking_timeout_yyjson(&cfg, a0::test::alloc(), timeout, &doc)) == ETIMEDOUT);
+  REQUIRE(A0_SYSERR(a0_cfg_read_blocking_timeout_yyjson(&cfg, a0::test::alloc(), &timeout, &doc)) == ETIMEDOUT);
   t.join();
 }
 
