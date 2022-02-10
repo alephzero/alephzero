@@ -2,7 +2,11 @@
 #define A0_DEADMAN_H
 
 #include <a0/deadman_mtx.h>
+#include <a0/err.h>
 #include <a0/file.h>
+#include <a0/time.h>
+
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
