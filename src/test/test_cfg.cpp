@@ -37,8 +37,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include <condition_variable>
 #include <exception>
-#include <memory>
+#include <mutex>
 #include <stdexcept>
 
 #endif  // A0_EXT_NLOHMANN
