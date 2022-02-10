@@ -287,14 +287,20 @@ void from_json(const nlohmann::json& j, MyStruct& my) {
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   std::vector<nlohmann::json> saved_cfgs;
-  std::unique_ptr<a0::test::Latch> latch;
+  std::mutex mu;
+  std::condition_variable cv;
+
+  auto block_until_saved = [&](size_t cnt) {
+    std::unique_lock<std::mutex> lk(mu);
+    cv.wait(lk, [&]() { return saved_cfgs.size() >= cnt; });
+  };
 
   a0::CfgWatcher watcher(topic.name, [&](nlohmann::json j) {
+    std::unique_lock<std::mutex> lk{mu};
     saved_cfgs.push_back(j);
-    latch->count_down();
+    cv.notify_all();
   });
 
-  latch.reset(new a0::test::Latch(2));
   a0::Cfg c(a0::env::topic());
 
   auto aaa = c.var<int>("/aaa");
@@ -304,7 +310,8 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
 
   REQUIRE(c.write_if_empty(R"({"foo": 1, "bar": 2})"));
   REQUIRE(!c.write_if_empty(R"({"foo": 1, "bar": 5})"));
-  latch->arrive_and_wait();
+
+  block_until_saved(1);
 
   a0::Cfg::Var<MyStruct> my;
 
@@ -315,7 +322,6 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 1);
 
-  latch.reset(new a0::test::Latch(2));
   c.write({{"foo", 3}, {"bar", 2}});
   REQUIRE(my->foo == 1);
   REQUIRE(my->bar == 2);
@@ -325,15 +331,16 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   REQUIRE(my->foo == 3);
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 3);
-  latch->arrive_and_wait();
 
-  latch.reset(new a0::test::Latch(2));
+  block_until_saved(2);
+
   c.mergepatch({{"foo", 4}});
   c.update_var();
   REQUIRE(my->foo == 4);
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 4);
-  latch->arrive_and_wait();
+
+  block_until_saved(3);
 
   REQUIRE(saved_cfgs.size() == 3);
   REQUIRE(saved_cfgs[0] == nlohmann::json{{"bar", 2}, {"foo", 1}});
