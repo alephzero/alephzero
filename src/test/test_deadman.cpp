@@ -1,171 +1,301 @@
 #include <a0/deadman.h>
-#include <a0/empty.h>
-#include <a0/err.h>
-#include <a0/mtx.h>
+#include <a0/deadman.hpp>
+#include <a0/file.h>
+#include <a0/time.h>
+#include <a0/time.hpp>
 
 #include <doctest.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdint.h>
-#include <stdlib.h>
+#include <string.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
-#include <algorithm>
-#include <atomic>
-#include <chrono>
 #include <thread>
-#include <utility>
-#include <vector>
+#include <chrono>
 
 #include "src/err_macro.h"
 #include "src/test_util.hpp"
 
-void REQUIRE_OK_OR_SYSERR(a0_err_t err, int syserr) {
-  REQUIRE((!err || A0_SYSERR(err) == syserr));
-}
+struct DeadmanFixture {
+  a0_deadman_topic_t topic = {"test"};
+  const char* topic_path = "test.deadman";
 
-void REQUIRE_OK_OR_SYSERR(a0_err_t err, int syserr_1, int syserr_2) {
-  REQUIRE((!err || A0_SYSERR(err) == syserr_1 || A0_SYSERR(err) == syserr_2));
-}
+  DeadmanFixture() {
+    a0_file_remove(topic_path);
+  }
 
-TEST_CASE("deadman] acquire, release") {
-  a0_deadman_t d = A0_EMPTY;
+  ~DeadmanFixture() {
+    a0_file_remove(topic_path);
+  }
 
-  bool acquired = false;
-  uint64_t tkn;
+  void REQUIRE_UNLOCKED(a0_deadman_t* d) {
+    bool is_locked;
+    REQUIRE_OK(a0_deadman_state(d, &is_locked, nullptr));
+    REQUIRE(!is_locked);
+  }
 
-  // Pass 1
-  REQUIRE_OK(a0_deadman_acquire(&d));
+  void REQUIRE_LOCKED(a0_deadman_t* d) {
+    bool is_locked;
+    REQUIRE_OK(a0_deadman_state(d, &is_locked, nullptr));
+    REQUIRE(is_locked);
+  }
 
-  REQUIRE_OK(a0_deadman_isacquired(&d, &acquired, &tkn));
-  REQUIRE(acquired);
-  REQUIRE(tkn == 1);
+  void REQUIRE_LOCKED_WITH_TKN(a0_deadman_t* d, uint64_t tkn) {
+    bool is_locked;
+    uint64_t tkn_;
+    REQUIRE_OK(a0_deadman_state(d, &is_locked, &tkn_));
+    REQUIRE(is_locked);
+    REQUIRE(tkn_ == tkn);
+  }
+};
+
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] basic") {
+  a0_deadman_t d;
+  REQUIRE_OK(a0_deadman_init(&d, topic));
+
+  REQUIRE_UNLOCKED(&d);
+
+  REQUIRE_OK(a0_deadman_take(&d));
+
+  REQUIRE_LOCKED_WITH_TKN(&d, 1);
 
   REQUIRE_OK(a0_deadman_release(&d));
 
-  // Pass 2
-  REQUIRE_OK(a0_deadman_acquire(&d));
+  REQUIRE_UNLOCKED(&d);
 
-  REQUIRE_OK(a0_deadman_isacquired(&d, &acquired, &tkn));
-  REQUIRE(acquired);
-  REQUIRE(tkn == 2);
-
-  REQUIRE_OK(a0_deadman_release(&d));
+  REQUIRE_OK(a0_deadman_close(&d));
 }
 
-TEST_CASE("deadman] thread") {
-  a0_deadman_t d = A0_EMPTY;
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] close releases") {
+  a0_deadman_t d;
+
+  // First deadman instance.
+  REQUIRE_OK(a0_deadman_init(&d, topic));
+
+  REQUIRE_UNLOCKED(&d);
+
+  REQUIRE_OK(a0_deadman_take(&d));
+
+  REQUIRE_LOCKED_WITH_TKN(&d, 1);
+
+  REQUIRE_OK(a0_deadman_close(&d));
+
+  // Second deadman instance.
+  REQUIRE_OK(a0_deadman_init(&d, topic));
+
+  REQUIRE_UNLOCKED(&d);
+
+  REQUIRE_OK(a0_deadman_take(&d));
+
+  REQUIRE_LOCKED_WITH_TKN(&d, 2);
+
+  REQUIRE_OK(a0_deadman_close(&d));
+}
+
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] trytake") {
+  a0_deadman_t d[2];
+  REQUIRE_OK(a0_deadman_init(&d[0], topic));
+  REQUIRE_OK(a0_deadman_init(&d[1], topic));
+
+  REQUIRE_OK(a0_deadman_trytake(&d[0]));
+  REQUIRE(A0_SYSERR(a0_deadman_trytake(&d[1])) == EBUSY);
+
+  REQUIRE_LOCKED_WITH_TKN(&d[0], 1);
+  REQUIRE_LOCKED_WITH_TKN(&d[1], 1);
+
+  REQUIRE_OK(a0_deadman_close(&d[0]));
+  REQUIRE_OK(a0_deadman_close(&d[1]));
+}
+
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] wait_taken wait_released") {
   a0::test::Event evt;
 
-  bool acquired = false;
-  REQUIRE_OK(a0_deadman_isacquired(&d, &acquired, nullptr));
-  REQUIRE(!acquired);
-
   std::thread t([&]() {
-    REQUIRE_OK(a0_deadman_acquire(&d));
+    a0_deadman_t d;
+    REQUIRE_OK(a0_deadman_init(&d, topic));
+    REQUIRE_OK(a0_deadman_take(&d));
     evt.wait();
-    REQUIRE_OK(a0_deadman_release(&d));
+    REQUIRE_OK(a0_deadman_close(&d));
   });
 
-  uint64_t tkn;
-  REQUIRE_OK(a0_deadman_wait_acquired(&d, &tkn));
+  a0_deadman_t d;
+  REQUIRE_OK(a0_deadman_init(&d, topic));
 
-  REQUIRE_OK(a0_deadman_isacquired(&d, &acquired, nullptr));
-  REQUIRE(acquired);
+  uint64_t tkn;
+  REQUIRE_OK(a0_deadman_wait_taken(&d, &tkn));
+
+  REQUIRE_LOCKED_WITH_TKN(&d, tkn);
 
   evt.set();
+
   REQUIRE_OK(a0_deadman_wait_released(&d, tkn));
+
+  REQUIRE_UNLOCKED(&d);
+
+  t.join();
+
+  REQUIRE_OK(a0_deadman_close(&d));
+}
+
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] timed") {
+  a0::test::Event evt;
+
+  std::thread t([&]() {
+    a0_deadman_t d;
+    REQUIRE_OK(a0_deadman_init(&d, topic));
+    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+    auto timeout = a0::test::timeout_in(std::chrono::milliseconds(25));
+    REQUIRE_OK(a0_deadman_timedtake(&d, &timeout));
+    evt.wait();
+    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+    REQUIRE_OK(a0_deadman_close(&d));
+  });
+
+  a0_deadman_t d;
+  REQUIRE_OK(a0_deadman_init(&d, topic));
+
+  uint64_t tkn;
+
+  auto timeout = a0::test::timeout_in(std::chrono::microseconds(1));
+  REQUIRE(A0_SYSERR(a0_deadman_timedwait_taken(&d, &timeout, nullptr)) == ETIMEDOUT);
+
+  timeout = a0::test::timeout_in(std::chrono::milliseconds(50));
+  REQUIRE_OK(a0_deadman_timedwait_taken(&d, &timeout, &tkn));
+
+  timeout = a0::test::timeout_in(std::chrono::microseconds(1));
+  REQUIRE(A0_SYSERR(a0_deadman_timedtake(&d, &timeout)) == ETIMEDOUT);
+
+  evt.set();
+
+  timeout = a0::test::timeout_in(std::chrono::microseconds(1));
+  REQUIRE(A0_SYSERR(a0_deadman_timedwait_released(&d, &timeout, tkn)) == ETIMEDOUT);
+
+  timeout = a0::test::timeout_in(std::chrono::milliseconds(50));
+  REQUIRE_OK(a0_deadman_timedwait_released(&d, &timeout, tkn));
+
+  REQUIRE_OK(a0_deadman_close(&d));
 
   t.join();
 }
 
-TEST_CASE("deadman] death") {
-  a0::test::IpcPool ipc_pool;
-  auto* d = ipc_pool.make<a0_deadman_t>();
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp basic") {
+  a0::Deadman d(topic.name);
 
-  REQUIRE_EXIT({
-    REQUIRE_OK(a0_deadman_acquire(d));
-  });
+  REQUIRE(!d.state().is_taken);
 
-  REQUIRE(a0_mtx_previous_owner_died(a0_deadman_acquire(d)));
-  REQUIRE_OK(a0_deadman_release(d));
+  d.take();
+
+  auto state = d.state();
+  REQUIRE(state.is_taken);
+  REQUIRE(state.token == 1);
+
+  d.release();
+
+  REQUIRE(!d.state().is_taken);
 }
 
-TEST_CASE("deadman] fuzz") {
-  a0::test::IpcPool ipc_pool;
-  auto* d = ipc_pool.make<a0_deadman_t>();
-  auto* done = ipc_pool.make<bool>();
-  auto* quick_exit_cnt = ipc_pool.make<std::atomic<uint64_t>>();
-
-  std::vector<pid_t> children;
-
-  for (int i = 0; i < 100; ++i) {
-    children.push_back(a0::test::subproc([&] {
-      while (!*done) {
-        bool acquired = false;
-        uint64_t tkn;
-
-        int acquire_action = rand() % 4;
-        if (acquire_action == 0) {
-          a0_err_t err = a0_deadman_acquire(d);
-          REQUIRE_OK_OR_SYSERR(err, EOWNERDEAD);
-          acquired = true;
-        } else if (acquire_action == 1) {
-          a0_err_t err = a0_deadman_tryacquire(d);
-          REQUIRE_OK_OR_SYSERR(err, EBUSY);
-          acquired = !err;
-        } else if (acquire_action == 2) {
-          auto timeout = a0::test::timeout_in(std::chrono::microseconds(100));
-          a0_err_t err = a0_deadman_timedacquire(d, &timeout);
-          REQUIRE_OK_OR_SYSERR(err, ETIMEDOUT);
-          acquired = !err;
-        } else if (acquire_action == 3) {
-          REQUIRE_OK(a0_deadman_wait_acquired(d, &tkn));
-          acquired = false;
-        }
-
-        if (acquired) {
-          if (rand() % 100 == 0) {
-            *quick_exit_cnt += 1;
-            quick_exit(0);
-          }
-          std::this_thread::sleep_for(std::chrono::microseconds(10));
-          REQUIRE_OK(a0_deadman_release(d));
-        } else {
-          int wait_release_action = rand() % 2;
-          if (wait_release_action == 0) {
-            a0_err_t err = a0_deadman_wait_released(d, tkn);
-            REQUIRE_OK_OR_SYSERR(err, EOWNERDEAD);
-          } else if (wait_release_action == 1) {
-            auto timeout = a0::test::timeout_in(std::chrono::microseconds(100));
-            a0_err_t err = a0_deadman_timedwait_released(d, &timeout, tkn);
-            REQUIRE_OK_OR_SYSERR(err, EOWNERDEAD, ETIMEDOUT);
-          }
-        }
-      }
-    }));
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp close releases") {
+  {
+    a0::Deadman d(topic.name);
+    REQUIRE(!d.state().is_taken);
+    d.take();
+    REQUIRE(d.state().is_taken);
   }
 
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-
-  std::vector<pid_t> keep_children;
-  for (auto& child : children) {
-    if (rand() % 10 == 0) {
-      kill(child, SIGKILL);
-      int ret_code;
-      waitpid(child, &ret_code, 0);
-    } else {
-      keep_children.push_back(child);
-    }
+  {
+    a0::Deadman d(topic.name);
+    REQUIRE(!d.state().is_taken);
+    d.take();
+    REQUIRE(d.state().is_taken);
   }
-  children = std::move(keep_children);
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+}
 
-  *done = true;
-  REQUIRE_OK_OR_SYSERR(a0_deadman_acquire(d), EOWNERDEAD);
-  REQUIRE_OK(a0_deadman_release(d));
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp try_take") {
+  a0::Deadman d0(topic.name);
+  a0::Deadman d1(topic.name);
 
-  for (auto& child : children) {
-    REQUIRE_SUBPROC_EXITED(child);
-  }
+  REQUIRE(d0.try_take());
+  REQUIRE(!d1.try_take());
+}
+
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp wait_taken wait_released") {
+  a0::test::Event evt;
+
+  std::thread t([&]() {
+    a0::Deadman d(topic.name);
+    d.take();
+    evt.wait();
+  });
+
+  a0::Deadman d(topic.name);
+
+  uint64_t tkn = d.wait_taken();
+  REQUIRE(d.state().is_taken);
+
+  evt.set();
+
+  d.wait_released(tkn);
+
+  REQUIRE(!d.state().is_taken);
+
+  t.join();
+}
+
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp timed") {
+  a0::test::Event evt;
+
+  std::thread t([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    a0::Deadman d(topic.name);
+    d.take(a0::TimeMono::now() + std::chrono::milliseconds(100));
+    evt.wait();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Auto-release.
+  });
+
+  a0::Deadman d(topic.name);
+
+  REQUIRE_THROWS_WITH(
+      [&]() { d.wait_taken(a0::TimeMono::now() + std::chrono::microseconds(1)); }(),
+      strerror(ETIMEDOUT));
+
+  uint64_t tkn = d.wait_taken(a0::TimeMono::now() + std::chrono::milliseconds(200));
+
+  REQUIRE_THROWS_WITH(
+      [&]() { d.take(a0::TimeMono::now() + std::chrono::microseconds(1)); }(),
+      strerror(ETIMEDOUT));
+
+  evt.set();
+
+  REQUIRE_THROWS_WITH(
+      [&]() { d.wait_released(tkn, a0::TimeMono::now() + std::chrono::microseconds(1)); }(),
+      strerror(ETIMEDOUT));
+
+  d.wait_released(tkn, a0::TimeMono::now() + std::chrono::milliseconds(200));
+
+  t.join();
+}
+
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp owner died") {
+  auto pid = a0::test::subproc([&]() {
+    a0::Deadman d(topic.name);
+    d.take();
+    pause();
+  });
+
+  a0::Deadman d(topic.name);
+  d.wait_taken();
+  REQUIRE(d.state().is_taken);
+
+  kill(pid, SIGKILL);
+
+  int ret_code;
+  waitpid(pid, &ret_code, 0);
+
+  d.take();
 }
