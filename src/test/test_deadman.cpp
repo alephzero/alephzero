@@ -12,8 +12,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <thread>
 #include <chrono>
+#include <thread>
 
 #include "src/err_macro.h"
 #include "src/test_util.hpp"

@@ -1,7 +1,7 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
-#include <a0/deadman_mtx.h>
 #include <a0/deadman.h>
+#include <a0/deadman_mtx.h>
 #include <a0/env.h>
 #include <a0/err.h>
 #include <a0/file.h>

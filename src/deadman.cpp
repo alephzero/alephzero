@@ -1,7 +1,7 @@
-#include <a0/mtx.h>
 #include <a0/deadman.h>
 #include <a0/deadman.hpp>
 #include <a0/err.h>
+#include <a0/mtx.h>
 #include <a0/time.hpp>
 
 #include <cstdint>
