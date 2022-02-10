@@ -15,6 +15,7 @@ const char* a0_env_root();
 const char* a0_env_topic();
 
 const char* a0_env_topic_tmpl_cfg();
+const char* a0_env_topic_tmpl_deadman();
 const char* a0_env_topic_tmpl_log();
 const char* a0_env_topic_tmpl_prpc();
 const char* a0_env_topic_tmpl_pubsub();
