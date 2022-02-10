@@ -8,94 +8,56 @@ on:
 
 jobs:
 
-  bionic_gcc:
-    name: Ubuntu Bionic Default GCC
+  ubuntu:
+    name: Ubuntu
+
+    strategy:
+      matrix:
+        os: ["ubuntu:18.04", "ubuntu:20.04"]
+        compiler: ["gcc", "clang"]
+        include:
+        - compiler: "gcc"
+          apt: "g++"
+          CC: "gcc"
+          CXX: "g++"
+        - compiler: "clang"
+          apt: "clang"
+          CC: "clang"
+          CXX: "clang++"
 
     runs-on: ubuntu-latest
     container:
-      image: 'ubuntu:18.04'
+      image: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v1
       with:
         submodules: true
     - name: install deps
-      run: apt update && apt install --no-install-recommends -y g++ make
+      run: apt update && apt install --no-install-recommends -y make ${{ matrix.apt }}
     - name: run
-      run: make test -j
+      run: CC=${{ matrix.CC }} CXX=${{ matrix.CXX }} make test -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
 
-  focal_gcc:
-    name: Ubuntu Focal Default GCC
+  alpine:
+    name: Alpine
+
+    strategy:
+      matrix:
+        compiler: ["gcc", "clang", "musl"]
+        include:
+        - compiler: "gcc"
+          CC: "gcc"
+          CXX: "g++"
+        - compiler: "clang"
+          CC: "clang"
+          CXX: "clang++"
+        - compiler: "musl"
+          CC: "x86_64-alpine-linux-musl-gcc"
+          CXX: "x86_64-alpine-linux-musl-g++"
 
     runs-on: ubuntu-latest
     container:
-      image: 'ubuntu:20.04'
-
-    steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
-    - name: install deps
-      run: apt update && apt install --no-install-recommends -y g++ make
-    - name: run
-      run: make test -j
-
-  alpine_gcc:
-    name: Alpine GCC
-
-    runs-on: ubuntu-latest
-    container:
-      image: 'alpine:3.11'
-
-    steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
-    - name: install deps
-      shell: sh
-      run: apk add --no-cache g++ linux-headers make
-    - name: run
-      shell: sh
-      run: make test -j
-
-  bionic_clang:
-    name: Ubuntu Bionic Default Clang
-
-    runs-on: ubuntu-latest
-    container:
-      image: 'ubuntu:18.04'
-
-    steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
-    - name: install deps
-      run: apt update && apt install --no-install-recommends -y clang make
-    - name: run
-      run: CC=clang CXX=clang++ make test -j
-
-  focal_clang:
-    name: Ubuntu Focal Default Clang
-
-    runs-on: ubuntu-latest
-    container:
-      image: 'ubuntu:20.04'
-
-    steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
-    - name: install deps
-      run: apt update && apt install --no-install-recommends -y clang make
-    - name: run
-      run: CC=clang CXX=clang++ make test -j
-
-  alpine_clang:
-    name: Alpine Clang
-
-    runs-on: ubuntu-latest
-    container:
-      image: 'alpine:3.11'
+      image: "alpine:3.11"
 
     steps:
     - uses: actions/checkout@v1
@@ -106,32 +68,18 @@ jobs:
       run: apk add --no-cache clang g++ linux-headers make
     - name: run
       shell: sh
-      run: CC=clang CXX=clang++ make test -j
+      run: CC=${{ matrix.CC }} CXX=${{ matrix.CXX }} make test -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
 
-  alpine_musl:
-    name: Alpine Musl
-
-    runs-on: ubuntu-latest
-    container:
-      image: 'alpine:3.11'
-
-    steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
-    - name: install deps
-      shell: sh
-      run: apk add --no-cache g++ linux-headers make
-    - name: run
-      shell: sh
-      run: CC=x86_64-alpine-linux-musl-gcc CXX=x86_64-alpine-linux-musl-g++ make test -j
-
-  third_party:
-    name: Third Party Extensions
+  sanitizer:
+    name: Sanitizer
 
     runs-on: ubuntu-latest
     container:
-      image: 'ubuntu:20.04'
+      image: "ubuntu:20.04"
+
+    strategy:
+      matrix:
+        san: ["asan", "tsan", "ubsan"]
 
     steps:
     - uses: actions/checkout@v1
@@ -140,62 +88,14 @@ jobs:
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
-      run: make test -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
-
-  asan:
-    name: Address Sanitizer
-
-    runs-on: ubuntu-latest
-    container:
-      image: 'ubuntu:20.04'
-
-    steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
-    - name: install deps
-      run: apt update && apt install --no-install-recommends -y g++ make
-    - name: run
-      run: make asan -j
-
-  tsan:
-    name: Thread Sanitizer
-
-    runs-on: ubuntu-latest
-    container:
-      image: 'ubuntu:20.04'
-
-    steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
-    - name: install deps
-      run: apt update && apt install --no-install-recommends -y g++ make
-    - name: run
-      run: make tsan -j
-
-  ubsan:
-    name: Undefined Behavior Sanitizer
-
-    runs-on: ubuntu-latest
-    container:
-      image: 'ubuntu:20.04'
-
-    steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
-    - name: install deps
-      run: apt update && apt install --no-install-recommends -y g++ make
-    - name: run
-      run: make ubsan -j
+      run: make ${{ matrix.san }} -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
 
   valgrind:
     name: Valgrind
 
     runs-on: ubuntu-latest
     container:
-      image: 'ubuntu:20.04'
+      image: "ubuntu:20.04"
 
     steps:
     - uses: actions/checkout@v1
@@ -204,14 +104,19 @@ jobs:
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make valgrind
     - name: run
-      run: make valgrind -j
+      run: make valgrind -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
 
   iwyu:
     name: Include What You Use
 
     runs-on: ubuntu-latest
     container:
-      image: 'ubuntu:20.04'
+      image: "ubuntu:20.04"
+
+    strategy:
+      matrix:
+        A0_EXT_YYJSON: [0, 1]
+        A0_EXT_NLOHMANN: [0, 1]
 
     steps:
     - uses: actions/checkout@v1
@@ -221,18 +126,14 @@ jobs:
       run: apt update && apt install --no-install-recommends -y clang-9 iwyu make
     - name: run
       run: |
-        make iwyu -j
-        make clean
-        make iwyu -j A0_EXT_YYJSON=1
-        make clean
-        make iwyu -j A0_EXT_NLOHMANN=1
+        make iwyu -j A0_EXT_YYJSON=${{ matrix.A0_EXT_YYJSON }} A0_EXT_NLOHMANN=${{ matrix.A0_EXT_NLOHMANN }}
 
   clang_tidy:
     name: Clang-Tidy
 
     runs-on: ubuntu-latest
     container:
-      image: 'ubuntu:20.04'
+      image: "ubuntu:20.04"
 
     steps:
     - uses: actions/checkout@v1
@@ -252,7 +153,7 @@ jobs:
 
     runs-on: ubuntu-latest
     container:
-      image: 'ubuntu:20.04'
+      image: "ubuntu:20.04"
 
     steps:
     - uses: actions/checkout@v1
@@ -272,7 +173,7 @@ jobs:
 
     runs-on: ubuntu-latest
     container:
-      image: 'ubuntu:20.04'
+      image: "ubuntu:20.04"
 
     steps:
     - uses: actions/checkout@v1

@@ -37,8 +37,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include <condition_variable>
 #include <exception>
-#include <memory>
+#include <mutex>
 #include <stdexcept>
 
 #endif  // A0_EXT_NLOHMANN
@@ -189,7 +190,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read valid") {
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking") {
   std::thread t([this]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    std::this_thread::sleep_for(std::chrono::milliseconds(25));
     REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
   });
   yyjson_doc doc;
@@ -205,9 +206,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking timeout success") {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
     REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
   });
-  a0_time_mono_t timeout;
-  REQUIRE_OK(a0_time_mono_now(&timeout));
-  REQUIRE_OK(a0_time_mono_add(timeout, 5 * 1e6, &timeout));
+  a0_time_mono_t timeout = a0::test::timeout_in(std::chrono::milliseconds(25));
 
   yyjson_doc doc;
   REQUIRE_OK(a0_cfg_read_blocking_timeout_yyjson(&cfg, a0::test::alloc(), &timeout, &doc));
@@ -219,12 +218,10 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking timeout success") {
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking timeout fail") {
   std::thread t([this]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    std::this_thread::sleep_for(std::chrono::milliseconds(25));
     REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
   });
-  a0_time_mono_t timeout;
-  REQUIRE_OK(a0_time_mono_now(&timeout));
-  REQUIRE_OK(a0_time_mono_add(timeout, 1 * 1e6, &timeout));
+  a0_time_mono_t timeout = a0::test::timeout_in(std::chrono::milliseconds(1));
 
   yyjson_doc doc;
   REQUIRE(A0_SYSERR(a0_cfg_read_blocking_timeout_yyjson(&cfg, a0::test::alloc(), &timeout, &doc)) == ETIMEDOUT);
@@ -291,14 +288,20 @@ void from_json(const nlohmann::json& j, MyStruct& my) {
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   std::vector<nlohmann::json> saved_cfgs;
-  std::unique_ptr<a0::test::Latch> latch;
+  std::mutex mu;
+  std::condition_variable cv;
+
+  auto block_until_saved = [&](size_t cnt) {
+    std::unique_lock<std::mutex> lk(mu);
+    cv.wait(lk, [&]() { return saved_cfgs.size() >= cnt; });
+  };
 
   a0::CfgWatcher watcher(topic.name, [&](nlohmann::json j) {
+    std::unique_lock<std::mutex> lk{mu};
     saved_cfgs.push_back(j);
-    latch->count_down();
+    cv.notify_all();
   });
 
-  latch.reset(new a0::test::Latch(2));
   a0::Cfg c(a0::env::topic());
 
   auto aaa = c.var<int>("/aaa");
@@ -308,7 +311,8 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
 
   REQUIRE(c.write_if_empty(R"({"foo": 1, "bar": 2})"));
   REQUIRE(!c.write_if_empty(R"({"foo": 1, "bar": 5})"));
-  latch->arrive_and_wait();
+
+  block_until_saved(1);
 
   a0::Cfg::Var<MyStruct> my;
 
@@ -319,7 +323,6 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 1);
 
-  latch.reset(new a0::test::Latch(2));
   c.write({{"foo", 3}, {"bar", 2}});
   REQUIRE(my->foo == 1);
   REQUIRE(my->bar == 2);
@@ -329,15 +332,16 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   REQUIRE(my->foo == 3);
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 3);
-  latch->arrive_and_wait();
 
-  latch.reset(new a0::test::Latch(2));
+  block_until_saved(2);
+
   c.mergepatch({{"foo", 4}});
   c.update_var();
   REQUIRE(my->foo == 4);
   REQUIRE(my->bar == 2);
   REQUIRE(*foo == 4);
-  latch->arrive_and_wait();
+
+  block_until_saved(3);
 
   REQUIRE(saved_cfgs.size() == 3);
   REQUIRE(saved_cfgs[0] == nlohmann::json{{"bar", 2}, {"foo", 1}});
