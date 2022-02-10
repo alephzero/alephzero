@@ -189,7 +189,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read valid") {
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking") {
   std::thread t([this]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    std::this_thread::sleep_for(std::chrono::milliseconds(25));
     REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
   });
   yyjson_doc doc;
@@ -205,9 +205,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking timeout success") {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
     REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
   });
-  a0_time_mono_t timeout;
-  REQUIRE_OK(a0_time_mono_now(&timeout));
-  REQUIRE_OK(a0_time_mono_add(timeout, 5 * 1e6, &timeout));
+  a0_time_mono_t timeout = a0::test::timeout_in(std::chrono::milliseconds(25));
 
   yyjson_doc doc;
   REQUIRE_OK(a0_cfg_read_blocking_timeout_yyjson(&cfg, a0::test::alloc(), &timeout, &doc));
@@ -219,12 +217,10 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking timeout success") {
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking timeout fail") {
   std::thread t([this]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    std::this_thread::sleep_for(std::chrono::milliseconds(25));
     REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
   });
-  a0_time_mono_t timeout;
-  REQUIRE_OK(a0_time_mono_now(&timeout));
-  REQUIRE_OK(a0_time_mono_add(timeout, 1 * 1e6, &timeout));
+  a0_time_mono_t timeout = a0::test::timeout_in(std::chrono::milliseconds(1));
 
   yyjson_doc doc;
   REQUIRE(A0_SYSERR(a0_cfg_read_blocking_timeout_yyjson(&cfg, a0::test::alloc(), &timeout, &doc)) == ETIMEDOUT);
