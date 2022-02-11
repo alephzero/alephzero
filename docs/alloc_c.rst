@@ -7,7 +7,3 @@ Alloc (C-API)
 .. doxygenfunction:: a0_alloc
 
 .. doxygenfunction:: a0_dealloc
-
-.. doxygengroup:: MALLOC_ALLOCATOR
-
-.. doxygengroup:: REALLOC_ALLOCATOR

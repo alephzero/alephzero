@@ -2,6 +2,21 @@
  * \file packet.h
  * \rst
  *
+ * Example
+ * ---------------
+ *
+ * .. code-block:: cpp
+ *
+ *   a0::Packet pkt("binary payload data");
+ *   a0::Packet pkt_with_custom_headers({
+ *       {"header_key", "header_val_a"},
+ *       {"header_key", "header_val_b"},
+ *   }, "binary payload data");
+ *
+ *   pkt.id();       // unique id (uuidv4)
+ *   pkt.headers();  // unordered multimap of utf8 key-value pairs
+ *   pkt.payload();  // binary payload
+ *
  * What is a packet
  * ----------------
  *
@@ -17,7 +32,7 @@
  * Headers
  * -------
  *
- *  Headers are a multipmap of utf8 key-value pairs.
+ *  Headers are an unordered multimap of utf8 key-value pairs.
  *
  *  Keys starting with **a0_** are reserved for AlephZero internals.
  *  Among them are:
@@ -33,10 +48,10 @@
  *    See :doc:`time` for more info.
  *  * **a0_transport_seq**:
  *    Sequence number among all packets in the transport.
- *  * **a0_publisher_seq**:
- *    Sequence number from the publisher.
- *  * **a0_publisher_id**:
- *    UUID of the publisher.
+ *  * **a0_writer_seq**:
+ *    Sequence number from the writer.
+ *  * **a0_writer_id**:
+ *    UUID of the writer.
  *  * **...**
  *
  *  .. note::
@@ -93,6 +108,11 @@
  *  +-------------------------------+
  *  | payload content               |
  *  +-------------------------------+
+ *
+ * Flat Packet
+ * -----------
+ *
+ *  The headers and payload can be read directly from a serialized buffer.
  *
  * \endrst
  */

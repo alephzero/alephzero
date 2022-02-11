@@ -5,6 +5,13 @@
  * Mono Time
  * ---------
  *
+ * .. code-block:: cpp
+ *
+ *   auto timestamp = a0::TimeMono::now();
+ *   auto str = timestamp.to_string();
+ *   timestamp == a0::TimeMono::parse(str);
+ *   timestamp += std::chrono::seconds(1);
+ *
  * | Mono time is a number of nanoseconds from machine boottime.
  * | This time cannot decrease and duration between ticks is constant.
  * | This time is not related to wall clock time.
@@ -17,6 +24,12 @@
  *
  * Wall Time
  * ---------
+ *
+ * .. code-block:: cpp
+ *
+ *   auto timestamp = a0::TimeWall::now();
+ *   auto str = timestamp.to_string();
+ *   timestamp == a0::TimeWall::parse(str);
  *
  * | Wall time is an time object representing human-readable wall clock time.
  * | This time can decrease and duration between ticks is not constant.

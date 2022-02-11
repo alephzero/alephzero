@@ -2,12 +2,19 @@
  * \file arena.h
  * \rst
  *
- * Arena
- * -----
+ * .. code-block:: cpp
  *
- * An arena can be any contiguous memory buffer.
+ *   a0::Arena arena(buf, mode);
  *
- * For the transport, they must be zero-ed out before first initialization.
+ * An arena is a buffer tagged with accessiblity mode:
+ *
+ * **SHARED**: buffer may be used simultaneously by multiple processes.
+ *
+ * **EXCLUSIVE**: buffer will be used exclusively by this processes.
+ * This process may read and write.
+ *
+ * **READONLY**: buffer may be read by multiple processes.
+ * No process will write.
  *
  * \endrst
  */

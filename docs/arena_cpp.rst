@@ -6,6 +6,3 @@ This page describes the C++ implementation of :doc:`arena`
 
 .. doxygenstruct:: a0::Arena
    :members:
-
-.. doxygenstruct:: a0::File
-   :members:

@@ -4,6 +4,7 @@ Arena (C-API)
 This page describes the C implementation of :doc:`arena`
 --------------------------------------------------------
 
-.. doxygentypedef:: a0_arena_t
+.. doxygenenum:: a0_arena_mode_t
 
-.. doxygengroup:: FILE
+.. doxygenstruct:: a0_arena_t
+    :members:

@@ -8,9 +8,12 @@ namespace a0 {
 
 struct Arena : details::CppWrap<a0_arena_t> {
   Arena() = default;
+  /// Construct an arena with the given buffer and mode.
   Arena(Buf, a0_arena_mode_t);
 
+  /// Underlying buffer.
   Buf buf() const;
+  /// Access mode.
   a0_arena_mode_t mode() const;
 
   /// Implicit conversions.

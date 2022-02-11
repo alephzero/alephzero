@@ -2,30 +2,73 @@
  * \file file.h
  * \rst
  *
- * File
- * ----
+ * Create and Open
+ * ---------------
  *
- * A file is an arena within a normal linux file.
+ * .. code-block:: cpp
  *
- * On **open**, the path and file are automatically created.
- * The file is opened and mmap-ed to provide the **arena**.
+ *   a0::File file("path");
  *
- * The path may be given as an absolute path (starting with a forward slash '/').
+ * The file will open, by default, **\/dev/shm/alephzero/path**.
  *
- * The path may also be given as a relative path. By default, the path is relative
- * to **\/dev/shm**. This can be overriden by setting the environmental variable
- * **A0_ROOT**.
+ * The **\/dev/shm/alephzero** comes from the **A0_ROOT** environment variable.
+ * See below.
  *
- * **A0_ROOT** must be an absolute path. It is NOT relative to **\/dev/shm** or
- * your current directory.
+ * You can also open that file with:
  *
+ * .. code-block:: cpp
  *
- * Note that tilde '**~**' is not expanded.
+ *   a0::File file("/dev/shm/alephzero/path");
  *
- * Files in **\/dev/shm**, or any other tmpfs directory will have lazily page allocation.
- * Large files are only an issue once the data is written to the files.
+ * If the file doesn't exist, it will be created, along with any directories.
  *
- * Files are initially populated with null bytes.
+ * If you want to set the size:
+ *
+ * .. code-block:: cpp
+ *
+ *   auto opts = a0::File::Options::DEFAULT;
+ *   opts.create_options.size = 4 * 1024;
+ *   a0::File file("path", opts);
+ *
+ * .. note::
+ *
+ *   **create_options** do not effect existing files.
+ * 
+ * **create_options** can also be used to set **mode**.
+ *
+ * Usage
+ * -----
+ *
+ * .. code-block:: cpp
+ *
+ *   a0::File file("path");
+ *
+ *   a0::Arena arena = file;
+ *   a0::Buf buf = file;
+ *   file.size();
+ *   file.path();  // absolute path
+ *   file.fd();
+ *   file.stat();  // at time of open
+ *
+ * Removing
+ * --------
+ *
+ * .. code-block:: cpp
+ *
+ *   a0::File::remove("path");
+ *   a0::File::remove_all("dir");  // recursive
+ *
+ * A0_ROOT
+ * -------
+ *
+ * The **A0_ROOT** environment variable controls relative file paths.
+ * It can be used to sandbox applications.
+ *
+ * **A0_ROOT** defaults to **\/dev/shm/alephzero/**
+ *
+ * **A0_ROOT** must be an absolute path (start with '/').
+ * It is NOT relative to your current directory.
+ * Tilde '**~**' is not expanded.
  *
  * \endrst
  */
