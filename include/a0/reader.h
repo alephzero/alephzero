@@ -2,8 +2,33 @@
  * \file reader.h
  * \rst
  *
- * Reader
- * ------
+ * Example
+ * ---------------
+ *
+ * .. code-block:: cpp
+ *
+ *   // callback triggers on each written packet.
+ *   a0::Reader reader(a0::File("path"), callback);
+ *
+ * .. code-block:: cpp
+ *
+ *   a0::ReaderSync reader(a0::File("path"), a0.INIT_OLDEST);
+ *   while (reader.can_read()) {
+ *     a0::Packet packet = reader.read();
+ *     ...
+ *   }
+ * 
+ * 
+ * An optional **INIT** can be added to specify where the reader starts.
+ *
+ * * **INIT_AWAIT_NEW** (default): Start with messages written after the creation of the reader.
+ * * **INIT_MOST_RECENT**: Start with the most recently written message. Useful for state and configuration. But be careful, this can be quite old!
+ * * **INIT_OLDEST**: Start with the oldest message still in available in the transport.
+ * 
+ * An optional **ITER** can be added to specify how to continue reading messages. After each callback:
+ *
+ * * **ITER_NEXT** (default): grab the sequentially next message. When you don't want to miss a thing.
+ * * **ITER_NEWEST**: grab the newest available unread message. When you want to keep up with the firehose.
  *
  * \endrst
  */

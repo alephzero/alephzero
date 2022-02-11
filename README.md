@@ -107,11 +107,7 @@ while (sub_sync.can_read()) {
 }
 ```
 
-An optional `init` and `iter` flag can be added.
-    A0_INIT_AWAIT_NEW,  // or MOST_RECENT or OLDEST
-    A0_ITER_NEWEST,     // or NEXT
-
-An optional `INIT` can be added to specify where the subscriber starts reading. 
+An optional `INIT` can be added to specify where the subscriber starts reading.
 * `INIT_AWAIT_NEW` (default): Start with messages published after the creation of the subscriber.
 * `INIT_MOST_RECENT`: Start with the most recently published message. Useful for state and configuration. But be careful, this can be quite old!
 * `INIT_OLDEST`: Topics keep a history of 16MB (unless configures otherwise). Start with the oldest thing still in there.
