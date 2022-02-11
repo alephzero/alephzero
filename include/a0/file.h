@@ -64,7 +64,7 @@
  * The **A0_ROOT** environment variable controls relative file paths.
  * It can be used to sandbox applications.
  *
- * **A0_ROOT** defaults to **\/dev/shm/alephzero/**
+ * **A0_ROOT** defaults to **\/dev/shm/alephzero\/**
  *
  * **A0_ROOT** must be an absolute path (start with '/').
  * It is NOT relative to your current directory.
