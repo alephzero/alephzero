@@ -62,7 +62,6 @@ Rather than exposing the low-level transport directly, AlephZero provides a few 
 * <b>PubSub</b>: Broadcast published messages. Subscribers get notified.
 * <b>RPC</b>: Request-response.
 * <b>PRPC (Progressive RPC)</b>: Request-streaming response.
-* <b>Sessions</b>: Bi-directional channel of communication. Not yet implemented. Let me know if you want this.
 
 # Examples
 
