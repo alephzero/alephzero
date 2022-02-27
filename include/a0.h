@@ -39,8 +39,8 @@
 #ifdef __cplusplus
 #include <a0/arena.hpp>
 #include <a0/buf.hpp>
-#include <a0/cfg.hpp>
 #include <a0/c_wrap.hpp>
+#include <a0/cfg.hpp>
 #include <a0/deadman.hpp>
 #include <a0/discovery.hpp>
 #include <a0/env.hpp>
