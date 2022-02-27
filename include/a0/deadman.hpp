@@ -21,7 +21,8 @@ struct DeadmanTopic {
 struct Deadman : details::CppWrap<a0_deadman_t> {
   struct State {
     bool is_taken;
-    uint64_t token;
+    bool is_owner;
+    uint64_t tkn;
   };
 
   Deadman() = default;

@@ -31,23 +31,22 @@ struct DeadmanFixture {
   }
 
   void REQUIRE_UNLOCKED(a0_deadman_t* d) {
-    bool is_locked;
-    REQUIRE_OK(a0_deadman_state(d, &is_locked, nullptr));
-    REQUIRE(!is_locked);
+    a0_deadman_state_t state;
+    REQUIRE_OK(a0_deadman_state(d, &state));
+    REQUIRE(!state.is_taken);
   }
 
   void REQUIRE_LOCKED(a0_deadman_t* d) {
-    bool is_locked;
-    REQUIRE_OK(a0_deadman_state(d, &is_locked, nullptr));
-    REQUIRE(is_locked);
+    a0_deadman_state_t state;
+    REQUIRE_OK(a0_deadman_state(d, &state));
+    REQUIRE(state.is_taken);
   }
 
   void REQUIRE_LOCKED_WITH_TKN(a0_deadman_t* d, uint64_t tkn) {
-    bool is_locked;
-    uint64_t tkn_;
-    REQUIRE_OK(a0_deadman_state(d, &is_locked, &tkn_));
-    REQUIRE(is_locked);
-    REQUIRE(tkn_ == tkn);
+    a0_deadman_state_t state;
+    REQUIRE_OK(a0_deadman_state(d, &state));
+    REQUIRE(state.is_taken);
+    REQUIRE(state.tkn == tkn);
   }
 };
 
