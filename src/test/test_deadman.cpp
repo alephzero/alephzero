@@ -188,7 +188,7 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp basic") {
 
   auto state = d.state();
   REQUIRE(state.is_taken);
-  REQUIRE(state.token == 1);
+  REQUIRE(state.tkn == 1);
 
   d.release();
 
