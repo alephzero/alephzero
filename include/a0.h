@@ -17,7 +17,6 @@
 #include <a0/file.h>
 #include <a0/inline.h>
 #include <a0/log.h>
-#include <a0/loop.h>
 #include <a0/map.h>
 #include <a0/middleware.h>
 #include <a0/mtx.h>
