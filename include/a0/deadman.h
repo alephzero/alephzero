@@ -22,6 +22,12 @@ typedef struct a0_deadman_s {
   bool _is_owner;
 } a0_deadman_t;
 
+typedef struct a0_deadman_state_s {
+  bool is_taken;
+  bool is_owner;
+  uint64_t tkn;
+} a0_deadman_state_t;
+
 a0_err_t a0_deadman_init(a0_deadman_t*, a0_deadman_topic_t);
 a0_err_t a0_deadman_close(a0_deadman_t*);
 
@@ -33,7 +39,7 @@ a0_err_t a0_deadman_wait_taken(a0_deadman_t*, uint64_t* out_tkn);
 a0_err_t a0_deadman_timedwait_taken(a0_deadman_t*, a0_time_mono_t*, uint64_t* out_tkn);
 a0_err_t a0_deadman_wait_released(a0_deadman_t*, uint64_t tkn);
 a0_err_t a0_deadman_timedwait_released(a0_deadman_t*, a0_time_mono_t*, uint64_t tkn);
-a0_err_t a0_deadman_state(a0_deadman_t*, bool* out_istaken, uint64_t* out_tkn);
+a0_err_t a0_deadman_state(a0_deadman_t*, a0_deadman_state_t*);
 
 #ifdef __cplusplus
 }

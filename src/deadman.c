@@ -77,6 +77,7 @@ a0_err_t a0_deadman_timedwait_released(a0_deadman_t* d, a0_time_mono_t* timeout,
   return a0_deadman_mtx_timedwait_unlocked(d->_deadman_mtx, timeout, tkn);
 }
 
-a0_err_t a0_deadman_state(a0_deadman_t* d, bool* out_istaken, uint64_t* out_tkn) {
-  return a0_deadman_mtx_state(d->_deadman_mtx, out_istaken, out_tkn);
+a0_err_t a0_deadman_state(a0_deadman_t* d, a0_deadman_state_t* out_state) {
+  out_state->is_owner = d->_is_owner;
+  return a0_deadman_mtx_state(d->_deadman_mtx, &out_state->is_taken, &out_state->tkn);
 }

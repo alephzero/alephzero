@@ -78,10 +78,9 @@ void Deadman::wait_released(uint64_t tkn, TimeMono timeout) {
 
 Deadman::State Deadman::state() {
   CHECK_C;
-  bool istaken;
-  uint64_t tkn;
-  check(ignore_owner_died(a0_deadman_state(&*c, &istaken, &tkn)));
-  return State{istaken, tkn};
+  a0_deadman_state_t state;
+  check(ignore_owner_died(a0_deadman_state(&*c, &state)));
+  return State{state.is_taken, state.is_owner, state.tkn};
 }
 
 }  // namespace a0
