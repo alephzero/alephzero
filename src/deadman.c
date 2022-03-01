@@ -35,29 +35,38 @@ a0_err_t a0_deadman_close(a0_deadman_t* d) {
 }
 
 a0_err_t a0_deadman_take(a0_deadman_t* d) {
+  if (d->_is_owner) {
+    return A0_OK;
+  }
   a0_err_t err = a0_deadman_mtx_lock(d->_deadman_mtx);
   d->_is_owner = a0_mtx_lock_successful(err);
   return err;
 }
 
 a0_err_t a0_deadman_trytake(a0_deadman_t* d) {
+  if (d->_is_owner) {
+    return A0_OK;
+  }
   a0_err_t err = a0_deadman_mtx_trylock(d->_deadman_mtx);
   d->_is_owner = a0_mtx_lock_successful(err);
   return err;
 }
 
 a0_err_t a0_deadman_timedtake(a0_deadman_t* d, a0_time_mono_t* timeout) {
+  if (d->_is_owner) {
+    return A0_OK;
+  }
   a0_err_t err = a0_deadman_mtx_timedlock(d->_deadman_mtx, timeout);
   d->_is_owner = a0_mtx_lock_successful(err);
   return err;
 }
 
 a0_err_t a0_deadman_release(a0_deadman_t* d) {
-  a0_err_t err = A0_OK;
-  if (d->_is_owner) {
-    err = a0_deadman_mtx_unlock(d->_deadman_mtx);
-    d->_is_owner = false;
+  if (!d->_is_owner) {
+    return A0_OK;
   }
+  a0_err_t err = a0_deadman_mtx_unlock(d->_deadman_mtx);
+  d->_is_owner = false;
   return err;
 }
 
