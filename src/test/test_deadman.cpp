@@ -67,6 +67,11 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] basic") {
   REQUIRE_OK(a0_deadman_close(&d));
 }
 
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] bad topic") {
+  a0_deadman_t d;
+  REQUIRE(a0_deadman_init(&d, {NULL}) == A0_ERR_BAD_TOPIC);
+}
+
 TEST_CASE_FIXTURE(DeadmanFixture, "deadman] close releases") {
   a0_deadman_t d;
 
@@ -297,4 +302,24 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp owner died") {
   waitpid(pid, &ret_code, 0);
 
   d.take();
+}
+
+TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp reentrant") {
+  a0::Deadman d0(topic.name);
+  a0::Deadman d1(topic.name);
+
+  REQUIRE(d0.try_take());
+
+  REQUIRE(d0.try_take());
+  REQUIRE(!d1.try_take());
+
+  d0.take();
+  REQUIRE_THROWS_WITH(
+      d1.take(),
+      "Resource deadlock avoided");
+
+  d0.take(a0::TimeMono::now());
+  REQUIRE_THROWS_WITH(
+      d1.take(a0::TimeMono::now()),
+      "Resource deadlock avoided");
 }
