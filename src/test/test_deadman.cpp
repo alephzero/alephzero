@@ -1,5 +1,6 @@
 #include <a0/deadman.h>
 #include <a0/deadman.hpp>
+#include <a0/err.h>
 #include <a0/file.h>
 #include <a0/time.h>
 #include <a0/time.hpp>
