@@ -314,12 +314,8 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp reentrant") {
   REQUIRE(!d1.try_take());
 
   d0.take();
-  REQUIRE_THROWS_WITH(
-      d1.take(),
-      "Resource deadlock avoided");
+  REQUIRE_THROWS_WITH(d1.take(), strerror(EDEADLK));
 
   d0.take(a0::TimeMono::now());
-  REQUIRE_THROWS_WITH(
-      d1.take(a0::TimeMono::now()),
-      "Resource deadlock avoided");
+  REQUIRE_THROWS_WITH(d1.take(a0::TimeMono::now()), strerror(EDEADLK));
 }
