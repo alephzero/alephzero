@@ -1,3 +1,4 @@
+#include <a0/buf.h>
 #include <a0/err.h>
 #include <a0/inline.h>
 #include <a0/middleware.h>
@@ -7,6 +8,8 @@
 #include <a0/unused.h>
 #include <a0/uuid.h>
 
+#include <alloca.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <yyjson.h>
@@ -312,7 +315,7 @@ a0_err_t a0_json_mergepatch_process_locked_nonempty(
   if (read_err.code) {
     a0_transport_unlock(tlk);
     return A0_MAKE_MSGERR("Failed to parse json: %s", read_err.msg);
-  }  
+  }
 
   // Execute the mergepatch.
   yyjson_mut_doc* merged_doc = yyjson_mut_doc_new(NULL);

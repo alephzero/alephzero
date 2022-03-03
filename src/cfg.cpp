@@ -22,12 +22,7 @@
 
 #ifdef A0_EXT_NLOHMANN
 
-#include <a0/middleware.h>
-#include <a0/middleware.hpp>
 #include <a0/string_view.hpp>
-#include <a0/transport.h>
-#include <a0/transport.hpp>
-#include <a0/writer.hpp>
 
 #include <nlohmann/json.hpp>
 

@@ -2,12 +2,14 @@
 #include <a0/buf.h>
 #include <a0/err.h>
 #include <a0/inline.h>
+#include <a0/middleware.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/pubsub.h>
 #include <a0/pubsub.hpp>
 #include <a0/reader.hpp>
 #include <a0/time.hpp>
+#include <a0/writer.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -37,6 +39,16 @@ Publisher::Publisher(PubSubTopic topic) {
 void Publisher::pub(Packet pkt) {
   CHECK_C;
   check(a0_publisher_pub(&*c, *pkt.c));
+}
+
+Writer Publisher::writer() {
+  CHECK_C;
+  auto save = c;
+  return make_cpp<Writer>(
+      [&](a0_writer_t* w) {
+        return a0_publisher_writer(&*c, &w);
+      },
+      [save](a0_writer_t*) {});
 }
 
 namespace {

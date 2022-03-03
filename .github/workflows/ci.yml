@@ -36,7 +36,7 @@ jobs:
     - name: install deps
       run: apt update && apt install --no-install-recommends -y make ${{ matrix.apt }}
     - name: run
-      run: CC=${{ matrix.CC }} CXX=${{ matrix.CXX }} make test -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
+      run: CC=${{ matrix.CC }} CXX=${{ matrix.CXX }} make test -j A0_EXT_NLOHMANN=1
 
   alpine:
     name: Alpine
@@ -68,7 +68,7 @@ jobs:
       run: apk add --no-cache clang g++ linux-headers make
     - name: run
       shell: sh
-      run: CC=${{ matrix.CC }} CXX=${{ matrix.CXX }} make test -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
+      run: CC=${{ matrix.CC }} CXX=${{ matrix.CXX }} make test -j A0_EXT_NLOHMANN=1
 
   sanitizer:
     name: Sanitizer
@@ -88,7 +88,7 @@ jobs:
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make
     - name: run
-      run: make ${{ matrix.san }} -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
+      run: make ${{ matrix.san }} -j A0_EXT_NLOHMANN=1
 
   valgrind:
     name: Valgrind
@@ -104,7 +104,7 @@ jobs:
     - name: install deps
       run: apt update && apt install --no-install-recommends -y g++ make valgrind
     - name: run
-      run: make valgrind -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
+      run: make valgrind -j A0_EXT_NLOHMANN=1
 
   iwyu:
     name: Include What You Use
@@ -115,7 +115,6 @@ jobs:
 
     strategy:
       matrix:
-        A0_EXT_YYJSON: [0, 1]
         A0_EXT_NLOHMANN: [0, 1]
 
     steps:
@@ -126,7 +125,7 @@ jobs:
       run: apt update && apt install --no-install-recommends -y clang-9 iwyu make
     - name: run
       run: |
-        make iwyu -j A0_EXT_YYJSON=${{ matrix.A0_EXT_YYJSON }} A0_EXT_NLOHMANN=${{ matrix.A0_EXT_NLOHMANN }}
+        make iwyu -j A0_EXT_NLOHMANN=${{ matrix.A0_EXT_NLOHMANN }}
 
   clang_tidy:
     name: Clang-Tidy
@@ -143,7 +142,7 @@ jobs:
       run: apt update && apt install --no-install-recommends -y clang-tidy
     - name: run
       run: |
-        export CXFLAGS="-Iinclude -DA0_EXT_YYJSON=1 -Ithird_party/yyjson/src"
+        export CXFLAGS="-Iinclude -Ithird_party/yyjson/src"
         export CXXFLAGS="-std=c++11 -I. -DA0_EXT_NLOHMANN=1 -Ithird_party/json/single_include"
         clang-tidy include/**/*.h src/*.c src/*.h -- $CXFLAGS
         clang-tidy include/**/*.hpp src/*.cpp src/*.hpp -- $CXFLAGS $CXXFLAGS
@@ -185,7 +184,7 @@ jobs:
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       run: |
-        make cov -j A0_EXT_YYJSON=1 A0_EXT_NLOHMANN=1
+        make cov -j A0_EXT_NLOHMANN=1
         # Use action when https://github.com/codecov/codecov-action/issues/24 is resolved
         curl -o ./codecov https://codecov.io/bash
         chmod +x ./codecov

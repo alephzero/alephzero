@@ -29,4 +29,12 @@ Middleware add_standard_headers() {
   return cpp_wrap<Middleware>(a0_add_standard_headers());
 }
 
+Middleware write_if_empty(bool* written) {
+  return cpp_wrap<Middleware>(a0_write_if_empty(written));
+}
+
+Middleware json_mergepatch() {
+  return cpp_wrap<Middleware>(a0_json_mergepatch());
+}
+
 }  // namespace a0

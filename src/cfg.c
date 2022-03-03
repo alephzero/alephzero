@@ -9,19 +9,10 @@
 #include <a0/reader.h>
 #include <a0/time.h>
 #include <a0/topic.h>
-#include <a0/transport.h>
 #include <a0/writer.h>
-#include <a0/buf.h>
-#include <a0/empty.h>
-#include <a0/unused.h>
 
 #include <stdbool.h>
 #include <stddef.h>
-#include <alloca.h>
-#include <assert.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <yyjson.h>
 
 #include "err_macro.h"
 
