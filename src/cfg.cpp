@@ -108,43 +108,11 @@ bool Cfg::write_if_empty(Packet pkt) {
   return written;
 }
 
-#ifdef A0_EXT_NLOHMANN
-
-void Cfg::mergepatch(nlohmann::json update) {
-  a0_middleware_t mergepatch_middleware = {
-      .user_data = &update,
-      .close = nullptr,
-      .process = nullptr,
-      .process_locked = [](
-                            void* user_data,
-                            a0_transport_locked_t tlk,
-                            a0_packet_t* pkt,
-                            a0_middleware_chain_t chain) mutable {
-        auto* update = (nlohmann::json*)user_data;
-        auto cpp_tlk = cpp_wrap<TransportLocked>(tlk);
-
-        std::string serial;
-
-        if (cpp_tlk.empty()) {
-          serial = update->dump();
-        } else {
-          cpp_tlk.jump_tail();
-          auto frame = cpp_tlk.frame();
-          auto flat_packet = cpp_wrap<FlatPacket>({frame.data, frame.hdr.data_size});
-          auto doc = nlohmann::json::parse(flat_packet.payload());
-          doc.merge_patch(*update);
-          serial = doc.dump();
-        }
-
-        pkt->payload = (a0_buf_t){(uint8_t*)serial.data(), serial.size()};
-        return a0_middleware_chain(chain, pkt);
-      },
-  };
-
-  cpp_wrap<Writer>(&c->_writer)
-      .wrap(cpp_wrap<Middleware>(mergepatch_middleware))
-      .write("");
+void Cfg::mergepatch(Packet pkt) {
+  check(a0_cfg_mergepatch(&*c, *pkt.c));
 }
+
+#ifdef A0_EXT_NLOHMANN
 
 void Cfg::register_var(std::weak_ptr<std::function<void(const nlohmann::json&)>> updater) {
   c_impl<CfgImpl>(&c)->var_updaters.push_back(updater);

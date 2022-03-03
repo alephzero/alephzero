@@ -66,6 +66,11 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
     return write_if_empty(Packet(cstr, ref));
   }
 
+  void mergepatch(Packet);
+  void mergepatch(const char cstr[]) {
+    mergepatch(Packet(cstr, ref));
+  }
+
 #ifdef A0_EXT_NLOHMANN
 
   void write(nlohmann::json j) {
@@ -75,7 +80,9 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
     return write_if_empty(Packet(j.dump()));
   }
 
-  void mergepatch(nlohmann::json);
+  void mergepatch(nlohmann::json j) {
+    mergepatch(Packet(j.dump()));
+  }
 
  private:
   void register_var(std::weak_ptr<std::function<void(const nlohmann::json&)>> updater);

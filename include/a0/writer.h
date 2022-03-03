@@ -39,7 +39,9 @@ a0_err_t a0_writer_close(a0_writer_t*);
 /// Serializes the given packet into the writer's arena.
 a0_err_t a0_writer_write(a0_writer_t*, a0_packet_t);
 
-/// ...
+/// Modifies the writer to include the given middleware.
+///
+/// The middleware is owned by the writer and will be closed when the writer is closed.
 a0_err_t a0_writer_push(a0_writer_t*, a0_middleware_t);
 
 /**
