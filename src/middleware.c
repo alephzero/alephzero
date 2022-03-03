@@ -9,6 +9,7 @@
 #include <a0/uuid.h>
 
 #include <alloca.h>
+#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -275,6 +276,7 @@ a0_err_t a0_json_mergepatch_process_locked_nonempty(
 
   size_t original_size = yyjson_read_max_memory_usage(
       original_payload.size, a0_yyjson_read_flags());
+  assert(original_size > 0);
   void* original_data = alloca(original_size);
 
   yyjson_alc original_alc;
@@ -298,6 +300,7 @@ a0_err_t a0_json_mergepatch_process_locked_nonempty(
   // Parse the mergepatch json.
   size_t mergepatch_size = yyjson_read_max_memory_usage(
       pkt->payload.size, a0_yyjson_read_flags());
+  assert(mergepatch_size > 0);
   void* mergepatch_data = alloca(mergepatch_size);
 
   yyjson_alc mergepatch_alc;
@@ -325,12 +328,18 @@ a0_err_t a0_json_mergepatch_process_locked_nonempty(
       original->root,
       mergepatch->root);
 
+  size_t result_max_size = original_size + mergepatch_size;
+  void* result_data = alloca(result_max_size);
+
+  yyjson_alc result_alc;
+  yyjson_alc_pool_init(&result_alc, result_data, result_max_size);
+
   yyjson_write_err write_err;
   size_t size;
   char* data = yyjson_mut_write_opts(
       merged_doc,
       a0_yyjson_write_flags(),
-      NULL,  // TODO(lshamis): Maybe provide an allocator?
+      &result_alc,
       &size,
       &write_err);
 
@@ -344,7 +353,6 @@ a0_err_t a0_json_mergepatch_process_locked_nonempty(
   pkt->payload = (a0_buf_t){(uint8_t*)data, size};
   a0_err_t err = a0_middleware_chain(chain, pkt);
 
-  free(data);
   yyjson_mut_doc_free(merged_doc);
 
   return err;
