@@ -137,19 +137,19 @@ TEST_CASE("discovery] cpp discovery") {
 
   std::sort(data.paths.begin(), data.paths.end());
   REQUIRE(data.paths == std::vector<std::string>{
-                            "a/b/c/d/e/f/g/h/i/j/k/l/m/file1.a0",
-                            "a/b/c/d/e/f/g/h/i/j/k/l/m/file2.a0",
-                            "a/b/c/d/e/f/g/h/i/j/k/l/m/file3.a0",
-                            "a/b/c/d/e/f/g/h/i/j/k/l/m/file4.a0",
-                            "a/b/c/d/e/f/g/h/i/j/k/l/m/file5.a0",
-                            "a/b/c/d/e/f/g/h/i/j/k/l/m/file6.a0",
-                            "a/b/c/d/e/f/g/h/i/j/k/l/m/file7.a0",
-                            "a/b/c/d/e/f/g/h/i/j/k/l/m/file8.a0",
-                            "a/b/c/d/file1.a0",
-                            "a/b/c/d/file2.a0",
-                            "a/b/file.a0",
-                            "a/file.a0",
-                            "file.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file1.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file2.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file3.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file4.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file5.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file6.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file7.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file8.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/file1.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/file2.a0",
+                            "/dev/shm/discovery_test/a/b/file.a0",
+                            "/dev/shm/discovery_test/a/file.a0",
+                            "/dev/shm/discovery_test/file.a0",
                         });
 }
 
@@ -208,7 +208,7 @@ TEST_CASE("discovery] cpp discovery exact match") {
 
   std::sort(data.paths.begin(), data.paths.end());
   REQUIRE(data.paths == std::vector<std::string>{
-                            "a/b/c/d/file1.a0",
-                            "a/file.a0",
+                            "/dev/shm/discovery_test/a/b/c/d/file1.a0",
+                            "/dev/shm/discovery_test/a/file.a0",
                         });
 }
