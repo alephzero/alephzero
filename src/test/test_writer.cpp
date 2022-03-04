@@ -396,6 +396,99 @@ TEST_CASE_FIXTURE(WriterFixture, "writer] cpp push middleware") {
       }});
 }
 
+TEST_CASE_FIXTURE(WriterFixture, "writer] cpp write_if_empty") {
+  a0::Writer w(a0::cpp_wrap<a0::Arena>(arena));
+  w.push(a0::write_if_empty());
+
+  w.write("msg #0");
+  w.write("msg #1");
+
+  require_transport_state(
+      {{
+          {},
+          "msg #0",
+      }});
+}
+
+TEST_CASE_FIXTURE(WriterFixture, "writer] cpp write_if_empty result") {
+  a0::Writer w(a0::cpp_wrap<a0::Arena>(arena));
+  bool written;
+  w.push(a0::write_if_empty(&written));
+
+  w.write("msg #0");
+  REQUIRE(written);
+  w.write("msg #1");
+  REQUIRE(!written);
+
+  require_transport_state(
+      {{
+          {},
+          "msg #0",
+      }});
+}
+
+TEST_CASE_FIXTURE(WriterFixture, "writer] cpp json_mergepatch") {
+  a0::Writer w(a0::cpp_wrap<a0::Arena>(arena));
+  auto w_merge = w.wrap(a0::json_mergepatch());
+
+  // Merge empty.
+  w_merge.write(R"({"a":"b"})");
+
+  require_transport_state(
+      {{
+          {},
+          R"({"a":"b"})",
+      }});
+
+  // Merge valid.
+  w_merge.write(R"({"a":null,"b":"c"})");
+
+  require_transport_state(
+      {{
+           {},
+           R"({"a":"b"})",
+       },
+       {
+           {},
+           R"({"b":"c"})",
+       }});
+
+  // Merge invalid.
+  REQUIRE_THROWS_WITH(
+      w_merge.write("foo"),
+      "Failed to parse json: invalid literal");
+
+  require_transport_state(
+      {{
+           {},
+           R"({"a":"b"})",
+       },
+       {
+           {},
+           R"({"b":"c"})",
+       }});
+
+  // Previous not json.
+  w.write("foo");
+  REQUIRE_THROWS_WITH(
+      w_merge.write(R"({"a":"b"})"),
+      "Failed to parse json: invalid literal");
+
+  require_transport_state(
+      {{
+           {},
+           R"({"a":"b"})",
+       },
+       {
+           {},
+           R"({"b":"c"})",
+       },
+       {
+           {},
+           "foo",
+       }});
+}
+
 TEST_CASE_FIXTURE(WriterFixture, "writer] cpp") {
   a0::Writer w(a0::cpp_wrap<a0::Arena>(arena));
 

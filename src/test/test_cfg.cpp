@@ -85,7 +85,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp basic") {
   a0::Cfg c(a0::env::topic());
 
   REQUIRE_THROWS_WITH(
-      [&]() { c.read(); }(),
+      c.read(),
       "Not available yet");
 
   c.write("cfg");
@@ -200,7 +200,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
 
   auto aaa = c.var<int>("/aaa");
   REQUIRE_THROWS_WITH(
-      [&]() { *aaa; }(),
+      *aaa,
       "Cfg::Var(jptr=/aaa) has no data");
 
   REQUIRE(c.write_if_empty(R"({"foo": 1, "bar": 2})"));
@@ -246,7 +246,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   c.write({{"aaa", 1}, {"bbb", 2}});
   c.update_var();
   REQUIRE_THROWS_WITH(
-      [&]() { *foo; }(),
+      *foo,
       "Cfg::Var(jptr=/foo) parse error: "
       "[json.exception.out_of_range.403] "
       "key 'foo' not found");
@@ -254,14 +254,14 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   c.write({{"aaa", 1}, {"foo", "notanumber"}});
   c.update_var();
   REQUIRE_THROWS_WITH(
-      [&]() { *foo; }(),
+      *foo,
       "Cfg::Var(jptr=/foo) parse error: "
       "[json.exception.type_error.302] "
       "type must be number, but is string");
 
   c.write("");
   REQUIRE_THROWS_WITH(
-      [&]() { c.update_var(); }(),
+      c.update_var(),
       "[json.exception.parse_error.101] "
       "parse error at line 1, column 1: "
       "syntax error while parsing value - "
@@ -269,7 +269,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
 
   c.write("cfg");
   REQUIRE_THROWS_WITH(
-      [&]() { c.update_var(); }(),
+      c.update_var(),
       "[json.exception.parse_error.101] "
       "parse error at line 1, column 1: "
       "syntax error while parsing value - "

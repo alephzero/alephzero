@@ -455,17 +455,17 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp sync blocking") {
   // Nonblocking, oldest, not available.
   REQUIRE_THROWS_WITH(
-      [&]() { a0::SubscriberSync(topic.name, a0::INIT_OLDEST).read(); }(),
+      a0::SubscriberSync(topic.name, a0::INIT_OLDEST).read(),
       "Not available yet");
 
   // Nonblocking, most recent, not available.
   REQUIRE_THROWS_WITH(
-      [&]() { a0::SubscriberSync(topic.name, a0::INIT_MOST_RECENT).read(); }(),
+      a0::SubscriberSync(topic.name, a0::INIT_MOST_RECENT).read(),
       "Not available yet");
 
   // Nonblocking, await new.
   REQUIRE_THROWS_WITH(
-      [&]() { a0::SubscriberSync(topic.name, a0::INIT_AWAIT_NEW).read(); }(),
+      a0::SubscriberSync(topic.name, a0::INIT_AWAIT_NEW).read(),
       "Not available yet");
 
   // Do writes.
@@ -501,13 +501,13 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp sync blocking") {
   thread_sleep_push_pkt(std::chrono::milliseconds(5), a0::Packet("msg #4"));
   block_timeout = a0::TimeMono::now() + std::chrono::milliseconds(1);
   REQUIRE_THROWS_WITH(
-      [&]() { a0::SubscriberSync(topic.name, a0::INIT_AWAIT_NEW).read_blocking(block_timeout); }(),
+      a0::SubscriberSync(topic.name, a0::INIT_AWAIT_NEW).read_blocking(block_timeout),
       strerror(ETIMEDOUT));
   join_threads();
 
   // Nonblocking, await new.
   REQUIRE_THROWS_WITH(
-      [&]() { a0::SubscriberSync(topic.name, a0::INIT_AWAIT_NEW).read(); }(),
+      a0::SubscriberSync(topic.name, a0::INIT_AWAIT_NEW).read(),
       "Not available yet");
 }
 

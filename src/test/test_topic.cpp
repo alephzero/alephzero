@@ -16,23 +16,23 @@ TEST_CASE("topic] cpp topic_path") {
   REQUIRE(a0::topic_path(TMPL, TOPIC) == REL_PATH);
 
   REQUIRE_THROWS_WITH(
-      [&]() { a0::topic_path(nullptr, TOPIC); }(),
+      a0::topic_path(nullptr, TOPIC),
       "Invalid topic name");
 
   REQUIRE_THROWS_WITH(
-      [&]() { a0::topic_path("", TOPIC); }(),
+      a0::topic_path("", TOPIC),
       "Invalid topic name");
 
   REQUIRE_THROWS_WITH(
-      [&]() { a0::topic_path(TMPL, nullptr); }(),
+      a0::topic_path(TMPL, nullptr),
       "Invalid topic name");
 
   REQUIRE_THROWS_WITH(
-      [&]() { a0::topic_path(TMPL, ""); }(),
+      a0::topic_path(TMPL, ""),
       "Invalid topic name");
 
   REQUIRE_THROWS_WITH(
-      [&]() { a0::topic_path(TMPL, "/abc"); }(),
+      a0::topic_path(TMPL, "/abc"),
       "Invalid topic name");
 }
 
