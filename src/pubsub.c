@@ -53,6 +53,11 @@ a0_err_t a0_publisher_pub(a0_publisher_t* pub, a0_packet_t pkt) {
   return a0_writer_write(&pub->_writer, pkt);
 }
 
+a0_err_t a0_publisher_writer(a0_publisher_t* pub, a0_writer_t** out) {
+  *out = &pub->_writer;
+  return A0_OK;
+}
+
 //////////////////
 //  Subscriber  //
 //////////////////

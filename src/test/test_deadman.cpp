@@ -266,19 +266,19 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp timed") {
   a0::Deadman d(topic.name);
 
   REQUIRE_THROWS_WITH(
-      [&]() { d.wait_taken(a0::TimeMono::now() + std::chrono::microseconds(1)); }(),
+      d.wait_taken(a0::TimeMono::now() + std::chrono::microseconds(1)),
       strerror(ETIMEDOUT));
 
   uint64_t tkn = d.wait_taken(a0::TimeMono::now() + std::chrono::milliseconds(200));
 
   REQUIRE_THROWS_WITH(
-      [&]() { d.take(a0::TimeMono::now() + std::chrono::microseconds(1)); }(),
+      d.take(a0::TimeMono::now() + std::chrono::microseconds(1)),
       strerror(ETIMEDOUT));
 
   evt.set();
 
   REQUIRE_THROWS_WITH(
-      [&]() { d.wait_released(tkn, a0::TimeMono::now() + std::chrono::microseconds(1)); }(),
+      d.wait_released(tkn, a0::TimeMono::now() + std::chrono::microseconds(1)),
       strerror(ETIMEDOUT));
 
   d.wait_released(tkn, a0::TimeMono::now() + std::chrono::milliseconds(200));

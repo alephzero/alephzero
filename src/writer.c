@@ -172,8 +172,7 @@ a0_err_t a0_writer_wrap(a0_writer_t* in, a0_middleware_t middleware, a0_writer_t
 }
 
 a0_err_t a0_writer_push(a0_writer_t* w, a0_middleware_t middleware) {
-  A0_RETURN_ERR_ON_ERR(a0_middleware_compose(middleware, w->_action, &w->_action));
-  return A0_OK;
+  return a0_middleware_compose(middleware, w->_action, &w->_action);
 }
 
 typedef struct a0_compose_pair_s {

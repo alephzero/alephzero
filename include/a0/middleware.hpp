@@ -14,4 +14,7 @@ Middleware add_writer_seq_header();
 Middleware add_transport_seq_header();
 Middleware add_standard_headers();
 
+Middleware write_if_empty(bool* written = nullptr);
+Middleware json_mergepatch();
+
 }  // namespace a0

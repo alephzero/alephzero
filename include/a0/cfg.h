@@ -6,12 +6,6 @@
 #include <a0/reader.h>
 #include <a0/writer.h>
 
-#ifdef A0_EXT_YYJSON
-
-#include <yyjson.h>
-
-#endif  // A0_EXT_YYJSON
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -37,18 +31,7 @@ a0_err_t a0_cfg_read_blocking_timeout(a0_cfg_t*, a0_alloc_t, a0_time_mono_t*, a0
 a0_err_t a0_cfg_write(a0_cfg_t*, a0_packet_t);
 a0_err_t a0_cfg_write_if_empty(a0_cfg_t*, a0_packet_t, bool* written);
 
-#ifdef A0_EXT_YYJSON
-
-a0_err_t a0_cfg_read_yyjson(a0_cfg_t*, a0_alloc_t, yyjson_doc* out);
-a0_err_t a0_cfg_read_blocking_yyjson(a0_cfg_t*, a0_alloc_t, yyjson_doc* out);
-a0_err_t a0_cfg_read_blocking_timeout_yyjson(a0_cfg_t*, a0_alloc_t, a0_time_mono_t*, yyjson_doc* out);
-
-a0_err_t a0_cfg_write_yyjson(a0_cfg_t*, yyjson_doc);
-a0_err_t a0_cfg_write_if_empty_yyjson(a0_cfg_t*, yyjson_doc, bool* written);
-
-a0_err_t a0_cfg_mergepatch_yyjson(a0_cfg_t*, yyjson_doc mergepatch);
-
-#endif  // A0_EXT_YYJSON
+a0_err_t a0_cfg_mergepatch(a0_cfg_t*, a0_packet_t);
 
 typedef struct a0_cfg_watcher_s {
   a0_file_t _file;

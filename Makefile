@@ -1,30 +1,38 @@
 A0 = alephzero
 
+# Directory structure
 SRC_DIR = src
 OBJ_DIR = obj
 LIB_DIR = lib
 BIN_DIR = bin
 
+# Default build flags.
 CXFLAGS += -Wall -Wextra -fPIC -Iinclude
 CXXFLAGS += -std=c++11
 LDFLAGS += -lpthread
 
+# Source files.
 SRC_C := $(wildcard $(SRC_DIR)/*.c)
 SRC_CXX := $(wildcard $(SRC_DIR)/*.cpp)
 
+# Object files.
 OBJ := $(SRC_C:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 OBJ += $(SRC_CXX:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%_cpp.o)
 
+# Dependency files.
+# Used to speed up rebuilding.
+# You may have to clear if you changed the include structure.
 DEP = $(OBJ:%.o=%.d)
 
+# Test flags.
 TEST_SRC_CXX := $(wildcard $(SRC_DIR)/test/*.cpp)
-
 TEST_OBJ := $(TEST_SRC_CXX:$(SRC_DIR)/test/%.cpp=$(OBJ_DIR)/test/%_cpp.o)
-
 TEST_CXXFLAGS += -I. -Itest -Ithird_party/doctest/doctest
 
+# IWYU flags.
 IWYU_FLAGS += -Xiwyu --no_fwd_decls -Xiwyu --mapping_file=./iwyu.imp
 
+# Benchmark flags.
 BENCH_SRC_C := $(wildcard $(SRC_DIR)/bench/*.c)
 BENCH_SRC_CXX := $(wildcard $(SRC_DIR)/bench/*.cpp)
 
@@ -33,31 +41,27 @@ BENCH_OBJ += $(BENCH_SRC_CXX:$(SRC_DIR)/bench/%.cpp=$(OBJ_DIR)/bench/%.o)
 
 BENCH_CXXFLAGS += -I. -Ibench -Ithird_party/picobench/include
 
-DEBUG ?= 0
-ifneq ($(DEBUG), 1)
-	REQUIRE_DEBUG := $(filter $(MAKECMDGOALS),asan tsan ubsan valgrind cov covweb)
-	DEBUG = $(if $(REQUIRE_DEBUG),1,0)
-endif
+# Add rules for third-party code.
 
-A0_EXT_YYJSON ?= 0
-ifeq ($(A0_EXT_YYJSON), 1)
-	CXFLAGS += -DA0_EXT_YYJSON
-	CXFLAGS += -Ithird_party/yyjson/src
-	YYJSON_SRC := third_party/yyjson/src/yyjson.c
-	YYJSON_OBJ := obj/third_party/yyjson/src/yyjson.o
-	OBJ += $(YYJSON_OBJ)
+# YYJSON rule.
+CXFLAGS += -Ithird_party/yyjson/src
+YYJSON_SRC := third_party/yyjson/src/yyjson.c
+YYJSON_OBJ := obj/third_party/yyjson/src/yyjson.o
+OBJ += $(YYJSON_OBJ)
 
 $(YYJSON_OBJ): $(YYJSON_SRC)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CXFLAGS) -MMD -c $< -o $@
-endif
 
+# NLOHMANN rule.
+# Enabled by command line.
 A0_EXT_NLOHMANN ?= 0
 ifeq ($(A0_EXT_NLOHMANN), 1)
 	CXXFLAGS += -DA0_EXT_NLOHMANN
 	CXXFLAGS += -Ithird_party/json/single_include
 endif
 
+# Static analysis flags.
 cov: CXFLAGS += -fprofile-arcs -ftest-coverage --coverage
 cov: LDFLAGS += -lgcov
 
@@ -70,17 +74,27 @@ tsan: LDFLAGS += -fsanitize=thread
 ubsan: CXFLAGS += -fsanitize=undefined -fno-sanitize-recover=undefined
 ubsan: LDFLAGS += -fsanitize=undefined -lubsan
 
+# Debug flags.
+# Debug is auto-enabled for static analysis.
+DEBUG ?= 0
+ifneq ($(DEBUG), 1)
+	REQUIRE_DEBUG := $(filter $(MAKECMDGOALS),asan tsan ubsan valgrind cov covweb)
+	DEBUG = $(if $(REQUIRE_DEBUG),1,0)
+endif
+
 ifeq ($(DEBUG), 1)
 	CXFLAGS += -O0 -g3 -ggdb3 -DDEBUG
 else
 	CXFLAGS += -O2 -DNDEBUG
 endif
 
+# Profiler flags.
 ifeq ($(PROFILE), 1)
 	CXFLAGS += -g3 -ggdb3
 	LDFLAGS += -Wl,--no-as-needed -lprofiler -Wl,--as-needed
 endif
 
+# Support custom install location.
 ifeq ($(PREFIX),)
 	PREFIX := /usr
 endif

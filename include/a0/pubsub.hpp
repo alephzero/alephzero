@@ -5,6 +5,7 @@
 #include <a0/packet.hpp>
 #include <a0/pubsub.h>
 #include <a0/reader.hpp>
+#include <a0/writer.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -38,6 +39,7 @@ struct Publisher : details::CppWrap<a0_publisher_t> {
   void pub(string_view payload) {
     pub({}, payload);
   }
+  Writer writer();
 };
 
 struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {

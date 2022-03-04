@@ -145,7 +145,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp blocking") {
 
   timeout = a0::TimeMono::now() + std::chrono::milliseconds(1);
   REQUIRE_THROWS_WITH(
-      [&]() { a0::RpcClient("test").send_blocking("send", timeout); }(),
+      a0::RpcClient("test").send_blocking("send", timeout),
       strerror(ETIMEDOUT));
 
   REQUIRE(a0::RpcClient("test").send("send").get().payload() == "reply");
@@ -158,7 +158,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp blocking") {
     a0::RpcClient("test").cancel(pkt_0.id());
   });
   REQUIRE_THROWS_WITH(
-      [&]() { a0::RpcClient("test").send_blocking(pkt_0); }(),
+      a0::RpcClient("test").send_blocking(pkt_0),
       "Operation cancelled");
   t_0.join();
 
@@ -169,7 +169,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp blocking") {
   });
   timeout = a0::TimeMono::now() + std::chrono::seconds(2000);
   REQUIRE_THROWS_WITH(
-      [&]() { a0::RpcClient("test").send_blocking(pkt_1, timeout); }(),
+      a0::RpcClient("test").send_blocking(pkt_1, timeout),
       "Operation cancelled");
   t_1.join();
 }

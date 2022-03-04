@@ -15,12 +15,12 @@
 #include "src/test_util.hpp"
 
 TEST_CASE("discovery] discovery") {
+  a0::test::scope_env change_root("A0_ROOT", "/dev/shm/discovery_test");
+
   try {
-    a0::File::remove_all("/dev/shm/discovery_test/");
+    a0::File::remove_all("/dev/shm/discovery_test");
   } catch (...) {
   }
-  a0::File("/dev/shm/discovery_test/unused");
-  a0::File::remove("/dev/shm/discovery_test/unused");
 
   struct data_t {
     std::vector<std::string> paths;
@@ -39,21 +39,27 @@ TEST_CASE("discovery] discovery") {
   };
 
   a0_discovery_t d;
-  REQUIRE_OK(a0_discovery_init(&d, "/dev/shm/discovery_test/**/*.a0", callback));
+  REQUIRE_OK(a0_discovery_init(&d, "**/*.a0", callback));
 
-  a0::File("/dev/shm/discovery_test/file.a0");
-  a0::File("/dev/shm/discovery_test/a/file.a0");
-  a0::File("/dev/shm/discovery_test/a/b/file.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/file.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/file2.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file2.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file3.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file4.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file5.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file6.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file7.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file8.a0");
+  a0::File("file.a0");
+  a0::File("a/file.a0");
+  a0::File("a/b/file.a0");
+
+  {
+    std::unique_lock<std::mutex> lock(data.mu);
+    data.cv.wait(lock, [&data] { return data.paths.size() >= 3; });
+  }
+
+  a0::File("a/b/c/d/file.a0");
+  a0::File("a/b/c/d/file2.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file2.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file3.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file4.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file5.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file6.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file7.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file8.a0");
 
   {
     std::unique_lock<std::mutex> lock(data.mu);
@@ -81,12 +87,12 @@ TEST_CASE("discovery] discovery") {
 }
 
 TEST_CASE("discovery] cpp discovery") {
+  a0::test::scope_env change_root("A0_ROOT", "/dev/shm/discovery_test");
+
   try {
     a0::File::remove_all("/dev/shm/discovery_test/");
   } catch (...) {
   }
-  a0::File("/dev/shm/discovery_test/unused");
-  a0::File::remove("/dev/shm/discovery_test/unused");
 
   struct data_t {
     std::vector<std::string> paths;
@@ -94,28 +100,33 @@ TEST_CASE("discovery] cpp discovery") {
     std::mutex mu;
   } data;
 
-  a0::File("/dev/shm/discovery_test/file.a0");
-  a0::File("/dev/shm/discovery_test/a/file.a0");
-  a0::File("/dev/shm/discovery_test/a/b/file.a0");
+  a0::File("file.a0");
+  a0::File("a/file.a0");
+  a0::File("a/b/file.a0");
 
   a0::Discovery discovery(
-      "/dev/shm/discovery_test/**/*.a0",
+      "**/*.a0",
       [&](const std::string& path) {
         std::unique_lock<std::mutex> lock(data.mu);
         data.paths.push_back(path);
         data.cv.notify_one();
       });
 
-  a0::File("/dev/shm/discovery_test/a/b/c/d/file1.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/file2.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file1.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file2.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file3.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file4.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file5.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file6.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file7.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file8.a0");
+  {
+    std::unique_lock<std::mutex> lock(data.mu);
+    data.cv.wait(lock, [&data] { return data.paths.size() >= 3; });
+  }
+
+  a0::File("a/b/c/d/file1.a0");
+  a0::File("a/b/c/d/file2.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file1.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file2.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file3.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file4.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file5.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file6.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file7.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file8.a0");
 
   {
     std::unique_lock<std::mutex> lock(data.mu);
@@ -143,12 +154,12 @@ TEST_CASE("discovery] cpp discovery") {
 }
 
 TEST_CASE("discovery] cpp discovery exact match") {
+  a0::test::scope_env change_root("A0_ROOT", "/dev/shm/discovery_test");
+
   try {
     a0::File::remove_all("/dev/shm/discovery_test/");
   } catch (...) {
   }
-  a0::File("/dev/shm/discovery_test/unused");
-  a0::File::remove("/dev/shm/discovery_test/unused");
 
   struct data_t {
     std::vector<std::string> paths;
@@ -156,12 +167,12 @@ TEST_CASE("discovery] cpp discovery exact match") {
     std::mutex mu;
   } data;
 
-  a0::File("/dev/shm/discovery_test/file.a0");
-  a0::File("/dev/shm/discovery_test/a/file.a0");
-  a0::File("/dev/shm/discovery_test/a/b/file.a0");
+  a0::File("file.a0");
+  a0::File("a/file.a0");
+  a0::File("a/b/file.a0");
 
   a0::Discovery discovery_before(
-      "/dev/shm/discovery_test/a/file.a0",
+      "a/file.a0",
       [&](const std::string& path) {
         std::unique_lock<std::mutex> lock(data.mu);
         data.paths.push_back(path);
@@ -169,23 +180,23 @@ TEST_CASE("discovery] cpp discovery exact match") {
       });
 
   a0::Discovery discovery_after(
-      "/dev/shm/discovery_test/a/b/c/d/file1.a0",
+      "a/b/c/d/file1.a0",
       [&](const std::string& path) {
         std::unique_lock<std::mutex> lock(data.mu);
         data.paths.push_back(path);
         data.cv.notify_one();
       });
 
-  a0::File("/dev/shm/discovery_test/a/b/c/d/file1.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/file2.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file1.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file2.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file3.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file4.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file5.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file6.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file7.a0");
-  a0::File("/dev/shm/discovery_test/a/b/c/d/e/f/g/h/i/j/k/l/m/file8.a0");
+  a0::File("a/b/c/d/file1.a0");
+  a0::File("a/b/c/d/file2.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file1.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file2.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file3.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file4.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file5.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file6.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file7.a0");
+  a0::File("a/b/c/d/e/f/g/h/i/j/k/l/m/file8.a0");
 
   {
     std::unique_lock<std::mutex> lock(data.mu);

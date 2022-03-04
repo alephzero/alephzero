@@ -19,20 +19,6 @@
 
 #include "src/test_util.hpp"
 
-#ifdef A0_EXT_YYJSON
-
-#include <a0/time.h>
-
-#include <yyjson.h>
-
-#include <cerrno>
-#include <chrono>
-#include <thread>
-
-#include "src/err_macro.h"
-
-#endif  // A0_EXT_YYJSON
-
 #ifdef A0_EXT_NLOHMANN
 
 #include <nlohmann/json.hpp>
@@ -99,7 +85,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp basic") {
   a0::Cfg c(a0::env::topic());
 
   REQUIRE_THROWS_WITH(
-      [&]() { c.read(); }(),
+      c.read(),
       "Not available yet");
 
   c.write("cfg");
@@ -165,114 +151,22 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp watcher") {
   REQUIRE(cfgs.back() == "final_cfg");
 }
 
-#ifdef A0_EXT_YYJSON
-
-TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read empty nonblock") {
-  yyjson_doc doc;
-  REQUIRE(a0_cfg_read_yyjson(&cfg, a0::test::alloc(), &doc) == A0_ERR_AGAIN);
-}
-
-TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read nonjson") {
-  REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt("cfg")));
-  yyjson_doc doc;
-  a0_err_t err = a0_cfg_read_yyjson(&cfg, a0::test::alloc(), &doc);
-  REQUIRE(err == A0_ERR_CUSTOM_MSG);
-  REQUIRE(std::string(a0_err_msg) == "Failed to parse cfg: unexpected character");
-}
-
-TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read valid") {
-  REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
-  yyjson_doc doc;
-  REQUIRE_OK(a0_cfg_read_yyjson(&cfg, a0::test::alloc(), &doc));
-  REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "foo")) == 1);
-  REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "bar")) == 2);
-}
-
-TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking") {
-  std::thread t([this]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(25));
-    REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
-  });
-  yyjson_doc doc;
-  REQUIRE_OK(a0_cfg_read_blocking_yyjson(&cfg, a0::test::alloc(), &doc));
-  t.join();
-
-  REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "foo")) == 1);
-  REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "bar")) == 2);
-}
-
-TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking timeout success") {
-  std::thread t([this]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
-  });
-  a0_time_mono_t timeout = a0::test::timeout_in(std::chrono::milliseconds(25));
-
-  yyjson_doc doc;
-  REQUIRE_OK(a0_cfg_read_blocking_timeout_yyjson(&cfg, a0::test::alloc(), &timeout, &doc));
-  t.join();
-
-  REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "foo")) == 1);
-  REQUIRE(yyjson_get_int(yyjson_obj_get(doc.root, "bar")) == 2);
-}
-
-TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson read blocking timeout fail") {
-  std::thread t([this]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(25));
-    REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
-  });
-  a0_time_mono_t timeout = a0::test::timeout_in(std::chrono::milliseconds(1));
-
-  yyjson_doc doc;
-  REQUIRE(A0_SYSERR(a0_cfg_read_blocking_timeout_yyjson(&cfg, a0::test::alloc(), &timeout, &doc)) == ETIMEDOUT);
-  t.join();
-}
-
-TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson write") {
-  std::string json_str = R"([1, "2", "three"])";
-  yyjson_doc* doc = yyjson_read(json_str.c_str(), json_str.size(), 0);
-  REQUIRE_OK(a0_cfg_write_yyjson(&cfg, *doc));
-  yyjson_doc_free(doc);
-
-  a0_packet_t pkt;
-  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), &pkt));
-  REQUIRE(a0::test::str(pkt.payload) == R"([1,"2","three"])");
-}
-
-TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson write if empty") {
-  bool written;
-  std::string json_str = R"([1, "2", "three"])";
-  yyjson_doc* doc = yyjson_read(json_str.c_str(), json_str.size(), 0);
-  REQUIRE_OK(a0_cfg_write_if_empty_yyjson(&cfg, *doc, &written));
-  yyjson_doc_free(doc);
-
-  json_str = R"([1, "2", "three", "four"])";
-  doc = yyjson_read(json_str.c_str(), json_str.size(), 0);
-  REQUIRE_OK(a0_cfg_write_if_empty_yyjson(&cfg, *doc, &written));
-  yyjson_doc_free(doc);
-
-  a0_packet_t pkt;
-  REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), &pkt));
-  REQUIRE(a0::test::str(pkt.payload) == R"([1,"2","three"])");
-}
-
-TEST_CASE_FIXTURE(CfgFixture, "cfg] yyjson mergepatch") {
-  std::string mp_str = R"({"foo": 1,"bar": 2})";
-  yyjson_doc* doc = yyjson_read(mp_str.c_str(), mp_str.size(), 0);
-  REQUIRE_OK(a0_cfg_mergepatch_yyjson(&cfg, *doc));
-  yyjson_doc_free(doc);
-
-  mp_str = R"({"foo": null, "bar": {"baz": 3}})";
-  doc = yyjson_read(mp_str.c_str(), mp_str.size(), 0);
-  REQUIRE_OK(a0_cfg_mergepatch_yyjson(&cfg, *doc));
-  yyjson_doc_free(doc);
+TEST_CASE_FIXTURE(CfgFixture, "cfg] mergepatch") {
+  REQUIRE_OK(a0_cfg_mergepatch(&cfg, a0::test::pkt(R"({"foo": 1,"bar": 2})")));
+  REQUIRE_OK(a0_cfg_mergepatch(&cfg, a0::test::pkt(R"({"foo": null, "bar": {"baz": 3}})")));
 
   a0_packet_t pkt;
   REQUIRE_OK(a0_cfg_read(&cfg, a0::test::alloc(), &pkt));
   REQUIRE(a0::test::str(pkt.payload) == R"({"bar":{"baz":3}})");
 }
 
-#endif  // A0_EXT_YYJSON
+TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp mergepatch") {
+  a0::Cfg c(topic.name);
+  c.mergepatch(R"({"foo": 1,"bar": 2})");
+  c.mergepatch(R"({"foo": null, "bar": {"baz": 3}})");
+
+  REQUIRE(c.read().payload() == R"({"bar":{"baz":3}})");
+}
 
 #ifdef A0_EXT_NLOHMANN
 
@@ -306,7 +200,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
 
   auto aaa = c.var<int>("/aaa");
   REQUIRE_THROWS_WITH(
-      [&]() { *aaa; }(),
+      *aaa,
       "Cfg::Var(jptr=/aaa) has no data");
 
   REQUIRE(c.write_if_empty(R"({"foo": 1, "bar": 2})"));
@@ -335,7 +229,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
 
   block_until_saved(2);
 
-  c.mergepatch({{"foo", 4}});
+  c.mergepatch(nlohmann::json{{"foo", 4}});
   c.update_var();
   REQUIRE(my->foo == 4);
   REQUIRE(my->bar == 2);
@@ -352,7 +246,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   c.write({{"aaa", 1}, {"bbb", 2}});
   c.update_var();
   REQUIRE_THROWS_WITH(
-      [&]() { *foo; }(),
+      *foo,
       "Cfg::Var(jptr=/foo) parse error: "
       "[json.exception.out_of_range.403] "
       "key 'foo' not found");
@@ -360,14 +254,14 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
   c.write({{"aaa", 1}, {"foo", "notanumber"}});
   c.update_var();
   REQUIRE_THROWS_WITH(
-      [&]() { *foo; }(),
+      *foo,
       "Cfg::Var(jptr=/foo) parse error: "
       "[json.exception.type_error.302] "
       "type must be number, but is string");
 
   c.write("");
   REQUIRE_THROWS_WITH(
-      [&]() { c.update_var(); }(),
+      c.update_var(),
       "[json.exception.parse_error.101] "
       "parse error at line 1, column 1: "
       "syntax error while parsing value - "
@@ -375,7 +269,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp nlohmann") {
 
   c.write("cfg");
   REQUIRE_THROWS_WITH(
-      [&]() { c.update_var(); }(),
+      c.update_var(),
       "[json.exception.parse_error.101] "
       "parse error at line 1, column 1: "
       "syntax error while parsing value - "

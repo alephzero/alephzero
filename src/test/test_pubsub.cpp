@@ -1,4 +1,5 @@
 #include <a0/file.h>
+#include <a0/middleware.hpp>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/pubsub.h>
@@ -7,6 +8,7 @@
 #include <a0/reader.hpp>
 #include <a0/string_view.hpp>
 #include <a0/time.hpp>
+#include <a0/writer.hpp>
 
 #include <doctest.h>
 #include <signal.h>
@@ -455,17 +457,17 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp sync blocking") {
   // Nonblocking, oldest, not available.
   REQUIRE_THROWS_WITH(
-      [&]() { a0::SubscriberSync(topic.name, a0::INIT_OLDEST).read(); }(),
+      a0::SubscriberSync(topic.name, a0::INIT_OLDEST).read(),
       "Not available yet");
 
   // Nonblocking, most recent, not available.
   REQUIRE_THROWS_WITH(
-      [&]() { a0::SubscriberSync(topic.name, a0::INIT_MOST_RECENT).read(); }(),
+      a0::SubscriberSync(topic.name, a0::INIT_MOST_RECENT).read(),
       "Not available yet");
 
   // Nonblocking, await new.
   REQUIRE_THROWS_WITH(
-      [&]() { a0::SubscriberSync(topic.name, a0::INIT_AWAIT_NEW).read(); }(),
+      a0::SubscriberSync(topic.name, a0::INIT_AWAIT_NEW).read(),
       "Not available yet");
 
   // Do writes.
@@ -501,13 +503,13 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp sync blocking") {
   thread_sleep_push_pkt(std::chrono::milliseconds(5), a0::Packet("msg #4"));
   block_timeout = a0::TimeMono::now() + std::chrono::milliseconds(1);
   REQUIRE_THROWS_WITH(
-      [&]() { a0::SubscriberSync(topic.name, a0::INIT_AWAIT_NEW).read_blocking(block_timeout); }(),
+      a0::SubscriberSync(topic.name, a0::INIT_AWAIT_NEW).read_blocking(block_timeout),
       strerror(ETIMEDOUT));
   join_threads();
 
   // Nonblocking, await new.
   REQUIRE_THROWS_WITH(
-      [&]() { a0::SubscriberSync(topic.name, a0::INIT_AWAIT_NEW).read(); }(),
+      a0::SubscriberSync(topic.name, a0::INIT_AWAIT_NEW).read(),
       "Not available yet");
 }
 
@@ -594,4 +596,19 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp multiproc fuzz") {
   REQUIRE(ss.can_read());
   auto pkt = ss.read();
   REQUIRE(pkt.payload() == "Still Works");
+}
+
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp writer") {
+  a0::Publisher p(topic.name);
+  p.pub(R"({"a":"b","c":"d"})");
+
+  auto w = p.writer();
+  w.push(a0::json_mergepatch());
+
+  p.pub(R"({"a":null})");
+
+  a0::SubscriberSync sub(topic.name, a0::INIT_MOST_RECENT);
+  REQUIRE(sub.can_read());
+  auto pkt = sub.read();
+  REQUIRE(pkt.payload() == R"({"c":"d"})");
 }

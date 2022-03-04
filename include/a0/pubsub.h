@@ -31,6 +31,7 @@ typedef struct a0_publisher_s {
 a0_err_t a0_publisher_init(a0_publisher_t*, a0_pubsub_topic_t);
 a0_err_t a0_publisher_close(a0_publisher_t*);
 a0_err_t a0_publisher_pub(a0_publisher_t*, a0_packet_t);
+a0_err_t a0_publisher_writer(a0_publisher_t*, a0_writer_t**);
 
 ////////////////
 // Subscriber //

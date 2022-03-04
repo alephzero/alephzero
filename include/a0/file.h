@@ -33,7 +33,7 @@
  * .. note::
  *
  *   **create_options** do not effect existing files.
- * 
+ *
  * **create_options** can also be used to set **mode**.
  *
  * Usage

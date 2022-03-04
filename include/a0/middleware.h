@@ -125,6 +125,13 @@ a0_middleware_t a0_add_transport_seq_header();
 /// Creates a middleware that adds all standard headers.
 a0_middleware_t a0_add_standard_headers();
 
+// Only write if the transport is empty.
+a0_middleware_t a0_write_if_empty(bool* written);
+
+// Treat the write packet as a JSON mergepatch on top of the most recent
+// packet in the transport.
+a0_middleware_t a0_json_mergepatch();
+
 /** @}*/
 
 #ifdef __cplusplus
