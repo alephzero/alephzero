@@ -595,3 +595,18 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp multiproc fuzz") {
   auto pkt = ss.read();
   REQUIRE(pkt.payload() == "Still Works");
 }
+
+TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp writer") {
+  a0::Publisher p(topic.name);
+  p.pub(R"({"a":"b","c":"d"})");
+
+  auto w = p.writer();
+  w.push(a0::json_mergepatch());
+
+  p.pub(R"({"a":null})");
+
+  a0::SubscriberSync sub(topic.name, a0::INIT_MOST_RECENT);
+  REQUIRE(sub.can_read());
+  auto pkt = sub.read();
+  REQUIRE(pkt.payload() == R"({"c":"d"})");
+}

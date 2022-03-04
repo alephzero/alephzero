@@ -44,11 +44,13 @@ void Publisher::pub(Packet pkt) {
 Writer Publisher::writer() {
   CHECK_C;
   auto save = c;
-  return make_cpp<Writer>(
-      [&](a0_writer_t* w) {
-        return a0_publisher_writer(&*c, &w);
-      },
-      [save](a0_writer_t*) {});
+
+  a0_writer_t* w;
+  check(a0_publisher_writer(&*c, &w));
+
+  Writer w_cpp;
+  w_cpp.c = std::shared_ptr<a0_writer_t>(w, [save](a0_writer_t*) {});
+  return w_cpp;
 }
 
 namespace {
