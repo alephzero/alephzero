@@ -1,4 +1,5 @@
 #include <a0/file.h>
+#include <a0/middleware.hpp>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/pubsub.h>
@@ -7,6 +8,7 @@
 #include <a0/reader.hpp>
 #include <a0/string_view.hpp>
 #include <a0/time.hpp>
+#include <a0/writer.hpp>
 
 #include <doctest.h>
 #include <signal.h>
