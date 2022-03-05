@@ -60,15 +60,24 @@ struct Cfg : details::CppWrap<a0_cfg_t> {
   void write(const char cstr[]) {
     write(Packet(cstr, ref));
   }
+  void write(std::string str) {
+    write(Packet(std::move(str)));
+  }
 
   bool write_if_empty(Packet);
   bool write_if_empty(const char cstr[]) {
     return write_if_empty(Packet(cstr, ref));
   }
+  bool write_if_empty(std::string str) {
+    return write_if_empty(Packet(std::move(str)));
+  }
 
   void mergepatch(Packet);
   void mergepatch(const char cstr[]) {
     mergepatch(Packet(cstr, ref));
+  }
+  void mergepatch(std::string str) {
+    mergepatch(Packet(std::move(str)));
   }
 
 #ifdef A0_EXT_NLOHMANN

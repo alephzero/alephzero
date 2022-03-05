@@ -162,10 +162,20 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] mergepatch") {
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp mergepatch") {
   a0::Cfg c(topic.name);
-  c.mergepatch(R"({"foo": 1,"bar": 2})");
-  c.mergepatch(R"({"foo": null, "bar": {"baz": 3}})");
 
-  REQUIRE(c.read().payload() == R"({"bar":{"baz":3}})");
+  c.mergepatch(R"({"foo": 1,"bar": 2,"zzz":6})");
+  REQUIRE(c.read().payload() == R"({"foo": 1,"bar": 2,"zzz":6})");
+
+  c.mergepatch(std::string(R"({"foo": null, "bar": {"baz": 3, "bat": 4}})"));
+  REQUIRE(c.read().payload() == R"({"bar":{"baz":3,"bat":4},"zzz":6})");
+
+  c.mergepatch(a0::Packet(R"({"bar": {"bat": 5}})"));
+  REQUIRE(c.read().payload() == R"({"bar":{"bat":5,"baz":3},"zzz":6})");
+
+#ifdef A0_EXT_NLOHMANN
+  c.mergepatch({{"zzz", nullptr}});
+  REQUIRE(c.read().payload() == R"({"bar":{"bat":5,"baz":3}})");
+#endif
 }
 
 #ifdef A0_EXT_NLOHMANN
