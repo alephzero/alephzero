@@ -42,6 +42,25 @@ struct Publisher : details::CppWrap<a0_publisher_t> {
   Writer writer();
 };
 
+struct SubscriberSyncZeroCopy : details::CppWrap<a0_subscriber_sync_zc_t> {
+  SubscriberSyncZeroCopy() = default;
+  SubscriberSyncZeroCopy(PubSubTopic, Reader::Options);
+
+  explicit SubscriberSyncZeroCopy(PubSubTopic topic)
+      : SubscriberSyncZeroCopy(topic, Reader::Options()) {}
+  SubscriberSyncZeroCopy(PubSubTopic topic, Reader::Init init)
+      : SubscriberSyncZeroCopy(topic, Reader::Options(init)) {}
+  SubscriberSyncZeroCopy(PubSubTopic topic, Reader::Iter iter)
+      : SubscriberSyncZeroCopy(topic, Reader::Options(iter)) {}
+  SubscriberSyncZeroCopy(PubSubTopic topic, Reader::Init init, Reader::Iter iter)
+      : SubscriberSyncZeroCopy(topic, Reader::Options(init, iter)) {}
+
+  bool can_read();
+  void read(std::function<void(TransportLocked, FlatPacket)>);
+  void read_blocking(std::function<void(TransportLocked, FlatPacket)>);
+  void read_blocking(TimeMono, std::function<void(TransportLocked, FlatPacket)>);
+};
+
 struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
   SubscriberSync() = default;
   SubscriberSync(PubSubTopic, Reader::Options);
@@ -63,6 +82,20 @@ struct SubscriberSync : details::CppWrap<a0_subscriber_sync_t> {
   Packet read();
   Packet read_blocking();
   Packet read_blocking(TimeMono);
+};
+
+struct SubscriberZeroCopy : details::CppWrap<a0_subscriber_zc_t> {
+  SubscriberZeroCopy() = default;
+  SubscriberZeroCopy(PubSubTopic, Reader::Options, std::function<void(TransportLocked, FlatPacket)>);
+
+  SubscriberZeroCopy(PubSubTopic topic, std::function<void(TransportLocked, FlatPacket)> fn)
+      : SubscriberZeroCopy(topic, Reader::Options(), fn) {}
+  SubscriberZeroCopy(PubSubTopic topic, Reader::Init init, std::function<void(TransportLocked, FlatPacket)> fn)
+      : SubscriberZeroCopy(topic, Reader::Options(init), fn) {}
+  SubscriberZeroCopy(PubSubTopic topic, Reader::Iter iter, std::function<void(TransportLocked, FlatPacket)> fn)
+      : SubscriberZeroCopy(topic, Reader::Options(iter), fn) {}
+  SubscriberZeroCopy(PubSubTopic topic, Reader::Init init, Reader::Iter iter, std::function<void(TransportLocked, FlatPacket)> fn)
+      : SubscriberZeroCopy(topic, Reader::Options(init, iter), fn) {}
 };
 
 struct Subscriber : details::CppWrap<a0_subscriber_t> {

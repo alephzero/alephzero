@@ -62,6 +62,47 @@ a0_err_t a0_publisher_writer(a0_publisher_t* pub, a0_writer_t** out) {
 //  Subscriber  //
 //////////////////
 
+// Synchronous zero-copy version.
+
+a0_err_t a0_subscriber_sync_zc_init(a0_subscriber_sync_zc_t* sub_sync_zc,
+                                    a0_pubsub_topic_t topic,
+                                    a0_reader_options_t opts) {
+  A0_RETURN_ERR_ON_ERR(a0_pubsub_topic_open(topic, &sub_sync_zc->_file));
+
+  a0_err_t err = a0_reader_sync_zc_init(
+      &sub_sync_zc->_reader_sync_zc,
+      sub_sync_zc->_file.arena,
+      opts);
+  if (err) {
+    a0_file_close(&sub_sync_zc->_file);
+    return err;
+  }
+
+  return A0_OK;
+}
+
+a0_err_t a0_subscriber_sync_zc_close(a0_subscriber_sync_zc_t* sub_sync_zc) {
+  a0_reader_sync_zc_close(&sub_sync_zc->_reader_sync_zc);
+  a0_file_close(&sub_sync_zc->_file);
+  return A0_OK;
+}
+
+a0_err_t a0_subscriber_sync_zc_can_read(a0_subscriber_sync_zc_t* sub_sync_zc, bool* can_read) {
+  return a0_reader_sync_zc_can_read(&sub_sync_zc->_reader_sync_zc, can_read);
+}
+
+a0_err_t a0_subscriber_sync_zc_read(a0_subscriber_sync_zc_t* sub_sync_zc, a0_zero_copy_callback_t onpacket) {
+  return a0_reader_sync_zc_read(&sub_sync_zc->_reader_sync_zc, onpacket);
+}
+
+a0_err_t a0_subscriber_sync_zc_read_blocking(a0_subscriber_sync_zc_t* sub_sync_zc, a0_zero_copy_callback_t onpacket) {
+  return a0_reader_sync_zc_read_blocking(&sub_sync_zc->_reader_sync_zc, onpacket);
+}
+
+a0_err_t a0_subscriber_sync_zc_read_blocking_timeout(a0_subscriber_sync_zc_t* sub_sync_zc, a0_time_mono_t* timeout, a0_zero_copy_callback_t onpacket) {
+  return a0_reader_sync_zc_read_blocking_timeout(&sub_sync_zc->_reader_sync_zc, timeout, onpacket);
+}
+
 // Synchronous allocated version.
 
 a0_err_t a0_subscriber_sync_init(a0_subscriber_sync_t* sub_sync,
@@ -105,7 +146,34 @@ a0_err_t a0_subscriber_sync_read_blocking_timeout(a0_subscriber_sync_t* sub_sync
   return a0_reader_sync_read_blocking_timeout(&sub_sync->_reader_sync, timeout, pkt);
 }
 
-// Normal threaded version.
+// Threaded zero-copy version.
+
+a0_err_t a0_subscriber_zc_init(a0_subscriber_zc_t* sub_zc,
+                               a0_pubsub_topic_t topic,
+                               a0_reader_options_t opts,
+                               a0_zero_copy_callback_t onpacket) {
+  A0_RETURN_ERR_ON_ERR(a0_pubsub_topic_open(topic, &sub_zc->_file));
+
+  a0_err_t err = a0_reader_zc_init(
+      &sub_zc->_reader_zc,
+      sub_zc->_file.arena,
+      opts,
+      onpacket);
+  if (err) {
+    a0_file_close(&sub_zc->_file);
+    return err;
+  }
+
+  return A0_OK;
+}
+
+a0_err_t a0_subscriber_zc_close(a0_subscriber_zc_t* sub_zc) {
+  a0_reader_zc_close(&sub_zc->_reader_zc);
+  a0_file_close(&sub_zc->_file);
+  return A0_OK;
+}
+
+// Threaded allocated version.
 
 a0_err_t a0_subscriber_init(a0_subscriber_t* sub,
                             a0_pubsub_topic_t topic,
