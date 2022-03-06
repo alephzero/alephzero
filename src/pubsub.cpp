@@ -76,12 +76,11 @@ bool SubscriberSyncZeroCopy::can_read() {
 A0_STATIC_INLINE
 a0_zero_copy_callback_t SubscriberSyncZeroCopy_callback(std::function<void(TransportLocked, FlatPacket)>* fn) {
   return a0_zero_copy_callback_t{
-    .user_data = fn,
-    .fn = [](void* user_data, a0_transport_locked_t tlk_c, a0_flat_packet_t fpkt_c) {
-      auto* fn = (std::function<void(TransportLocked, FlatPacket)>*)user_data;
-      (*fn)(cpp_wrap<TransportLocked>(&tlk_c), cpp_wrap<FlatPacket>(&fpkt_c));
-    }
-  };
+      .user_data = fn,
+      .fn = [](void* user_data, a0_transport_locked_t tlk_c, a0_flat_packet_t fpkt_c) {
+        auto* fn = (std::function<void(TransportLocked, FlatPacket)>*)user_data;
+        (*fn)(cpp_wrap<TransportLocked>(&tlk_c), cpp_wrap<FlatPacket>(&fpkt_c));
+      }};
 }
 
 void SubscriberSyncZeroCopy::read(std::function<void(TransportLocked, FlatPacket)> fn) {

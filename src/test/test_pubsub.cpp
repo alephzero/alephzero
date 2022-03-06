@@ -386,41 +386,41 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp zc") {
     a0::test::Event done;
     a0::SubscriberZeroCopy sub_zc(
         topic.name, a0::INIT_OLDEST, [&](a0::TransportLocked, a0::FlatPacket fpkt) {
-      auto hdrs = a0::test::hdr(*fpkt.c);
-      REQUIRE(hdrs.find("a0_time_mono")->second.size() == 19);
-      REQUIRE(hdrs.find("a0_time_wall")->second.size() == 35);
-      REQUIRE(hdrs.find("a0_writer_id")->second.size() == 36);
+          auto hdrs = a0::test::hdr(*fpkt.c);
+          REQUIRE(hdrs.find("a0_time_mono")->second.size() == 19);
+          REQUIRE(hdrs.find("a0_time_wall")->second.size() == 35);
+          REQUIRE(hdrs.find("a0_writer_id")->second.size() == 36);
 
-      auto time_mono = stoull(hdrs.find("a0_time_mono")->second);
-      REQUIRE(time_mono > 0);
-      REQUIRE(time_mono < UINT64_MAX);
+          auto time_mono = stoull(hdrs.find("a0_time_mono")->second);
+          REQUIRE(time_mono > 0);
+          REQUIRE(time_mono < UINT64_MAX);
 
-      if (i++ == 0) {
-        REQUIRE(fpkt.num_headers() == 7);
-        REQUIRE(fpkt.payload() == "msg #0");
+          if (i++ == 0) {
+            REQUIRE(fpkt.num_headers() == 7);
+            REQUIRE(fpkt.payload() == "msg #0");
 
-        REQUIRE(hdrs.find("key0")->second == "val0");
-        REQUIRE(hdrs.find("key1")->second == "val1");
-        REQUIRE(hdrs.find("a0_transport_seq")->second == "0");
-        REQUIRE(hdrs.find("a0_writer_seq")->second == "0");
-      } else if (i++ == 1) {
-        REQUIRE(fpkt.num_headers() == 6);
-        REQUIRE(fpkt.payload() == "msg #1");
+            REQUIRE(hdrs.find("key0")->second == "val0");
+            REQUIRE(hdrs.find("key1")->second == "val1");
+            REQUIRE(hdrs.find("a0_transport_seq")->second == "0");
+            REQUIRE(hdrs.find("a0_writer_seq")->second == "0");
+          } else if (i++ == 1) {
+            REQUIRE(fpkt.num_headers() == 6);
+            REQUIRE(fpkt.payload() == "msg #1");
 
-        REQUIRE(hdrs.find("key2")->second == "val2");
-        REQUIRE(hdrs.find("a0_transport_seq")->second == "1");
-        REQUIRE(hdrs.find("a0_writer_seq")->second == "1");
-      } else if (i++ == 2) {
-        REQUIRE(fpkt.num_headers() == 6);
-        REQUIRE(fpkt.payload() == "msg #2");
+            REQUIRE(hdrs.find("key2")->second == "val2");
+            REQUIRE(hdrs.find("a0_transport_seq")->second == "1");
+            REQUIRE(hdrs.find("a0_writer_seq")->second == "1");
+          } else if (i++ == 2) {
+            REQUIRE(fpkt.num_headers() == 6);
+            REQUIRE(fpkt.payload() == "msg #2");
 
-        REQUIRE(hdrs.find("key3")->second == "val3");
-        REQUIRE(hdrs.find("a0_transport_seq")->second == "2");
-        REQUIRE(hdrs.find("a0_writer_seq")->second == "2");
-      } else {
-        done.set();
-      }
-    });
+            REQUIRE(hdrs.find("key3")->second == "val3");
+            REQUIRE(hdrs.find("a0_transport_seq")->second == "2");
+            REQUIRE(hdrs.find("a0_writer_seq")->second == "2");
+          } else {
+            done.set();
+          }
+        });
 
     done.wait();
   }
@@ -429,9 +429,9 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp zc") {
     a0::test::Event done;
     a0::SubscriberZeroCopy sub_zc(
         topic.name, a0::INIT_MOST_RECENT, [&](a0::TransportLocked, a0::FlatPacket fpkt) {
-      REQUIRE(fpkt.payload() == "msg #2");
-      done.set();
-    });
+          REQUIRE(fpkt.payload() == "msg #2");
+          done.set();
+        });
 
     done.wait();
   }
