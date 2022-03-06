@@ -53,6 +53,52 @@ Writer Publisher::writer() {
   return w_cpp;
 }
 
+SubscriberSyncZeroCopy::SubscriberSyncZeroCopy(PubSubTopic topic, Reader::Options opts) {
+  set_c(
+      &c,
+      [&](a0_subscriber_sync_zc_t* c) {
+        auto cfo = c_fileopts(topic.file_opts);
+        a0_pubsub_topic_t c_topic{topic.name.c_str(), &cfo};
+        return a0_subscriber_sync_zc_init(c, c_topic, c_readeropts(opts));
+      },
+      [](a0_subscriber_sync_zc_t* c) {
+        a0_subscriber_sync_zc_close(c);
+      });
+}
+
+bool SubscriberSyncZeroCopy::can_read() {
+  CHECK_C;
+  bool ret;
+  check(a0_subscriber_sync_zc_can_read(&*c, &ret));
+  return ret;
+}
+
+A0_STATIC_INLINE
+a0_zero_copy_callback_t SubscriberSyncZeroCopy_callback(std::function<void(TransportLocked, FlatPacket)>* fn) {
+  return a0_zero_copy_callback_t{
+    .user_data = fn,
+    .fn = [](void* user_data, a0_transport_locked_t tlk_c, a0_flat_packet_t fpkt_c) {
+      auto* fn = (std::function<void(TransportLocked, FlatPacket)>*)user_data;
+      (*fn)(cpp_wrap<TransportLocked>(&tlk_c), cpp_wrap<FlatPacket>(&fpkt_c));
+    }
+  };
+}
+
+void SubscriberSyncZeroCopy::read(std::function<void(TransportLocked, FlatPacket)> fn) {
+  CHECK_C;
+  check(a0_subscriber_sync_zc_read(&*c, SubscriberSyncZeroCopy_callback(&fn)));
+}
+
+void SubscriberSyncZeroCopy::read_blocking(std::function<void(TransportLocked, FlatPacket)> fn) {
+  CHECK_C;
+  check(a0_subscriber_sync_zc_read_blocking(&*c, SubscriberSyncZeroCopy_callback(&fn)));
+}
+
+void SubscriberSyncZeroCopy::read_blocking(TimeMono timeout, std::function<void(TransportLocked, FlatPacket)> fn) {
+  CHECK_C;
+  check(a0_subscriber_sync_zc_read_blocking_timeout(&*c, &*timeout.c, SubscriberSyncZeroCopy_callback(&fn)));
+}
+
 namespace {
 
 struct SubscriberSyncImpl {
@@ -120,6 +166,40 @@ Packet SubscriberSync::read_blocking(TimeMono timeout) {
   return SubscriberSync_read(c_impl<SubscriberSyncImpl>(&c), [&](a0_packet_t* pkt) {
     return a0_subscriber_sync_read_blocking_timeout(&*c, &*timeout.c, pkt);
   });
+}
+
+namespace {
+
+struct SubscriberZeroCopyImpl {
+  std::function<void(TransportLocked, FlatPacket)> onpacket;
+};
+
+}  // namespace
+
+SubscriberZeroCopy::SubscriberZeroCopy(
+    PubSubTopic topic,
+    Reader::Options opts,
+    std::function<void(TransportLocked, FlatPacket)> onpacket) {
+  set_c_impl<SubscriberZeroCopyImpl>(
+      &c,
+      [&](a0_subscriber_zc_t* c, SubscriberZeroCopyImpl* impl) {
+        impl->onpacket = std::move(onpacket);
+
+        auto cfo = c_fileopts(topic.file_opts);
+        a0_pubsub_topic_t c_topic{topic.name.c_str(), &cfo};
+
+        a0_zero_copy_callback_t c_onpacket = {
+            .user_data = impl,
+            .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
+              auto* impl = (SubscriberZeroCopyImpl*)user_data;
+              impl->onpacket(cpp_wrap<TransportLocked>(&tlk), cpp_wrap<FlatPacket>(&fpkt));
+            }};
+
+        return a0_subscriber_zc_init(c, c_topic, c_readeropts(opts), c_onpacket);
+      },
+      [](a0_subscriber_zc_t* c, SubscriberZeroCopyImpl*) {
+        a0_subscriber_zc_close(c);
+      });
 }
 
 namespace {
