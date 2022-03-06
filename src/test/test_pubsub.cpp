@@ -8,6 +8,7 @@
 #include <a0/reader.hpp>
 #include <a0/string_view.hpp>
 #include <a0/time.hpp>
+#include <a0/transport.hpp>
 #include <a0/writer.hpp>
 
 #include <doctest.h>
@@ -22,6 +23,7 @@
 #include <cstring>
 #include <functional>
 #include <map>
+#include <memory>
 #include <ostream>
 #include <set>
 #include <string>
