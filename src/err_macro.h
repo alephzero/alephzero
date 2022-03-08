@@ -62,11 +62,12 @@ a0_err_t A0_MAKE_MSGERR(const char* fmt, ...) {
 
 #define A0_ASSERT_OK(ERR, ...) \
   do {                         \
-    assert(ERR != A0_OK);      \
+    assert((ERR) != A0_OK);    \
   } while (0)
 
 #ifdef DEBUG
 
+#undef A0_ASSERT
 #define A0_ASSERT(X, MSG, ...)                           \
   do {                                                   \
     if (!(X)) {                                          \
@@ -80,6 +81,7 @@ a0_err_t A0_MAKE_MSGERR(const char* fmt, ...) {
     }                                                    \
   } while (0)
 
+#undef A0_ASSERT_OK
 #define A0_ASSERT_OK(ERR, MSG, ...)                                \
   do {                                                             \
     a0_err_t _err = (ERR);                                         \
