@@ -55,14 +55,14 @@ a0_err_t A0_MAKE_MSGERR(const char* fmt, ...) {
     }                           \
   } while (0)
 
-#define A0_ASSERT(X, ...) \
-  do {                    \
-    assert(X);            \
+#define A0_ASSERT(X, MSG, ...) \
+  do {                         \
+    A0_MAYBE_UNUSED(X);        \
   } while (0)
 
-#define A0_ASSERT_OK(ERR, ...) \
-  do {                         \
-    assert((ERR) != A0_OK);    \
+#define A0_ASSERT_OK(ERR, MSG, ...) \
+  do {                              \
+    A0_MAYBE_UNUSED(ERR);           \
   } while (0)
 
 #ifdef DEBUG
