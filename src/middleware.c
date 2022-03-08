@@ -9,7 +9,6 @@
 #include <a0/uuid.h>
 
 #include <alloca.h>
-#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -276,7 +275,7 @@ a0_err_t a0_json_mergepatch_process_locked_nonempty(
 
   size_t original_size = yyjson_read_max_memory_usage(
       original_payload.size, a0_yyjson_read_flags());
-  assert(original_size > 0);
+  A0_ASSERT(original_size > 0);
   void* original_data = alloca(original_size);
 
   yyjson_alc original_alc;
@@ -300,7 +299,7 @@ a0_err_t a0_json_mergepatch_process_locked_nonempty(
   // Parse the mergepatch json.
   size_t mergepatch_size = yyjson_read_max_memory_usage(
       pkt->payload.size, a0_yyjson_read_flags());
-  assert(mergepatch_size > 0);
+  A0_ASSERT(mergepatch_size > 0);
   void* mergepatch_data = alloca(mergepatch_size);
 
   yyjson_alc mergepatch_alc;

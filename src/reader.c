@@ -19,7 +19,6 @@
 #include "err_macro.h"
 
 #ifdef DEBUG
-#include "assert.h"
 #include "ref_cnt.h"
 #endif
 
@@ -56,10 +55,9 @@ a0_err_t a0_reader_sync_zc_init(a0_reader_sync_zc_t* reader_sync_zc,
 }
 
 a0_err_t a0_reader_sync_zc_close(a0_reader_sync_zc_t* reader_sync_zc) {
-  A0_MAYBE_UNUSED(reader_sync_zc);
-#ifdef DEBUG
   A0_ASSERT(reader_sync_zc, "Cannot close null reader (sync+zc).");
 
+#ifdef DEBUG
   A0_ASSERT_OK(
       a0_ref_cnt_dec(reader_sync_zc->_transport._arena.buf.data, NULL),
       "Reader (sync+zc) closing. Arena was previously closed.");
@@ -69,9 +67,7 @@ a0_err_t a0_reader_sync_zc_close(a0_reader_sync_zc_t* reader_sync_zc) {
 }
 
 a0_err_t a0_reader_sync_zc_can_read(a0_reader_sync_zc_t* reader_sync_zc, bool* can_read) {
-#ifdef DEBUG
   A0_ASSERT(reader_sync_zc, "Cannot read from null reader (sync+zc).");
-#endif
 
   a0_err_t err;
   a0_transport_locked_t tlk;
@@ -96,9 +92,7 @@ A0_STATIC_INLINE
 a0_err_t a0_reader_sync_zc_read_helper(a0_reader_sync_zc_t* reader_sync_zc,
                                        a0_zero_copy_callback_t cb,
                                        a0_reader_sync_zc_read_align_callback_t align_read) {
-#ifdef DEBUG
   A0_ASSERT(reader_sync_zc, "Cannot read from null reader (sync+zc).");
-#endif
 
   a0_transport_locked_t tlk;
   A0_RETURN_ERR_ON_ERR(a0_transport_lock(&reader_sync_zc->_transport, &tlk));
@@ -242,17 +236,13 @@ a0_err_t a0_reader_sync_init(a0_reader_sync_t* reader_sync,
 }
 
 a0_err_t a0_reader_sync_close(a0_reader_sync_t* reader_sync) {
-#ifdef DEBUG
   A0_ASSERT(reader_sync, "Cannot close from null reader (sync).");
-#endif
 
   return a0_reader_sync_zc_close(&reader_sync->_reader_sync_zc);
 }
 
 a0_err_t a0_reader_sync_can_read(a0_reader_sync_t* reader_sync, bool* can_read) {
-#ifdef DEBUG
   A0_ASSERT(reader_sync, "Cannot read from null reader (sync).");
-#endif
 
   return a0_reader_sync_zc_can_read(&reader_sync->_reader_sync_zc, can_read);
 }
@@ -271,9 +261,7 @@ void a0_reader_sync_read_impl(void* user_data, a0_transport_locked_t tlk, a0_fla
 }
 
 a0_err_t a0_reader_sync_read(a0_reader_sync_t* reader_sync, a0_packet_t* pkt) {
-#ifdef DEBUG
   A0_ASSERT(reader_sync, "Cannot read from null reader (sync).");
-#endif
 
   a0_reader_sync_read_data_t data = (a0_reader_sync_read_data_t){
       .alloc = reader_sync->_alloc,
@@ -291,9 +279,7 @@ a0_err_t a0_reader_sync_read_blocking(a0_reader_sync_t* reader_sync, a0_packet_t
 }
 
 a0_err_t a0_reader_sync_read_blocking_timeout(a0_reader_sync_t* reader_sync, a0_time_mono_t* timeout, a0_packet_t* pkt) {
-#ifdef DEBUG
   A0_ASSERT(reader_sync, "Cannot read from null reader (sync).");
-#endif
 
   a0_reader_sync_read_data_t data = (a0_reader_sync_read_data_t){
       .alloc = reader_sync->_alloc,

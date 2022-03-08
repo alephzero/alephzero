@@ -23,7 +23,6 @@
 #include "err_macro.h"
 
 #ifdef DEBUG
-#include "assert.h"
 #include "ref_cnt.h"
 #endif
 

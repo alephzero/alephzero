@@ -14,9 +14,6 @@
 #include "err_macro.h"
 
 #ifdef DEBUG
-#include <a0/unused.h>
-
-#include "assert.h"
 #include "ref_cnt.h"
 #endif
 
@@ -121,9 +118,9 @@ a0_err_t a0_writer_init(a0_writer_t* w, a0_arena_t arena) {
 }
 
 a0_err_t a0_writer_close(a0_writer_t* w) {
-#ifdef DEBUG
   A0_ASSERT(w, "Cannot close null writer.");
 
+#ifdef DEBUG
   if (w->_next) {
     size_t next_writer_ref_cnt;
     A0_ASSERT_OK(
