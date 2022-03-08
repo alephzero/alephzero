@@ -275,7 +275,10 @@ a0_err_t a0_json_mergepatch_process_locked_nonempty(
 
   size_t original_size = yyjson_read_max_memory_usage(
       original_payload.size, a0_yyjson_read_flags());
-  A0_ASSERT(original_size > 0);
+  if (!original_size) {
+    a0_transport_unlock(tlk);
+    return A0_MAKE_MSGERR("Failed to parse json: original json too big");
+  }
   void* original_data = alloca(original_size);
 
   yyjson_alc original_alc;
@@ -299,7 +302,10 @@ a0_err_t a0_json_mergepatch_process_locked_nonempty(
   // Parse the mergepatch json.
   size_t mergepatch_size = yyjson_read_max_memory_usage(
       pkt->payload.size, a0_yyjson_read_flags());
-  A0_ASSERT(mergepatch_size > 0);
+  if (!mergepatch_size) {
+    a0_transport_unlock(tlk);
+    return A0_MAKE_MSGERR("Failed to parse json: mergepatch too big");
+  }
   void* mergepatch_data = alloca(mergepatch_size);
 
   yyjson_alc mergepatch_alc;
