@@ -43,6 +43,12 @@ A0_STATIC_INLINE
 void a0_rpc_server_onpacket(void* data, a0_packet_t pkt) {
   a0_rpc_server_t* server = (a0_rpc_server_t*)data;
 
+  a0_deadman_state_t state;
+  a0_deadman_state(&server->_deadman, &state);
+  if (!state.is_owner) {
+    return;
+  }
+
   a0_packet_header_t type_hdr;
   a0_packet_header_iterator_t hdr_iter;
   a0_packet_header_iterator_init(&hdr_iter, &pkt);
@@ -64,10 +70,9 @@ void a0_rpc_server_onpacket(void* data, a0_packet_t pkt) {
 a0_err_t a0_rpc_server_init(a0_rpc_server_t* server,
                             a0_rpc_topic_t topic,
                             a0_alloc_t alloc,
-                            a0_rpc_request_callback_t onrequest,
-                            a0_packet_id_callback_t oncancel) {
-  server->_onrequest = onrequest;
-  server->_oncancel = oncancel;
+                            a0_rpc_server_options_t options) {
+  server->_onrequest = options.onrequest;
+  server->_oncancel = options.oncancel;
 
   // Response writer must be set up before the request reader to avoid a race condition.
 
@@ -101,6 +106,20 @@ a0_err_t a0_rpc_server_init(a0_rpc_server_t* server,
     return err;
   }
 
+  // Deadman must be set up last to ensure that client requests are not lost.
+
+  a0_deadman_topic_t deadman_topic = { topic.name };
+  A0_RETURN_ERR_ON_ERR(a0_deadman_init(&server->_deadman, deadman_topic));
+
+  err = a0_deadman_timedtake(&server->_deadman, options.exclusive_ownership_timeout);
+  if (!a0_mtx_lock_successful(err)) {
+    a0_deadman_close(&server->_deadman);
+    a0_writer_close(&server->_response_writer);
+    a0_file_close(&server->_file);
+    return A0_MAKE_MSGERR("rpc server failed to acquire exclusive ownership on topic %s",
+                          topic.name);
+  }
+
   return A0_OK;
 }
 
@@ -108,6 +127,7 @@ a0_err_t a0_rpc_server_close(a0_rpc_server_t* server) {
   a0_reader_close(&server->_request_reader);
   a0_writer_close(&server->_response_writer);
   a0_file_close(&server->_file);
+  a0_deadman_close(&server->_deadman);
   return A0_OK;
 }
 

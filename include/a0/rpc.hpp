@@ -46,11 +46,15 @@ struct RpcRequest : details::CppWrap<a0_rpc_request_t> {
 };
 
 struct RpcServer : details::CppWrap<a0_rpc_server_t> {
+  struct Options {
+    std::function<void(RpcRequest)> onrequest;
+    std::function<void(string_view /* id */)> oncancel;
+
+    TimeMono exclusive_ownership_timeout;
+  };
+
   RpcServer() = default;
-  RpcServer(
-      RpcTopic,
-      std::function<void(RpcRequest)> onrequest,
-      std::function<void(string_view /* id */)> oncancel);
+  RpcServer(RpcTopic, Options);
 };
 
 struct RpcClient : details::CppWrap<a0_rpc_client_t> {

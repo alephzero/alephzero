@@ -62,8 +62,12 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
           },
   };
 
+  a0_rpc_server_options_t options = A0_EMPTY;
+  options.onrequest = onrequest;
+  options.oncancel = oncancel;
+
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, topic, a0::test::alloc(), onrequest, oncancel));
+  REQUIRE_OK(a0_rpc_server_init(&server, topic, a0::test::alloc(), options));
 
   a0_rpc_client_t client;
   REQUIRE_OK(a0_rpc_client_init(&client, topic, a0::test::alloc()));
@@ -183,8 +187,11 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] empty oncancel onreply") {
           },
   };
 
+  a0_rpc_server_options_t options = A0_EMPTY;
+  options.onrequest = onrequest;
+
   a0_rpc_server_t server;
-  REQUIRE_OK(a0_rpc_server_init(&server, topic, a0::test::alloc(), onrequest, {}));
+  REQUIRE_OK(a0_rpc_server_init(&server, topic, a0::test::alloc(), options));
 
   a0_rpc_client_t client;
   REQUIRE_OK(a0_rpc_client_init(&client, topic, a0::test::alloc()));

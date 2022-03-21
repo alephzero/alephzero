@@ -82,6 +82,10 @@ bool TimeMono::operator<=(TimeMono rhs) const {
   return !(*this > rhs);
 }
 
+TimeMono TIMEOUT_IMMEDIATE = cpp_wrap<TimeMono>(A0_TIMEOUT_IMMEDIATE);
+
+TimeMono TIMEOUT_NEVER = cpp_wrap<TimeMono>(A0_TIMEOUT_NEVER);
+
 TimeWall TimeWall::now() {
   return make_cpp<TimeWall>(
       [](a0_time_wall_t* c) {

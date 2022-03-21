@@ -55,21 +55,16 @@ namespace {
 
 struct RpcServerImpl {
   std::vector<uint8_t> data;
-  std::function<void(RpcRequest)> onrequest;
-  std::function<void(string_view)> oncancel;
+  RpcServer::Options opts;
 };
 
 }  // namespace
 
-RpcServer::RpcServer(
-    RpcTopic topic,
-    std::function<void(RpcRequest)> onrequest,
-    std::function<void(string_view /* id */)> oncancel) {
+RpcServer::RpcServer(RpcTopic topic, Options opts) {
   set_c_impl<RpcServerImpl>(
       &c,
       [&](a0_rpc_server_t* c, RpcServerImpl* impl) {
-        impl->onrequest = std::move(onrequest);
-        impl->oncancel = std::move(oncancel);
+        impl->opts = std::move(opts);
 
         auto cfo = c_fileopts(topic.file_opts);
         a0_rpc_topic_t c_topic{topic.name.c_str(), &cfo};
@@ -85,7 +80,9 @@ RpcServer::RpcServer(
             .dealloc = nullptr,
         };
 
-        a0_rpc_request_callback_t c_onrequest = {
+        a0_rpc_server_options_t c_opts;
+
+        c_opts.onrequest = {
             .user_data = impl,
             .fn = [](void* user_data, a0_rpc_request_t req) {
               auto* impl = (RpcServerImpl*)user_data;
@@ -97,17 +94,19 @@ RpcServer::RpcServer(
                     return A0_OK;
                   });
 
-              impl->onrequest(cpp_req);
+              impl->opts.onrequest(cpp_req);
             }};
 
-        a0_packet_id_callback_t c_oncancel = {
+        c_opts.oncancel = {
             .user_data = impl,
             .fn = [](void* user_data, a0_uuid_t id) {
               auto* impl = (RpcServerImpl*)user_data;
-              impl->oncancel(id);
+              impl->opts.oncancel(id);
             }};
 
-        return a0_rpc_server_init(c, c_topic, alloc, c_onrequest, c_oncancel);
+        c_opts.exclusive_ownership_timeout = &*impl->opts.exclusive_ownership_timeout.c;
+
+        return a0_rpc_server_init(c, c_topic, alloc, c_opts);
       },
       [](a0_rpc_server_t* c, RpcServerImpl*) {
         a0_rpc_server_close(c);

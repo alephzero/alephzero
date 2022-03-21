@@ -78,6 +78,12 @@ a0_err_t a0_time_mono_parse(const char mono_str[20], a0_time_mono_t*);
 /// Add a duration in nanoseconds to a mono timestamp.
 a0_err_t a0_time_mono_add(a0_time_mono_t, int64_t add_nsec, a0_time_mono_t*);
 
+/// ...
+extern a0_time_mono_t* A0_TIMEOUT_IMMEDIATE;
+
+/// ...
+extern a0_time_mono_t* A0_TIMEOUT_NEVER;
+
 /** @}*/
 
 /** \addtogroup TIME_WALL
