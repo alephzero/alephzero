@@ -61,15 +61,15 @@ inline std::string random_ascii_string(size_t length) {
   return str;
 }
 
-inline a0_buf_t buf(a0_transport_frame_t frame) {
-  return a0_buf_t{frame.data, frame.hdr.data_size};
+inline a0_buf_t buf(a0_transport_frame_t* frame) {
+  return a0_buf_t{frame->data, frame->hdr.data_size};
 }
 
 inline std::string str(a0_buf_t buf) {
   return std::string((char*)buf.data, buf.size);
 }
 
-inline std::string str(a0_transport_frame_t frame) {
+inline std::string str(a0_transport_frame_t* frame) {
   return str(buf(frame));
 }
 

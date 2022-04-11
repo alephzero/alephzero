@@ -163,7 +163,7 @@ typedef struct a0_transport_frame_s {
   /// Frame header.
   a0_transport_frame_hdr_t hdr;
   /// Frame data.
-  uint8_t* data;
+  uint8_t data[];
 } a0_transport_frame_t;
 
 /// Wrapper around a transport, used to "strongly" type unique-access.
@@ -248,7 +248,7 @@ a0_err_t a0_transport_seq_high(a0_transport_locked_t, uint64_t* out);
 /// Accesses the frame within the arena, at the current transport pointer.
 ///
 /// Caller does NOT own `frame_out->data` and should not clean it up!
-a0_err_t a0_transport_frame(a0_transport_locked_t, a0_transport_frame_t* frame_out);
+a0_err_t a0_transport_frame(a0_transport_locked_t, a0_transport_frame_t** frame_out);
 
 /// Allocates a new frame within the arena.
 ///
@@ -262,7 +262,7 @@ a0_err_t a0_transport_frame(a0_transport_locked_t, a0_transport_frame_t* frame_o
 ///     If an alloc evicts an old frame, that frame is lost, even if no
 ///     commit call is issued.
 /// \endrst
-a0_err_t a0_transport_alloc(a0_transport_locked_t, size_t, a0_transport_frame_t* frame_out);
+a0_err_t a0_transport_alloc(a0_transport_locked_t, size_t, a0_transport_frame_t** frame_out);
 /// Checks whether an alloc call would evict.
 a0_err_t a0_transport_alloc_evicts(a0_transport_locked_t, size_t, bool*);
 /// Creates an allocator that allocates within the transport.

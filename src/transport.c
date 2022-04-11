@@ -439,7 +439,7 @@ a0_err_t a0_transport_seq_high(a0_transport_locked_t lk, uint64_t* out) {
   return A0_OK;
 }
 
-a0_err_t a0_transport_frame(a0_transport_locked_t lk, a0_transport_frame_t* frame_out) {
+a0_err_t a0_transport_frame(a0_transport_locked_t lk, a0_transport_frame_t** frame_out) {
   a0_transport_state_t* state = a0_transport_working_page(lk);
 
   if (lk.transport->_seq < state->seq_low) {
@@ -448,8 +448,7 @@ a0_err_t a0_transport_frame(a0_transport_locked_t lk, a0_transport_frame_t* fram
 
   a0_transport_frame_hdr_t* frame_hdr = a0_transport_frame_header(lk, lk.transport->_off);
 
-  frame_out->hdr = *frame_hdr;
-  frame_out->data = (uint8_t*)frame_hdr + sizeof(a0_transport_frame_hdr_t);
+  *frame_out = (a0_transport_frame_t*)frame_hdr;
   return A0_OK;
 }
 
@@ -605,7 +604,7 @@ a0_err_t a0_transport_alloc_evicts(a0_transport_locked_t lk, size_t size, bool* 
   return A0_OK;
 }
 
-a0_err_t a0_transport_alloc(a0_transport_locked_t lk, size_t size, a0_transport_frame_t* frame_out) {
+a0_err_t a0_transport_alloc(a0_transport_locked_t lk, size_t size, a0_transport_frame_t** frame_out) {
   if (lk.transport->_arena.mode == A0_ARENA_MODE_READONLY) {
     return A0_MAKE_SYSERR(EPERM);
   }
@@ -616,7 +615,6 @@ a0_err_t a0_transport_alloc(a0_transport_locked_t lk, size_t size, a0_transport_
 
   a0_transport_evict(lk, off, frame_size);
 
-  a0_transport_hdr_t* hdr = a0_transport_header(lk);
   // Note: a0_transport_evict commits changes, which invalidates state.
   //       Must grab state afterwards.
   a0_transport_state_t* state = a0_transport_working_page(lk);
@@ -628,17 +626,16 @@ a0_err_t a0_transport_alloc(a0_transport_locked_t lk, size_t size, a0_transport_
   a0_transport_update_tail(lk, state, frame_hdr);
   a0_transport_update_high_water_mark(lk, state, frame_hdr);
 
-  frame_out->hdr = *frame_hdr;
-  frame_out->data = (uint8_t*)hdr + off + sizeof(a0_transport_frame_hdr_t);
+  *frame_out = (a0_transport_frame_t*)frame_hdr;
 
   return A0_OK;
 }
 
 A0_STATIC_INLINE
 a0_err_t a0_transport_allocator_impl(void* user_data, size_t size, a0_buf_t* buf_out) {
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
   A0_RETURN_ERR_ON_ERR(a0_transport_alloc(*(a0_transport_locked_t*)user_data, size, &frame));
-  *buf_out = (a0_buf_t){frame.data, frame.hdr.data_size};
+  *buf_out = (a0_buf_t){frame->data, frame->hdr.data_size};
   return A0_OK;
 }
 

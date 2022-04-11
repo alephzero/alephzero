@@ -529,9 +529,9 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "read] random access") {
   a0_zero_copy_callback_t cb_0 = {
       .user_data = &off_0,
       .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t) {
-        a0_transport_frame_t frame;
+        a0_transport_frame_t* frame;
         a0_transport_frame(tlk, &frame);
-        *(size_t*)user_data = frame.hdr.off;
+        *(size_t*)user_data = frame->hdr.off;
       },
   };
   REQUIRE_OK(a0_reader_sync_zc_read_blocking(&rsz, cb_0));
@@ -541,9 +541,9 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "read] random access") {
   a0_zero_copy_callback_t cb_1 = {
       .user_data = &off_1,
       .fn = [](void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t) {
-        a0_transport_frame_t frame;
+        a0_transport_frame_t* frame;
         a0_transport_frame(tlk, &frame);
-        *(size_t*)user_data = frame.hdr.off;
+        *(size_t*)user_data = frame->hdr.off;
       },
   };
   REQUIRE_OK(a0_reader_sync_zc_read_blocking(&rsz, cb_1));
@@ -576,13 +576,13 @@ TEST_CASE_FIXTURE(ReaderSyncZCFixture, "read] cpp random access") {
 
   size_t off_0 = 0;
   cpp_rsz.read([&](a0::TransportLocked tlk, a0::FlatPacket) {
-    off_0 = tlk.frame().hdr.off;
+    off_0 = tlk.frame()->hdr.off;
   });
   REQUIRE(off_0 == 144);
 
   size_t off_1 = 0;
   cpp_rsz.read([&](a0::TransportLocked tlk, a0::FlatPacket) {
-    off_1 = tlk.frame().hdr.off;
+    off_1 = tlk.frame()->hdr.off;
   });
   REQUIRE(off_1 == 256);
 

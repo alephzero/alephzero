@@ -44,7 +44,7 @@ struct WriterFixture {
     REQUIRE_OK(a0_transport_empty(lk, &empty));
     REQUIRE(empty == want_pkts.empty());
 
-    a0_transport_frame_t frame;
+    a0_transport_frame_t* frame;
 
     REQUIRE_OK(a0_transport_jump_head(lk));
 

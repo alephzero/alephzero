@@ -179,14 +179,14 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] alloc/commit") {
 }
 )");
 
-  a0_transport_frame_t first_frame;
+  a0_transport_frame_t* first_frame;
   REQUIRE_OK(a0_transport_alloc(lk, 10, &first_frame));
-  memcpy(first_frame.data, "0123456789", 10);
+  memcpy(first_frame->data, "0123456789", 10);
   REQUIRE_OK(a0_transport_commit(lk));
 
-  a0_transport_frame_t second_frame;
+  a0_transport_frame_t* second_frame;
   REQUIRE_OK(a0_transport_alloc(lk, 40, &second_frame));
-  memcpy(second_frame.data, "0123456789012345678901234567890123456789", 40);
+  memcpy(second_frame->data, "0123456789012345678901234567890123456789", 40);
 
   require_debugstr(lk, R"(
 {
@@ -304,12 +304,12 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp alloc/commit") {
 }
 )");
 
-  a0::Frame first_frame = tlk.alloc(10);
-  memcpy(first_frame.data, "0123456789", 10);
+  a0::Frame* first_frame = tlk.alloc(10);
+  memcpy(first_frame->data, "0123456789", 10);
   tlk.commit();
 
-  a0::Frame second_frame = tlk.alloc(40);
-  memcpy(second_frame.data, "0123456789012345678901234567890123456789", 40);
+  a0::Frame* second_frame = tlk.alloc(40);
+  memcpy(second_frame->data, "0123456789012345678901234567890123456789", 40);
 
   require_debugstr(*tlk.c, R"(
 {
@@ -407,7 +407,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] evicts") {
   REQUIRE_OK(a0_transport_alloc_evicts(lk, 2 * 1024, &evicts));
   REQUIRE(!evicts);
 
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
   REQUIRE_OK(a0_transport_alloc(lk, 2 * 1024, &frame));
 
   REQUIRE_OK(a0_transport_alloc_evicts(lk, 2 * 1024, &evicts));
@@ -440,17 +440,17 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
     a0_transport_locked_t lk;
     REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
-    a0_transport_frame_t first_frame;
+    a0_transport_frame_t* first_frame;
     REQUIRE_OK(a0_transport_alloc(lk, 1, &first_frame));
-    memcpy(first_frame.data, "A", 1);
+    memcpy(first_frame->data, "A", 1);
 
-    a0_transport_frame_t second_frame;
+    a0_transport_frame_t* second_frame;
     REQUIRE_OK(a0_transport_alloc(lk, 2, &second_frame));
-    memcpy(second_frame.data, "BB", 2);
+    memcpy(second_frame->data, "BB", 2);
 
-    a0_transport_frame_t third_frame;
+    a0_transport_frame_t* third_frame;
     REQUIRE_OK(a0_transport_alloc(lk, 3, &third_frame));
-    memcpy(third_frame.data, "CCC", 3);
+    memcpy(third_frame->data, "CCC", 3);
 
     REQUIRE_OK(a0_transport_commit(lk));
 
@@ -469,12 +469,12 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
 
   REQUIRE_OK(a0_transport_jump_head(lk));
 
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
 
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
-  size_t off_A = frame.hdr.off;
+  size_t off_A = frame->hdr.off;
 
   bool has_next;
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
@@ -486,18 +486,18 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
 
   REQUIRE_OK(a0_transport_step_next(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(frame->hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "BB");
-  size_t off_B = frame.hdr.off;
+  size_t off_B = frame->hdr.off;
 
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
   REQUIRE(has_next);
 
   REQUIRE_OK(a0_transport_step_next(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 3);
+  REQUIRE(frame->hdr.seq == 3);
   REQUIRE(a0::test::str(frame) == "CCC");
-  size_t off_C = frame.hdr.off;
+  size_t off_C = frame->hdr.off;
 
   REQUIRE_OK(a0_transport_has_next(lk, &has_next));
   REQUIRE(!has_next);
@@ -507,12 +507,12 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
 
   REQUIRE_OK(a0_transport_step_prev(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(frame->hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "BB");
 
   REQUIRE_OK(a0_transport_step_prev(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
 
   REQUIRE_OK(a0_transport_has_prev(lk, &has_prev));
@@ -520,12 +520,12 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] iteration") {
 
   REQUIRE_OK(a0_transport_jump_tail(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 3);
+  REQUIRE(frame->hdr.seq == 3);
   REQUIRE(a0::test::str(frame) == "CCC");
 
   REQUIRE_OK(a0_transport_jump_head(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
 
   REQUIRE_OK(a0_transport_jump(lk, off_A));
@@ -573,15 +573,15 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
     auto tlk = transport.lock();
 
     auto first_frame = tlk.alloc(1);
-    memcpy(first_frame.data, "A", 1);
+    memcpy(first_frame->data, "A", 1);
     tlk.commit();
 
     auto second_frame = tlk.alloc(2);
-    memcpy(second_frame.data, "BB", 2);
+    memcpy(second_frame->data, "BB", 2);
     tlk.commit();
 
     auto third_frame = tlk.alloc(3);
-    memcpy(third_frame.data, "CCC", 3);
+    memcpy(third_frame->data, "CCC", 3);
     tlk.commit();
   }
 
@@ -592,50 +592,50 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp iteration") {
 
   tlk.jump_head();
   auto frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
-  size_t off_A = frame.hdr.off;
+  size_t off_A = frame->hdr.off;
 
   REQUIRE(tlk.has_next());
   REQUIRE(!tlk.has_prev());
 
   tlk.step_next();
   frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(frame->hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "BB");
-  size_t off_B = frame.hdr.off;
+  size_t off_B = frame->hdr.off;
 
   REQUIRE(tlk.has_next());
 
   tlk.step_next();
   frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 3);
+  REQUIRE(frame->hdr.seq == 3);
   REQUIRE(a0::test::str(frame) == "CCC");
-  size_t off_C = frame.hdr.off;
+  size_t off_C = frame->hdr.off;
 
   REQUIRE(!tlk.has_next());
   REQUIRE(tlk.has_prev());
 
   tlk.step_prev();
   frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(frame->hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "BB");
 
   tlk.step_prev();
   frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
 
   REQUIRE(!tlk.has_prev());
 
   tlk.jump_tail();
   frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 3);
+  REQUIRE(frame->hdr.seq == 3);
   REQUIRE(a0::test::str(frame) == "CCC");
 
   tlk.jump_head();
   frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "A");
 
   tlk.jump(off_A);
@@ -733,9 +733,9 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] wrap around") {
 
   std::string data(1 * 1024, 'a');  // 1kB string
   for (int i = 0; i < 20; i++) {
-    a0_transport_frame_t frame;
+    a0_transport_frame_t* frame;
     REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
-    memcpy(frame.data, data.c_str(), data.size());
+    memcpy(frame->data, data.c_str(), data.size());
   }
 
   REQUIRE_OK(a0_transport_commit(lk));
@@ -797,8 +797,8 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp wrap around") {
 
   std::string data(1 * 1024, 'a');  // 1kB string
   for (int i = 0; i < 20; i++) {
-    auto frame = tlk.alloc(data.size());
-    memcpy(frame.data, data.c_str(), data.size());
+    auto* frame = tlk.alloc(data.size());
+    memcpy(frame->data, data.c_str(), data.size());
   }
 
   tlk.commit();
@@ -855,18 +855,18 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp wrap around") {
 TEST_CASE_FIXTURE(TransportFixture, "transport] expired next") {
   a0_transport_t transport;
   a0_transport_locked_t lk;
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
   std::string data(1 * 1024, 'a');  // 1kB string
 
   REQUIRE_OK(a0_transport_init(&transport, arena));
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
 
   REQUIRE_OK(a0_transport_jump_head(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
 
   REQUIRE_OK(a0_transport_unlock(lk));
 
@@ -877,7 +877,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] expired next") {
 
     for (int i = 0; i < 20; i++) {
       REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
-      memcpy(frame.data, data.c_str(), data.size());
+      memcpy(frame->data, data.c_str(), data.size());
     }
 
     REQUIRE_OK(a0_transport_unlock(lk));
@@ -895,7 +895,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] expired next") {
 
   REQUIRE_OK(a0_transport_step_next(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 18);
+  REQUIRE(frame->hdr.seq == 18);
 
   REQUIRE_OK(a0_transport_iter_valid(lk, &valid));
   REQUIRE(valid);
@@ -915,12 +915,12 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp expired next") {
   a0::TransportLocked tlk = transport.lock();
 
   std::string data(1 * 1024, 'a');  // 1kB string
-  auto frame = tlk.alloc(data.size());
-  memcpy(frame.data, data.c_str(), data.size());
+  auto* frame = tlk.alloc(data.size());
+  memcpy(frame->data, data.c_str(), data.size());
 
   tlk.jump_head();
   frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
 
   tlk = {};
 
@@ -930,7 +930,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp expired next") {
 
     for (int i = 0; i < 20; i++) {
       auto frame = other_tlk.alloc(data.size());
-      memcpy(frame.data, data.c_str(), data.size());
+      memcpy(frame->data, data.c_str(), data.size());
     }
   }
 
@@ -942,7 +942,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp expired next") {
   tlk.step_next();
   REQUIRE(tlk.iter_valid());
   frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 18);
+  REQUIRE(frame->hdr.seq == 18);
 
   REQUIRE(!tlk.has_prev());
   REQUIRE(tlk.has_next());
@@ -957,9 +957,9 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] large alloc") {
 
   std::string long_str(3 * 1024, 'a');  // 3kB string
   for (int i = 0; i < 5; i++) {
-    a0_transport_frame_t frame;
+    a0_transport_frame_t* frame;
     REQUIRE_OK(a0_transport_alloc(lk, long_str.size(), &frame));
-    memcpy(frame.data, long_str.c_str(), long_str.size());
+    memcpy(frame->data, long_str.c_str(), long_str.size());
     REQUIRE_OK(a0_transport_commit(lk));
   }
 
@@ -1004,8 +1004,8 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp large alloc") {
 
   std::string long_str(3 * 1024, 'a');  // 3kB string
   for (int i = 0; i < 5; i++) {
-    auto frame = tlk.alloc(long_str.size());
-    memcpy(frame.data, long_str.c_str(), long_str.size());
+    auto* frame = tlk.alloc(long_str.size());
+    memcpy(frame->data, long_str.c_str(), long_str.size());
     tlk.commit();
   }
 
@@ -1054,10 +1054,10 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   REQUIRE(used_space == 144);
 
   std::string data(1024, 'a');
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
 
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   REQUIRE_OK(a0_transport_commit(lk));
 
   REQUIRE_OK(a0_transport_used_space(lk, &used_space));
@@ -1072,12 +1072,12 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
 
   data = std::string(1024, 'b');  // same size as existing.
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   REQUIRE_OK(a0_transport_commit(lk));
 
   REQUIRE_OK(a0_transport_jump_tail(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.data_size == 1024);
+  REQUIRE(frame->hdr.data_size == 1024);
   REQUIRE(a0::test::str(frame) == data);
   REQUIRE(arena.buf.data[1207] == 'b');
   REQUIRE(arena.buf.data[1208] != 'b');
@@ -1121,7 +1121,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
 
   data = std::string(2 * 1024, 'c');
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   REQUIRE_OK(a0_transport_commit(lk));
 
   REQUIRE_OK(a0_transport_used_space(lk, &used_space));
@@ -1171,7 +1171,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   // We replace it with less data.
   data = std::string(16, 'd');
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   REQUIRE_OK(a0_transport_commit(lk));
 
   REQUIRE_OK(a0_transport_used_space(lk, &used_space));
@@ -1179,7 +1179,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
 
   data = std::string(3 * 1024, 'e');
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   REQUIRE_OK(a0_transport_commit(lk));
 
   REQUIRE_OK(a0_transport_used_space(lk, &used_space));
@@ -1187,7 +1187,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
 
   data = std::string(16, 'f');
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   REQUIRE_OK(a0_transport_commit(lk));
 
   REQUIRE_OK(a0_transport_used_space(lk, &used_space));
@@ -1237,7 +1237,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] resize") {
   // We replace it with less data.
   data = std::string(3264, 'e');
   REQUIRE_OK(a0_transport_alloc(lk, data.size(), &frame));
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   REQUIRE_OK(a0_transport_commit(lk));
 
   REQUIRE_OK(a0_transport_used_space(lk, &used_space));
@@ -1276,8 +1276,8 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
   REQUIRE(tlk.used_space() == 144);
 
   std::string data(1024, 'a');
-  auto frame = tlk.alloc(data.size());
-  memcpy(frame.data, data.c_str(), data.size());
+  auto* frame = tlk.alloc(data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   tlk.commit();
 
   REQUIRE(tlk.used_space() == 1208);
@@ -1304,12 +1304,12 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
 
   data = std::string(1024, 'b');  // same size as existing.
   frame = tlk.alloc(data.size());
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   tlk.commit();
 
   tlk.jump_tail();
   frame = tlk.frame();
-  REQUIRE(frame.hdr.data_size == 1024);
+  REQUIRE(frame->hdr.data_size == 1024);
   REQUIRE(a0::test::str(frame) == data);
   REQUIRE(arena.buf.data[1207] == 'b');
   REQUIRE(arena.buf.data[1208] != 'b');
@@ -1352,7 +1352,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
 
   data = std::string(2 * 1024, 'c');
   frame = tlk.alloc(data.size());
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   tlk.commit();
 
   REQUIRE(tlk.used_space() == 3304);
@@ -1401,21 +1401,21 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
   // We replace it with less data.
   data = std::string(16, 'd');
   frame = tlk.alloc(data.size());
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   tlk.commit();
 
   REQUIRE(tlk.used_space() == 3368);
 
   data = std::string(3 * 1024, 'e');
   frame = tlk.alloc(data.size());
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   tlk.commit();
 
   REQUIRE(tlk.used_space() == 3368);
 
   data = std::string(16, 'f');
   frame = tlk.alloc(data.size());
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   tlk.commit();
 
   REQUIRE(tlk.used_space() == 3320);
@@ -1464,7 +1464,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp resize") {
   // We replace it with less data.
   data = std::string(3264, 'e');
   frame = tlk.alloc(data.size());
-  memcpy(frame.data, data.c_str(), data.size());
+  memcpy(frame->data, data.c_str(), data.size());
   tlk.commit();
 
   REQUIRE(tlk.used_space() == (144 + 40 + 3264));
@@ -1501,10 +1501,10 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp clear") {
   REQUIRE(tlk.seq_low() == 1);
   REQUIRE(tlk.seq_high() == 0);
 
-  auto frame = tlk.alloc(512);
+  auto* frame = tlk.alloc(512);
   tlk.commit();
 
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
   REQUIRE(!tlk.empty());
   REQUIRE(tlk.used_space() == 696);
   REQUIRE(tlk.seq_low() == 1);
@@ -1513,7 +1513,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp clear") {
   frame = tlk.alloc(1024);
   tlk.commit();
 
-  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(frame->hdr.seq == 2);
   REQUIRE(!tlk.empty());
   REQUIRE(tlk.used_space() == 1768);
   REQUIRE(tlk.seq_low() == 1);
@@ -1529,7 +1529,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp clear") {
   frame = tlk.alloc(512);
   tlk.commit();
 
-  REQUIRE(frame.hdr.seq == 3);
+  REQUIRE(frame->hdr.seq == 3);
   REQUIRE(!tlk.empty());
   REQUIRE(tlk.used_space() == 696);
   REQUIRE(tlk.seq_low() == 3);
@@ -1538,7 +1538,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp clear") {
   frame = tlk.alloc(1024);
   tlk.commit();
 
-  REQUIRE(frame.hdr.seq == 4);
+  REQUIRE(frame->hdr.seq == 4);
   REQUIRE(!tlk.empty());
   REQUIRE(tlk.used_space() == 1768);
   REQUIRE(tlk.seq_low() == 3);
@@ -1566,9 +1566,9 @@ void fork_sleep_push(a0_transport_t* transport, const std::string& str) {
     a0_transport_locked_t lk;
     REQUIRE_OK(a0_transport_lock(transport, &lk));
 
-    a0_transport_frame_t frame;
+    a0_transport_frame_t* frame;
     REQUIRE_OK(a0_transport_alloc(lk, str.size(), &frame));
-    memcpy(frame.data, str.c_str(), str.size());
+    memcpy(frame->data, str.c_str(), str.size());
     REQUIRE_OK(a0_transport_commit(lk));
 
     REQUIRE_OK(a0_transport_unlock(lk));
@@ -1631,9 +1631,9 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] disk await") {
 
   REQUIRE_OK(a0_transport_jump_head(lk));
 
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "ABC");
 
   REQUIRE_OK(a0_transport_wait(lk, a0_transport_nonempty_pred(&lk)));
@@ -1643,7 +1643,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] disk await") {
 
   REQUIRE_OK(a0_transport_step_next(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(frame->hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "DEF");
 
   REQUIRE_OK(a0_transport_shutdown(lk));
@@ -1662,7 +1662,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp disk await") {
   tlk.jump_head();
 
   auto frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "ABC");
 
   tlk.wait([&]() { return !tlk.empty(); });
@@ -1673,7 +1673,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp disk await") {
 
   tlk.step_next();
   frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(frame->hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "DEF");
 }
 
@@ -1690,9 +1690,9 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] shm await") {
 
   REQUIRE_OK(a0_transport_jump_head(lk));
 
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "ABC");
 
   REQUIRE_OK(a0_transport_wait(lk, a0_transport_nonempty_pred(&lk)));
@@ -1702,7 +1702,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] shm await") {
 
   REQUIRE_OK(a0_transport_step_next(lk));
   REQUIRE_OK(a0_transport_frame(lk, &frame));
-  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(frame->hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "DEF");
 
   REQUIRE_OK(a0_transport_shutdown(lk));
@@ -1721,7 +1721,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp shm await") {
   tlk.jump_head();
 
   auto frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 1);
+  REQUIRE(frame->hdr.seq == 1);
   REQUIRE(a0::test::str(frame) == "ABC");
 
   tlk.wait([&]() { return !tlk.empty(); });
@@ -1732,7 +1732,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp shm await") {
 
   tlk.step_next();
   frame = tlk.frame();
-  REQUIRE(frame.hdr.seq == 2);
+  REQUIRE(frame->hdr.seq == 2);
   REQUIRE(a0::test::str(frame) == "DEF");
 }
 
@@ -1746,9 +1746,9 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust") {
       a0_transport_locked_t lk;
       REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
-      a0_transport_frame_t frame;
+      a0_transport_frame_t* frame;
       REQUIRE_OK(a0_transport_alloc(lk, 3, &frame));
-      memcpy(frame.data, "YES", 3);
+      memcpy(frame->data, "YES", 3);
       REQUIRE_OK(a0_transport_commit(lk));
 
       REQUIRE_OK(a0_transport_unlock(lk));
@@ -1759,9 +1759,9 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust") {
       a0_transport_locked_t lk;
       REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
-      a0_transport_frame_t frame;
+      a0_transport_frame_t* frame;
       REQUIRE_OK(a0_transport_alloc(lk, 2, &frame));
-      memcpy(frame.data, "NO", 2);
+      memcpy(frame->data, "NO", 2);
 
       require_debugstr(lk, R"(
 {
@@ -1864,9 +1864,9 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust fuzz") {
 
         auto str = a0::test::random_ascii_string(rand() % 1024);
 
-        a0_transport_frame_t frame;
+        a0_transport_frame_t* frame;
         REQUIRE_OK(a0_transport_alloc(lk, str.size(), &frame));
-        memcpy(frame.data, str.c_str(), str.size());
+        memcpy(frame->data, str.c_str(), str.size());
         REQUIRE_OK(a0_transport_commit(lk));
 
         REQUIRE_OK(a0_transport_unlock(lk));
@@ -1894,13 +1894,13 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust fuzz") {
   a0_transport_locked_t lk;
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
   {
-    a0_transport_frame_t frame;
+    a0_transport_frame_t* frame;
     REQUIRE_OK(a0_transport_alloc(lk, 11, &frame));
-    memcpy(frame.data, "Still Works", 11);
+    memcpy(frame->data, "Still Works", 11);
     REQUIRE_OK(a0_transport_commit(lk));
   }
   REQUIRE_OK(a0_transport_jump_tail(lk));
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
   REQUIRE_OK(a0_transport_frame(lk, &frame));
   REQUIRE(a0::test::str(frame) == "Still Works");
 
@@ -1928,9 +1928,9 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust copy shm->disk->shm") {
     a0_transport_locked_t lk;
     REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
-    a0_transport_frame_t frame;
+    a0_transport_frame_t* frame;
     a0_transport_alloc(lk, str.size(), &frame);
-    memcpy(frame.data, str.c_str(), str.size());
+    memcpy(frame->data, str.c_str(), str.size());
     a0_transport_commit(lk);
 
     // Do not unlock!
@@ -1956,7 +1956,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust copy shm->disk->shm") {
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   a0_transport_jump_head(lk);
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
   a0_transport_frame(lk, &frame);
   REQUIRE(a0::test::str(frame) == str);
 
@@ -1980,9 +1980,9 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust copy disk->shm->disk") {
     a0_transport_locked_t lk;
     REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
-    a0_transport_frame_t frame;
+    a0_transport_frame_t* frame;
     a0_transport_alloc(lk, str.size(), &frame);
-    memcpy(frame.data, str.c_str(), str.size());
+    memcpy(frame->data, str.c_str(), str.size());
     a0_transport_commit(lk);
 
     // Do not unlock!
@@ -2008,7 +2008,7 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] robust copy disk->shm->disk") {
   REQUIRE_OK(a0_transport_lock(&transport, &lk));
 
   a0_transport_jump_head(lk);
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
   a0_transport_frame(lk, &frame);
   REQUIRE(a0::test::str(frame) == str);
 
