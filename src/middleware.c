@@ -262,11 +262,11 @@ a0_err_t a0_json_mergepatch_process_locked_nonempty(
     a0_middleware_chain_t chain) {
   // Grab the original json content from the most recent packet.
   a0_transport_jump_tail(tlk);
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
   a0_transport_frame(tlk, &frame);
 
   a0_flat_packet_t flat_packet = {
-      .buf = {frame.data, frame.hdr.data_size},
+      .buf = {frame->data, frame->hdr.data_size},
   };
 
   // Parse the original json.

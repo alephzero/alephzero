@@ -23,7 +23,7 @@ struct TransportLocked : details::CppWrap<a0_transport_locked_t> {
   void resize(size_t);
 
   bool iter_valid() const;
-  Frame frame() const;
+  Frame* frame() const;
 
   void jump(size_t off);
   void jump_head();
@@ -33,7 +33,7 @@ struct TransportLocked : details::CppWrap<a0_transport_locked_t> {
   bool has_prev() const;
   void step_prev();
 
-  Frame alloc(size_t);
+  Frame* alloc(size_t);
   bool alloc_evicts(size_t) const;
 
   void commit();

@@ -57,9 +57,9 @@ bool TransportLocked::iter_valid() const {
   return ret;
 }
 
-Frame TransportLocked::frame() const {
+Frame* TransportLocked::frame() const {
   CHECK_C;
-  Frame ret;
+  Frame* ret;
   check(a0_transport_frame(*c, &ret));
   return ret;
 }
@@ -103,9 +103,9 @@ void TransportLocked::step_prev() {
   check(a0_transport_step_prev(*c));
 }
 
-Frame TransportLocked::alloc(size_t size) {
+Frame* TransportLocked::alloc(size_t size) {
   CHECK_C;
-  Frame ret;
+  Frame* ret;
   check(a0_transport_alloc(*c, size, &ret));
   return ret;
 }

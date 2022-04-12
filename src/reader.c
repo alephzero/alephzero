@@ -105,11 +105,11 @@ a0_err_t a0_reader_sync_zc_read_helper(a0_reader_sync_zc_t* reader_sync_zc,
 
   reader_sync_zc->_first_read_done = true;
 
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
   a0_transport_frame(tlk, &frame);
 
   a0_flat_packet_t flat_packet = {
-      .buf = {frame.data, frame.hdr.data_size},
+      .buf = {frame->data, frame->hdr.data_size},
   };
 
   cb.fn(cb.user_data, tlk, flat_packet);
@@ -296,11 +296,11 @@ a0_err_t a0_reader_sync_read_blocking_timeout(a0_reader_sync_t* reader_sync, a0_
 
 A0_STATIC_INLINE
 void a0_reader_zc_thread_handle_pkt(a0_reader_zc_t* reader_zc, a0_transport_locked_t tlk) {
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
   a0_transport_frame(tlk, &frame);
 
   a0_flat_packet_t fpkt = {
-      .buf = {frame.data, frame.hdr.data_size},
+      .buf = {frame->data, frame->hdr.data_size},
   };
 
   reader_zc->_onpacket.fn(reader_zc->_onpacket.user_data, tlk, fpkt);
@@ -479,10 +479,10 @@ a0_err_t a0_read_random_access(a0_arena_t arena, size_t off, a0_zero_copy_callba
     a0_transport_unlock(tlk);
     return err;
   }
-  a0_transport_frame_t frame;
+  a0_transport_frame_t* frame;
   a0_transport_frame(tlk, &frame);
 
-  cb.fn(cb.user_data, tlk, (a0_flat_packet_t){{frame.data, frame.hdr.data_size}});
+  cb.fn(cb.user_data, tlk, (a0_flat_packet_t){{frame->data, frame->hdr.data_size}});
 
   return a0_transport_unlock(tlk);
 }
