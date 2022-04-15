@@ -15,8 +15,8 @@
 #include "atomic.h"
 #include "clock.h"
 #include "err_macro.h"
-#include "robust.h"
 #include "ftx.h"
+#include "robust.h"
 
 // TSAN is worth the pain of properly annotating our mutex.
 

@@ -69,7 +69,8 @@ a0_err_t a0_deadman_mtx_wait_locked(
     a0_deadman_mtx_t*,
     uint64_t* out_tkn);
 a0_err_t a0_deadman_mtx_timedwait_locked(
-    a0_deadman_mtx_t*, a0_time_mono_t*,
+    a0_deadman_mtx_t*,
+    a0_time_mono_t*,
     uint64_t* out_tkn);
 
 // Wait for the deadman to be unlocked.
