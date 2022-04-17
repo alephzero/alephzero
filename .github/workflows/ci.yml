@@ -164,8 +164,7 @@ jobs:
       shell: bash
       run: |
         find ./include/ ./src/ -name '*.[ch]' -o -name '*.[ch]pp' | xargs \
-          clang-format -i --style=file --verbose
-        git --no-pager diff --exit-code
+          clang-format --dry-run --Werror --style=file
 
   cov:
     name: Code Coverage
