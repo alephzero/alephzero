@@ -19,6 +19,7 @@
 
 #include "src/err_macro.h"
 #include "src/test_util.hpp"
+#include "src/tsan.h"
 
 TEST_CASE("deadman_mtx] basic") {
   a0_deadman_mtx_shared_token_t stkn = A0_EMPTY;
@@ -207,10 +208,12 @@ TEST_CASE("deadman_mtx] wait_unlocked success") {
 
   std::thread t([&]() {
     REQUIRE_OK(a0_deadman_mtx_wait_unlocked(&d, state.tkn));
+    A0_TSAN_HAPPENS_AFTER(&complete);
     complete = true;
   });
 
   REQUIRE(!complete);
+  A0_TSAN_HAPPENS_BEFORE(&complete);
   REQUIRE_OK(a0_deadman_mtx_unlock(&d));
   t.join();
   REQUIRE(complete);
@@ -246,13 +249,12 @@ TEST_CASE("deadman_mtx] fuzz") {
   auto* stkn = ipc_pool.make<a0_deadman_mtx_shared_token_t>();
   auto* done = ipc_pool.make<bool>();
 
-  a0_deadman_mtx_t d;
-  a0_deadman_mtx_init(&d, stkn);
-
   std::vector<pid_t> children;
-
   for (int i = 0; i < 100; ++i) {
     children.push_back(a0::test::subproc([&] {
+      a0_deadman_mtx_t d;
+      a0_deadman_mtx_init(&d, stkn);
+
       while (!*done) {
         bool is_lock_owner = false;
         uint64_t tkn = 0;
@@ -322,6 +324,8 @@ TEST_CASE("deadman_mtx] fuzz") {
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
   *done = true;
+  a0_deadman_mtx_t d;
+  a0_deadman_mtx_init(&d, stkn);
   REQUIRE(a0_mtx_lock_successful(a0_deadman_mtx_lock(&d)));
   REQUIRE_OK(a0_deadman_mtx_unlock(&d));
 

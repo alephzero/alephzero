@@ -17,62 +17,7 @@
 #include "err_macro.h"
 #include "ftx.h"
 #include "robust.h"
-
-// TSAN is worth the pain of properly annotating our mutex.
-
-// clang-format off
-#if defined(__SANITIZE_THREAD__)
-  #define A0_TSAN_ENABLED
-#elif defined(__has_feature)
-  #if __has_feature(thread_sanitizer)
-    #define A0_TSAN_ENABLED
-  #endif
-#endif
-// clang-format on
-
-const unsigned __tsan_mutex_linker_init = 1 << 0;
-const unsigned __tsan_mutex_write_reentrant = 1 << 1;
-const unsigned __tsan_mutex_read_reentrant = 1 << 2;
-const unsigned __tsan_mutex_not_static = 1 << 8;
-const unsigned __tsan_mutex_read_lock = 1 << 3;
-const unsigned __tsan_mutex_try_lock = 1 << 4;
-const unsigned __tsan_mutex_try_lock_failed = 1 << 5;
-const unsigned __tsan_mutex_recursive_lock = 1 << 6;
-const unsigned __tsan_mutex_recursive_unlock = 1 << 7;
-
-#ifdef A0_TSAN_ENABLED
-
-void __tsan_mutex_create(void* addr, unsigned flags);
-void __tsan_mutex_destroy(void* addr, unsigned flags);
-void __tsan_mutex_pre_lock(void* addr, unsigned flags);
-void __tsan_mutex_post_lock(void* addr, unsigned flags, int recursion);
-int __tsan_mutex_pre_unlock(void* addr, unsigned flags);
-void __tsan_mutex_post_unlock(void* addr, unsigned flags);
-void __tsan_mutex_pre_signal(void* addr, unsigned flags);
-void __tsan_mutex_post_signal(void* addr, unsigned flags);
-void __tsan_mutex_pre_divert(void* addr, unsigned flags);
-void __tsan_mutex_post_divert(void* addr, unsigned flags);
-
-#else
-
-#define _u_ __attribute__((unused))
-
-A0_STATIC_INLINE void _u_ __tsan_mutex_create(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_destroy(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_pre_lock(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_post_lock(_u_ void* addr,
-                                                 _u_ unsigned flags,
-                                                 _u_ int recursion) {}
-A0_STATIC_INLINE int _u_ __tsan_mutex_pre_unlock(_u_ void* addr, _u_ unsigned flags) {
-  return 0;
-}
-A0_STATIC_INLINE void _u_ __tsan_mutex_post_unlock(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_pre_signal(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_post_signal(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_pre_divert(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_post_divert(_u_ void* addr, _u_ unsigned flags) {}
-
-#endif
+#include "tsan.h"
 
 A0_STATIC_INLINE
 a0_err_t a0_mtx_timedlock_robust(a0_mtx_t* mtx, a0_time_mono_t* timeout) {
@@ -104,7 +49,7 @@ a0_err_t a0_mtx_timedlock(a0_mtx_t* mtx, a0_time_mono_t* timeout) {
   //       a way to "fail" a lock. Only a trylock.
   a0_robust_op_start(mtx);
   const a0_err_t err = a0_mtx_timedlock_robust(mtx, timeout);
-  if (!err || A0_SYSERR(err) == EOWNERDEAD) {
+  if (a0_mtx_lock_successful(err)) {
     __tsan_mutex_pre_lock(mtx, 0);
     a0_robust_op_add(mtx);
     __tsan_mutex_post_lock(mtx, 0, 0);
@@ -126,7 +71,6 @@ a0_err_t a0_mtx_trylock_impl(a0_mtx_t* mtx) {
 
   // Did it work?
   if (!old) {
-    a0_robust_op_add(mtx);
     return A0_OK;
   }
 
@@ -138,7 +82,6 @@ a0_err_t a0_mtx_trylock_impl(a0_mtx_t* mtx) {
   // Oh, the owner died. Ask the kernel to fix the state.
   a0_err_t err = a0_ftx_trylock_pi(&mtx->ftx);
   if (!err) {
-    a0_robust_op_add(mtx);
     if (a0_ftx_owner_died(a0_atomic_load(&mtx->ftx))) {
       return A0_MAKE_SYSERR(EOWNERDEAD);
     }
@@ -157,12 +100,13 @@ a0_err_t a0_mtx_trylock(a0_mtx_t* mtx) {
   __tsan_mutex_pre_lock(mtx, __tsan_mutex_try_lock);
   a0_robust_op_start(mtx);
   a0_err_t err = a0_mtx_trylock_impl(mtx);
-  a0_robust_op_end(mtx);
-  if (!err || A0_SYSERR(err) == EOWNERDEAD) {
+  if (a0_mtx_lock_successful(err)) {
+    a0_robust_op_add(mtx);
     __tsan_mutex_post_lock(mtx, __tsan_mutex_try_lock, 0);
   } else {
     __tsan_mutex_post_lock(mtx, __tsan_mutex_try_lock | __tsan_mutex_try_lock_failed, 0);
   }
+  a0_robust_op_end(mtx);
   return err;
 }
 

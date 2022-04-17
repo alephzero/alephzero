@@ -20,6 +20,7 @@
 
 #include "clock.h"
 #include "err_macro.h"
+#include "tsan.h"
 
 typedef struct a0_transport_state_s {
   uint64_t seq_low;
@@ -88,9 +89,7 @@ size_t a0_transport_workspace_off() {
 // Converts a 0.2 transport into a 0.3 transport.
 // Note: This does not allow 0.2 and 0.3 to run simultaniously.
 //       0.2 transport will no longer work after this.
-static void a0_backward_compatiblility_update_from_0_2(a0_arena_t)
-    __attribute__((no_sanitize("thread")));
-
+A0_NO_TSAN
 static void a0_backward_compatiblility_update_from_0_2(a0_arena_t arena) {
   if (*(uint16_t*)arena.buf.data != 0x0101) {
     // Not 0.2 format.
