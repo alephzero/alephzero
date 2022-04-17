@@ -18,12 +18,20 @@ extern "C" {
 
 #ifdef A0_TSAN_ENABLED
   #define A0_NO_TSAN __attribute__((no_sanitize("thread")))
+#else
+  #define A0_NO_TSAN
+#endif
+
+#ifdef A0_TSAN_ENABLED
   extern void AnnotateHappensBefore(const char*, int, void*);
   extern void AnnotateHappensAfter(const char*, int, void*);
   #define A0_TSAN_HAPPENS_BEFORE(addr) \
     AnnotateHappensBefore(__FILE__, __LINE__, (void*)(addr))
   #define A0_TSAN_HAPPENS_AFTER(addr) \
     AnnotateHappensAfter(__FILE__, __LINE__, (void*)(addr))
+#else
+  #define A0_TSAN_HAPPENS_BEFORE(addr)
+  #define A0_TSAN_HAPPENS_AFTER(addr)
 #endif
 // clang-format on
 
