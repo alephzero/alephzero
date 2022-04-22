@@ -7,7 +7,9 @@
 extern "C" {
 #endif
 
-uint32_t a0_tid();
+typedef uint32_t a0_tid_t;
+
+a0_tid_t a0_tid();
 
 #ifdef __cplusplus
 }

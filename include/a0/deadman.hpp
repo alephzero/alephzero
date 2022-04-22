@@ -22,6 +22,7 @@ struct Deadman : details::CppWrap<a0_deadman_t> {
   struct State {
     bool is_taken;
     bool is_owner;
+    a0_tid_t owner_tid;
     uint64_t tkn;
   };
 

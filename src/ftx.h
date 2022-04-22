@@ -49,7 +49,13 @@ a0_err_t a0_ftx_wait(a0_ftx_t* ftx, int confirm_val, const a0_time_mono_t* time_
 
   timespec_t ts_mono;
   A0_RETURN_ERR_ON_ERR(a0_clock_convert(CLOCK_BOOTTIME, time_mono->ts, CLOCK_MONOTONIC, &ts_mono));
-  return a0_futex(ftx, FUTEX_WAIT, confirm_val, (uintptr_t)&ts_mono, NULL, 0);
+  // From man futex:
+  // Note: for FUTEX_WAIT, timeout is interpreted as a relative value. This
+  //   differs from other futex operations, where timeout is interpreted as an
+  //   absolute value. To obtain the equivalent of FUTEX_WAIT with an absolute
+  //   timeout, employ FUTEX_WAIT_BITSET with val3 specified as
+  //   FUTEX_BITSET_MATCH_ANY.
+  return a0_futex(ftx, FUTEX_WAIT_BITSET, confirm_val, (uintptr_t)&ts_mono, NULL, FUTEX_BITSET_MATCH_ANY);
 }
 
 A0_STATIC_INLINE
@@ -102,6 +108,16 @@ a0_err_t a0_ftx_wait_requeue_pi(a0_ftx_t* ftx, int confirm_val, const a0_time_mo
   timespec_t ts_mono;
   A0_RETURN_ERR_ON_ERR(a0_clock_convert(CLOCK_BOOTTIME, time_mono->ts, CLOCK_MONOTONIC, &ts_mono));
   return a0_futex(ftx, FUTEX_WAIT_REQUEUE_PI, confirm_val, (uintptr_t)&ts_mono, requeue_ftx, 0);
+}
+
+A0_STATIC_INLINE
+uint32_t a0_ftx_tid(a0_ftx_t ftx) {
+  return ftx & FUTEX_TID_MASK;
+}
+
+A0_STATIC_INLINE
+bool a0_ftx_owner_died(a0_ftx_t ftx) {
+  return ftx & FUTEX_OWNER_DIED;
 }
 
 #ifdef __cplusplus

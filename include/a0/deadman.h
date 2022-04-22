@@ -18,15 +18,10 @@ typedef struct a0_deadman_topic_s {
 
 typedef struct a0_deadman_s {
   a0_file_t _file;
-  a0_deadman_mtx_t* _deadman_mtx;
-  bool _is_owner;
+  a0_deadman_mtx_t _deadman_mtx;
 } a0_deadman_t;
 
-typedef struct a0_deadman_state_s {
-  bool is_taken;
-  bool is_owner;
-  uint64_t tkn;
-} a0_deadman_state_t;
+typedef a0_deadman_mtx_state_t a0_deadman_state_t;
 
 a0_err_t a0_deadman_init(a0_deadman_t*, a0_deadman_topic_t);
 a0_err_t a0_deadman_close(a0_deadman_t*);

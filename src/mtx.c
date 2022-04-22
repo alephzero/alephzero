@@ -1,173 +1,23 @@
 #include <a0/err.h>
 #include <a0/inline.h>
 #include <a0/mtx.h>
-#include <a0/thread_local.h>
 #include <a0/tid.h>
 #include <a0/time.h>
 
 #include <errno.h>
 #include <limits.h>
 #include <linux/futex.h>
-#include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <syscall.h>
 #include <time.h>
-#include <unistd.h>
 
 #include "atomic.h"
 #include "clock.h"
 #include "err_macro.h"
 #include "ftx.h"
-
-// TSAN is worth the pain of properly annotating our mutex.
-
-// clang-format off
-#if defined(__SANITIZE_THREAD__)
-  #define A0_TSAN_ENABLED
-#elif defined(__has_feature)
-  #if __has_feature(thread_sanitizer)
-    #define A0_TSAN_ENABLED
-  #endif
-#endif
-// clang-format on
-
-const unsigned __tsan_mutex_linker_init = 1 << 0;
-const unsigned __tsan_mutex_write_reentrant = 1 << 1;
-const unsigned __tsan_mutex_read_reentrant = 1 << 2;
-const unsigned __tsan_mutex_not_static = 1 << 8;
-const unsigned __tsan_mutex_read_lock = 1 << 3;
-const unsigned __tsan_mutex_try_lock = 1 << 4;
-const unsigned __tsan_mutex_try_lock_failed = 1 << 5;
-const unsigned __tsan_mutex_recursive_lock = 1 << 6;
-const unsigned __tsan_mutex_recursive_unlock = 1 << 7;
-
-#ifdef A0_TSAN_ENABLED
-
-void __tsan_mutex_create(void* addr, unsigned flags);
-void __tsan_mutex_destroy(void* addr, unsigned flags);
-void __tsan_mutex_pre_lock(void* addr, unsigned flags);
-void __tsan_mutex_post_lock(void* addr, unsigned flags, int recursion);
-int __tsan_mutex_pre_unlock(void* addr, unsigned flags);
-void __tsan_mutex_post_unlock(void* addr, unsigned flags);
-void __tsan_mutex_pre_signal(void* addr, unsigned flags);
-void __tsan_mutex_post_signal(void* addr, unsigned flags);
-void __tsan_mutex_pre_divert(void* addr, unsigned flags);
-void __tsan_mutex_post_divert(void* addr, unsigned flags);
-
-#else
-
-#define _u_ __attribute__((unused))
-
-A0_STATIC_INLINE void _u_ __tsan_mutex_create(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_destroy(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_pre_lock(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_post_lock(_u_ void* addr,
-                                                 _u_ unsigned flags,
-                                                 _u_ int recursion) {}
-A0_STATIC_INLINE int _u_ __tsan_mutex_pre_unlock(_u_ void* addr, _u_ unsigned flags) {
-  return 0;
-}
-A0_STATIC_INLINE void _u_ __tsan_mutex_post_unlock(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_pre_signal(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_post_signal(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_pre_divert(_u_ void* addr, _u_ unsigned flags) {}
-A0_STATIC_INLINE void _u_ __tsan_mutex_post_divert(_u_ void* addr, _u_ unsigned flags) {}
-
-#endif
-
-A0_THREAD_LOCAL bool a0_robust_init = false;
-
-A0_STATIC_INLINE
-void a0_robust_reset() {
-  a0_robust_init = 0;
-}
-
-A0_STATIC_INLINE
-void a0_robust_reset_atfork() {
-  pthread_atfork(NULL, NULL, &a0_robust_reset);
-}
-
-static pthread_once_t a0_robust_reset_atfork_once;
-
-typedef struct robust_list robust_list_t;
-typedef struct robust_list_head robust_list_head_t;
-
-A0_THREAD_LOCAL robust_list_head_t a0_robust_head;
-
-A0_STATIC_INLINE
-void robust_init() {
-  a0_robust_head.list.next = &a0_robust_head.list;
-  a0_robust_head.futex_offset = offsetof(a0_mtx_t, ftx);
-  a0_robust_head.list_op_pending = NULL;
-  syscall(SYS_set_robust_list, &a0_robust_head.list, sizeof(a0_robust_head));
-}
-
-A0_STATIC_INLINE
-void init_thread() {
-  if (a0_robust_init) {
-    return;
-  }
-
-  pthread_once(&a0_robust_reset_atfork_once, a0_robust_reset_atfork);
-  robust_init();
-  a0_robust_init = true;
-}
-
-A0_STATIC_INLINE
-void robust_op_start(a0_mtx_t* mtx) {
-  init_thread();
-  a0_robust_head.list_op_pending = (struct robust_list*)mtx;
-  a0_barrier();
-}
-
-A0_STATIC_INLINE
-void robust_op_end(a0_mtx_t* mtx) {
-  (void)mtx;
-  a0_barrier();
-  a0_robust_head.list_op_pending = NULL;
-}
-
-A0_STATIC_INLINE
-bool robust_is_head(a0_mtx_t* mtx) {
-  return mtx == (a0_mtx_t*)&a0_robust_head;
-}
-
-A0_STATIC_INLINE
-void robust_op_add(a0_mtx_t* mtx) {
-  a0_mtx_t* old_first = (a0_mtx_t*)a0_robust_head.list.next;
-
-  mtx->prev = (a0_mtx_t*)&a0_robust_head;
-  mtx->next = old_first;
-
-  a0_barrier();
-
-  a0_robust_head.list.next = (robust_list_t*)mtx;
-  if (!robust_is_head(old_first)) {
-    old_first->prev = mtx;
-  }
-}
-
-A0_STATIC_INLINE
-void robust_op_del(a0_mtx_t* mtx) {
-  a0_mtx_t* prev = mtx->prev;
-  a0_mtx_t* next = mtx->next;
-  prev->next = next;
-  if (!robust_is_head(next)) {
-    next->prev = prev;
-  }
-}
-
-A0_STATIC_INLINE
-uint32_t ftx_tid(a0_ftx_t ftx) {
-  return ftx & FUTEX_TID_MASK;
-}
-
-A0_STATIC_INLINE
-bool ftx_owner_died(a0_ftx_t ftx) {
-  return ftx & FUTEX_OWNER_DIED;
-}
+#include "robust.h"
+#include "tsan.h"
 
 A0_STATIC_INLINE
 a0_err_t a0_mtx_timedlock_robust(a0_mtx_t* mtx, a0_time_mono_t* timeout) {
@@ -185,7 +35,7 @@ a0_err_t a0_mtx_timedlock_robust(a0_mtx_t* mtx, a0_time_mono_t* timeout) {
   }
 
   if (!syserr) {
-    if (ftx_owner_died(a0_atomic_load(&mtx->ftx))) {
+    if (a0_ftx_owner_died(a0_atomic_load(&mtx->ftx))) {
       return A0_MAKE_SYSERR(EOWNERDEAD);
     }
     return A0_OK;
@@ -197,14 +47,14 @@ a0_err_t a0_mtx_timedlock_robust(a0_mtx_t* mtx, a0_time_mono_t* timeout) {
 a0_err_t a0_mtx_timedlock(a0_mtx_t* mtx, a0_time_mono_t* timeout) {
   // Note: __tsan_mutex_pre_lock should come here, but tsan doesn't provide
   //       a way to "fail" a lock. Only a trylock.
-  robust_op_start(mtx);
+  a0_robust_op_start(mtx);
   const a0_err_t err = a0_mtx_timedlock_robust(mtx, timeout);
-  if (!err || A0_SYSERR(err) == EOWNERDEAD) {
+  if (a0_mtx_lock_successful(err)) {
     __tsan_mutex_pre_lock(mtx, 0);
-    robust_op_add(mtx);
+    a0_robust_op_add(mtx);
     __tsan_mutex_post_lock(mtx, 0, 0);
   }
-  robust_op_end(mtx);
+  a0_robust_op_end(mtx);
   return err;
 }
 
@@ -221,20 +71,18 @@ a0_err_t a0_mtx_trylock_impl(a0_mtx_t* mtx) {
 
   // Did it work?
   if (!old) {
-    robust_op_add(mtx);
     return A0_OK;
   }
 
   // Is the owner still alive?
-  if (!ftx_owner_died(old)) {
+  if (!a0_ftx_owner_died(old)) {
     return A0_MAKE_SYSERR(EBUSY);
   }
 
   // Oh, the owner died. Ask the kernel to fix the state.
   a0_err_t err = a0_ftx_trylock_pi(&mtx->ftx);
   if (!err) {
-    robust_op_add(mtx);
-    if (ftx_owner_died(a0_atomic_load(&mtx->ftx))) {
+    if (a0_ftx_owner_died(a0_atomic_load(&mtx->ftx))) {
       return A0_MAKE_SYSERR(EOWNERDEAD);
     }
     return A0_OK;
@@ -250,14 +98,15 @@ a0_err_t a0_mtx_trylock_impl(a0_mtx_t* mtx) {
 
 a0_err_t a0_mtx_trylock(a0_mtx_t* mtx) {
   __tsan_mutex_pre_lock(mtx, __tsan_mutex_try_lock);
-  robust_op_start(mtx);
+  a0_robust_op_start(mtx);
   a0_err_t err = a0_mtx_trylock_impl(mtx);
-  robust_op_end(mtx);
-  if (!err || A0_SYSERR(err) == EOWNERDEAD) {
+  if (a0_mtx_lock_successful(err)) {
+    a0_robust_op_add(mtx);
     __tsan_mutex_post_lock(mtx, __tsan_mutex_try_lock, 0);
   } else {
     __tsan_mutex_post_lock(mtx, __tsan_mutex_try_lock | __tsan_mutex_try_lock_failed, 0);
   }
+  a0_robust_op_end(mtx);
   return err;
 }
 
@@ -267,14 +116,14 @@ a0_err_t a0_mtx_unlock(a0_mtx_t* mtx) {
   const uint32_t val = a0_atomic_load(&mtx->ftx);
 
   // Only the owner can unlock.
-  if (ftx_tid(val) != tid) {
+  if (a0_ftx_tid(val) != tid) {
     return A0_MAKE_SYSERR(EPERM);
   }
 
   __tsan_mutex_pre_unlock(mtx, 0);
 
-  robust_op_start(mtx);
-  robust_op_del(mtx);
+  a0_robust_op_start(mtx);
+  a0_robust_op_del(mtx);
 
   a0_atomic_and_fetch(&mtx->ftx, ~FUTEX_OWNER_DIED);
 
@@ -285,7 +134,7 @@ a0_err_t a0_mtx_unlock(a0_mtx_t* mtx) {
     a0_ftx_unlock_pi(&mtx->ftx);
   }
 
-  robust_op_end(mtx);
+  a0_robust_op_end(mtx);
   __tsan_mutex_post_unlock(mtx, 0);
 
   return A0_OK;
@@ -316,7 +165,7 @@ a0_err_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, a0_time_mono_t* timeout)
   }
 
   __tsan_mutex_pre_lock(mtx, 0);
-  robust_op_start(mtx);
+  a0_robust_op_start(mtx);
 
   do {
     // Priority-inheritance-aware wait until awoken or timeout.
@@ -334,14 +183,14 @@ a0_err_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, a0_time_mono_t* timeout)
     err = a0_mtx_timedlock_robust(mtx, NULL);
   }
 
-  robust_op_add(mtx);
+  a0_robust_op_add(mtx);
 
   // If no higher priority error, check the previous owner didn't die.
   if (!err) {
-    err = ftx_owner_died(a0_atomic_load(&mtx->ftx)) ? EOWNERDEAD : A0_OK;
+    err = a0_ftx_owner_died(a0_atomic_load(&mtx->ftx)) ? EOWNERDEAD : A0_OK;
   }
 
-  robust_op_end(mtx);
+  a0_robust_op_end(mtx);
   __tsan_mutex_post_lock(mtx, 0, 0);
   return err;
 }

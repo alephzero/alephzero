@@ -80,7 +80,7 @@ Deadman::State Deadman::state() {
   CHECK_C;
   a0_deadman_state_t state;
   check(ignore_owner_died(a0_deadman_state(&*c, &state)));
-  return State{state.is_taken, state.is_owner, state.tkn};
+  return State{state.is_locked, state.is_owner, state.owner_tid, state.tkn};
 }
 
 }  // namespace a0

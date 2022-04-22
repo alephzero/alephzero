@@ -34,19 +34,19 @@ struct DeadmanFixture {
   void REQUIRE_UNLOCKED(a0_deadman_t* d) {
     a0_deadman_state_t state;
     REQUIRE_OK(a0_deadman_state(d, &state));
-    REQUIRE(!state.is_taken);
+    REQUIRE(!state.is_locked);
   }
 
   void REQUIRE_LOCKED(a0_deadman_t* d) {
     a0_deadman_state_t state;
     REQUIRE_OK(a0_deadman_state(d, &state));
-    REQUIRE(state.is_taken);
+    REQUIRE(state.is_locked);
   }
 
   void REQUIRE_LOCKED_WITH_TKN(a0_deadman_t* d, uint64_t tkn) {
     a0_deadman_state_t state;
     REQUIRE_OK(a0_deadman_state(d, &state));
-    REQUIRE(state.is_taken);
+    REQUIRE(state.is_locked);
     REQUIRE(state.tkn == tkn);
   }
 };
@@ -105,7 +105,7 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] trytake") {
   REQUIRE_OK(a0_deadman_init(&d[1], topic));
 
   REQUIRE_OK(a0_deadman_trytake(&d[0]));
-  REQUIRE(A0_SYSERR(a0_deadman_trytake(&d[1])) == EBUSY);
+  REQUIRE(A0_SYSERR(a0_deadman_trytake(&d[1])) == EDEADLK);
 
   REQUIRE_LOCKED_WITH_TKN(&d[0], 1);
   REQUIRE_LOCKED_WITH_TKN(&d[1], 1);

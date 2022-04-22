@@ -1,111 +1,142 @@
-#include <a0/callback.h>
 #include <a0/deadman_mtx.h>
+#include <a0/empty.h>
 #include <a0/err.h>
 #include <a0/inline.h>
 #include <a0/mtx.h>
+#include <a0/tid.h>
 #include <a0/time.h>
-#include <a0/unused.h>
 
 #include <errno.h>
+#include <linux/futex.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 
+#include "atomic.h"
 #include "err_macro.h"
+#include "ftx.h"
+#include "robust.h"
+#include "tsan.h"
 
-A0_STATIC_INLINE
-a0_err_t IGNORE_OWNERDEAD(a0_err_t err) {
-  if (a0_mtx_lock_successful(err)) {
-    return A0_OK;
+a0_err_t a0_deadman_mtx_init(a0_deadman_mtx_t* d, a0_deadman_mtx_shared_token_t* shared_token) {
+  *d = (a0_deadman_mtx_t)A0_EMPTY;
+  d->_stkn = shared_token;
+  return A0_OK;
+}
+
+a0_err_t a0_deadman_mtx_shutdown(a0_deadman_mtx_t* d) {
+  A0_TSAN_HAPPENS_BEFORE(&d->_shutdown);
+  a0_atomic_store(&d->_shutdown, true);
+  while (a0_atomic_load(&d->_inop)) {
+    // Yes, this is awful. Find a better way to do this.
+    a0_ftx_broadcast(&d->_stkn->_mtx.ftx);
   }
-  return err;
-}
-
-typedef struct a0_deadman_mtx_timeout_s {
-  a0_deadman_mtx_t* d;
-  a0_time_mono_t* timeout;
-} a0_deadman_mtx_timeout_t;
-
-A0_STATIC_INLINE
-a0_err_t a0_deadman_mtx_lock_impl(a0_deadman_mtx_t* d, a0_err_t owner_lock_status) {
-  // Failed to lock. Return the error.
-  if (!a0_mtx_lock_successful(owner_lock_status)) {
-    return owner_lock_status;
-  }
-
-  // The lock is successful.
-
-  IGNORE_OWNERDEAD(a0_mtx_lock(&d->_guard));
-  // Update to a new unique token.
-  d->_tkn++;
-  // Mark the deadman as locked.
-  d->_locked = true;
-  // Wake wait_locked calls.
-  a0_cnd_broadcast(&d->_lock_cnd, &d->_guard);
-  a0_mtx_unlock(&d->_guard);
-
-  return owner_lock_status;
-}
-
-a0_err_t a0_deadman_mtx_lock(a0_deadman_mtx_t* d) {
-  return a0_deadman_mtx_lock_impl(d, a0_mtx_lock(&d->_owner_mtx));
-}
-
-a0_err_t a0_deadman_mtx_trylock(a0_deadman_mtx_t* d) {
-  return a0_deadman_mtx_lock_impl(d, a0_mtx_trylock(&d->_owner_mtx));
-}
-
-a0_err_t a0_deadman_mtx_timedlock(a0_deadman_mtx_t* d, a0_time_mono_t* timeout) {
-  return a0_deadman_mtx_lock_impl(d, a0_mtx_timedlock(&d->_owner_mtx, timeout));
-}
-
-a0_err_t a0_deadman_mtx_unlock(a0_deadman_mtx_t* d) {
-  // Expect the called to own the deadman (owner_mtx).
-
-  // Guard protects the locked flag.
-  IGNORE_OWNERDEAD(a0_mtx_lock(&d->_guard));
-  d->_locked = false;
-  a0_mtx_unlock(&d->_guard);
-
-  // Release the deadman.
-  a0_mtx_unlock(&d->_owner_mtx);
   return A0_OK;
 }
 
 A0_STATIC_INLINE
-a0_err_t a0_deadman_mtx_wait_locked_impl(a0_deadman_mtx_t* d, a0_callback_t lock_cnd, uint64_t* out_tkn) {
-  uint64_t unused_tkn;
-  if (!out_tkn) {
-    out_tkn = &unused_tkn;
+a0_err_t a0_deadman_mtx_trylock_impl(a0_deadman_mtx_t* d) {
+  if (a0_atomic_load(&d->_shutdown)) {
+    A0_TSAN_HAPPENS_AFTER(&d->_shutdown);
+    return A0_MAKE_SYSERR(ESHUTDOWN);
   }
 
-  while (true) {
-    // Nothing protected by the guard may block!
-    IGNORE_OWNERDEAD(a0_mtx_lock(&d->_guard));
+  a0_err_t err = A0_MAKE_SYSERR(EBUSY);
 
-    // Check if the deadman is locked.
-    // Note: The locked flag is not enough to determine if the deadman is locked.
-    //       The owning process may have died.
-    if (a0_mtx_lock_successful(a0_mtx_trylock(&d->_owner_mtx))) {
-      // The owning process may have died. Reset the locked flag.
-      d->_locked = false;
-
-      // Release the deadman and wait on the lock condition.
-      a0_mtx_unlock(&d->_owner_mtx);
-      a0_err_t cnd_err = a0_callback_call(lock_cnd);
-      if (cnd_err) {
-        a0_mtx_unlock(&d->_guard);
-        return cnd_err;
-      }
-    } else if (d->_locked) {
-      // The deadman is locked.
-      *out_tkn = d->_tkn;
-      a0_mtx_unlock(&d->_guard);
-      return A0_OK;
+  uint32_t tid = a0_tid();
+  uint32_t old = a0_atomic_load(&d->_stkn->_mtx.ftx);
+  if (!a0_ftx_tid(old)) {
+    uint32_t new = (old | tid) & (~FUTEX_OWNER_DIED);
+    if (a0_cas(&d->_stkn->_mtx.ftx, old, new)) {
+      err = a0_ftx_owner_died(old) ? A0_MAKE_SYSERR(EOWNERDEAD) : A0_OK;
+      d->_is_owner = true;
+      d->_stkn->_tkn++;
+      a0_ftx_broadcast(&d->_stkn->_mtx.ftx);
     }
-
-    a0_mtx_unlock(&d->_guard);
+  } else if (a0_ftx_tid(old) == tid) {
+    err = A0_MAKE_SYSERR(EDEADLK);
   }
+
+  return err;
+}
+
+a0_err_t a0_deadman_mtx_trylock(a0_deadman_mtx_t* d) {
+  if (d->_is_owner) {
+    return A0_OK;
+  }
+
+  a0_robust_op_start(&d->_stkn->_mtx);
+  a0_err_t err = a0_deadman_mtx_trylock_impl(d);
+  if (a0_mtx_lock_successful(err)) {
+    __tsan_mutex_pre_lock(&d->_stkn->_mtx, 0);
+    a0_robust_op_add(&d->_stkn->_mtx);
+    __tsan_mutex_post_lock(&d->_stkn->_mtx, 0, 0);
+  }
+  a0_robust_op_end(&d->_stkn->_mtx);
+  return err;
+}
+
+a0_err_t a0_deadman_mtx_lock(a0_deadman_mtx_t* d) {
+  return a0_deadman_mtx_timedlock(d, NULL);
+}
+
+A0_STATIC_INLINE
+a0_err_t a0_deadman_mtx_timedlock_impl(a0_deadman_mtx_t* d, a0_time_mono_t* timeout) {
+  a0_err_t err = A0_OK;
+  while (!err || A0_SYSERR(err) == EAGAIN) {
+    uint32_t old = a0_atomic_load(&d->_stkn->_mtx.ftx);
+    err = a0_deadman_mtx_trylock_impl(d);
+    if (!err || A0_SYSERR(err) != EBUSY) {
+      return err;
+    }
+    err = A0_OK;
+
+    uint32_t new = old | FUTEX_WAITERS;
+    if (a0_cas(&d->_stkn->_mtx.ftx, old, new)) {
+      err = a0_ftx_wait(&d->_stkn->_mtx.ftx, new, timeout);
+    }
+  }
+  return err;
+}
+
+a0_err_t a0_deadman_mtx_timedlock(a0_deadman_mtx_t* d, a0_time_mono_t* timeout) {
+  if (d->_is_owner) {
+    return A0_OK;
+  }
+
+  a0_atomic_store(&d->_inop, true);
+
+  a0_robust_op_start(&d->_stkn->_mtx);
+  a0_err_t err = a0_deadman_mtx_timedlock_impl(d, timeout);
+  if (a0_mtx_lock_successful(err)) {
+    __tsan_mutex_pre_lock(&d->_stkn->_mtx, 0);
+    a0_robust_op_add(&d->_stkn->_mtx);
+    __tsan_mutex_post_lock(&d->_stkn->_mtx, 0, 0);
+  }
+  a0_robust_op_end(&d->_stkn->_mtx);
+
+  a0_atomic_store(&d->_inop, false);
+  return err;
+}
+
+a0_err_t a0_deadman_mtx_unlock(a0_deadman_mtx_t* d) {
+  // Only the owner can unlock.
+  if (!d->_is_owner) {
+    return A0_MAKE_SYSERR(EPERM);
+  }
+
+  __tsan_mutex_pre_unlock(&d->_stkn->_mtx, 0);
+  a0_robust_op_start(&d->_stkn->_mtx);
+  a0_robust_op_del(&d->_stkn->_mtx);
+
+  a0_atomic_and_fetch(&d->_stkn->_mtx.ftx, FUTEX_WAITERS);
+
+  a0_robust_op_end(&d->_stkn->_mtx);
+  __tsan_mutex_post_unlock(&d->_stkn->_mtx, 0);
+
+  d->_is_owner = false;
+  a0_ftx_broadcast(&d->_stkn->_mtx.ftx);
+  return A0_OK;
 }
 
 a0_err_t a0_deadman_mtx_wait_locked(a0_deadman_mtx_t* d, uint64_t* out_tkn) {
@@ -113,36 +144,41 @@ a0_err_t a0_deadman_mtx_wait_locked(a0_deadman_mtx_t* d, uint64_t* out_tkn) {
 }
 
 A0_STATIC_INLINE
-a0_err_t a0_deadman_mtx_timedwait_locked_cnd(void* user_data) {
-  a0_deadman_mtx_timeout_t* deadman_timeout = (a0_deadman_mtx_timeout_t*)user_data;
-  return a0_cnd_timedwait(
-      &deadman_timeout->d->_lock_cnd,
-      &deadman_timeout->d->_guard,
-      deadman_timeout->timeout);
+a0_err_t a0_deadman_mtx_timedwait_locked_impl(a0_deadman_mtx_t* d, a0_time_mono_t* timeout, uint64_t* out_tkn) {
+  uint32_t old = a0_atomic_load(&d->_stkn->_mtx.ftx);
+  while (!a0_ftx_tid(old) || a0_ftx_owner_died(old)) {
+    if (a0_atomic_load(&d->_shutdown)) {
+      A0_TSAN_HAPPENS_AFTER(&d->_shutdown);
+      return A0_MAKE_SYSERR(ESHUTDOWN);
+    }
+
+    uint32_t new = old | FUTEX_WAITERS;
+    if (a0_cas(&d->_stkn->_mtx.ftx, old, new)) {
+      a0_err_t err = a0_ftx_wait(&d->_stkn->_mtx.ftx, new, timeout);
+      if (err && A0_SYSERR(err) != EAGAIN) {
+        return err;
+      }
+    }
+
+    old = a0_atomic_load(&d->_stkn->_mtx.ftx);
+  }
+
+  __tsan_mutex_pre_lock(&d->_stkn->_tkn, __tsan_mutex_try_lock);
+  *out_tkn = a0_atomic_load(&d->_stkn->_tkn);
+  __tsan_mutex_post_lock(&d->_stkn->_tkn, __tsan_mutex_try_lock | __tsan_mutex_try_lock_failed, 0);
+  A0_TSAN_HAPPENS_AFTER(&d->_stkn->_mtx.ftx);
+  return A0_OK;
 }
 
 a0_err_t a0_deadman_mtx_timedwait_locked(a0_deadman_mtx_t* d, a0_time_mono_t* timeout, uint64_t* out_tkn) {
-  a0_deadman_mtx_timeout_t deadman_timeout = {d, timeout};
-  return a0_deadman_mtx_wait_locked_impl(d, (a0_callback_t){&deadman_timeout, a0_deadman_mtx_timedwait_locked_cnd}, out_tkn);
-}
-
-A0_STATIC_INLINE
-a0_err_t a0_deadman_mtx_query_cnd(void* user_data) {
-  A0_MAYBE_UNUSED(user_data);
-  return A0_MAKE_SYSERR(EBUSY);
-}
-
-a0_err_t a0_deadman_mtx_state(a0_deadman_mtx_t* d, bool* out_islocked, uint64_t* out_tkn) {
-  bool unused;
-  if (!out_islocked) {
-    out_islocked = &unused;
+  uint64_t unused_tkn;
+  if (out_tkn == NULL) {
+    out_tkn = &unused_tkn;
   }
 
-  a0_err_t err = a0_deadman_mtx_wait_locked_impl(d, (a0_callback_t){NULL, a0_deadman_mtx_query_cnd}, out_tkn);
-  *out_islocked = !err;
-  if (A0_SYSERR(err) == EBUSY) {
-    err = A0_OK;
-  }
+  a0_atomic_store(&d->_inop, true);
+  a0_err_t err = a0_deadman_mtx_timedwait_locked_impl(d, timeout, out_tkn);
+  a0_atomic_store(&d->_inop, false);
   return err;
 }
 
@@ -150,41 +186,43 @@ a0_err_t a0_deadman_mtx_wait_unlocked(a0_deadman_mtx_t* d, uint64_t tkn) {
   return a0_deadman_mtx_timedwait_unlocked(d, NULL, tkn);
 }
 
-a0_err_t a0_deadman_mtx_timedwait_unlocked(a0_deadman_mtx_t* d, a0_time_mono_t* timeout, uint64_t tkn) {
-  // Nothing protected by the guard may block!
-  IGNORE_OWNERDEAD(a0_mtx_lock(&d->_guard));
-  a0_err_t err = A0_OK;
-  while (d->_tkn == tkn) {
-    // Check if the deadman is locked.
-    err = a0_mtx_trylock(&d->_owner_mtx);
-    if (a0_mtx_lock_successful(err)) {
-      // If not, we're done
-      break;
+A0_STATIC_INLINE
+a0_err_t a0_deadman_mtx_timedwait_unlocked_impl(a0_deadman_mtx_t* d, a0_time_mono_t* timeout, uint64_t tkn) {
+  uint32_t old = a0_atomic_load(&d->_stkn->_mtx.ftx);
+  while (a0_ftx_tid(old) && !a0_ftx_owner_died(old) && tkn == a0_atomic_load(&d->_stkn->_tkn)) {
+    if (a0_atomic_load(&d->_shutdown)) {
+      A0_TSAN_HAPPENS_AFTER(&d->_shutdown);
+      return A0_MAKE_SYSERR(ESHUTDOWN);
     }
 
-    // The deadman is locked.
-    //
-    // Locking the owner_mtx (without guard) will block until the owner
-    // unlocks or dies.
-    //
-    // wait_unlocked owns the owner_mtx for a very short time.
-    // _locked is set to false to differentiate between the lock and wait_unlocked.
-    a0_mtx_unlock(&d->_guard);
-    err = a0_mtx_timedlock(&d->_owner_mtx, timeout);
-    if (A0_SYSERR(err) == ETIMEDOUT) {
-      return err;
+    uint32_t new = old | FUTEX_WAITERS;
+    if (a0_cas(&d->_stkn->_mtx.ftx, old, new)) {
+      a0_err_t err = a0_ftx_wait(&d->_stkn->_mtx.ftx, new, timeout);
+      if (err && A0_SYSERR(err) != EAGAIN) {
+        return err;
+      }
     }
-    a0_mtx_unlock(&d->_owner_mtx);
-    IGNORE_OWNERDEAD(a0_mtx_lock(&d->_guard));
 
-    // Reset err and try again.
-    err = A0_OK;
+    old = a0_atomic_load(&d->_stkn->_mtx.ftx);
   }
+  return A0_OK;
+}
 
-  // The owner_mtx is locked here, but the deadman_mtx is not locked.
-  d->_locked = false;
-
-  a0_mtx_unlock(&d->_owner_mtx);
-  a0_mtx_unlock(&d->_guard);
+a0_err_t a0_deadman_mtx_timedwait_unlocked(a0_deadman_mtx_t* d, a0_time_mono_t* timeout, uint64_t tkn) {
+  a0_atomic_store(&d->_inop, true);
+  a0_err_t err = a0_deadman_mtx_timedwait_unlocked_impl(d, timeout, tkn);
+  a0_atomic_store(&d->_inop, false);
   return err;
+}
+
+A0_NO_TSAN
+a0_err_t a0_deadman_mtx_state(a0_deadman_mtx_t* d, a0_deadman_mtx_state_t* out_state) {
+  out_state->is_owner = a0_atomic_load(&d->_is_owner);
+  out_state->owner_tid = a0_ftx_tid(a0_atomic_load(&d->_stkn->_mtx.ftx));
+  if (a0_ftx_owner_died(out_state->owner_tid)) {
+    out_state->owner_tid = 0;
+  }
+  out_state->is_locked = out_state->owner_tid != 0;
+  out_state->tkn = out_state->is_locked ? a0_atomic_load(&d->_stkn->_tkn) : 0;
+  return A0_OK;
 }
