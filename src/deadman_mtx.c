@@ -7,6 +7,7 @@
 #include <a0/time.h>
 
 #include <errno.h>
+#include <linux/futex.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
