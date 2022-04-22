@@ -16,6 +16,10 @@ extern "C" {
   #endif
 #endif
 
+#ifndef A0_TSAN_ENABLED
+  #include <a0/inline.h>
+#endif
+
 #ifdef A0_TSAN_ENABLED
   #define A0_NO_TSAN __attribute__((no_sanitize("thread")))
 #else
