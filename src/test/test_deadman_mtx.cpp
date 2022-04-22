@@ -269,7 +269,7 @@ TEST_CASE("deadman_mtx] fuzz") {
           REQUIRE((a0_mtx_lock_successful(err) || A0_SYSERR(err) == EBUSY));
           is_lock_owner = a0_mtx_lock_successful(err);
         } else if (lock_action == 2) {
-          auto timeout = a0::test::timeout_in(std::chrono::microseconds(100));
+          auto timeout = a0::test::timeout_in(std::chrono::milliseconds(1));
           a0_err_t err = a0_deadman_mtx_timedlock(&d, &timeout);
           REQUIRE((a0_mtx_lock_successful(err) || A0_SYSERR(err) == ETIMEDOUT));
           is_lock_owner = a0_mtx_lock_successful(err);
@@ -279,10 +279,10 @@ TEST_CASE("deadman_mtx] fuzz") {
         }
 
         if (is_lock_owner) {
-          if (rand() % 100 == 0) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          if (rand() % 10 == 0) {
             quick_exit(0);
           }
-          std::this_thread::sleep_for(std::chrono::microseconds(10));
           REQUIRE_OK(a0_deadman_mtx_unlock(&d));
         } else {
           if (!tkn) {
@@ -298,7 +298,7 @@ TEST_CASE("deadman_mtx] fuzz") {
           if (wait_unlock_action == 0) {
             REQUIRE_OK(a0_deadman_mtx_wait_unlocked(&d, tkn));
           } else if (wait_unlock_action == 1) {
-            auto timeout = a0::test::timeout_in(std::chrono::microseconds(100));
+            auto timeout = a0::test::timeout_in(std::chrono::milliseconds(1));
             a0_err_t err = a0_deadman_mtx_timedwait_unlocked(&d, &timeout, tkn);
             REQUIRE((!err || A0_SYSERR(err) == ETIMEDOUT));
           }
@@ -327,6 +327,7 @@ TEST_CASE("deadman_mtx] fuzz") {
   a0_deadman_mtx_t d;
   a0_deadman_mtx_init(&d, stkn);
   REQUIRE(a0_mtx_lock_successful(a0_deadman_mtx_lock(&d)));
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
   REQUIRE_OK(a0_deadman_mtx_unlock(&d));
 
   for (auto& child : children) {

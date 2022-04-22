@@ -42,20 +42,18 @@ a0_err_t a0_deadman_mtx_trylock_impl(a0_deadman_mtx_t* d) {
 
   a0_err_t err = A0_MAKE_SYSERR(EBUSY);
 
-  const uint32_t tid = a0_tid();
-  uint32_t old = a0_cas_val(&d->_stkn->_mtx.ftx, 0, tid);
-  if (!old) {
-    err = A0_OK;
-  } else if (a0_ftx_owner_died(old) && a0_cas(&d->_stkn->_mtx.ftx, old, tid)) {
-    err = A0_MAKE_SYSERR(EOWNERDEAD);
+  uint32_t tid = a0_tid();
+  uint32_t old = a0_atomic_load(&d->_stkn->_mtx.ftx);
+  if (!a0_ftx_tid(old)) {
+    uint32_t new = (old | tid) & (~FUTEX_OWNER_DIED);
+    if (a0_cas(&d->_stkn->_mtx.ftx, old, new)) {
+      err = a0_ftx_owner_died(old) ? A0_MAKE_SYSERR(EOWNERDEAD) : A0_OK;
+      d->_is_owner = true;
+      d->_stkn->_tkn++;
+      a0_ftx_broadcast(&d->_stkn->_mtx.ftx);
+    }
   } else if (a0_ftx_tid(old) == tid) {
     err = A0_MAKE_SYSERR(EDEADLK);
-  }
-
-  if (a0_mtx_lock_successful(err)) {
-    d->_is_owner = true;
-    d->_stkn->_tkn++;
-    a0_ftx_broadcast(&d->_stkn->_mtx.ftx);
   }
 
   return err;
@@ -90,7 +88,12 @@ a0_err_t a0_deadman_mtx_timedlock_impl(a0_deadman_mtx_t* d, a0_time_mono_t* time
     if (!err || A0_SYSERR(err) != EBUSY) {
       return err;
     }
-    err = a0_ftx_wait(&d->_stkn->_mtx.ftx, old, timeout);
+    err = A0_OK;
+
+    uint32_t new = old | FUTEX_WAITERS;
+    if (a0_cas(&d->_stkn->_mtx.ftx, old, new)) {
+      err = a0_ftx_wait(&d->_stkn->_mtx.ftx, new, timeout);
+    }
   }
   return err;
 }
@@ -125,7 +128,7 @@ a0_err_t a0_deadman_mtx_unlock(a0_deadman_mtx_t* d) {
   a0_robust_op_start(&d->_stkn->_mtx);
   a0_robust_op_del(&d->_stkn->_mtx);
 
-  a0_atomic_store(&d->_stkn->_mtx.ftx, 0);
+  a0_atomic_and_fetch(&d->_stkn->_mtx.ftx, FUTEX_WAITERS);
 
   a0_robust_op_end(&d->_stkn->_mtx);
   __tsan_mutex_post_unlock(&d->_stkn->_mtx, 0);
@@ -141,23 +144,26 @@ a0_err_t a0_deadman_mtx_wait_locked(a0_deadman_mtx_t* d, uint64_t* out_tkn) {
 
 A0_STATIC_INLINE
 a0_err_t a0_deadman_mtx_timedwait_locked_impl(a0_deadman_mtx_t* d, a0_time_mono_t* timeout, uint64_t* out_tkn) {
-  uint32_t val = a0_atomic_load(&d->_stkn->_mtx.ftx);
-  while (!val || a0_ftx_owner_died(val)) {
+  uint32_t old = a0_atomic_load(&d->_stkn->_mtx.ftx);
+  while (!a0_ftx_tid(old) || a0_ftx_owner_died(old)) {
     if (a0_atomic_load(&d->_shutdown)) {
       A0_TSAN_HAPPENS_AFTER(&d->_shutdown);
       return A0_MAKE_SYSERR(ESHUTDOWN);
     }
 
-    a0_err_t err = a0_ftx_wait(&d->_stkn->_mtx.ftx, val, timeout);
-    if (err && A0_SYSERR(err) != EAGAIN) {
-      return err;
+    uint32_t new = old | FUTEX_WAITERS;
+    if (a0_cas(&d->_stkn->_mtx.ftx, old, new)) {
+      a0_err_t err = a0_ftx_wait(&d->_stkn->_mtx.ftx, new, timeout);
+      if (err && A0_SYSERR(err) != EAGAIN) {
+        return err;
+      }
     }
 
-    val = a0_atomic_load(&d->_stkn->_mtx.ftx);
+    old = a0_atomic_load(&d->_stkn->_mtx.ftx);
   }
 
   __tsan_mutex_pre_lock(&d->_stkn->_tkn, __tsan_mutex_try_lock);
-  *out_tkn = d->_stkn->_tkn;
+  *out_tkn = a0_atomic_load(&d->_stkn->_tkn);
   __tsan_mutex_post_lock(&d->_stkn->_tkn, __tsan_mutex_try_lock | __tsan_mutex_try_lock_failed, 0);
   A0_TSAN_HAPPENS_AFTER(&d->_stkn->_mtx.ftx);
   return A0_OK;
@@ -181,19 +187,22 @@ a0_err_t a0_deadman_mtx_wait_unlocked(a0_deadman_mtx_t* d, uint64_t tkn) {
 
 A0_STATIC_INLINE
 a0_err_t a0_deadman_mtx_timedwait_unlocked_impl(a0_deadman_mtx_t* d, a0_time_mono_t* timeout, uint64_t tkn) {
-  uint32_t val = a0_atomic_load(&d->_stkn->_mtx.ftx);
-  while (val && !a0_ftx_owner_died(val) && tkn == a0_atomic_load(&d->_stkn->_tkn)) {
+  uint32_t old = a0_atomic_load(&d->_stkn->_mtx.ftx);
+  while (a0_ftx_tid(old) && !a0_ftx_owner_died(old) && tkn == a0_atomic_load(&d->_stkn->_tkn)) {
     if (a0_atomic_load(&d->_shutdown)) {
       A0_TSAN_HAPPENS_AFTER(&d->_shutdown);
       return A0_MAKE_SYSERR(ESHUTDOWN);
     }
 
-    a0_err_t err = a0_ftx_wait(&d->_stkn->_mtx.ftx, val, timeout);
-    if (err && A0_SYSERR(err) != EAGAIN) {
-      return err;
+    uint32_t new = old | FUTEX_WAITERS;
+    if (a0_cas(&d->_stkn->_mtx.ftx, old, new)) {
+      a0_err_t err = a0_ftx_wait(&d->_stkn->_mtx.ftx, new, timeout);
+      if (err && A0_SYSERR(err) != EAGAIN) {
+        return err;
+      }
     }
 
-    val = a0_atomic_load(&d->_stkn->_mtx.ftx);
+    old = a0_atomic_load(&d->_stkn->_mtx.ftx);
   }
   return A0_OK;
 }
@@ -208,7 +217,7 @@ a0_err_t a0_deadman_mtx_timedwait_unlocked(a0_deadman_mtx_t* d, a0_time_mono_t* 
 A0_NO_TSAN
 a0_err_t a0_deadman_mtx_state(a0_deadman_mtx_t* d, a0_deadman_mtx_state_t* out_state) {
   out_state->is_owner = a0_atomic_load(&d->_is_owner);
-  out_state->owner_tid = a0_atomic_load(&d->_stkn->_mtx.ftx);
+  out_state->owner_tid = a0_ftx_tid(a0_atomic_load(&d->_stkn->_mtx.ftx));
   if (a0_ftx_owner_died(out_state->owner_tid)) {
     out_state->owner_tid = 0;
   }
