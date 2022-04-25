@@ -1,4 +1,6 @@
 #include <a0/empty.h>
+#include <a0/event.h>
+#include <a0/latch.h>
 #include <a0/mtx.h>
 #include <a0/time.h>
 #include <a0/unused.h>
@@ -17,60 +19,6 @@
 
 #include "src/err_macro.h"
 #include "src/test_util.hpp"
-
-class latch_t {
-  int32_t val;
-  a0_mtx_t mtx = A0_EMPTY;
-  a0_cnd_t cnd = A0_EMPTY;
-
- public:
-  explicit latch_t(int32_t init_val)
-      : val{init_val} {}
-
-  void arrive_and_wait(int32_t update = 1) {
-    REQUIRE_OK(a0_mtx_lock(&mtx));
-    val -= update;
-    if (val <= 0) {
-      REQUIRE_OK(a0_cnd_broadcast(&cnd, &mtx));
-    }
-    while (val > 0) {
-      REQUIRE_OK(a0_cnd_wait(&cnd, &mtx));
-    }
-    REQUIRE_OK(a0_mtx_unlock(&mtx));
-  }
-};
-
-class event_t {
-  bool val = false;
-  a0_mtx_t mtx = A0_EMPTY;
-  a0_cnd_t cnd = A0_EMPTY;
-
- public:
-  event_t() = default;
-
-  bool is_set() {
-    bool copy;
-    REQUIRE_OK(a0_mtx_lock(&mtx));
-    copy = val;
-    REQUIRE_OK(a0_mtx_unlock(&mtx));
-    return copy;
-  }
-
-  void set() {
-    REQUIRE_OK(a0_mtx_lock(&mtx));
-    val = true;
-    REQUIRE_OK(a0_cnd_broadcast(&cnd, &mtx));
-    REQUIRE_OK(a0_mtx_unlock(&mtx));
-  }
-
-  void wait() {
-    REQUIRE_OK(a0_mtx_lock(&mtx));
-    while (!val) {
-      REQUIRE_OK(a0_cnd_wait(&cnd, &mtx));
-    }
-    REQUIRE_OK(a0_mtx_unlock(&mtx));
-  }
-};
 
 TEST_CASE("mtx] lock, trylock") {
   a0_mtx_t mtx = A0_EMPTY;
@@ -129,16 +77,16 @@ TEST_CASE("mtx] lock, lock2, unlock, unlock2") {
 TEST_CASE("mtx] unlock in wrong thread") {
   a0_mtx_t mtx = A0_EMPTY;
 
-  event_t event_0;
-  event_t event_1;
+  a0_event_t event_0 = A0_EMPTY;
+  a0_event_t event_1 = A0_EMPTY;
   std::thread t([&]() {
     REQUIRE_OK(a0_mtx_lock(&mtx));
-    event_0.set();
-    event_1.wait();
+    a0_event_set(&event_0);
+    a0_event_wait(&event_1);
   });
-  event_0.wait();
+  a0_event_wait(&event_0);
   REQUIRE(A0_SYSERR(a0_mtx_unlock(&mtx)) == EPERM);
-  event_1.set();
+  a0_event_set(&event_1);
 
   t.join();
 }
@@ -147,17 +95,17 @@ TEST_CASE("mtx] trylock in different thread") {
   a0::test::IpcPool ipc_pool;
   auto* mtx = ipc_pool.make<a0_mtx_t>();
 
-  event_t event_0;
-  event_t event_1;
+  a0_event_t event_0 = A0_EMPTY;
+  a0_event_t event_1 = A0_EMPTY;
   std::thread t([&]() {
     REQUIRE_OK(a0_mtx_lock(mtx));
-    event_0.set();
-    event_1.wait();
+    a0_event_set(&event_0);
+    a0_event_wait(&event_1);
     REQUIRE_OK(a0_mtx_unlock(mtx));
   });
-  event_0.wait();
+  a0_event_wait(&event_0);
   REQUIRE(A0_SYSERR(a0_mtx_trylock(mtx)) == EBUSY);
-  event_1.set();
+  a0_event_set(&event_1);
 
   t.join();
 }
@@ -320,25 +268,25 @@ TEST_CASE("cnd] many waiters") {
   a0_cnd_t cnd = A0_EMPTY;
   a0_mtx_t mtx = A0_EMPTY;
 
-  std::vector<std::unique_ptr<latch_t>> latches;
+  std::vector<std::unique_ptr<a0_latch_t>> latches;
   size_t num_threads = 1000;
   if (a0::test::is_valgrind()) {
     num_threads = 100;
   }
 
   for (size_t i = 0; i < num_threads; i++) {
-    latches.push_back(std::unique_ptr<latch_t>(new latch_t(2)));
-    latch_t* latch = latches.back().get();
+    latches.emplace_back(new a0_latch_t{2});
+    a0_latch_t* latch = latches.back().get();
 
     threads.emplace_back([&, latch]() {
       REQUIRE_OK(a0_mtx_lock(&mtx));
-      latch->arrive_and_wait();
+      a0_latch_arrive_and_wait(latch, 1);
 
       REQUIRE_OK(a0_cnd_wait(&cnd, &mtx));
       REQUIRE_OK(a0_mtx_unlock(&mtx));
     });
 
-    latch->arrive_and_wait();
+    a0_latch_arrive_and_wait(latch, 1);
   }
 
   REQUIRE_OK(a0_mtx_lock(&mtx));
@@ -504,16 +452,16 @@ TEST_CASE("cnd] robust") {
   auto* cnd = ipc_pool.make<a0_cnd_t>();
   auto* mtx = ipc_pool.make<a0_mtx_t>();
 
-  latch_t* latch = ipc_pool.make<latch_t>(2);
+  a0_latch_t* latch = ipc_pool.make<a0_latch_t>(2);
 
   auto child = a0::test::subproc([&]() {
     REQUIRE_OK(a0_mtx_lock(mtx));
-    latch->arrive_and_wait();
+    a0_latch_arrive_and_wait(latch, 1);
     REQUIRE_OK(a0_cnd_wait(cnd, mtx));
   });
   REQUIRE(child > 0);
 
-  latch->arrive_and_wait();
+  a0_latch_arrive_and_wait(latch, 1);
   REQUIRE_OK(a0_mtx_lock(mtx));
 
   REQUIRE_OK(kill(child, SIGKILL));  // send kill command

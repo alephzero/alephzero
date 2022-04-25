@@ -1,6 +1,7 @@
 #include <a0/deadman.h>
 #include <a0/deadman.hpp>
 #include <a0/err.h>
+#include <a0/event.h>
 #include <a0/file.h>
 #include <a0/time.h>
 #include <a0/time.hpp>
@@ -115,13 +116,13 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] trytake") {
 }
 
 TEST_CASE_FIXTURE(DeadmanFixture, "deadman] wait_taken wait_released") {
-  a0::test::Event evt;
+  a0_event_t evt = A0_EMPTY;
 
   std::thread t([&]() {
     a0_deadman_t d;
     REQUIRE_OK(a0_deadman_init(&d, topic));
     REQUIRE_OK(a0_deadman_take(&d));
-    evt.wait();
+    a0_event_wait(&evt);
     REQUIRE_OK(a0_deadman_close(&d));
   });
 
@@ -133,7 +134,7 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] wait_taken wait_released") {
 
   REQUIRE_LOCKED_WITH_TKN(&d, tkn);
 
-  evt.set();
+  a0_event_set(&evt);
 
   REQUIRE_OK(a0_deadman_wait_released(&d, tkn));
 
@@ -145,7 +146,7 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] wait_taken wait_released") {
 }
 
 TEST_CASE_FIXTURE(DeadmanFixture, "deadman] timed") {
-  a0::test::Event evt;
+  a0_event_t evt = A0_EMPTY;
 
   std::thread t([&]() {
     a0_deadman_t d;
@@ -153,7 +154,7 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] timed") {
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
     auto timeout = a0::test::timeout_in(std::chrono::milliseconds(25));
     REQUIRE_OK(a0_deadman_timedtake(&d, &timeout));
-    evt.wait();
+    a0_event_wait(&evt);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
     REQUIRE_OK(a0_deadman_close(&d));
   });
@@ -172,7 +173,7 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] timed") {
   timeout = a0::test::timeout_in(std::chrono::microseconds(1));
   REQUIRE(A0_SYSERR(a0_deadman_timedtake(&d, &timeout)) == ETIMEDOUT);
 
-  evt.set();
+  a0_event_set(&evt);
 
   timeout = a0::test::timeout_in(std::chrono::microseconds(1));
   REQUIRE(A0_SYSERR(a0_deadman_timedwait_released(&d, &timeout, tkn)) == ETIMEDOUT);
@@ -226,12 +227,12 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp try_take") {
 }
 
 TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp wait_taken wait_released") {
-  a0::test::Event evt;
+  a0_event_t evt = A0_EMPTY;
 
   std::thread t([&]() {
     a0::Deadman d(topic.name);
     d.take();
-    evt.wait();
+    a0_event_wait(&evt);
   });
 
   a0::Deadman d(topic.name);
@@ -239,7 +240,7 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp wait_taken wait_released") {
   uint64_t tkn = d.wait_taken();
   REQUIRE(d.state().is_taken);
 
-  evt.set();
+  a0_event_set(&evt);
 
   d.wait_released(tkn);
 
@@ -249,14 +250,14 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp wait_taken wait_released") {
 }
 
 TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp timed") {
-  a0::test::Event evt;
+  a0_event_t evt = A0_EMPTY;
 
   std::thread t([&]() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     a0::Deadman d(topic.name);
     d.take(a0::TimeMono::now() + std::chrono::milliseconds(100));
-    evt.wait();
+    a0_event_wait(&evt);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -275,7 +276,7 @@ TEST_CASE_FIXTURE(DeadmanFixture, "deadman] cpp timed") {
       d.take(a0::TimeMono::now() + std::chrono::microseconds(1)),
       strerror(ETIMEDOUT));
 
-  evt.set();
+  a0_event_set(&evt);
 
   REQUIRE_THROWS_WITH(
       d.wait_released(tkn, a0::TimeMono::now() + std::chrono::microseconds(1)),

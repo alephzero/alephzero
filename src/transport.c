@@ -387,7 +387,7 @@ a0_err_t a0_transport_timedwait(a0_transport_locked_t lk, a0_predicate_t pred, a
 }
 
 a0_err_t a0_transport_wait(a0_transport_locked_t lk, a0_predicate_t pred) {
-  return a0_transport_timedwait(lk, pred, NULL);
+  return a0_transport_timedwait(lk, pred, A0_TIMEOUT_NEVER);
 }
 
 A0_STATIC_INLINE

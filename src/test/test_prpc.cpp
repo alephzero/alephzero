@@ -1,4 +1,5 @@
 #include <a0/file.h>
+#include <a0/latch.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/prpc.h>
@@ -33,8 +34,8 @@ struct PrpcFixture {
 
 TEST_CASE_FIXTURE(PrpcFixture, "prpc] basic") {
   struct data_t {
-    a0::test::Latch msg_latch{5};
-    a0::test::Latch done_latch{1};
+    a0_latch_t msg_latch{5};
+    a0_latch_t done_latch{1};
   } data{};
 
   a0_prpc_connection_callback_t onconnect = {
@@ -62,17 +63,17 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] basic") {
       .fn =
           [](void* user_data, a0_packet_t, bool done) {
             auto* data = (data_t*)user_data;
-            data->msg_latch.count_down();
+            a0_latch_count_down(&data->msg_latch, 1);
             if (done) {
-              data->done_latch.count_down();
+              a0_latch_count_down(&data->done_latch, 1);
             }
           },
   };
 
   REQUIRE_OK(a0_prpc_client_connect(&client, a0::test::pkt("connect"), onmsg));
 
-  data.msg_latch.wait();
-  data.done_latch.wait();
+  a0_latch_wait(&data.msg_latch);
+  a0_latch_wait(&data.done_latch);
 
   REQUIRE_OK(a0_prpc_client_close(&client));
   REQUIRE_OK(a0_prpc_server_close(&server));
@@ -80,8 +81,8 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] basic") {
 
 TEST_CASE_FIXTURE(PrpcFixture, "prpc] cpp basic") {
   struct data_t {
-    a0::test::Latch msg_latch{5};
-    a0::test::Latch done_latch{1};
+    a0_latch_t msg_latch{5};
+    a0_latch_t done_latch{1};
   } data{};
 
   auto onconnect = [&](a0::PrpcConnection conn) {
@@ -98,20 +99,20 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] cpp basic") {
   a0::PrpcClient client("test");
 
   client.connect("connect", [&](a0::Packet, bool done) {
-    data.msg_latch.count_down();
+    a0_latch_count_down(&data.msg_latch, 1);
     if (done) {
-      data.done_latch.count_down();
+      a0_latch_count_down(&data.done_latch, 1);
     }
   });
 
-  data.msg_latch.wait();
-  data.done_latch.wait();
+  a0_latch_wait(&data.msg_latch);
+  a0_latch_wait(&data.done_latch);
 }
 
 TEST_CASE_FIXTURE(PrpcFixture, "prpc] cancel") {
   struct data_t {
-    a0::test::Latch msg_latch{1};
-    a0::test::Latch cancel_latch{1};
+    a0_latch_t msg_latch{1};
+    a0_latch_t cancel_latch{1};
   } data{};
 
   a0_prpc_connection_callback_t onconnect = {
@@ -129,7 +130,7 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] cancel") {
       .fn =
           [](void* user_data, a0_uuid_t) {
             auto* data = (data_t*)user_data;
-            data->cancel_latch.count_down();
+            a0_latch_count_down(&data->cancel_latch, 1);
           },
   };
 
@@ -144,18 +145,18 @@ TEST_CASE_FIXTURE(PrpcFixture, "prpc] cancel") {
       .fn =
           [](void* user_data, a0_packet_t, bool) {
             auto* data = (data_t*)user_data;
-            data->msg_latch.count_down();
+            a0_latch_count_down(&data->msg_latch, 1);
           },
   };
 
   auto conn = a0::test::pkt("connect");
   REQUIRE_OK(a0_prpc_client_connect(&client, conn, onmsg));
 
-  data.msg_latch.wait();
+  a0_latch_wait(&data.msg_latch);
 
   a0_prpc_client_cancel(&client, conn.id);
 
-  data.cancel_latch.wait();
+  a0_latch_wait(&data.cancel_latch);
 
   REQUIRE_OK(a0_prpc_client_close(&client));
   REQUIRE_OK(a0_prpc_server_close(&server));

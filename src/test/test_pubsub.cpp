@@ -1,4 +1,6 @@
+#include <a0/event.h>
 #include <a0/file.h>
+#include <a0/latch.h>
 #include <a0/middleware.hpp>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
@@ -385,7 +387,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp zc") {
 
   {
     int i = 0;
-    a0::test::Event done;
+    a0_event_t done = A0_EMPTY;
     a0::SubscriberZeroCopy sub_zc(
         topic.name, a0::INIT_OLDEST, [&](a0::TransportLocked, a0::FlatPacket fpkt) {
           auto hdrs = a0::test::hdr(*fpkt.c);
@@ -420,29 +422,29 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp zc") {
             REQUIRE(hdrs.find("a0_transport_seq")->second == "2");
             REQUIRE(hdrs.find("a0_writer_seq")->second == "2");
           } else {
-            done.set();
+            a0_event_set(&done);
           }
         });
 
-    done.wait();
+    a0_event_wait(&done);
   }
 
   {
-    a0::test::Event done;
+    a0_event_t done = A0_EMPTY;
     a0::SubscriberZeroCopy sub_zc(
         topic.name, a0::INIT_MOST_RECENT, [&](a0::TransportLocked, a0::FlatPacket fpkt) {
           REQUIRE(fpkt.payload() == "msg #2");
-          done.set();
+          a0_event_set(&done);
         });
 
-    done.wait();
+    a0_event_wait(&done);
   }
 }
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] await_new") {
   struct data_t {
     std::vector<std::string> msgs;
-    a0::test::Latch latch{1};
+    a0_latch_t latch{1};
   } data{};
 
   a0_packet_callback_t cb = {
@@ -451,7 +453,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] await_new") {
           [](void* user_data, a0_packet_t pkt) {
             auto* data = (data_t*)user_data;
             data->msgs.push_back(a0::test::str(pkt.payload));
-            data->latch.count_down();
+            a0_latch_count_down(&data->latch, 1);
           },
   };
 
@@ -469,7 +471,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] await_new") {
   REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg after")));
   REQUIRE_OK(a0_publisher_close(&pub));
 
-  data.latch.wait();
+  a0_latch_wait(&data.latch);
 
   REQUIRE(data.msgs == std::vector<std::string>{"msg after"});
   REQUIRE_OK(a0_subscriber_close(&sub));
@@ -477,7 +479,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] await_new") {
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp await_new") {
   std::vector<std::string> msgs;
-  a0::test::Latch latch{1};
+  a0_latch_t latch{1};
 
   a0::Publisher p(topic.name);
   p.pub("msg before");
@@ -486,12 +488,12 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp await_new") {
       topic.name,
       [&](a0::Packet pkt) {
         msgs.push_back(std::string(pkt.payload()));
-        latch.count_down();
+        a0_latch_count_down(&latch, 1);
       });
 
   p.pub("msg after");
 
-  latch.wait();
+  a0_latch_wait(&latch);
 
   REQUIRE(msgs == std::vector<std::string>{"msg after"});
 }
@@ -499,7 +501,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp await_new") {
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] most_recent") {
   struct data_t {
     std::vector<std::string> msgs;
-    a0::test::Latch latch{2};
+    a0_latch_t latch{2};
   } data{};
 
   a0_packet_callback_t cb = {
@@ -508,7 +510,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] most_recent") {
           [](void* user_data, a0_packet_t pkt) {
             auto* data = (data_t*)user_data;
             data->msgs.push_back(a0::test::str(pkt.payload));
-            data->latch.count_down();
+            a0_latch_count_down(&data->latch, 1);
           },
   };
 
@@ -526,7 +528,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] most_recent") {
   REQUIRE_OK(a0_publisher_pub(&pub, a0::test::pkt("msg after")));
   REQUIRE_OK(a0_publisher_close(&pub));
 
-  data.latch.wait();
+  a0_latch_wait(&data.latch);
 
   REQUIRE(data.msgs == std::vector<std::string>{"msg before", "msg after"});
   REQUIRE_OK(a0_subscriber_close(&sub));
@@ -534,7 +536,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] most_recent") {
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp most_recent") {
   std::vector<std::string> msgs;
-  a0::test::Latch latch{2};
+  a0_latch_t latch{2};
 
   a0::Publisher p(topic.name);
   p.pub("msg before");
@@ -544,12 +546,12 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp most_recent") {
       a0::INIT_MOST_RECENT,
       [&](a0::Packet pkt) {
         msgs.push_back(std::string(pkt.payload()));
-        latch.count_down();
+        a0_latch_count_down(&latch, 1);
       });
 
   p.pub("msg after");
 
-  latch.wait();
+  a0_latch_wait(&latch);
 
   REQUIRE(msgs == std::vector<std::string>{"msg before", "msg after"});
 }
@@ -567,7 +569,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
 
   struct data_t {
     size_t msg_cnt;
-    a0::test::Latch latch{2};
+    a0_latch_t latch{2};
   } data{};
 
   a0_packet_callback_t cb = {
@@ -583,7 +585,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
             }
 
             data->msg_cnt++;
-            data->latch.count_down();
+            a0_latch_count_down(&data->latch, 1);
           },
   };
 
@@ -594,7 +596,7 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
                                 (a0_reader_options_t){A0_INIT_OLDEST, A0_ITER_NEXT},
                                 cb));
 
-  data.latch.wait();
+  a0_latch_wait(&data.latch);
 
   REQUIRE_OK(a0_subscriber_close(&sub));
 }

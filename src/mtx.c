@@ -23,25 +23,17 @@ A0_STATIC_INLINE
 a0_err_t a0_mtx_timedlock_robust(a0_mtx_t* mtx, a0_time_mono_t* timeout) {
   const uint32_t tid = a0_tid();
 
-  int syserr = EINTR;
-  while (syserr == EINTR) {
-    // Try to lock without kernel involvement.
-    if (a0_cas(&mtx->ftx, 0, tid)) {
-      return A0_OK;
-    }
-
-    // Ask the kernel to lock.
-    syserr = A0_SYSERR(a0_ftx_lock_pi(&mtx->ftx, timeout));
-  }
-
-  if (!syserr) {
-    if (a0_ftx_owner_died(a0_atomic_load(&mtx->ftx))) {
-      return A0_MAKE_SYSERR(EOWNERDEAD);
-    }
+  // Try to lock without kernel involvement.
+  if (a0_cas(&mtx->ftx, 0, tid)) {
     return A0_OK;
   }
 
-  return A0_MAKE_SYSERR(syserr);
+  // Ask the kernel to lock.
+  a0_err_t err = a0_ftx_lock_pi(&mtx->ftx, timeout);
+  if (!err) {
+    return a0_ftx_owner_died(a0_atomic_load(&mtx->ftx)) ? A0_MAKE_SYSERR(EOWNERDEAD) : A0_OK;
+  }
+  return err;
 }
 
 a0_err_t a0_mtx_timedlock(a0_mtx_t* mtx, a0_time_mono_t* timeout) {
@@ -59,7 +51,7 @@ a0_err_t a0_mtx_timedlock(a0_mtx_t* mtx, a0_time_mono_t* timeout) {
 }
 
 a0_err_t a0_mtx_lock(a0_mtx_t* mtx) {
-  return a0_mtx_timedlock(mtx, NULL);
+  return a0_mtx_timedlock(mtx, A0_TIMEOUT_NEVER);
 }
 
 A0_STATIC_INLINE
@@ -82,10 +74,7 @@ a0_err_t a0_mtx_trylock_impl(a0_mtx_t* mtx) {
   // Oh, the owner died. Ask the kernel to fix the state.
   a0_err_t err = a0_ftx_trylock_pi(&mtx->ftx);
   if (!err) {
-    if (a0_ftx_owner_died(a0_atomic_load(&mtx->ftx))) {
-      return A0_MAKE_SYSERR(EOWNERDEAD);
-    }
-    return A0_OK;
+    return a0_ftx_owner_died(a0_atomic_load(&mtx->ftx)) ? A0_MAKE_SYSERR(EOWNERDEAD) : A0_OK;
   }
 
   // EAGAIN means that somebody else beat us to it.
@@ -93,6 +82,7 @@ a0_err_t a0_mtx_trylock_impl(a0_mtx_t* mtx) {
   if (A0_SYSERR(err) == EAGAIN) {
     return A0_MAKE_SYSERR(EBUSY);
   }
+
   return err;
 }
 
@@ -167,27 +157,26 @@ a0_err_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, a0_time_mono_t* timeout)
   __tsan_mutex_pre_lock(mtx, 0);
   a0_robust_op_start(mtx);
 
-  do {
-    // Priority-inheritance-aware wait until awoken or timeout.
-    err = a0_ftx_wait_requeue_pi(cnd, init_cnd, timeout, &mtx->ftx);
-  } while (A0_SYSERR(err) == EINTR);
+  // Priority-inheritance-aware wait until awoken or timeout.
+  err = a0_ftx_wait_requeue_pi(cnd, init_cnd, timeout, &mtx->ftx);
 
   // We need to manually lock on timeout.
   // Note: We keep the timeout error.
   if (A0_SYSERR(err) == ETIMEDOUT) {
-    a0_mtx_timedlock_robust(mtx, NULL);
+    a0_mtx_timedlock_robust(mtx, A0_TIMEOUT_NEVER);
   }
+
   // Someone else grabbed and mutated the resource between the unlock and wait.
   // No need to wait.
   if (A0_SYSERR(err) == EAGAIN) {
-    err = a0_mtx_timedlock_robust(mtx, NULL);
+    err = a0_mtx_timedlock_robust(mtx, A0_TIMEOUT_NEVER);
   }
 
   a0_robust_op_add(mtx);
 
   // If no higher priority error, check the previous owner didn't die.
   if (!err) {
-    err = a0_ftx_owner_died(a0_atomic_load(&mtx->ftx)) ? EOWNERDEAD : A0_OK;
+    err = a0_ftx_owner_died(a0_atomic_load(&mtx->ftx)) ? A0_MAKE_SYSERR(EOWNERDEAD) : A0_OK;
   }
 
   a0_robust_op_end(mtx);
@@ -196,7 +185,7 @@ a0_err_t a0_cnd_timedwait(a0_cnd_t* cnd, a0_mtx_t* mtx, a0_time_mono_t* timeout)
 }
 
 a0_err_t a0_cnd_wait(a0_cnd_t* cnd, a0_mtx_t* mtx) {
-  return a0_cnd_timedwait(cnd, mtx, NULL);
+  return a0_cnd_timedwait(cnd, mtx, A0_TIMEOUT_NEVER);
 }
 
 A0_STATIC_INLINE

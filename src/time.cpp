@@ -11,6 +11,10 @@
 
 namespace a0 {
 
+TimeMono TIMEOUT_IMMEDIATE = cpp_wrap<TimeMono>(A0_TIMEOUT_IMMEDIATE);
+
+TimeMono TIMEOUT_NEVER = cpp_wrap<TimeMono>(A0_TIMEOUT_NEVER);
+
 TimeMono TimeMono::now() {
   return make_cpp<TimeMono>(
       [](a0_time_mono_t* c) {

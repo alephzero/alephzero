@@ -2,56 +2,36 @@
 #include <a0/time.h>
 
 #include <errno.h>
-#include <pthread.h>
 #include <stdbool.h>
 #include <time.h>
 
+#include "atomic.h"
 #include "clock.h"
+#include "ftx.h"
 
-void a0_event_init(a0_event_t* evt) {
-  pthread_mutex_init(&evt->_mu, NULL);
-
-  pthread_condattr_t attr;
-  pthread_condattr_init(&attr);
-  pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
-  pthread_cond_init(&evt->_cv, &attr);
-
-  evt->_is_set = false;
+a0_err_t a0_event_is_set(a0_event_t* evt, bool* out) {
+  *out = a0_atomic_load(evt);
+  return A0_OK;
 }
 
-void a0_event_close(a0_event_t* evt) {
-  pthread_mutex_destroy(&evt->_mu);
-  pthread_cond_destroy(&evt->_cv);
+a0_err_t a0_event_set(a0_event_t* evt) {
+  a0_atomic_store(evt, true);
+  a0_ftx_broadcast((a0_ftx_t*)evt);
+  return A0_OK;
 }
 
-bool a0_event_is_set(a0_event_t* evt) {
-  pthread_mutex_lock(&evt->_mu);
-  bool value = evt->_is_set;
-  pthread_mutex_unlock(&evt->_mu);
-  return value;
+a0_err_t a0_event_wait(a0_event_t* evt) {
+  return a0_event_timedwait(evt, A0_TIMEOUT_NEVER);
 }
 
-void a0_event_set(a0_event_t* evt) {
-  pthread_mutex_lock(&evt->_mu);
-  evt->_is_set = true;
-  pthread_cond_broadcast(&evt->_cv);
-  pthread_mutex_unlock(&evt->_mu);
-}
-
-void a0_event_wait(a0_event_t* evt) {
-  pthread_mutex_lock(&evt->_mu);
-  while (!evt->_is_set) {
-    pthread_cond_wait(&evt->_cv, &evt->_mu);
+a0_err_t a0_event_timedwait(a0_event_t* evt, a0_time_mono_t* timeout) {
+  bool val = a0_atomic_load(evt);
+  while (!val) {
+    a0_err_t err = a0_ftx_wait((a0_ftx_t*)evt, val, timeout);
+    if (err && A0_SYSERR(err) != EAGAIN) {
+      return err;
+    }
+    val = a0_atomic_load(evt);
   }
-  pthread_mutex_unlock(&evt->_mu);
-}
-
-void a0_event_timedwait(a0_event_t* evt, a0_time_mono_t timeout) {
-  timespec_t ts_mono;
-  a0_clock_convert(CLOCK_BOOTTIME, timeout.ts, CLOCK_MONOTONIC, &ts_mono);
-
-  pthread_mutex_lock(&evt->_mu);
-  while (!evt->_is_set && pthread_cond_timedwait(&evt->_cv, &evt->_mu, &ts_mono) != ETIMEDOUT) {
-  }
-  pthread_mutex_unlock(&evt->_mu);
+  return A0_OK;
 }

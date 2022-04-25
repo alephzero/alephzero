@@ -1,6 +1,7 @@
 #include <a0/alloc.h>
 #include <a0/arena.h>
 #include <a0/buf.h>
+#include <a0/empty.h>
 #include <a0/err.h>
 #include <a0/event.h>
 #include <a0/inline.h>
@@ -275,7 +276,7 @@ a0_err_t a0_reader_sync_read(a0_reader_sync_t* reader_sync, a0_packet_t* pkt) {
 }
 
 a0_err_t a0_reader_sync_read_blocking(a0_reader_sync_t* reader_sync, a0_packet_t* pkt) {
-  return a0_reader_sync_read_blocking_timeout(reader_sync, NULL, pkt);
+  return a0_reader_sync_read_blocking_timeout(reader_sync, A0_TIMEOUT_NEVER, pkt);
 }
 
 a0_err_t a0_reader_sync_read_blocking_timeout(a0_reader_sync_t* reader_sync, a0_time_mono_t* timeout, a0_packet_t* pkt) {
@@ -377,6 +378,7 @@ a0_err_t a0_reader_zc_init(a0_reader_zc_t* reader_zc,
                            a0_arena_t arena,
                            a0_reader_options_t opts,
                            a0_zero_copy_callback_t onpacket) {
+  *reader_zc = (a0_reader_zc_t)A0_EMPTY;
   reader_zc->_opts = opts;
   reader_zc->_onpacket = onpacket;
 
@@ -399,8 +401,6 @@ a0_err_t a0_reader_zc_init(a0_reader_zc_t* reader_zc,
   }
 
   a0_transport_unlock(tlk);
-
-  a0_event_init(&reader_zc->_thread_start_event);
 
   pthread_create(
       &reader_zc->_thread,
@@ -425,7 +425,6 @@ a0_err_t a0_reader_zc_close(a0_reader_zc_t* reader_zc) {
   a0_transport_shutdown(tlk);
   a0_transport_unlock(tlk);
 
-  a0_event_close(&reader_zc->_thread_start_event);
   pthread_join(reader_zc->_thread, NULL);
 
   return A0_OK;

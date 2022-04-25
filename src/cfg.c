@@ -59,7 +59,7 @@ a0_err_t a0_cfg_read(a0_cfg_t* cfg,
 a0_err_t a0_cfg_read_blocking(a0_cfg_t* cfg,
                               a0_alloc_t alloc,
                               a0_packet_t* out) {
-  return a0_cfg_read_blocking_timeout(cfg, alloc, NULL, out);
+  return a0_cfg_read_blocking_timeout(cfg, alloc, A0_TIMEOUT_NEVER, out);
 }
 
 a0_err_t a0_cfg_read_blocking_timeout(a0_cfg_t* cfg,
