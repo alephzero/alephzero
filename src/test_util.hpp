@@ -15,7 +15,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <condition_variable>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>

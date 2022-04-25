@@ -1,12 +1,12 @@
+#include <a0/err.h>
 #include <a0/event.h>
 #include <a0/time.h>
 
 #include <errno.h>
 #include <stdbool.h>
-#include <time.h>
 
 #include "atomic.h"
-#include "clock.h"
+#include "err_macro.h"
 #include "ftx.h"
 
 a0_err_t a0_event_is_set(a0_event_t* evt, bool* out) {

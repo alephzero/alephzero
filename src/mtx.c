@@ -8,7 +8,6 @@
 #include <limits.h>
 #include <linux/futex.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <time.h>
 

@@ -6,14 +6,14 @@
 #include <a0/tid.h>
 
 #include <doctest.h>
-#include <errno.h>
 #include <signal.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <sys/wait.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
+#include <cstdint>
+#include <cstdlib>
 #include <thread>
 #include <utility>
 #include <vector>

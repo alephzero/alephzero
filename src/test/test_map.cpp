@@ -3,9 +3,9 @@
 #include <a0/map.h>
 
 #include <doctest.h>
-#include <stddef.h>
-#include <stdint.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <iterator>
 #include <random>
 #include <unordered_map>

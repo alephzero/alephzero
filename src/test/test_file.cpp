@@ -8,13 +8,13 @@
 #include <a0/string_view.hpp>
 
 #include <doctest.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include <cerrno>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <limits>

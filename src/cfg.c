@@ -12,7 +12,6 @@
 #include <a0/writer.h>
 
 #include <stdbool.h>
-#include <stddef.h>
 
 #include "err_macro.h"
 

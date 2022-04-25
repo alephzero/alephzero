@@ -7,8 +7,8 @@
 #include <a0/reader.h>
 
 #include <doctest.h>
-#include <stddef.h>
 
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <mutex>

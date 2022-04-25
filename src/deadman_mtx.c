@@ -10,7 +10,6 @@
 #include <linux/futex.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 
 #include "atomic.h"
 #include "err_macro.h"

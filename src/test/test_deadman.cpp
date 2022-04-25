@@ -1,5 +1,6 @@
 #include <a0/deadman.h>
 #include <a0/deadman.hpp>
+#include <a0/empty.h>
 #include <a0/err.h>
 #include <a0/event.h>
 #include <a0/file.h>
@@ -7,13 +8,13 @@
 #include <a0/time.hpp>
 
 #include <doctest.h>
-#include <errno.h>
 #include <signal.h>
-#include <stdint.h>
-#include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <cerrno>
+#include <cstdint>
+#include <cstring>
 #include <chrono>
 #include <thread>
 

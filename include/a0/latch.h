@@ -1,10 +1,10 @@
 #ifndef A0_LATCH_H
 #define A0_LATCH_H
 
-#include <a0/mtx.h>
-#include <a0/time.h>
+#include <a0/err.h>
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

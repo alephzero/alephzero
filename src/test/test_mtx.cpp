@@ -7,12 +7,11 @@
 
 #include <doctest.h>
 #include <signal.h>
-#include <stdint.h>
-#include <stdlib.h>
 
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <cstdlib>
 #include <memory>
 #include <thread>
 #include <vector>

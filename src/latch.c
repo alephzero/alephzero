@@ -1,7 +1,13 @@
-#include <a0/empty.h>
+#include <a0/err.h>
 #include <a0/latch.h>
+#include <a0/time.h>
+
+#include <errno.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 #include "atomic.h"
+#include "err_macro.h"
 #include "ftx.h"
 
 a0_err_t a0_latch_init(a0_latch_t* l, int32_t init_val) {

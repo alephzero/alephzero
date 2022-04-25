@@ -8,9 +8,9 @@
 #include <a0/transport.hpp>
 
 #include <doctest.h>
-#include <errno.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
 #include <csignal>
 #include <cstdint>

@@ -1,10 +1,11 @@
 #ifndef A0_EVENT_H
 #define A0_EVENT_H
 
-#include <a0/mtx.h>
+#include <a0/err.h>
 #include <a0/time.h>
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

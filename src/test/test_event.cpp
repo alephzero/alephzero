@@ -4,6 +4,8 @@
 
 #include <doctest.h>
 
+#include <cerrno>
+#include <chrono>
 #include <cstdint>
 #include <ctime>
 #include <thread>

@@ -1,3 +1,4 @@
+#include <a0/empty.h>
 #include <a0/event.h>
 #include <a0/file.h>
 #include <a0/latch.h>
@@ -15,13 +16,13 @@
 
 #include <doctest.h>
 #include <signal.h>
-#include <stdlib.h>
 
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <map>
