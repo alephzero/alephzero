@@ -3,6 +3,7 @@
 #include <a0/empty.h>
 #include <a0/env.hpp>
 #include <a0/err.h>
+#include <a0/event.h>
 #include <a0/file.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
@@ -96,7 +97,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp basic") {
 TEST_CASE_FIXTURE(CfgFixture, "cfg] watcher") {
   struct data_t {
     std::vector<std::string> cfgs;
-    a0::test::Event got_final_cfg;
+    a0_event_t got_final_cfg = A0_EMPTY;
   } data{};
 
   a0_packet_callback_t cb = {
@@ -106,7 +107,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] watcher") {
             auto* data = (data_t*)user_data;
             data->cfgs.push_back(a0::test::str(pkt.payload));
             if (data->cfgs.back() == "final_cfg") {
-              data->got_final_cfg.set();
+              a0_event_set(&data->got_final_cfg);
             }
           },
   };
@@ -119,7 +120,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] watcher") {
   REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt("inter_cfg")));
   REQUIRE_OK(a0_cfg_write(&cfg, a0::test::pkt("final_cfg")));
 
-  data.got_final_cfg.wait();
+  a0_event_wait(&data.got_final_cfg);
   REQUIRE_OK(a0_cfg_watcher_close(&watcher));
 
   REQUIRE(data.cfgs.size() >= 2);
@@ -129,7 +130,7 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] watcher") {
 
 TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp watcher") {
   std::vector<std::string> cfgs;
-  a0::test::Event got_final_cfg;
+  a0_event_t got_final_cfg = A0_EMPTY;
 
   a0::Cfg c(topic.name);
   c.write("init_cfg");
@@ -137,14 +138,14 @@ TEST_CASE_FIXTURE(CfgFixture, "cfg] cpp watcher") {
   a0::CfgWatcher watcher(topic.name, [&](a0::Packet pkt) {
     cfgs.push_back(std::string(pkt.payload()));
     if (cfgs.back() == "final_cfg") {
-      got_final_cfg.set();
+      a0_event_set(&got_final_cfg);
     }
   });
 
   c.write("inter_cfg");
   c.write("final_cfg");
 
-  got_final_cfg.wait();
+  a0_event_wait(&got_final_cfg);
 
   REQUIRE(cfgs.size() >= 2);
   REQUIRE(cfgs.front() == "init_cfg");

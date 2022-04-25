@@ -44,6 +44,7 @@
 #include <a0/packet.h>
 #include <a0/transport.h>
 
+#include <pthread.h>
 #include <stdbool.h>
 
 #ifdef __cplusplus

@@ -1,57 +1,45 @@
+#include <a0/err.h>
 #include <a0/event.h>
+#include <a0/mtx.h>
 #include <a0/time.h>
 
-#include <errno.h>
-#include <pthread.h>
 #include <stdbool.h>
-#include <time.h>
 
-#include "clock.h"
-
-void a0_event_init(a0_event_t* evt) {
-  pthread_mutex_init(&evt->_mu, NULL);
-
-  pthread_condattr_t attr;
-  pthread_condattr_init(&attr);
-  pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
-  pthread_cond_init(&evt->_cv, &attr);
-
-  evt->_is_set = false;
-}
-
-void a0_event_close(a0_event_t* evt) {
-  pthread_mutex_destroy(&evt->_mu);
-  pthread_cond_destroy(&evt->_cv);
-}
-
-bool a0_event_is_set(a0_event_t* evt) {
-  pthread_mutex_lock(&evt->_mu);
-  bool value = evt->_is_set;
-  pthread_mutex_unlock(&evt->_mu);
-  return value;
-}
-
-void a0_event_set(a0_event_t* evt) {
-  pthread_mutex_lock(&evt->_mu);
-  evt->_is_set = true;
-  pthread_cond_broadcast(&evt->_cv);
-  pthread_mutex_unlock(&evt->_mu);
-}
-
-void a0_event_wait(a0_event_t* evt) {
-  pthread_mutex_lock(&evt->_mu);
-  while (!evt->_is_set) {
-    pthread_cond_wait(&evt->_cv, &evt->_mu);
+a0_err_t a0_event_is_set(a0_event_t* e, bool* out) {
+  a0_err_t err = a0_mtx_lock(&e->_mtx);
+  if (!a0_mtx_lock_successful(err)) {
+    return err;
   }
-  pthread_mutex_unlock(&evt->_mu);
+  *out = e->_val;
+  a0_mtx_unlock(&e->_mtx);
+  return A0_OK;
 }
 
-void a0_event_timedwait(a0_event_t* evt, a0_time_mono_t timeout) {
-  timespec_t ts_mono;
-  a0_clock_convert(CLOCK_BOOTTIME, timeout.ts, CLOCK_MONOTONIC, &ts_mono);
-
-  pthread_mutex_lock(&evt->_mu);
-  while (!evt->_is_set && pthread_cond_timedwait(&evt->_cv, &evt->_mu, &ts_mono) != ETIMEDOUT) {
+a0_err_t a0_event_set(a0_event_t* e) {
+  a0_err_t err = a0_mtx_lock(&e->_mtx);
+  if (!a0_mtx_lock_successful(err)) {
+    return err;
   }
-  pthread_mutex_unlock(&evt->_mu);
+  e->_val = true;
+  a0_cnd_broadcast(&e->_cnd, &e->_mtx);
+  a0_mtx_unlock(&e->_mtx);
+  return A0_OK;
+}
+
+a0_err_t a0_event_wait(a0_event_t* e) {
+  return a0_event_timedwait(e, A0_TIMEOUT_NEVER);
+}
+
+a0_err_t a0_event_timedwait(a0_event_t* e, a0_time_mono_t* timeout) {
+  a0_err_t err = a0_mtx_lock(&e->_mtx);
+  if (!a0_mtx_lock_successful(err)) {
+    return err;
+  }
+  err = A0_OK;
+
+  while (!err && !e->_val) {
+    err = a0_cnd_timedwait(&e->_cnd, &e->_mtx, timeout);
+  }
+  a0_mtx_unlock(&e->_mtx);
+  return err;
 }

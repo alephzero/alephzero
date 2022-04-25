@@ -16,6 +16,7 @@
 #include <a0/event.h>
 #include <a0/file.h>
 #include <a0/inline.h>
+#include <a0/latch.h>
 #include <a0/log.h>
 #include <a0/map.h>
 #include <a0/middleware.h>

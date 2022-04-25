@@ -1,18 +1,19 @@
 #include <a0/deadman_mtx.h>
 #include <a0/empty.h>
 #include <a0/err.h>
+#include <a0/event.h>
 #include <a0/mtx.h>
 #include <a0/tid.h>
 
 #include <doctest.h>
-#include <errno.h>
 #include <signal.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <sys/wait.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
+#include <cstdint>
+#include <cstdlib>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -52,7 +53,7 @@ TEST_CASE("deadman_mtx] thread") {
   a0_deadman_mtx_state_t state;
   uint64_t tkn;
 
-  a0::test::Event evt;
+  a0_event_t evt = A0_EMPTY;
   a0_tid_t thrd_id;
 
   REQUIRE_OK(a0_deadman_mtx_state(&d, &state));
@@ -61,7 +62,7 @@ TEST_CASE("deadman_mtx] thread") {
   std::thread t([&]() {
     thrd_id = a0_tid();
     REQUIRE_OK(a0_deadman_mtx_lock(&d));
-    evt.wait();
+    a0_event_wait(&evt);
     REQUIRE_OK(a0_deadman_mtx_unlock(&d));
   });
 
@@ -72,7 +73,7 @@ TEST_CASE("deadman_mtx] thread") {
   REQUIRE(state.tkn == 1);
   REQUIRE(state.owner_tid == thrd_id);
 
-  evt.set();
+  a0_event_set(&evt);
   REQUIRE_OK(a0_deadman_mtx_wait_unlocked(&d, tkn));
 
   t.join();
@@ -104,14 +105,14 @@ TEST_CASE("deadman_mtx] trylock success") {
 TEST_CASE("deadman_mtx] trylock failure") {
   a0_deadman_mtx_shared_token_t stkn = A0_EMPTY;
 
-  a0::test::Event evt;
+  a0_event_t evt = A0_EMPTY;
 
   std::thread t([&]() {
     a0_deadman_mtx_t d;
     a0_deadman_mtx_init(&d, &stkn);
 
     REQUIRE_OK(a0_deadman_mtx_lock(&d));
-    evt.wait();
+    a0_event_wait(&evt);
     REQUIRE_OK(a0_deadman_mtx_unlock(&d));
   });
 
@@ -124,7 +125,7 @@ TEST_CASE("deadman_mtx] trylock failure") {
 
   REQUIRE(A0_SYSERR(a0_deadman_mtx_trylock(&d)) == EBUSY);
 
-  evt.set();
+  a0_event_set(&evt);
   t.join();
 }
 
@@ -168,15 +169,15 @@ TEST_CASE("deadman_mtx] wait_locked success") {
   a0_deadman_mtx_t d;
   a0_deadman_mtx_init(&d, &stkn);
 
-  a0::test::Event evt;
+  a0_event_t evt = A0_EMPTY;
 
   std::thread t([&]() {
     REQUIRE_OK(a0_deadman_mtx_wait_locked(&d, nullptr));
-    evt.set();
+    a0_event_set(&evt);
   });
 
   REQUIRE_OK(a0_deadman_mtx_lock(&d));
-  evt.wait();
+  a0_event_wait(&evt);
   REQUIRE_OK(a0_deadman_mtx_unlock(&d));
   t.join();
 }

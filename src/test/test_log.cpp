@@ -1,4 +1,5 @@
 #include <a0/file.h>
+#include <a0/latch.h>
 #include <a0/log.h>
 #include <a0/log.hpp>
 #include <a0/packet.h>
@@ -6,8 +7,8 @@
 #include <a0/reader.h>
 
 #include <doctest.h>
-#include <stddef.h>
 
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -38,8 +39,9 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
   struct data_t {
     std::map<std::string, size_t> cnt;
     std::mutex mu;
-    a0::test::Latch latch{8};
+    a0_latch_t latch;
   } data{};
+  a0_latch_init(&data.latch, 8);
 
   a0_packet_callback_t onmsg = {
       .user_data = &data,
@@ -52,7 +54,7 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
             auto range = hdr.equal_range("a0_log_level");
             for (auto it = range.first; it != range.second; ++it) {
               data->cnt[it->second]++;
-              data->latch.count_down();
+              a0_latch_count_down(&data->latch, 1);
             }
           },
   };
@@ -83,7 +85,7 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
 
   REQUIRE_OK(a0_logger_close(&logger));
 
-  data.latch.wait();
+  a0_latch_wait(&data.latch);
   REQUIRE(data.cnt == std::map<std::string, size_t>{{"CRIT", 2}, {"ERR", 2}, {"WARN", 2}, {"INFO", 2}});
 
   REQUIRE_OK(a0_log_listener_close(&log_list));
@@ -92,7 +94,8 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
 TEST_CASE_FIXTURE(LogFixture, "logger] cpp basic") {
   std::map<std::string, size_t> cnt;
   std::mutex mu;
-  a0::test::Latch latch{8};
+  a0_latch_t latch;
+  a0_latch_init(&latch, 8);
 
   a0::LogListener log_listener(
       "topic",
@@ -102,7 +105,7 @@ TEST_CASE_FIXTURE(LogFixture, "logger] cpp basic") {
         for (const auto& hdr : pkt.headers()) {
           if (hdr.first == "a0_log_level") {
             cnt[hdr.second]++;
-            latch.count_down();
+            a0_latch_count_down(&latch, 1);
           }
         }
       });
@@ -121,6 +124,6 @@ TEST_CASE_FIXTURE(LogFixture, "logger] cpp basic") {
   logger.log(a0::LogLevel::INFO, "info");
   logger.log(a0::LogLevel::DBG, "dbg");
 
-  latch.wait();
+  a0_latch_wait(&latch);
   REQUIRE(cnt == std::map<std::string, size_t>{{"CRIT", 2}, {"ERR", 2}, {"WARN", 2}, {"INFO", 2}});
 }

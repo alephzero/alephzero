@@ -1,4 +1,5 @@
 #include <a0/file.h>
+#include <a0/latch.h>
 #include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/rpc.h>
@@ -39,9 +40,11 @@ struct RpcFixture {
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
   struct data_t {
-    a0::test::Latch reply_latch{5};
-    a0::test::Latch cancel_latch{5};
+    a0_latch_t reply_latch;
+    a0_latch_t cancel_latch;
   } data{};
+  a0_latch_init(&data.reply_latch, 5);
+  a0_latch_init(&data.cancel_latch, 5);
 
   a0_rpc_request_callback_t onrequest = {
       .user_data = nullptr,
@@ -58,7 +61,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
       .fn =
           [](void* user_data, a0_uuid_t) {
             auto* data = (data_t*)user_data;
-            data->cancel_latch.count_down();
+            a0_latch_count_down(&data->cancel_latch, 1);
           },
   };
 
@@ -73,7 +76,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
       .fn =
           [](void* user_data, a0_packet_t) {
             auto* data = (data_t*)user_data;
-            data->reply_latch.count_down();
+            a0_latch_count_down(&data->reply_latch, 1);
           },
   };
 
@@ -87,16 +90,18 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
     REQUIRE_OK(a0_rpc_client_cancel(&client, req.id));
   }
 
-  data.reply_latch.wait();
-  data.cancel_latch.wait();
+  a0_latch_wait(&data.reply_latch);
+  a0_latch_wait(&data.cancel_latch);
 
   REQUIRE_OK(a0_rpc_client_close(&client));
   REQUIRE_OK(a0_rpc_server_close(&server));
 }
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
-  a0::test::Latch reply_latch{5};
-  a0::test::Latch cancel_latch{5};
+  a0_latch_t reply_latch;
+  a0_latch_init(&reply_latch, 5);
+  a0_latch_t cancel_latch;
+  a0_latch_init(&cancel_latch, 5);
 
   auto onrequest = [&](a0::RpcRequest req) {
     if (req.pkt().payload() == "reply") {
@@ -105,7 +110,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
   };
 
   auto oncancel = [&](a0::string_view) {
-    cancel_latch.count_down();
+    a0_latch_count_down(&cancel_latch, 1);
   };
 
   a0::RpcServer server("test", onrequest, oncancel);
@@ -113,7 +118,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
   a0::RpcClient client("test");
 
   auto onreply = [&](a0::Packet) {
-    reply_latch.count_down();
+    a0_latch_count_down(&reply_latch, 1);
   };
 
   for (int i = 0; i < 5; i++) {
@@ -126,8 +131,8 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
     client.cancel(req.id());
   }
 
-  reply_latch.wait();
-  cancel_latch.wait();
+  a0_latch_wait(&reply_latch);
+  a0_latch_wait(&cancel_latch);
 }
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp blocking") {

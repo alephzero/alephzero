@@ -27,6 +27,9 @@ struct TimeMono : details::CppWrap<a0_time_mono_t> {
   bool operator<=(TimeMono) const;
 };
 
+extern TimeMono TIMEOUT_IMMEDIATE;
+extern TimeMono TIMEOUT_NEVER;
+
 struct TimeWall : details::CppWrap<a0_time_wall_t> {
   static TimeWall now();
   std::string to_string();

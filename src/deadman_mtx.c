@@ -10,7 +10,6 @@
 #include <linux/futex.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 
 #include "atomic.h"
 #include "err_macro.h"
@@ -77,7 +76,7 @@ a0_err_t a0_deadman_mtx_trylock(a0_deadman_mtx_t* d) {
 }
 
 a0_err_t a0_deadman_mtx_lock(a0_deadman_mtx_t* d) {
-  return a0_deadman_mtx_timedlock(d, NULL);
+  return a0_deadman_mtx_timedlock(d, A0_TIMEOUT_NEVER);
 }
 
 A0_STATIC_INLINE
@@ -140,7 +139,7 @@ a0_err_t a0_deadman_mtx_unlock(a0_deadman_mtx_t* d) {
 }
 
 a0_err_t a0_deadman_mtx_wait_locked(a0_deadman_mtx_t* d, uint64_t* out_tkn) {
-  return a0_deadman_mtx_timedwait_locked(d, NULL, out_tkn);
+  return a0_deadman_mtx_timedwait_locked(d, A0_TIMEOUT_NEVER, out_tkn);
 }
 
 A0_STATIC_INLINE
@@ -172,7 +171,7 @@ a0_err_t a0_deadman_mtx_timedwait_locked_impl(a0_deadman_mtx_t* d, a0_time_mono_
 
 a0_err_t a0_deadman_mtx_timedwait_locked(a0_deadman_mtx_t* d, a0_time_mono_t* timeout, uint64_t* out_tkn) {
   uint64_t unused_tkn;
-  if (out_tkn == NULL) {
+  if (!out_tkn) {
     out_tkn = &unused_tkn;
   }
 
@@ -183,7 +182,7 @@ a0_err_t a0_deadman_mtx_timedwait_locked(a0_deadman_mtx_t* d, a0_time_mono_t* ti
 }
 
 a0_err_t a0_deadman_mtx_wait_unlocked(a0_deadman_mtx_t* d, uint64_t tkn) {
-  return a0_deadman_mtx_timedwait_unlocked(d, NULL, tkn);
+  return a0_deadman_mtx_timedwait_unlocked(d, A0_TIMEOUT_NEVER, tkn);
 }
 
 A0_STATIC_INLINE

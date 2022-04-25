@@ -13,6 +13,11 @@
 
 const char A0_TIME_MONO[] = "a0_time_mono";
 
+a0_time_mono_t _A0_TIMEOUT_IMMEDIATE_VAL = A0_EMPTY;
+a0_time_mono_t* A0_TIMEOUT_IMMEDIATE = &_A0_TIMEOUT_IMMEDIATE_VAL;
+
+a0_time_mono_t* A0_TIMEOUT_NEVER = NULL;
+
 a0_err_t a0_time_mono_now(a0_time_mono_t* out) {
   return a0_clock_now(CLOCK_BOOTTIME, &out->ts);
 }
