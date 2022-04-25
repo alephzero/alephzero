@@ -40,9 +40,11 @@ struct RpcFixture {
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
   struct data_t {
-    a0_latch_t reply_latch{5};
-    a0_latch_t cancel_latch{5};
+    a0_latch_t reply_latch;
+    a0_latch_t cancel_latch;
   } data{};
+  a0_latch_init(&data.reply_latch, 5);
+  a0_latch_init(&data.cancel_latch, 5);
 
   a0_rpc_request_callback_t onrequest = {
       .user_data = nullptr,
@@ -96,8 +98,10 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] basic") {
 }
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
-  a0_latch_t reply_latch{5};
-  a0_latch_t cancel_latch{5};
+  a0_latch_t reply_latch;
+  a0_latch_init(&reply_latch, 5);
+  a0_latch_t cancel_latch;
+  a0_latch_init(&cancel_latch, 5);
 
   auto onrequest = [&](a0::RpcRequest req) {
     if (req.pkt().payload() == "reply") {

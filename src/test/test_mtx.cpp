@@ -274,8 +274,9 @@ TEST_CASE("cnd] many waiters") {
   }
 
   for (size_t i = 0; i < num_threads; i++) {
-    latches.emplace_back(new a0_latch_t{2});
+    latches.emplace_back(new a0_latch_t);
     a0_latch_t* latch = latches.back().get();
+    a0_latch_init(latch, 2);
 
     threads.emplace_back([&, latch]() {
       REQUIRE_OK(a0_mtx_lock(&mtx));
@@ -451,7 +452,8 @@ TEST_CASE("cnd] robust") {
   auto* cnd = ipc_pool.make<a0_cnd_t>();
   auto* mtx = ipc_pool.make<a0_mtx_t>();
 
-  a0_latch_t* latch = ipc_pool.make<a0_latch_t>(2);
+  a0_latch_t* latch = ipc_pool.make<a0_latch_t>();
+  a0_latch_init(latch, 2);
 
   auto child = a0::test::subproc([&]() {
     REQUIRE_OK(a0_mtx_lock(mtx));

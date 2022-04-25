@@ -445,8 +445,9 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp zc") {
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] await_new") {
   struct data_t {
     std::vector<std::string> msgs;
-    a0_latch_t latch{1};
+    a0_latch_t latch;
   } data{};
+  a0_latch_init(&data.latch, 1);
 
   a0_packet_callback_t cb = {
       .user_data = &data,
@@ -480,7 +481,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] await_new") {
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp await_new") {
   std::vector<std::string> msgs;
-  a0_latch_t latch{1};
+  a0_latch_t latch;
+  a0_latch_init(&latch, 1);
 
   a0::Publisher p(topic.name);
   p.pub("msg before");
@@ -502,8 +504,9 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp await_new") {
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] most_recent") {
   struct data_t {
     std::vector<std::string> msgs;
-    a0_latch_t latch{2};
+    a0_latch_t latch;
   } data{};
+  a0_latch_init(&data.latch, 2);
 
   a0_packet_callback_t cb = {
       .user_data = &data,
@@ -537,7 +540,8 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] most_recent") {
 
 TEST_CASE_FIXTURE(PubsubFixture, "pubsub] cpp most_recent") {
   std::vector<std::string> msgs;
-  a0_latch_t latch{2};
+  a0_latch_t latch;
+  a0_latch_init(&latch, 2);
 
   a0::Publisher p(topic.name);
   p.pub("msg before");
@@ -570,8 +574,9 @@ TEST_CASE_FIXTURE(PubsubFixture, "pubsub] multithread") {
 
   struct data_t {
     size_t msg_cnt;
-    a0_latch_t latch{2};
+    a0_latch_t latch;
   } data{};
+  a0_latch_init(&data.latch, 2);
 
   a0_packet_callback_t cb = {
       .user_data = &data,

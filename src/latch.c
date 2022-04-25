@@ -1,47 +1,62 @@
+#include <a0/empty.h>
 #include <a0/err.h>
 #include <a0/latch.h>
-#include <a0/time.h>
+#include <a0/mtx.h>
 
-#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "atomic.h"
-#include "err_macro.h"
-#include "ftx.h"
-
 a0_err_t a0_latch_init(a0_latch_t* l, int32_t init_val) {
-  a0_atomic_store(l, init_val);
+  *l = (a0_latch_t)A0_EMPTY;
+  l->_val = init_val;
   return A0_OK;
 }
 
 a0_err_t a0_latch_count_down(a0_latch_t* l, int32_t update) {
-  int32_t new_val = a0_atomic_add_fetch(l, -update);
-  if (new_val <= 0) {
-    a0_ftx_broadcast((a0_ftx_t*)l);
+  a0_err_t err = a0_mtx_lock(&l->_mtx);
+  if (!a0_mtx_lock_successful(err)) {
+    return err;
   }
+
+  l->_val -= update;
+  if (l->_val <= 0) {
+    a0_cnd_broadcast(&l->_cnd, &l->_mtx);
+  }
+
+  a0_mtx_unlock(&l->_mtx);
   return A0_OK;
 }
 
 a0_err_t a0_latch_try_wait(a0_latch_t* l, bool* out) {
-  *out = a0_atomic_load(l) <= 0;
+  a0_err_t err = a0_mtx_lock(&l->_mtx);
+  if (!a0_mtx_lock_successful(err)) {
+    return err;
+  }
+
+  *out = l->_val <= 0;
+
+  a0_mtx_unlock(&l->_mtx);
   return A0_OK;
 }
 
 a0_err_t a0_latch_wait(a0_latch_t* l) {
-  int32_t val = a0_atomic_load(l);
-  while (val > 0) {
-    a0_err_t err = a0_ftx_wait((a0_ftx_t*)l, val, A0_TIMEOUT_NEVER);
-    if (err && A0_SYSERR(err) != EAGAIN) {
-      return err;
-    }
-    val = a0_atomic_load(l);
-  }
-  return A0_OK;
+  return a0_latch_arrive_and_wait(l, 0);
 }
 
 a0_err_t a0_latch_arrive_and_wait(a0_latch_t* l, int32_t update) {
-  a0_latch_count_down(l, update);
-  a0_latch_wait(l);
+  a0_err_t err = a0_mtx_lock(&l->_mtx);
+  if (!a0_mtx_lock_successful(err)) {
+    return err;
+  }
+
+  l->_val -= update;
+  if (l->_val <= 0) {
+    a0_cnd_broadcast(&l->_cnd, &l->_mtx);
+  }
+  while (l->_val > 0) {
+    a0_cnd_wait(&l->_cnd, &l->_mtx);
+  }
+
+  a0_mtx_unlock(&l->_mtx);
   return A0_OK;
 }

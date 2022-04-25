@@ -39,8 +39,9 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
   struct data_t {
     std::map<std::string, size_t> cnt;
     std::mutex mu;
-    a0_latch_t latch{8};
+    a0_latch_t latch;
   } data{};
+  a0_latch_init(&data.latch, 8);
 
   a0_packet_callback_t onmsg = {
       .user_data = &data,
@@ -93,7 +94,8 @@ TEST_CASE_FIXTURE(LogFixture, "logger] basic") {
 TEST_CASE_FIXTURE(LogFixture, "logger] cpp basic") {
   std::map<std::string, size_t> cnt;
   std::mutex mu;
-  a0_latch_t latch{8};
+  a0_latch_t latch;
+  a0_latch_init(&latch, 8);
 
   a0::LogListener log_listener(
       "topic",

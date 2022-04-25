@@ -2,6 +2,7 @@
 #define A0_EVENT_H
 
 #include <a0/err.h>
+#include <a0/mtx.h>
 #include <a0/time.h>
 
 #include <stdbool.h>
@@ -11,7 +12,11 @@
 extern "C" {
 #endif
 
-typedef int32_t a0_event_t;
+typedef struct a0_event_s {
+  bool _val;
+  a0_mtx_t _mtx;
+  a0_cnd_t _cnd;
+} a0_event_t;
 
 a0_err_t a0_event_is_set(a0_event_t*, bool* out);
 
