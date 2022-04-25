@@ -13,9 +13,9 @@
 #include <unistd.h>
 
 #include <cerrno>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
-#include <chrono>
 #include <thread>
 
 #include "src/err_macro.h"
