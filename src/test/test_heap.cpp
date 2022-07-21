@@ -16,7 +16,7 @@ struct obj_t {
     return weight > rhs.weight;
   }
 
-  static a0_compare_t make_compare() {
+  static a0_cmp_t make_compare() {
     return {
       .user_data = nullptr,
       .fn = [](void*, const void* lhs, const void* rhs, int* out) {
@@ -66,43 +66,26 @@ TEST_CASE("heap] basic") {
   REQUIRE(obj.content == 4);
 
   REQUIRE_OK(a0_heap_pop(&heap, nullptr));
-  REQUIRE(a0_heap_pop(&heap, nullptr) == EINVAL);
+  REQUIRE(a0_heap_pop(&heap, nullptr) == A0_ERR_AGAIN);
 
   REQUIRE_OK(a0_heap_close(&heap));
 }
 
 TEST_CASE("heap] fuzz") {
   a0_heap_t heap;
-  REQUIRE_OK(a0_heap_init(
-      &heap, sizeof(obj_t), obj_t::make_compare()));
-
-  std::default_random_engine rng;
-  rng.seed(0);
-  std::uniform_int_distribution<int> rand_int(-1000, 1000);
-  
-  auto dur = std::chrono::nanoseconds(0);
-  auto ref_dur = std::chrono::nanoseconds(0);
+  REQUIRE_OK(a0_heap_init(&heap, sizeof(obj_t), obj_t::make_compare()));
 
   std::priority_queue<obj_t> ref_heap;
-  for (size_t i = 0; i < 100000000; i++) {
-    switch (rng() % 2) {
+  for (size_t i = 0; i < 1000000; i++) {
+    switch (rand() % 2) {
       case 0: {
         if (ref_heap.size() > 10) {
           continue;
         }
-        obj_t new_obj{rand_int(rng), rand_int(rng)};
+        obj_t new_obj{rand(), rand()};
 
-        auto start = std::chrono::steady_clock::now();
         ref_heap.push(new_obj);
-        auto end = std::chrono::steady_clock::now();
-        ref_dur += end - start;
-
-        start = std::chrono::steady_clock::now();
-        auto err = a0_heap_put(&heap, &new_obj);
-        end = std::chrono::steady_clock::now();
-        dur += end - start;
-
-        REQUIRE_OK(err);
+        REQUIRE_OK(a0_heap_put(&heap, &new_obj));
         break;
       }
       case 1: {
@@ -110,19 +93,12 @@ TEST_CASE("heap] fuzz") {
           continue;
         }
 
-        auto start = std::chrono::steady_clock::now();
         obj_t got_obj;
-        auto err = a0_heap_pop(&heap, &got_obj);
-        auto end = std::chrono::steady_clock::now();
-        // dur += end - start;
+        REQUIRE_OK(a0_heap_pop(&heap, &got_obj));
 
-        start = std::chrono::steady_clock::now();
         obj_t ref_obj = ref_heap.top();
         ref_heap.pop();
-        end = std::chrono::steady_clock::now();
-        // ref_dur += end - start;
 
-        REQUIRE_OK(err);
         REQUIRE(got_obj.weight == ref_obj.weight);
         // Weights can be duplicated, so content might not match.
         // REQUIRE(got_obj.content == ref_obj.content);
@@ -130,10 +106,6 @@ TEST_CASE("heap] fuzz") {
       }
     }
   }
-  fprintf(stderr, "    dur=%ld\n", dur.count());
-  fprintf(stderr, "ref_dur=%ld\n", ref_dur.count());
-  fprintf(stderr, "faster=%lf\n", ((double)ref_dur.count() - dur.count()) / ref_dur.count());
-  fprintf(stderr, "    size=%ld\n", sizeof(obj_t));
 
   size_t size;
   REQUIRE_OK(a0_heap_size(&heap, &size));

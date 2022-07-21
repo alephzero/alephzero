@@ -1,4 +1,5 @@
 #include <a0/alloc.h>
+#include <a0/align.h>
 #include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/callback.h>
@@ -77,13 +78,8 @@ a0_transport_state_t* a0_transport_working_page(a0_transport_locked_t lk) {
 }
 
 A0_STATIC_INLINE
-size_t a0_max_align(size_t off) {
-  return ((off + alignof(max_align_t) - 1) & ~(alignof(max_align_t) - 1));
-}
-
-A0_STATIC_INLINE
 size_t a0_transport_workspace_off() {
-  return a0_max_align(sizeof(a0_transport_hdr_t));
+  return a0_align(sizeof(a0_transport_hdr_t));
 }
 
 // Converts a 0.2 transport into a 0.3 transport.
@@ -195,7 +191,7 @@ a0_err_t a0_transport_lock(a0_transport_t* transport, a0_transport_locked_t* lk_
   a0_transport_hdr_t* hdr = a0_transport_header(*lk_out);
 
   a0_err_t prior_owner_died = a0_mtx_lock(&hdr->mtx);
-  A0_MAYBE_UNUSED(prior_owner_died);
+  A0_UNUSED(prior_owner_died);
 
   // Clear any incomplete changes.
   *a0_transport_working_page(*lk_out) = *a0_transport_committed_page(*lk_out);
@@ -234,7 +230,7 @@ a0_err_t a0_transport_iter_valid(a0_transport_locked_t lk, bool* out) {
 }
 
 a0_err_t a0_transport_jump(a0_transport_locked_t lk, size_t off) {
-  if (a0_max_align(off) != off) {
+  if (a0_align(off) != off) {
     return A0_ERR_RANGE;
   }
 
@@ -517,7 +513,7 @@ a0_err_t a0_transport_find_slot(a0_transport_locked_t lk, size_t frame_size, siz
   if (empty) {
     *off = a0_transport_workspace_off();
   } else {
-    *off = a0_max_align(a0_transport_frame_end(lk, state->off_tail));
+    *off = a0_align(a0_transport_frame_end(lk, state->off_tail));
     if (*off + frame_size >= hdr->arena_size) {
       *off = a0_transport_workspace_off();
     }

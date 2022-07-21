@@ -55,21 +55,27 @@ namespace {
 
 struct RpcServerImpl {
   std::vector<uint8_t> data;
-  std::function<void(RpcRequest)> onrequest;
-  std::function<void(string_view)> oncancel;
+  RpcServer::Options opts;
 };
 
 }  // namespace
 
 RpcServer::RpcServer(
     RpcTopic topic,
+    std::function<void(RpcRequest)> onrequest)
+    : RpcServer(topic, onrequest, nullptr) {}
+
+RpcServer::RpcServer(
+    RpcTopic topic,
     std::function<void(RpcRequest)> onrequest,
-    std::function<void(string_view /* id */)> oncancel) {
+    std::function<void(string_view /* id */)> oncancel)
+    : RpcServer(topic, RpcServer::Options{onrequest, oncancel, TIMEOUT_NEVER}) {}
+
+RpcServer::RpcServer(RpcTopic topic, RpcServer::Options opts) {
   set_c_impl<RpcServerImpl>(
       &c,
       [&](a0_rpc_server_t* c, RpcServerImpl* impl) {
-        impl->onrequest = std::move(onrequest);
-        impl->oncancel = std::move(oncancel);
+        impl->opts = std::move(opts);
 
         auto cfo = c_fileopts(topic.file_opts);
         a0_rpc_topic_t c_topic{topic.name.c_str(), &cfo};
@@ -97,17 +103,23 @@ RpcServer::RpcServer(
                     return A0_OK;
                   });
 
-              impl->onrequest(cpp_req);
+              impl->opts.onrequest(cpp_req);
             }};
 
         a0_packet_id_callback_t c_oncancel = {
             .user_data = impl,
             .fn = [](void* user_data, a0_uuid_t id) {
               auto* impl = (RpcServerImpl*)user_data;
-              impl->oncancel(id);
+              impl->opts.oncancel(id);
             }};
 
-        return a0_rpc_server_init(c, c_topic, alloc, c_onrequest, c_oncancel);
+        a0_rpc_server_options_t c_opts = {
+          .onrequest = c_onrequest,
+          .oncancel = c_oncancel,
+          .exclusive_ownership_timeout = impl->opts.exclusive_ownership_timeout.c.get(),
+        };
+
+        return a0_rpc_server_init(c, c_topic, alloc, c_opts);
       },
       [](a0_rpc_server_t* c, RpcServerImpl*) {
         a0_rpc_server_close(c);
@@ -128,22 +140,10 @@ struct RpcClientImpl {
 RpcClient::RpcClient(RpcTopic topic) {
   set_c_impl<RpcClientImpl>(
       &c,
-      [&](a0_rpc_client_t* c, RpcClientImpl* impl) {
+      [&](a0_rpc_client_t* c, RpcClientImpl*) {
         auto cfo = c_fileopts(topic.file_opts);
         a0_rpc_topic_t c_topic{topic.name.c_str(), &cfo};
-
-        a0_alloc_t alloc = {
-            .user_data = impl,
-            .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-              auto* impl = (RpcClientImpl*)user_data;
-              impl->data.resize(size);
-              *out = {impl->data.data(), size};
-              return A0_OK;
-            },
-            .dealloc = nullptr,
-        };
-
-        return a0_rpc_client_init(c, c_topic, alloc);
+        return a0_rpc_client_init(c, c_topic);
       },
       [](a0_rpc_client_t* c, RpcClientImpl*) {
         a0_rpc_client_close(c);
@@ -188,26 +188,6 @@ void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply) {
   }
 
   check(a0_rpc_client_send(&*c, *pkt.c, c_onreply));
-}
-
-Packet RpcClient::send_blocking(Packet pkt) {
-  CHECK_C;
-
-  auto data = std::make_shared<std::vector<uint8_t>>();
-  a0_alloc_t alloc = {
-      .user_data = data.get(),
-      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-        auto* data = (std::vector<uint8_t>*)user_data;
-        data->resize(size);
-        *out = {data->data(), size};
-        return A0_OK;
-      },
-      .dealloc = nullptr,
-  };
-
-  a0_packet_t resp;
-  check(a0_rpc_client_send_blocking(&*c, *pkt.c, alloc, &resp));
-  return Packet(resp, [data](a0_packet_t*) {});
 }
 
 Packet RpcClient::send_blocking(Packet pkt, TimeMono timeout) {

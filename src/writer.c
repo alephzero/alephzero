@@ -90,8 +90,8 @@ a0_err_t a0_write_action_process(void* user_data, a0_packet_t* pkt, a0_middlewar
 
 A0_STATIC_INLINE
 a0_err_t a0_write_action_process_locked(void* user_data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
-  A0_MAYBE_UNUSED(user_data);
-  A0_MAYBE_UNUSED(chain);
+  A0_UNUSED(user_data);
+  A0_UNUSED(chain);
 
   a0_alloc_t alloc;
   a0_transport_allocator(&tlk, &alloc);
@@ -221,7 +221,7 @@ a0_err_t a0_compose_process(void* user_data, a0_packet_t* pkt, a0_middleware_cha
 
 A0_STATIC_INLINE
 a0_err_t a0_compose_process_locked(void* user_data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
-  A0_MAYBE_UNUSED(tlk);
+  A0_UNUSED(tlk);
   return a0_compose_process(user_data, pkt, chain);
 }
 

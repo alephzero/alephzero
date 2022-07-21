@@ -45,6 +45,9 @@ const char* a0_strerror(a0_err_t err) {
     case A0_ERR_CANCELLED: {
       return "Operation cancelled";
     }
+    case A0_ERR_TIMEDOUT: {
+      return "Timed out";
+    }
     default: {
       break;
     }

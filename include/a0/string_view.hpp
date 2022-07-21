@@ -131,8 +131,8 @@ class string_view {
   int compare(size_type pos1, size_type count1, const char_type* s, size_type count2) const { return substr(pos1, count1).compare(string_view(s, count2)); }
 
   static size_type find(string_view v, size_type pos = 0) {
-    A0_MAYBE_UNUSED(v);
-    A0_MAYBE_UNUSED(pos);
+    A0_UNUSED(v);
+    A0_UNUSED(pos);
     throw std::logic_error("a0::string_view::find not implemented yet");
   }
   static size_type find(char_type ch, size_type pos = 0) { return find(string_view(&ch, 1), pos); }
@@ -140,8 +140,8 @@ class string_view {
   static size_type find(const char_type* s, size_type pos = 0) { return find(string_view(s), pos); }
 
   static size_type rfind(string_view v, size_type pos = npos) {
-    A0_MAYBE_UNUSED(v);
-    A0_MAYBE_UNUSED(pos);
+    A0_UNUSED(v);
+    A0_UNUSED(pos);
     throw std::logic_error("a0::string_view::rfind not implemented yet");
   }
   static size_type rfind(char_type c, size_type pos = npos) { return rfind(string_view(&c, 1), pos); }
@@ -149,8 +149,8 @@ class string_view {
   static size_type rfind(const char_type* s, size_type pos = npos) { return rfind(string_view(s), pos); }
 
   static size_type find_first_of(string_view v, size_type pos = 0) {
-    A0_MAYBE_UNUSED(v);
-    A0_MAYBE_UNUSED(pos);
+    A0_UNUSED(v);
+    A0_UNUSED(pos);
     throw std::logic_error("a0::string_view::find_first_of not implemented yet");
   }
   static size_type find_first_of(char_type c, size_type pos = 0) { return find_first_of(string_view(&c, 1), pos); }
@@ -158,8 +158,8 @@ class string_view {
   static size_type find_first_of(const char_type* s, size_type pos = 0) { return find_first_of(string_view(s), pos); }
 
   static size_type find_last_of(string_view v, size_type pos = npos) {
-    A0_MAYBE_UNUSED(v);
-    A0_MAYBE_UNUSED(pos);
+    A0_UNUSED(v);
+    A0_UNUSED(pos);
     throw std::logic_error("a0::string_view::find_last_of not implemented yet");
   }
   static size_type find_last_of(char_type c, size_type pos = npos) { return find_last_of(string_view(&c, 1), pos); }
@@ -167,8 +167,8 @@ class string_view {
   static size_type find_last_of(const char_type* s, size_type pos = npos) { return find_last_of(string_view(s), pos); }
 
   static size_type find_first_not_of(string_view v, size_type pos = 0) {
-    A0_MAYBE_UNUSED(v);
-    A0_MAYBE_UNUSED(pos);
+    A0_UNUSED(v);
+    A0_UNUSED(pos);
     throw std::logic_error("a0::string_view::find_first_not_of not implemented yet");
   }
   static size_type find_first_not_of(char_type c, size_type pos = 0) { return find_first_not_of(string_view(&c, 1), pos); }
@@ -176,8 +176,8 @@ class string_view {
   static size_type find_first_not_of(const char_type* s, size_type pos = 0) { return find_first_not_of(string_view(s), pos); }
 
   static size_type find_last_not_of(string_view v, size_type pos = npos) {
-    A0_MAYBE_UNUSED(v);
-    A0_MAYBE_UNUSED(pos);
+    A0_UNUSED(v);
+    A0_UNUSED(pos);
     throw std::logic_error("a0::string_view::find_last_not_of not implemented yet");
   }
   static size_type find_last_not_of(char_type c, size_type pos = npos) { return find_last_not_of(string_view(&c, 1), pos); }

@@ -60,14 +60,17 @@ TimeMono TimeMono::operator-(std::chrono::nanoseconds dur) const {
 bool TimeMono::operator<(TimeMono rhs) const {
   CHECK_C;
   check(__PRETTY_FUNCTION__, &rhs);
-  return c->ts.tv_sec < rhs.c->ts.tv_sec ||
-         (c->ts.tv_sec == rhs.c->ts.tv_sec && c->ts.tv_nsec < rhs.c->ts.tv_nsec);
+  bool ret;
+  a0_time_mono_less(*c, *rhs.c, &ret);
+  return ret;
 }
 
 bool TimeMono::operator==(TimeMono rhs) const {
   CHECK_C;
   check(__PRETTY_FUNCTION__, &rhs);
-  return c->ts.tv_sec == rhs.c->ts.tv_sec && c->ts.tv_nsec == rhs.c->ts.tv_nsec;
+  bool ret;
+  a0_time_mono_equal(*c, *rhs.c, &ret);
+  return ret;
 }
 
 bool TimeMono::operator!=(TimeMono rhs) const {

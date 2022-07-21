@@ -1,3 +1,4 @@
+#include <a0/align.h>
 #include <a0/cmp.h>
 #include <a0/err.h>
 #include <a0/inline.h>
@@ -23,11 +24,6 @@ typedef struct a0_map_bucket_s {
   void* val;
 } a0_map_bucket_t;
 
-A0_STATIC_INLINE
-size_t a0_max_align(size_t off) {
-  return ((off + alignof(max_align_t) - 1) & ~(alignof(max_align_t) - 1));
-}
-
 a0_err_t a0_map_init(a0_map_t* map,
                      size_t key_size,
                      size_t val_size,
@@ -39,8 +35,7 @@ a0_err_t a0_map_init(a0_map_t* map,
   map->_key_hash = key_hash;
   map->_key_cmp = key_cmp;
 
-  map->_bucket_size = sizeof(size_t) + a0_max_align(map->_key_size) + a0_max_align(map->_val_size);
-
+  map->_bucket_size = sizeof(size_t) + a0_align(map->_key_size) + a0_align(map->_val_size);
   return A0_OK;
 }
 
@@ -68,7 +63,7 @@ a0_err_t a0_map_bucket(a0_map_t* map, size_t idx, a0_map_bucket_t* bkt) {
   bkt->idx = idx;
   bkt->off = (size_t*)bkt->dat;
   bkt->key = (uint8_t*)(bkt->off) + sizeof(size_t);
-  bkt->val = (uint8_t*)(bkt->key) + a0_max_align(map->_key_size);
+  bkt->val = (uint8_t*)(bkt->key) + a0_align(map->_key_size);
   return A0_OK;
 }
 
@@ -144,7 +139,7 @@ a0_err_t a0_map_put(a0_map_t* map, const void* key, const void* val) {
   new_bkt.idx = hash & map->_hash2idx;
   new_bkt.off = (size_t*)new_bkt.dat;
   new_bkt.key = (uint8_t*)(new_bkt.off) + sizeof(size_t);
-  new_bkt.val = (uint8_t*)(new_bkt.key) + a0_max_align(map->_key_size);
+  new_bkt.val = (uint8_t*)(new_bkt.key) + a0_align(map->_key_size);
 
   *new_bkt.off = 1;
   memcpy(new_bkt.key, key, map->_key_size);

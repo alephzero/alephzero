@@ -176,7 +176,7 @@ TEST_CASE("mtx] fuzz (lock, unlock)") {
 
   auto body = [&]() {
     auto prior_owner_died = a0_mtx_lock(mtx);
-    A0_MAYBE_UNUSED(prior_owner_died);
+    A0_UNUSED(prior_owner_died);
     if (rand() % 2) {
       std::this_thread::sleep_for(std::chrono::microseconds(1));
     }

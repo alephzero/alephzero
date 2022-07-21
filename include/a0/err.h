@@ -20,6 +20,7 @@ typedef enum a0_err_e {
   A0_ERR_BAD_PATH = 9,
   A0_ERR_BAD_TOPIC = 10,
   A0_ERR_CANCELLED = 11,
+  A0_ERR_TIMEDOUT = 12,
 } a0_err_t;
 
 extern A0_THREAD_LOCAL int a0_err_syscode;

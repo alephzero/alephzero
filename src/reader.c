@@ -120,7 +120,7 @@ a0_err_t a0_reader_sync_zc_read_helper(a0_reader_sync_zc_t* reader_sync_zc,
 
 A0_STATIC_INLINE
 a0_err_t a0_reader_sync_zc_read_align(void* unused, a0_reader_sync_zc_t* reader_sync_zc, a0_transport_locked_t tlk) {
-  A0_MAYBE_UNUSED(unused);
+  A0_UNUSED(unused);
   bool empty;
   a0_transport_empty(tlk, &empty);
   if (empty) {
@@ -163,7 +163,7 @@ a0_err_t a0_reader_sync_zc_read(a0_reader_sync_zc_t* reader_sync_zc,
 
 A0_STATIC_INLINE
 a0_err_t a0_reader_sync_zc_read_blocking_align(void* unused, a0_reader_sync_zc_t* reader_sync_zc, a0_transport_locked_t tlk) {
-  A0_MAYBE_UNUSED(unused);
+  A0_UNUSED(unused);
   A0_RETURN_ERR_ON_ERR(a0_transport_wait(tlk, a0_transport_nonempty_pred(&tlk)));
 
   bool should_step = reader_sync_zc->_first_read_done || reader_sync_zc->_opts.init == A0_INIT_AWAIT_NEW;
@@ -255,7 +255,7 @@ typedef struct a0_reader_sync_read_data_s {
 
 A0_STATIC_INLINE
 void a0_reader_sync_read_impl(void* user_data, a0_transport_locked_t tlk, a0_flat_packet_t fpkt) {
-  A0_MAYBE_UNUSED(tlk);
+  A0_UNUSED(tlk);
   a0_reader_sync_read_data_t* data = (a0_reader_sync_read_data_t*)user_data;
   a0_buf_t unused;
   a0_packet_deserialize(fpkt, data->alloc, data->out_pkt, &unused);

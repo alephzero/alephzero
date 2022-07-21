@@ -41,6 +41,17 @@ a0_err_t a0_time_mono_add(a0_time_mono_t time_mono, int64_t add_nsec, a0_time_mo
   return a0_clock_add(time_mono.ts, add_nsec, &out->ts);
 }
 
+a0_err_t a0_time_mono_equal(a0_time_mono_t lhs, a0_time_mono_t rhs, bool* out) {
+  *out = (lhs.ts.tv_sec == rhs.ts.tv_sec && lhs.ts.tv_nsec == rhs.ts.tv_nsec);
+  return A0_OK;
+}
+
+a0_err_t a0_time_mono_less(a0_time_mono_t lhs, a0_time_mono_t rhs, bool* out) {
+  *out = (lhs.ts.tv_sec < rhs.ts.tv_sec ||
+          (lhs.ts.tv_sec == rhs.ts.tv_sec && lhs.ts.tv_nsec < rhs.ts.tv_nsec));
+  return A0_OK;
+}
+
 const char A0_TIME_WALL[] = "a0_time_wall";
 
 a0_err_t a0_time_wall_now(a0_time_wall_t* out) {

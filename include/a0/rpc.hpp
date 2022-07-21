@@ -36,17 +36,26 @@ struct RpcRequest : details::CppWrap<a0_rpc_request_t> {
   Packet pkt();
 
   void reply(Packet);
-  void reply(std::unordered_multimap<std::string, std::string> headers,
-             string_view payload) {
-    reply(Packet(std::move(headers), payload, ref));
-  }
   void reply(string_view payload) {
-    reply({}, payload);
+    reply(Packet(payload, ref));
   }
 };
 
 struct RpcServer : details::CppWrap<a0_rpc_server_t> {
+  struct Options {
+    std::function<void(RpcRequest)> onrequest;
+    std::function<void(string_view /* id */)> oncancel;
+
+    TimeMono exclusive_ownership_timeout;
+  };
+
   RpcServer() = default;
+  RpcServer(RpcTopic, Options);
+
+  // Backwards compatible constructors.
+  RpcServer(
+      RpcTopic,
+      std::function<void(RpcRequest)> onrequest);
   RpcServer(
       RpcTopic,
       std::function<void(RpcRequest)> onrequest,
@@ -58,41 +67,25 @@ struct RpcClient : details::CppWrap<a0_rpc_client_t> {
   explicit RpcClient(RpcTopic);
 
   void send(Packet, std::function<void(Packet)>);
-  void send(std::unordered_multimap<std::string, std::string> headers,
-            string_view payload,
-            std::function<void(Packet)> callback) {
-    send(Packet(std::move(headers), payload, ref), std::move(callback));
-  }
   void send(string_view payload, std::function<void(Packet)> callback) {
-    send({}, payload, std::move(callback));
+    send(Packet(payload, ref), std::move(callback));
   }
 
-  Packet send_blocking(Packet);
-  Packet send_blocking(std::unordered_multimap<std::string, std::string> headers,
-                       string_view payload) {
-    return send_blocking(Packet(std::move(headers), payload, ref));
+  Packet send_blocking(Packet pkt) {
+    return send_blocking(pkt, a0::TIMEOUT_NEVER);
   }
   Packet send_blocking(string_view payload) {
-    return send_blocking({}, payload);
+    return send_blocking(Packet(payload, ref));
   }
 
   Packet send_blocking(Packet, TimeMono);
-  Packet send_blocking(std::unordered_multimap<std::string, std::string> headers,
-                       string_view payload,
-                       TimeMono timeout) {
-    return send_blocking(Packet(std::move(headers), payload, ref), timeout);
-  }
   Packet send_blocking(string_view payload, TimeMono timeout) {
-    return send_blocking({}, payload, timeout);
+    return send_blocking(Packet(payload, ref), timeout);
   }
 
   std::future<Packet> send(Packet);
-  std::future<Packet> send(std::unordered_multimap<std::string, std::string> headers,
-                           string_view payload) {
-    return send(Packet(std::move(headers), payload, ref));
-  }
   std::future<Packet> send(string_view payload) {
-    return send({}, payload);
+    return send(Packet(payload, ref));
   }
 
   void cancel(string_view);

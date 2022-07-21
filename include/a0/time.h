@@ -47,6 +47,7 @@
 
 #include <a0/err.h>
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <time.h>
 
@@ -77,6 +78,12 @@ a0_err_t a0_time_mono_parse(const char mono_str[20], a0_time_mono_t*);
 
 /// Add a duration in nanoseconds to a mono timestamp.
 a0_err_t a0_time_mono_add(a0_time_mono_t, int64_t add_nsec, a0_time_mono_t*);
+
+/// Whether the given mono timestamps are equal.
+a0_err_t a0_time_mono_equal(a0_time_mono_t, a0_time_mono_t, bool* out);
+
+/// Whether the first given mono timestamps is less than the second.
+a0_err_t a0_time_mono_less(a0_time_mono_t, a0_time_mono_t, bool* out);
 
 /** @}*/
 

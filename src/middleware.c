@@ -20,8 +20,8 @@
 
 A0_STATIC_INLINE
 a0_err_t a0_add_time_mono_header_process_locked(void* data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
-  A0_MAYBE_UNUSED(data);
-  A0_MAYBE_UNUSED(tlk);
+  A0_UNUSED(data);
+  A0_UNUSED(tlk);
 
   a0_time_mono_t time_mono;
   a0_time_mono_now(&time_mono);
@@ -52,7 +52,7 @@ a0_middleware_t a0_add_time_mono_header() {
 
 A0_STATIC_INLINE
 a0_err_t a0_add_time_wall_header_process(void* data, a0_packet_t* pkt, a0_middleware_chain_t chain) {
-  A0_MAYBE_UNUSED(data);
+  A0_UNUSED(data);
 
   a0_time_wall_t time_wall;
   a0_time_wall_now(&time_wall);
@@ -162,7 +162,7 @@ a0_middleware_t a0_add_writer_seq_header() {
 
 A0_STATIC_INLINE
 a0_err_t a0_add_transport_seq_header_process_locked(void* data, a0_transport_locked_t tlk, a0_packet_t* pkt, a0_middleware_chain_t chain) {
-  A0_MAYBE_UNUSED(data);
+  A0_UNUSED(data);
 
   uint64_t seq;
   a0_transport_seq_high(tlk, &seq);
@@ -369,7 +369,7 @@ a0_err_t a0_json_mergepatch_process_locked(
     a0_transport_locked_t tlk,
     a0_packet_t* pkt,
     a0_middleware_chain_t chain) {
-  A0_MAYBE_UNUSED(user_data);
+  A0_UNUSED(user_data);
   bool empty;
   a0_transport_empty(tlk, &empty);
 

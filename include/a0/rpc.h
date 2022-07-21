@@ -5,10 +5,12 @@
 #include <a0/arena.h>
 #include <a0/buf.h>
 #include <a0/callback.h>
+#include <a0/deadman.h>
 #include <a0/file.h>
 #include <a0/map.h>
 #include <a0/packet.h>
 #include <a0/reader.h>
+#include <a0/vec.h>
 #include <a0/writer.h>
 
 #ifdef __cplusplus
@@ -36,10 +38,22 @@ typedef struct a0_rpc_request_callback_s {
   void (*fn)(void* user_data, a0_rpc_request_t);
 } a0_rpc_request_callback_t;
 
+typedef struct a0_rpc_server_options_s {
+  a0_rpc_request_callback_t onrequest;
+  a0_packet_id_callback_t oncancel;
+
+  a0_time_mono_t* exclusive_ownership_timeout;
+} a0_rpc_server_options_t;
+
 struct a0_rpc_server_s {
   a0_file_t _file;
   a0_reader_t _request_reader;
   a0_writer_t _response_writer;
+
+  a0_deadman_t _deadman;
+
+  bool _init_complete;
+  a0_mtx_t _init_lock;
 
   a0_rpc_request_callback_t _onrequest;
   a0_packet_id_callback_t _oncancel;
@@ -48,8 +62,7 @@ struct a0_rpc_server_s {
 a0_err_t a0_rpc_server_init(a0_rpc_server_t*,
                             a0_rpc_topic_t,
                             a0_alloc_t,
-                            a0_rpc_request_callback_t onrequest,
-                            a0_packet_id_callback_t oncancel);
+                            a0_rpc_server_options_t);
 a0_err_t a0_rpc_server_close(a0_rpc_server_t*);
 
 // Note: do NOT respond with the request packet. The ids MUST be unique!
@@ -64,14 +77,24 @@ typedef struct a0_rpc_client_s {
   a0_writer_t _request_writer;
   a0_reader_t _response_reader;
 
-  a0_map_t _outstanding_requests;
-  pthread_mutex_t _outstanding_requests_mu;
+  a0_deadman_t _deadman;
+  pthread_t _deadman_thread;
+  pthread_t _timeout_thread;
+  bool _closing;
+
+  a0_mtx_t _mtx;
+  a0_cnd_t _cnd;
+
+  bool _server_connected;
+  uint64_t _server_tkn;
+  a0_vec_t _outstanding_requests;
 } a0_rpc_client_t;
 
-a0_err_t a0_rpc_client_init(a0_rpc_client_t*, a0_rpc_topic_t, a0_alloc_t);
+a0_err_t a0_rpc_client_init(a0_rpc_client_t*, a0_rpc_topic_t);
 a0_err_t a0_rpc_client_close(a0_rpc_client_t*);
 
 a0_err_t a0_rpc_client_send(a0_rpc_client_t*, a0_packet_t, a0_packet_callback_t);
+a0_err_t a0_rpc_client_send_timeout(a0_rpc_client_t*, a0_packet_t, a0_time_mono_t*, a0_packet_callback_t onresponse, a0_callback_t ontimeout);
 a0_err_t a0_rpc_client_send_blocking(a0_rpc_client_t*, a0_packet_t, a0_alloc_t, a0_packet_t* out);
 a0_err_t a0_rpc_client_send_blocking_timeout(a0_rpc_client_t*, a0_packet_t, a0_time_mono_t*, a0_alloc_t, a0_packet_t* out);
 

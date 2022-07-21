@@ -17,7 +17,7 @@ static const uint32_t GOLDEN_RATIO_U32 = 0x9E3779B9;
 
 // https://softwareengineering.stackexchange.com/questions/402542/where-do-magic-hashing-constants-like-0x9e3779b9-and-0x9e3779b1-come-from
 a0_err_t a0_hash_u32_fn(void* user_data, const void* data, size_t* out) {
-  A0_MAYBE_UNUSED(user_data);
+  A0_UNUSED(user_data);
   *out = (*(uint32_t*)data) * GOLDEN_RATIO_U32;
   return A0_OK;
 }
@@ -28,7 +28,7 @@ const a0_hash_t A0_HASH_U32 = {
 };
 
 a0_err_t a0_cmp_u32_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
-  A0_MAYBE_UNUSED(user_data);
+  A0_UNUSED(user_data);
   int64_t diff = (int64_t)(*(uint32_t*)rhs) - (int64_t)(*(uint32_t*)lhs);
   *out = (diff < 0) - (diff > 0);
   return A0_OK;
@@ -45,7 +45,7 @@ const a0_cmp_t A0_CMP_U32 = {
 
 // https://stackoverflow.com/questions/20953390/what-is-the-fastest-hash-function-for-pointers
 a0_err_t a0_hash_ptr_fn(void* user_data, const void* data, size_t* out) {
-  A0_MAYBE_UNUSED(user_data);
+  A0_UNUSED(user_data);
   const size_t shift = (size_t)log2(1 + sizeof(uintptr_t));
   *out = (*(uintptr_t*)data) >> shift;
   return A0_OK;
@@ -57,7 +57,7 @@ const a0_hash_t A0_HASH_PTR = {
 };
 
 a0_err_t a0_cmp_ptr_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
-  A0_MAYBE_UNUSED(user_data);
+  A0_UNUSED(user_data);
   *out = (int)(*(uintptr_t*)lhs - *(uintptr_t*)rhs);
   return A0_OK;
 }
@@ -73,7 +73,7 @@ const a0_cmp_t A0_CMP_PTR = {
 
 // https://softwareengineering.stackexchange.com/questions/402542/where-do-magic-hashing-constants-like-0x9e3779b9-and-0x9e3779b1-come-from
 a0_err_t a0_hash_buf_fn(void* user_data, const void* data, size_t* out) {
-  A0_MAYBE_UNUSED(user_data);
+  A0_UNUSED(user_data);
   a0_buf_t* buf = (a0_buf_t*)data;
 
   *out = 0;
@@ -89,7 +89,7 @@ const a0_hash_t A0_HASH_BUF = {
 };
 
 a0_err_t a0_cmp_buf_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
-  A0_MAYBE_UNUSED(user_data);
+  A0_UNUSED(user_data);
   a0_buf_t* lhs_buf = (a0_buf_t*)lhs;
   a0_buf_t* rhs_buf = (a0_buf_t*)rhs;
   if (lhs_buf->size != rhs_buf->size) {
@@ -111,7 +111,7 @@ const a0_cmp_t A0_CMP_BUF = {
 
 // https://softwareengineering.stackexchange.com/questions/402542/where-do-magic-hashing-constants-like-0x9e3779b9-and-0x9e3779b1-come-from
 a0_err_t a0_hash_str_fn(void* user_data, const void* data, size_t* out) {
-  A0_MAYBE_UNUSED(user_data);
+  A0_UNUSED(user_data);
   *out = 0;
   for (char* c = *(char**)data; *c; c++) {
     *out ^= *c + GOLDEN_RATIO_U32 + (*out << 6) + (*out >> 2);
@@ -125,7 +125,7 @@ const a0_hash_t A0_HASH_STR = {
 };
 
 a0_err_t a0_cmp_str_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
-  A0_MAYBE_UNUSED(user_data);
+  A0_UNUSED(user_data);
   *out = strcmp(*(char**)lhs, *(char**)rhs);
   return A0_OK;
 }
@@ -154,7 +154,7 @@ static const uint8_t UNHEX_VALUES[] = {
 
 A0_STATIC_INLINE
 a0_err_t a0_hash_uuid_fn(void* user_data, const void* data, size_t* out) {
-  A0_MAYBE_UNUSED(user_data);
+  A0_UNUSED(user_data);
   // UUID is 16 bytes stretched to 37 bytes.
   // The hash is computed by recovering some of the random bytes from the uuid.
   //
@@ -187,7 +187,7 @@ const a0_hash_t A0_HASH_UUID = {
 };
 
 a0_err_t a0_cmp_uuid_fn(void* user_data, const void* lhs, const void* rhs, int* out) {
-  A0_MAYBE_UNUSED(user_data);
+  A0_UNUSED(user_data);
   *out = memcmp(*(a0_uuid_t*)lhs, *(a0_uuid_t*)rhs, sizeof(a0_uuid_t));
   return A0_OK;
 }

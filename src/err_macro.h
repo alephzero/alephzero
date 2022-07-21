@@ -57,12 +57,12 @@ a0_err_t A0_MAKE_MSGERR(const char* fmt, ...) {
 
 #define A0_ASSERT(X, MSG, ...) \
   do {                         \
-    A0_MAYBE_UNUSED(X);        \
+    A0_UNUSED(X);              \
   } while (0)
 
 #define A0_ASSERT_OK(ERR, MSG, ...) \
   do {                              \
-    A0_MAYBE_UNUSED(ERR);           \
+    A0_UNUSED(ERR);                 \
   } while (0)
 
 #ifdef DEBUG
