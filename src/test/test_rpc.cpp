@@ -98,8 +98,8 @@ struct RpcFixture {
 // }
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
-  a0_latch_t reply_latch;
-  a0_latch_init(&reply_latch, 5);
+  a0_latch_t latch;
+  a0_latch_init(&latch, 5);
 
   a0::RpcServer server("test", [&](a0::RpcRequest req) {
     req.reply("echo");
@@ -109,11 +109,11 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp basic") {
 
   for (int i = 0; i < 5; i++) {
     client.send("request", [&](a0::Packet) {
-      a0_latch_count_down(&reply_latch, 1);
+      a0_latch_count_down(&latch, 1);
     });
   }
 
-  a0_latch_wait(&reply_latch);
+  a0_latch_wait(&latch);
 }
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp cancel") {
@@ -155,8 +155,8 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp cancel") {
 }
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp server restart") {
-  a0_latch_t reply_latch;
-  a0_latch_init(&reply_latch, 5);
+  a0_latch_t latch;
+  a0_latch_init(&latch, 5);
 
   std::unique_ptr<a0::RpcServer> server;
   server.reset(new a0::RpcServer("test", [&](a0::RpcRequest) {
@@ -167,7 +167,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp server restart") {
 
   for (int i = 0; i < 5; i++) {
     client.send("request", [&](a0::Packet) {
-      a0_latch_count_down(&reply_latch, 1);
+      a0_latch_count_down(&latch, 1);
     });
   }
 
@@ -178,7 +178,7 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp server restart") {
     req.reply("echo");
   }));
 
-  a0_latch_wait(&reply_latch);
+  a0_latch_wait(&latch);
 }
 
 TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp blocking") {
@@ -192,6 +192,14 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp blocking") {
     auto reply = client.send_blocking("request");
     REQUIRE(reply.payload() == "echo");
   }
+}
+
+TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp timeout") {
+  a0::RpcClient client("test");
+
+  REQUIRE_THROWS_WITH(
+      client.send_blocking("request", a0::TimeMono::now()),
+      a0_strerror(A0_ERR_TIMEDOUT));
 }
 
 // TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp blocking") {

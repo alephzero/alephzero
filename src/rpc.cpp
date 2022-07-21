@@ -132,7 +132,7 @@ struct RpcClientImpl {
   std::vector<uint8_t> data;
 
   std::unordered_map<std::string, std::function<void(Packet)>> user_onreply;
-  std::mutex user_onreply_mu;
+  std::mutex mtx;
 };
 
 }  // namespace
@@ -150,14 +150,14 @@ RpcClient::RpcClient(RpcTopic topic) {
       });
 }
 
-void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply) {
+void RpcClient::send(Packet pkt, TimeMono timeout, std::function<void(Packet)> onreply, std::function<void()> ontimeout) {
   CHECK_C;
 
   a0_packet_callback_t c_onreply = A0_EMPTY;
   if (onreply) {
     auto* impl = c_impl<RpcClientImpl>(&c);
     {
-      std::unique_lock<std::mutex> lk{impl->user_onreply_mu};
+      std::unique_lock<std::mutex> lk{impl->mtx};
       impl->user_onreply[std::string(pkt.id())] = std::move(onreply);
     }
 
@@ -176,7 +176,7 @@ void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply) {
 
           std::function<void(Packet)> onreply;
           {
-            std::unique_lock<std::mutex> lk{impl->user_onreply_mu};
+            std::unique_lock<std::mutex> lk{impl->mtx};
             auto iter = impl->user_onreply.find(req_id_hdr.val);
             onreply = std::move(iter->second);
             impl->user_onreply.erase(iter);
@@ -187,35 +187,37 @@ void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply) {
     };
   }
 
-  check(a0_rpc_client_send(&*c, *pkt.c, c_onreply));
+  a0_callback_t c_ontimeout = A0_EMPTY;
+  if (ontimeout) {
+    c_ontimeout = {
+        .user_data = new std::function<void()>{std::move(ontimeout)},
+        .fn = [](void* user_data) {
+          auto* ontimeout = (std::function<void()>*)user_data;
+          (*ontimeout)();
+          delete ontimeout;
+          return A0_OK;
+        },
+    };
+  }
+
+// a0_err_t a0_rpc_client_send_timeout(a0_rpc_client_t*, a0_packet_t, a0_time_mono_t*, a0_packet_callback_t onresponse, a0_callback_t ontimeout);
+  check(a0_rpc_client_send_timeout(&*c, *pkt.c, &*timeout.c, c_onreply, c_ontimeout));
 }
 
-Packet RpcClient::send_blocking(Packet pkt, TimeMono timeout) {
-  CHECK_C;
-
-  auto data = std::make_shared<std::vector<uint8_t>>();
-  a0_alloc_t alloc = {
-      .user_data = data.get(),
-      .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
-        auto* data = (std::vector<uint8_t>*)user_data;
-        data->resize(size);
-        *out = {data->data(), size};
-        return A0_OK;
-      },
-      .dealloc = nullptr,
+std::future<Packet> RpcClient::send(Packet pkt, TimeMono timeout) {
+  auto promise = std::make_shared<std::promise<Packet>>();
+  auto onreply = [promise](Packet reply) {
+    promise->set_value(reply);
   };
-
-  a0_packet_t resp;
-  check(a0_rpc_client_send_blocking_timeout(&*c, *pkt.c, &*timeout.c, alloc, &resp));
-  return Packet(resp, [data](a0_packet_t*) {});
-}
-
-std::future<Packet> RpcClient::send(Packet pkt) {
-  auto p = std::make_shared<std::promise<Packet>>();
-  send(pkt, [p](Packet resp) {
-    p->set_value(resp);
-  });
-  return p->get_future();
+  auto ontimeout = [promise]() {
+    try {
+      check(A0_ERR_TIMEDOUT);
+    } catch(...) {
+      promise->set_exception(std::current_exception());
+    }
+  };
+  send(pkt, timeout, onreply, ontimeout);
+  return promise->get_future();
 }
 
 void RpcClient::cancel(string_view id) {

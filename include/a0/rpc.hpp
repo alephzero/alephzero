@@ -66,26 +66,42 @@ struct RpcClient : details::CppWrap<a0_rpc_client_t> {
   RpcClient() = default;
   explicit RpcClient(RpcTopic);
 
-  void send(Packet, std::function<void(Packet)>);
-  void send(string_view payload, std::function<void(Packet)> callback) {
-    send(Packet(payload, ref), std::move(callback));
+  void send(Packet, TimeMono, std::function<void(Packet)>, std::function<void()>);
+  void send(Packet pkt, std::function<void(Packet)> onreply) {
+    send(pkt, a0::TIMEOUT_NEVER, std::move(onreply), nullptr);
   }
 
+  void send(string_view payload, TimeMono timeout, std::function<void(Packet)> onreply, std::function<void()> ontimeout) {
+    return send(Packet(payload, ref), timeout, std::move(onreply), std::move(ontimeout));
+  }
+  void send(string_view payload, std::function<void(Packet)> onreply) {
+    send(payload, a0::TIMEOUT_NEVER, std::move(onreply), nullptr);
+  }
+
+  std::future<Packet> send(Packet, TimeMono);
+  std::future<Packet> send(Packet pkt) {
+    return send(pkt, a0::TIMEOUT_NEVER);
+  }
+
+  std::future<Packet> send(string_view payload, TimeMono timeout) {
+    return send(Packet(payload, ref), timeout);
+  }
+  std::future<Packet> send(string_view payload) {
+    return send(payload, a0::TIMEOUT_NEVER);
+  }
+
+  Packet send_blocking(Packet pkt, TimeMono timeout) {
+    return send(pkt, timeout).get();
+  }
   Packet send_blocking(Packet pkt) {
     return send_blocking(pkt, a0::TIMEOUT_NEVER);
   }
-  Packet send_blocking(string_view payload) {
-    return send_blocking(Packet(payload, ref));
-  }
 
-  Packet send_blocking(Packet, TimeMono);
   Packet send_blocking(string_view payload, TimeMono timeout) {
     return send_blocking(Packet(payload, ref), timeout);
   }
-
-  std::future<Packet> send(Packet);
-  std::future<Packet> send(string_view payload) {
-    return send(Packet(payload, ref));
+  Packet send_blocking(string_view payload) {
+    return send_blocking(payload, a0::TIMEOUT_NEVER);
   }
 
   void cancel(string_view);
