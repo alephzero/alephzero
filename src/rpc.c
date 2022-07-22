@@ -510,11 +510,10 @@ a0_err_t a0_rpc_client_send_timeout(a0_rpc_client_t* client, a0_packet_t pkt, a0
   req.ontimeout = ontimeout;
 
   A0_UNUSED(a0_mtx_lock(&client->_mtx));
-  a0_vec_push_back(&client->_outstanding_requests, &req);
 
-  if (client->_server_connected) {
-    a0_rpc_client_dosend(client, req.pkt);
-  }
+  a0_vec_push_back(&client->_outstanding_requests, &req);
+  a0_rpc_client_dosend(client, req.pkt);
+
   if (req.has_timeout) {
     a0_cnd_broadcast(&client->_cnd, &client->_mtx);
   }
@@ -525,78 +524,6 @@ a0_err_t a0_rpc_client_send_timeout(a0_rpc_client_t* client, a0_packet_t pkt, a0
 
 a0_err_t a0_rpc_client_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback_t onreply) {
   return a0_rpc_client_send_timeout(client, pkt, A0_TIMEOUT_NEVER, onreply, (a0_callback_t)A0_EMPTY);
-}
-
-typedef struct a0_rpc_client_send_blocking_data_s {
-  a0_rpc_client_t* client;
-  a0_alloc_t alloc;
-  a0_packet_t* out;
-  a0_err_t err;
-  bool done;
-} a0_rpc_client_send_blocking_data_t;
-
-A0_STATIC_INLINE
-void a0_rpc_client_send_blocking_onreply(void* user_data, a0_packet_t pkt) {
-  a0_rpc_client_send_blocking_data_t* data = (a0_rpc_client_send_blocking_data_t*)user_data;
-  A0_UNUSED(a0_mtx_lock(&data->client->_mtx));
-  if (!data->done) {
-    data->done = true;
-    a0_buf_t unused;
-    a0_packet_deep_copy(pkt, data->alloc, data->out, &unused);
-    a0_cnd_broadcast(&data->client->_cnd, &data->client->_mtx);
-  }
-  a0_mtx_unlock(&data->client->_mtx);
-}
-
-A0_STATIC_INLINE
-a0_err_t a0_rpc_client_send_blocking_ontimeout(void* user_data) {
-  a0_rpc_client_send_blocking_data_t* data = (a0_rpc_client_send_blocking_data_t*)user_data;
-  A0_UNUSED(a0_mtx_lock(&data->client->_mtx));
-  if (!data->done) {
-    data->done = true;
-    data->err = A0_ERR_TIMEDOUT;
-    a0_cnd_broadcast(&data->client->_cnd, &data->client->_mtx);
-  }
-  a0_mtx_unlock(&data->client->_mtx);
-  return A0_OK;
-}
-
-a0_err_t a0_rpc_client_send_blocking_timeout(a0_rpc_client_t* client, a0_packet_t pkt, a0_time_mono_t* timeout, a0_alloc_t alloc, a0_packet_t* out) {
-  a0_rpc_client_send_blocking_data_t data = A0_EMPTY;
-  data.client = client;
-  data.alloc = alloc;
-  data.out = out;
-
-  a0_packet_callback_t onreply = {
-      .user_data = &data,
-      .fn = a0_rpc_client_send_blocking_onreply,
-  };
-
-  a0_callback_t ontimeout = {
-      .user_data = &data,
-      .fn = a0_rpc_client_send_blocking_ontimeout,
-  };
-
-  a0_rpc_client_send_timeout(client, pkt, timeout, onreply, ontimeout);
-
-  A0_UNUSED(a0_mtx_lock(&client->_mtx));
-  while (!data.done) {
-    a0_err_t err = a0_cnd_timedwait(&client->_cnd, &client->_mtx, timeout);
-    if (A0_SYSERR(err) == ETIMEDOUT) {
-      _a0_outstanding_requests_pop_locked(client, pkt.id, NULL);
-      a0_mtx_unlock(&client->_mtx);
-      return err;
-    }
-    if (data.done) {
-      return data.err;
-    }
-  }
-  a0_mtx_unlock(&client->_mtx);
-  return data.err;
-}
-
-a0_err_t a0_rpc_client_send_blocking(a0_rpc_client_t* client, a0_packet_t pkt, a0_alloc_t alloc, a0_packet_t* out) {
-  return a0_rpc_client_send_blocking_timeout(client, pkt, A0_TIMEOUT_NEVER, alloc, out);
 }
 
 a0_err_t a0_rpc_client_cancel(a0_rpc_client_t* client, const a0_uuid_t reqid) {
