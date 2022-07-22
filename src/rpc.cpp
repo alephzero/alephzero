@@ -19,6 +19,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -134,14 +135,12 @@ struct RpcClientImpl {
   std::vector<uint8_t> data;
 
   std::unordered_map<std::string, std::function<void(Packet)>> user_onreply;
-  std::unordered_map<uint64_t, std::unique_ptr<RpcClientTimeoutImpl>> user_ontimeout;
-  uint64_t next_user_ontimeout_key;
+  std::unordered_set<std::unique_ptr<RpcClientTimeoutImpl>> user_ontimeout;
   std::mutex mtx;
 };
 
 struct RpcClientTimeoutImpl {
   RpcClientImpl* impl;
-  uint64_t key;
   std::function<void()> fn;
 };
 
@@ -202,12 +201,9 @@ void RpcClient::send(Packet pkt, TimeMono timeout, std::function<void(Packet)> o
     RpcClientTimeoutImpl* timeout_impl;
     {
       std::unique_lock<std::mutex> lk{impl->mtx};
-      uint64_t key = impl->next_user_ontimeout_key++;
-
-      timeout_impl = impl->user_ontimeout.insert({
-        key,
-        std::unique_ptr<RpcClientTimeoutImpl>(new RpcClientTimeoutImpl{impl, key, ontimeout})
-      }).first->second.get();
+      timeout_impl = impl->user_ontimeout.insert(
+        std::unique_ptr<RpcClientTimeoutImpl>(new RpcClientTimeoutImpl{impl, ontimeout})
+      ).first->get();
     }
 
     c_ontimeout = {
@@ -215,11 +211,12 @@ void RpcClient::send(Packet pkt, TimeMono timeout, std::function<void(Packet)> o
         .fn = [](void* user_data) {
           auto* timeout_impl = (RpcClientTimeoutImpl*)user_data;
           auto* impl = timeout_impl->impl;
-          auto key = timeout_impl->key;
           auto fn = std::move(timeout_impl->fn);
           {
-            std::unique_lock<std::mutex> lk{impl->mtx};
-            timeout_impl->impl->user_ontimeout.erase(key);
+            std::unique_lock<std::mutex> lk{impl->mtx};            
+            std::unique_ptr<RpcClientTimeoutImpl> stale_ptr{timeout_impl};
+            impl->user_ontimeout.erase(stale_ptr);
+            stale_ptr.release();
           }
           fn();
           return A0_OK;
