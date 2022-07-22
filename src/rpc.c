@@ -332,14 +332,18 @@ void a0_rpc_client_timeout_thread_pop_expired(a0_rpc_client_t* client, a0_vec_t*
     _a0_rpc_client_request_t* iter;
     a0_vec_at(&client->_outstanding_requests, i, (void**)&iter);
 
+    bool is_old = false;
+
     if (iter->has_timeout) {
-      bool is_old;
       a0_time_mono_less(iter->timeout, now, &is_old);
       if (is_old) {
         a0_vec_push_back(expired, iter);
         a0_vec_swap_back_pop(&client->_outstanding_requests, i, NULL);
-        size--;
       }
+    }
+
+    if (is_old) {
+      size--;
     } else {
       i++;
     }

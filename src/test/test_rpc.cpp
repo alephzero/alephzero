@@ -194,12 +194,33 @@ TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp blocking") {
   }
 }
 
-TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp timeout") {
+TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp timeout blocking") {
   a0::RpcClient client("test");
 
   REQUIRE_THROWS_WITH(
       client.send_blocking("request", a0::TimeMono::now()),
       a0_strerror(A0_ERR_TIMEDOUT));
+}
+
+
+TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp timeout order") {
+  a0_latch_t latch;
+  a0_latch_init(&latch, 5);
+
+  a0::RpcClient client("test");
+  std::vector<int> timeout_order;
+
+  for (int i = 0; i < 5; i++) {
+    auto timeout = a0::TimeMono::now() + std::chrono::milliseconds(i * 10);
+    client.send("", timeout, nullptr, [&, i]() {
+      timeout_order.push_back(i);
+      a0_latch_count_down(&latch, 1);
+    });
+  }
+
+  a0_latch_wait(&latch);
+
+  REQUIRE(timeout_order == std::vector<int>{0, 1, 2, 3, 4});
 }
 
 // TEST_CASE_FIXTURE(RpcFixture, "rpc] cpp blocking") {
