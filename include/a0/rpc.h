@@ -76,6 +76,7 @@ typedef struct a0_rpc_client_s {
   a0_file_t _file;
   a0_writer_t _request_writer;
   a0_reader_t _response_reader;
+  a0_alloc_t _alloc;
 
   a0_deadman_t _deadman;
   pthread_t _deadman_thread;
@@ -90,7 +91,7 @@ typedef struct a0_rpc_client_s {
   a0_vec_t _outstanding_requests;
 } a0_rpc_client_t;
 
-a0_err_t a0_rpc_client_init(a0_rpc_client_t*, a0_rpc_topic_t);
+a0_err_t a0_rpc_client_init(a0_rpc_client_t*, a0_rpc_topic_t, a0_alloc_t);
 a0_err_t a0_rpc_client_close(a0_rpc_client_t*);
 
 a0_err_t a0_rpc_client_send(a0_rpc_client_t*, a0_packet_t, a0_packet_callback_t);

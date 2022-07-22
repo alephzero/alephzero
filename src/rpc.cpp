@@ -149,10 +149,22 @@ struct RpcClientTimeoutImpl {
 RpcClient::RpcClient(RpcTopic topic) {
   set_c_impl<RpcClientImpl>(
       &c,
-      [&](a0_rpc_client_t* c, RpcClientImpl*) {
+      [&](a0_rpc_client_t* c, RpcClientImpl* impl) {
         auto cfo = c_fileopts(topic.file_opts);
         a0_rpc_topic_t c_topic{topic.name.c_str(), &cfo};
-        return a0_rpc_client_init(c, c_topic);
+
+        a0_alloc_t alloc = {
+            .user_data = impl,
+            .alloc = [](void* user_data, size_t size, a0_buf_t* out) {
+              auto* impl = (RpcServerImpl*)user_data;
+              impl->data.resize(size);
+              *out = {impl->data.data(), size};
+              return A0_OK;
+            },
+            .dealloc = nullptr,
+        };
+
+        return a0_rpc_client_init(c, c_topic, alloc);
       },
       [](a0_rpc_client_t* c, RpcClientImpl*) {
         a0_rpc_client_close(c);
@@ -191,7 +203,9 @@ void RpcClient::send(Packet pkt, TimeMono timeout, std::function<void(Packet)> o
             impl->user_onreply.erase(iter);
           }
 
-          onreply(Packet(resp, nullptr));
+          auto data = std::make_shared<std::vector<uint8_t>>();
+          std::swap(*data, impl->data);
+          onreply(Packet(resp, [data](a0_packet_t*) {}));
         },
     };
   }

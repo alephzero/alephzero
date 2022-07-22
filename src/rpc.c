@@ -410,8 +410,9 @@ void* a0_rpc_client_timeout_thread(void* user_data) {
   return NULL;
 }
 
-a0_err_t a0_rpc_client_init(a0_rpc_client_t* client, a0_rpc_topic_t topic) {
+a0_err_t a0_rpc_client_init(a0_rpc_client_t* client, a0_rpc_topic_t topic, a0_alloc_t alloc) {
   *client = (a0_rpc_client_t)A0_EMPTY;
+  client->_alloc = alloc;
   // Outstanding requests must be initialized before the response reader is opened to avoid a race condition.
 
   A0_RETURN_ERR_ON_ERR(a0_vec_init(
@@ -442,7 +443,7 @@ a0_err_t a0_rpc_client_init(a0_rpc_client_t* client, a0_rpc_topic_t topic) {
   err = a0_reader_init(
       &client->_response_reader,
       client->_file.arena,
-      _a0_malloc(),
+      alloc,
       (a0_reader_options_t){A0_INIT_AWAIT_NEW, A0_ITER_NEXT},
       (a0_packet_callback_t){
           .user_data = client,
@@ -512,9 +513,9 @@ a0_err_t a0_rpc_client_send_timeout(a0_rpc_client_t* client, a0_packet_t pkt, a0
   a0_vec_push_back(&client->_outstanding_requests, &req);
 
   if (client->_server_connected) {
-    a0_rpc_client_dosend(client, pkt);
+    a0_rpc_client_dosend(client, req.pkt);
   }
-  if (timeout) {
+  if (req.has_timeout) {
     a0_cnd_broadcast(&client->_cnd, &client->_mtx);
   }
 
