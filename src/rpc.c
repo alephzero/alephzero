@@ -316,15 +316,12 @@ void* a0_rpc_client_deadman_thread(void* user_data) {
 }
 
 A0_STATIC_INLINE
-a0_vec_t a0_rpc_client_timeout_thread_pop_expired(a0_rpc_client_t* client) {
-  a0_vec_t expired;
-  a0_vec_init(&expired, sizeof(_a0_rpc_client_request_t));
-
+void a0_rpc_client_timeout_thread_pop_expired(a0_rpc_client_t* client, a0_vec_t* expired) {
   size_t size;
   a0_vec_size(&client->_outstanding_requests, &size);
 
   if (!size) {
-    return expired;
+    return;
   }
 
   a0_time_mono_t now;
@@ -339,7 +336,7 @@ a0_vec_t a0_rpc_client_timeout_thread_pop_expired(a0_rpc_client_t* client) {
       bool is_old;
       a0_time_mono_less(iter->timeout, now, &is_old);
       if (is_old) {
-        a0_vec_push_back(&expired, iter);
+        a0_vec_push_back(expired, iter);
         a0_vec_swap_back_pop(&client->_outstanding_requests, i, NULL);
         size--;
       }
@@ -347,8 +344,6 @@ a0_vec_t a0_rpc_client_timeout_thread_pop_expired(a0_rpc_client_t* client) {
       i++;
     }
   }
-
-  return expired;
 }
 
 A0_STATIC_INLINE
@@ -381,9 +376,12 @@ A0_STATIC_INLINE
 void* a0_rpc_client_timeout_thread(void* user_data) {
   a0_rpc_client_t* client = (a0_rpc_client_t*)user_data;
 
+  a0_vec_t expired;
+  a0_vec_init(&expired, sizeof(_a0_rpc_client_request_t));
+
   A0_UNUSED(a0_mtx_lock(&client->_mtx));
   while (!client->_closing) {
-    a0_vec_t expired = a0_rpc_client_timeout_thread_pop_expired(client);
+    a0_rpc_client_timeout_thread_pop_expired(client, &expired);
 
     a0_mtx_unlock(&client->_mtx);
 
@@ -396,9 +394,10 @@ void* a0_rpc_client_timeout_thread(void* user_data) {
       a0_callback_call(iter->ontimeout);
       _a0_malloc_dealloc(NULL, iter->pkt_buf);
     }
-    a0_vec_close(&expired);
+    a0_vec_resize(&expired, 0);
 
     A0_UNUSED(a0_mtx_lock(&client->_mtx));
+
     if (client->_closing) {
       break;
     }
@@ -407,6 +406,7 @@ void* a0_rpc_client_timeout_thread(void* user_data) {
     a0_cnd_timedwait(&client->_cnd, &client->_mtx, timeout);
   }
   a0_mtx_unlock(&client->_mtx);
+  a0_vec_close(&expired);
   return NULL;
 }
 

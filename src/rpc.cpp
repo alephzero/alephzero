@@ -128,11 +128,21 @@ RpcServer::RpcServer(RpcTopic topic, RpcServer::Options opts) {
 
 namespace {
 
+struct RpcClientTimeoutImpl;
+
 struct RpcClientImpl {
   std::vector<uint8_t> data;
 
   std::unordered_map<std::string, std::function<void(Packet)>> user_onreply;
+  std::unordered_map<uint64_t, std::unique_ptr<RpcClientTimeoutImpl>> user_ontimeout;
+  uint64_t next_user_ontimeout_key;
   std::mutex mtx;
+};
+
+struct RpcClientTimeoutImpl {
+  RpcClientImpl* impl;
+  uint64_t key;
+  std::function<void()> fn;
 };
 
 }  // namespace
@@ -152,10 +162,10 @@ RpcClient::RpcClient(RpcTopic topic) {
 
 void RpcClient::send(Packet pkt, TimeMono timeout, std::function<void(Packet)> onreply, std::function<void()> ontimeout) {
   CHECK_C;
+  auto* impl = c_impl<RpcClientImpl>(&c);
 
   a0_packet_callback_t c_onreply = A0_EMPTY;
   if (onreply) {
-    auto* impl = c_impl<RpcClientImpl>(&c);
     {
       std::unique_lock<std::mutex> lk{impl->mtx};
       impl->user_onreply[std::string(pkt.id())] = std::move(onreply);
@@ -189,18 +199,34 @@ void RpcClient::send(Packet pkt, TimeMono timeout, std::function<void(Packet)> o
 
   a0_callback_t c_ontimeout = A0_EMPTY;
   if (ontimeout) {
+    RpcClientTimeoutImpl* timeout_impl;
+    {
+      std::unique_lock<std::mutex> lk{impl->mtx};
+      uint64_t key = impl->next_user_ontimeout_key++;
+
+      timeout_impl = impl->user_ontimeout.insert({
+        key,
+        std::unique_ptr<RpcClientTimeoutImpl>(new RpcClientTimeoutImpl{impl, key, ontimeout})
+      }).first->second.get();
+    }
+
     c_ontimeout = {
-        .user_data = new std::function<void()>{std::move(ontimeout)},
+        .user_data = timeout_impl,
         .fn = [](void* user_data) {
-          auto* ontimeout = (std::function<void()>*)user_data;
-          (*ontimeout)();
-          delete ontimeout;
+          auto* timeout_impl = (RpcClientTimeoutImpl*)user_data;
+          auto* impl = timeout_impl->impl;
+          auto key = timeout_impl->key;
+          auto fn = std::move(timeout_impl->fn);
+          {
+            std::unique_lock<std::mutex> lk{impl->mtx};
+            timeout_impl->impl->user_ontimeout.erase(key);
+          }
+          fn();
           return A0_OK;
         },
     };
   }
 
-// a0_err_t a0_rpc_client_send_timeout(a0_rpc_client_t*, a0_packet_t, a0_time_mono_t*, a0_packet_callback_t onresponse, a0_callback_t ontimeout);
   check(a0_rpc_client_send_timeout(&*c, *pkt.c, &*timeout.c, c_onreply, c_ontimeout));
 }
 
