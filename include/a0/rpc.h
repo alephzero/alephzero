@@ -77,28 +77,47 @@ typedef struct a0_rpc_client_s {
   a0_writer_t _request_writer;
   a0_reader_t _response_reader;
   a0_alloc_t _alloc;
+  bool _closing;
 
   a0_deadman_t _deadman;
   pthread_t _deadman_thread;
+
+  bool _timeout_thread_created;
   pthread_t _timeout_thread;
-  bool _closing;
 
   a0_mtx_t _mtx;
   a0_cnd_t _cnd;
 
-  bool _server_connected;
-  uint64_t _server_tkn;
   a0_vec_t _outstanding_requests;
 } a0_rpc_client_t;
+
+typedef enum a0_onreconnect_e {
+  A0_ONRECONNECT_RESEND = 0,
+  A0_ONRECONNECT_CANCEL = 1,
+  A0_ONRECONNECT_IGNORE = 2,
+} a0_onreconnect_t;
+
+typedef struct a0_rpc_client_send_options_s {
+  a0_time_mono_t* timeout;
+  a0_callback_t ontimeout;
+
+  a0_onreconnect_t onreconnect;
+} a0_rpc_client_send_options_t;
 
 a0_err_t a0_rpc_client_init(a0_rpc_client_t*, a0_rpc_topic_t, a0_alloc_t);
 a0_err_t a0_rpc_client_close(a0_rpc_client_t*);
 
 a0_err_t a0_rpc_client_send(a0_rpc_client_t*, a0_packet_t, a0_packet_callback_t);
-a0_err_t a0_rpc_client_send_timeout(a0_rpc_client_t*, a0_packet_t, a0_time_mono_t*, a0_packet_callback_t onresponse, a0_callback_t ontimeout);
+a0_err_t a0_rpc_client_send_opts(a0_rpc_client_t*, a0_packet_t, a0_packet_callback_t, a0_rpc_client_send_options_t);
 
 // Note: use the id from the packet used in a0_rpc_client_send.
 a0_err_t a0_rpc_client_cancel(a0_rpc_client_t*, const a0_uuid_t);
+
+a0_err_t a0_rpc_client_server_wait_up(a0_rpc_client_t*, uint64_t* out_tkn);
+a0_err_t a0_rpc_client_server_timedwait_up(a0_rpc_client_t*, a0_time_mono_t*, uint64_t* out_tkn);
+a0_err_t a0_rpc_client_server_wait_down(a0_rpc_client_t*, uint64_t tkn);
+a0_err_t a0_rpc_client_server_timedwait_down(a0_rpc_client_t*, a0_time_mono_t*, uint64_t tkn);
+a0_err_t a0_rpc_client_server_state(a0_rpc_client_t*, a0_deadman_state_t*);
 
 #ifdef __cplusplus
 }

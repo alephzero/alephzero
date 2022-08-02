@@ -53,21 +53,16 @@ namespace {
 
 struct PrpcServerImpl {
   std::vector<uint8_t> data;
-  std::function<void(PrpcConnection)> onconnect;
-  std::function<void(string_view)> oncancel;
+  PrpcServer::Options opts;
 };
 
 }  // namespace
 
-PrpcServer::PrpcServer(
-    PrpcTopic topic,
-    std::function<void(PrpcConnection)> onconnect,
-    std::function<void(string_view /* id */)> oncancel) {
+PrpcServer::PrpcServer(PrpcTopic topic, Options opts) {
   set_c_impl<PrpcServerImpl>(
       &c,
       [&](a0_prpc_server_t* c, PrpcServerImpl* impl) {
-        impl->onconnect = std::move(onconnect);
-        impl->oncancel = std::move(oncancel);
+        impl->opts = std::move(opts);
 
         auto cfo = c_fileopts(topic.file_opts);
         a0_prpc_topic_t c_topic{topic.name.c_str(), &cfo};
@@ -95,17 +90,23 @@ PrpcServer::PrpcServer(
                     return A0_OK;
                   });
 
-              impl->onconnect(cpp_conn);
+              impl->opts.onconnect(cpp_conn);
             }};
 
         a0_packet_id_callback_t c_oncancel = {
             .user_data = impl,
             .fn = [](void* user_data, a0_uuid_t id) {
               auto* impl = (PrpcServerImpl*)user_data;
-              impl->oncancel(id);
+              impl->opts.oncancel(id);
             }};
 
-        return a0_prpc_server_init(c, c_topic, alloc, c_onconnect, c_oncancel);
+        a0_prpc_server_options_t c_opts = {
+          .onconnect = c_onconnect,
+          .oncancel = c_oncancel,
+          .exclusive_ownership_timeout = impl->opts.exclusive_ownership_timeout.c.get(),
+        };
+
+        return a0_prpc_server_init(c, c_topic, alloc, c_opts);
       },
       [](a0_prpc_server_t* c, PrpcServerImpl*) {
         a0_prpc_server_close(c);

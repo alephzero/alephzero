@@ -54,54 +54,93 @@ struct RpcServer : details::CppWrap<a0_rpc_server_t> {
 
   // Backwards compatible constructors.
   RpcServer(
-      RpcTopic,
-      std::function<void(RpcRequest)> onrequest);
+      RpcTopic topic,
+      std::function<void(RpcRequest)> onrequest) : RpcServer(topic, std::move(onrequest), nullptr) {}
   RpcServer(
-      RpcTopic,
+      RpcTopic topic,
       std::function<void(RpcRequest)> onrequest,
-      std::function<void(string_view /* id */)> oncancel);
+      std::function<void(string_view /* id */)> oncancel) : RpcServer(topic, Options{std::move(onrequest), std::move(oncancel), TIMEOUT_NEVER}) {}
+};
+
+enum class OnReconnect {
+  RESEND = A0_ONRECONNECT_RESEND,
+  CANCEL = A0_ONRECONNECT_CANCEL,
+  IGNORE = A0_ONRECONNECT_IGNORE,
 };
 
 struct RpcClient : details::CppWrap<a0_rpc_client_t> {
+  struct SendOptions {
+    TimeMono timeout;
+    std::function<void()> ontimeout;
+
+    OnReconnect onreconnect;
+  };
+
   RpcClient() = default;
   explicit RpcClient(RpcTopic);
 
-  void send(Packet, TimeMono, std::function<void(Packet)>, std::function<void()>);
+  void send(Packet, std::function<void(Packet)>, SendOptions);
+
+  void send(Packet pkt, TimeMono timeout, std::function<void(Packet)> onreply) {
+    SendOptions opts = A0_EMPTY;
+    opts.timeout = timeout;
+    send(pkt, std::move(onreply), std::move(opts));
+  }
   void send(Packet pkt, std::function<void(Packet)> onreply) {
-    send(pkt, a0::TIMEOUT_NEVER, std::move(onreply), nullptr);
+    send(pkt, std::move(onreply), (SendOptions)A0_EMPTY);
   }
 
-  void send(string_view payload, TimeMono timeout, std::function<void(Packet)> onreply, std::function<void()> ontimeout) {
-    return send(Packet(payload, ref), timeout, std::move(onreply), std::move(ontimeout));
+  void send(string_view payload, std::function<void(Packet)> onreply, SendOptions opts) {
+    send(Packet(payload, ref), std::move(onreply), std::move(opts));
+  }
+  void send(string_view payload, TimeMono timeout, std::function<void(Packet)> onreply) {
+    send(Packet(payload, ref), timeout, std::move(onreply));
   }
   void send(string_view payload, std::function<void(Packet)> onreply) {
-    send(payload, a0::TIMEOUT_NEVER, std::move(onreply), nullptr);
+    send(Packet(payload, ref), std::move(onreply));
   }
 
-  std::future<Packet> send(Packet, TimeMono);
+  std::future<Packet> send(Packet, SendOptions);
+
+  std::future<Packet> send(Packet pkt, TimeMono timeout) {
+    SendOptions opts = A0_EMPTY;
+    opts.timeout = timeout;
+    return send(pkt, std::move(opts));
+  }
   std::future<Packet> send(Packet pkt) {
-    return send(pkt, a0::TIMEOUT_NEVER);
+    return send(pkt, (SendOptions)A0_EMPTY);
   }
 
+  std::future<Packet> send(string_view payload, SendOptions opts) {
+    return send(Packet(payload, ref), std::move(opts));
+  }
   std::future<Packet> send(string_view payload, TimeMono timeout) {
     return send(Packet(payload, ref), timeout);
   }
   std::future<Packet> send(string_view payload) {
-    return send(payload, a0::TIMEOUT_NEVER);
+    return send(Packet(payload, ref));
   }
 
+  Packet send_blocking(Packet pkt, SendOptions opts) {
+    return send(pkt, std::move(opts)).get();
+  }
   Packet send_blocking(Packet pkt, TimeMono timeout) {
-    return send(pkt, timeout).get();
+    SendOptions opts = A0_EMPTY;
+    opts.timeout = timeout;
+    return send_blocking(pkt, std::move(opts));
   }
   Packet send_blocking(Packet pkt) {
-    return send_blocking(pkt, a0::TIMEOUT_NEVER);
+    return send_blocking(pkt, (SendOptions)A0_EMPTY);
   }
 
+  Packet send_blocking(string_view payload, SendOptions opts) {
+    return send_blocking(Packet(payload, ref), std::move(opts));
+  }
   Packet send_blocking(string_view payload, TimeMono timeout) {
     return send_blocking(Packet(payload, ref), timeout);
   }
   Packet send_blocking(string_view payload) {
-    return send_blocking(payload, a0::TIMEOUT_NEVER);
+    return send_blocking(Packet(payload, ref));
   }
 
   void cancel(string_view);

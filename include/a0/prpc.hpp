@@ -47,11 +47,24 @@ struct PrpcConnection : details::CppWrap<a0_prpc_connection_t> {
 };
 
 struct PrpcServer : details::CppWrap<a0_prpc_server_t> {
+  struct Options {
+    std::function<void(PrpcConnection)> onconnect;
+    std::function<void(string_view /* id */)> oncancel;
+
+    TimeMono exclusive_ownership_timeout;
+  };
+
   PrpcServer() = default;
+  PrpcServer(PrpcTopic, Options);
+
+  // Backwards compatible constructors.
   PrpcServer(
-      PrpcTopic,
-      std::function<void(PrpcConnection)> onconnection,
-      std::function<void(string_view /* id */)> oncancel);
+      PrpcTopic topic,
+      std::function<void(PrpcConnection)> onconnect) : PrpcServer(topic, std::move(onconnect), nullptr) {}
+  PrpcServer(
+      PrpcTopic topic,
+      std::function<void(PrpcConnection)> onconnect,
+      std::function<void(string_view /* id */)> oncancel) : PrpcServer(topic, Options{std::move(onconnect), std::move(oncancel), TIMEOUT_NEVER}) {}
 };
 
 struct PrpcClient : details::CppWrap<a0_prpc_client_t> {

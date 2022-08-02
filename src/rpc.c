@@ -35,6 +35,18 @@ a0_err_t a0_rpc_topic_open(a0_rpc_topic_t topic, a0_file_t* file) {
   return a0_topic_open(a0_env_topic_tmpl_rpc(), topic.name, topic.file_opts, file);
 }
 
+A0_STATIC_INLINE
+a0_err_t a0_rpc_deadman_open(a0_rpc_topic_t topic, a0_deadman_t* deadman) {
+  char* deadman_name = alloca(strlen(topic.name) + strlen(".rpc") + 1);
+  memcpy(deadman_name, topic.name, strlen(topic.name));
+  memcpy(deadman_name + strlen(topic.name), ".rpc\0", 5);
+
+  a0_deadman_topic_t deadman_topic = {.name = deadman_name};
+  a0_deadman_init(deadman, deadman_topic);
+
+  return A0_OK;
+}
+
 ////////////
 // Server //
 ////////////
@@ -111,12 +123,7 @@ a0_err_t a0_rpc_server_init(a0_rpc_server_t* server,
     return err;
   }
 
-  char* deadman_name = alloca(strlen(topic.name) + strlen(".rpc") + 1);
-  memcpy(deadman_name, topic.name, strlen(topic.name));
-  memcpy(deadman_name + strlen(topic.name), ".rpc\0", 5);
-
-  a0_deadman_topic_t deadman_topic = {.name = deadman_name};
-  a0_deadman_init(&server->_deadman, deadman_topic);
+  a0_rpc_deadman_open(topic, &server->_deadman);
   err = a0_deadman_timedtake(&server->_deadman, opts.exclusive_ownership_timeout);
   if (!a0_mtx_lock_successful(err)) {
     a0_mtx_unlock(&server->_init_lock);
@@ -185,10 +192,14 @@ a0_alloc_t _a0_malloc() {
 typedef struct _a0_rpc_client_request_s {
   a0_packet_t pkt;
   a0_buf_t pkt_buf;
+
+  a0_packet_callback_t onreply;
+
   a0_time_mono_t timeout;
   bool has_timeout;
-  a0_packet_callback_t onreply;
   a0_callback_t ontimeout;
+
+  a0_onreconnect_t onreconnect;
 } _a0_rpc_client_request_t;
 
 A0_STATIC_INLINE
@@ -294,16 +305,26 @@ void* a0_rpc_client_deadman_thread(void* user_data) {
     if (client->_closing || err) {
       break;
     }
-    client->_server_connected = true;
-    client->_server_tkn = server_tkn;
 
     size_t size;
     a0_vec_size(&client->_outstanding_requests, &size);
 
-    for (size_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < size;) {
       _a0_rpc_client_request_t* iter;
       a0_vec_at(&client->_outstanding_requests, i, (void**)&iter);
-      a0_rpc_client_dosend(client, iter->pkt);
+
+      switch (iter->onreconnect) {
+      case A0_ONRECONNECT_RESEND:
+        a0_rpc_client_dosend(client, iter->pkt);
+        i++;
+        break;
+      case A0_ONRECONNECT_CANCEL:
+        a0_vec_swap_back_pop(&client->_outstanding_requests, i, NULL);
+        break;
+      case A0_ONRECONNECT_IGNORE:
+        i++;
+        break;
+      }
     }
 
     a0_mtx_unlock(&client->_mtx);
@@ -461,15 +482,9 @@ a0_err_t a0_rpc_client_init(a0_rpc_client_t* client, a0_rpc_topic_t topic, a0_al
     return err;
   }
 
-  char* deadman_name = alloca(strlen(topic.name) + strlen(".rpc") + 1);
-  memcpy(deadman_name, topic.name, strlen(topic.name));
-  memcpy(deadman_name + strlen(topic.name), ".rpc\0", 5);
-
-  a0_deadman_topic_t deadman_topic = {.name = deadman_name};
-  a0_deadman_init(&client->_deadman, deadman_topic);
+  a0_rpc_deadman_open(topic, &client->_deadman);
 
   pthread_create(&client->_deadman_thread, NULL, a0_rpc_client_deadman_thread, client);
-  pthread_create(&client->_timeout_thread, NULL, a0_rpc_client_timeout_thread, client);
 
   return A0_OK;
 }
@@ -483,7 +498,9 @@ a0_err_t a0_rpc_client_close(a0_rpc_client_t* client) {
   a0_cnd_broadcast(&client->_cnd, &client->_mtx);
   a0_mtx_unlock(&client->_mtx);
   pthread_join(client->_deadman_thread, NULL);
-  pthread_join(client->_timeout_thread, NULL);
+  if (client->_timeout_thread_created) {
+    pthread_join(client->_timeout_thread, NULL);
+  }
 
   a0_writer_close(&client->_request_writer);
   a0_file_close(&client->_file);
@@ -502,16 +519,17 @@ a0_err_t a0_rpc_client_close(a0_rpc_client_t* client) {
   return A0_OK;
 }
 
-a0_err_t a0_rpc_client_send_timeout(a0_rpc_client_t* client, a0_packet_t pkt, a0_time_mono_t* timeout, a0_packet_callback_t onreply, a0_callback_t ontimeout) {
+a0_err_t a0_rpc_client_send_opts(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback_t onreply, a0_rpc_client_send_options_t opts) {
   // Save the request info for future responses.
   _a0_rpc_client_request_t req = A0_EMPTY;
   a0_packet_deep_copy(pkt, _a0_malloc(), &req.pkt, &req.pkt_buf);
-  if (timeout) {
-    req.timeout = *timeout;
+  if (opts.timeout) {
+    req.timeout = *opts.timeout;
     req.has_timeout = true;
+    req.ontimeout = opts.ontimeout;
   }
   req.onreply = onreply;
-  req.ontimeout = ontimeout;
+  req.onreconnect = opts.onreconnect;
 
   A0_UNUSED(a0_mtx_lock(&client->_mtx));
 
@@ -523,11 +541,17 @@ a0_err_t a0_rpc_client_send_timeout(a0_rpc_client_t* client, a0_packet_t pkt, a0
   }
 
   a0_mtx_unlock(&client->_mtx);
+
+  if (req.has_timeout && !client->_timeout_thread_created) {
+    pthread_create(&client->_timeout_thread, NULL, a0_rpc_client_timeout_thread, client);
+    client->_timeout_thread_created = true;
+  }
+
   return A0_OK;
 }
 
 a0_err_t a0_rpc_client_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback_t onreply) {
-  return a0_rpc_client_send_timeout(client, pkt, A0_TIMEOUT_NEVER, onreply, (a0_callback_t)A0_EMPTY);
+  return a0_rpc_client_send_opts(client, pkt, onreply, (a0_rpc_client_send_options_t)A0_EMPTY);
 }
 
 a0_err_t a0_rpc_client_cancel(a0_rpc_client_t* client, const a0_uuid_t reqid) {
@@ -551,4 +575,24 @@ a0_err_t a0_rpc_client_cancel(a0_rpc_client_t* client, const a0_uuid_t reqid) {
   pkt.payload = (a0_buf_t){(uint8_t*)reqid, sizeof(a0_uuid_t)};
 
   return a0_writer_write(&client->_request_writer, pkt);
+}
+
+a0_err_t a0_rpc_client_server_wait_up(a0_rpc_client_t* client, uint64_t* out_tkn) {
+  return a0_deadman_wait_taken(&client->_deadman, out_tkn);
+}
+
+a0_err_t a0_rpc_client_server_timedwait_up(a0_rpc_client_t* client, a0_time_mono_t* timeout, uint64_t* out_tkn) {
+  return a0_deadman_timedwait_taken(&client->_deadman, timeout, out_tkn);
+}
+
+a0_err_t a0_rpc_client_server_wait_down(a0_rpc_client_t* client, uint64_t tkn) {
+  return a0_deadman_wait_released(&client->_deadman, tkn);
+}
+
+a0_err_t a0_rpc_client_server_timedwait_down(a0_rpc_client_t* client, a0_time_mono_t* timeout, uint64_t tkn) {
+  return a0_deadman_timedwait_released(&client->_deadman, timeout, tkn);
+}
+
+a0_err_t a0_rpc_client_server_state(a0_rpc_client_t* client, a0_deadman_state_t* state) {
+  return a0_deadman_state(&client->_deadman, state);
 }

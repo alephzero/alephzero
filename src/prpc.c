@@ -35,6 +35,18 @@ a0_err_t a0_prpc_topic_open(a0_prpc_topic_t topic, a0_file_t* file) {
   return a0_topic_open(a0_env_topic_tmpl_prpc(), topic.name, topic.file_opts, file);
 }
 
+A0_STATIC_INLINE
+a0_err_t a0_prpc_deadman_open(a0_prpc_topic_t topic, a0_deadman_t* deadman) {
+  char* deadman_name = alloca(strlen(topic.name) + strlen(".prpc") + 1);
+  memcpy(deadman_name, topic.name, strlen(topic.name));
+  memcpy(deadman_name + strlen(topic.name), ".prpc\0", 6);
+
+  a0_deadman_topic_t deadman_topic = {.name = deadman_name};
+  a0_deadman_init(deadman, deadman_topic);
+
+  return A0_OK;
+}
+
 ////////////
 // Server //
 ////////////
@@ -42,6 +54,14 @@ a0_err_t a0_prpc_topic_open(a0_prpc_topic_t topic, a0_file_t* file) {
 A0_STATIC_INLINE
 void a0_prpc_server_onpacket(void* data, a0_packet_t pkt) {
   a0_prpc_server_t* server = (a0_prpc_server_t*)data;
+
+  // Don't start processing until the deadman is acquired.
+  A0_UNUSED(a0_mtx_lock(&server->_init_lock));
+  bool init_complete = server->_init_complete;
+  a0_mtx_unlock(&server->_init_lock);
+  if (!init_complete) {
+    return;
+  }
 
   a0_packet_header_t type_hdr;
   a0_packet_header_iterator_t hdr_iter;
@@ -64,10 +84,9 @@ void a0_prpc_server_onpacket(void* data, a0_packet_t pkt) {
 a0_err_t a0_prpc_server_init(a0_prpc_server_t* server,
                              a0_prpc_topic_t topic,
                              a0_alloc_t alloc,
-                             a0_prpc_connection_callback_t onconnect,
-                             a0_packet_id_callback_t oncancel) {
-  server->_onconnect = onconnect;
-  server->_oncancel = oncancel;
+                             a0_prpc_server_options_t opts) {
+  server->_onconnect = opts.onconnect;
+  server->_oncancel = opts.oncancel;
 
   // Progress writer must be set up before the connection reader to avoid a race condition.
 
@@ -86,6 +105,9 @@ a0_err_t a0_prpc_server_init(a0_prpc_server_t* server,
     return err;
   }
 
+  // Prevent the reader from processing until the deadman is acquired.
+  A0_UNUSED(a0_mtx_lock(&server->_init_lock));
+
   err = a0_reader_init(
       &server->_connection_reader,
       server->_file.arena,
@@ -101,6 +123,19 @@ a0_err_t a0_prpc_server_init(a0_prpc_server_t* server,
     return err;
   }
 
+  a0_prpc_deadman_open(topic, &server->_deadman);
+  err = a0_deadman_timedtake(&server->_deadman, opts.exclusive_ownership_timeout);
+  if (!a0_mtx_lock_successful(err)) {
+    a0_mtx_unlock(&server->_init_lock);
+    a0_reader_close(&server->_connection_reader);
+    a0_writer_close(&server->_progress_writer);
+    a0_file_close(&server->_file);
+    a0_deadman_close(&server->_deadman);
+    return err;
+  }
+  server->_init_complete = true;
+  a0_mtx_unlock(&server->_init_lock);
+
   return A0_OK;
 }
 
@@ -108,6 +143,7 @@ a0_err_t a0_prpc_server_close(a0_prpc_server_t* server) {
   a0_reader_close(&server->_connection_reader);
   a0_writer_close(&server->_progress_writer);
   a0_file_close(&server->_file);
+  a0_deadman_close(&server->_deadman);
   return A0_OK;
 }
 
@@ -226,6 +262,8 @@ a0_err_t a0_prpc_client_init(a0_prpc_client_t* client,
     return err;
   }
 
+  a0_prpc_deadman_open(topic, &client->_deadman);
+
   return A0_OK;
 }
 
@@ -233,6 +271,7 @@ a0_err_t a0_prpc_client_close(a0_prpc_client_t* client) {
   a0_reader_close(&client->_progress_reader);
   a0_writer_close(&client->_connection_writer);
   a0_file_close(&client->_file);
+  a0_deadman_close(&client->_deadman);
   a0_map_close(&client->_outstanding_connections);
   pthread_mutex_destroy(&client->_outstanding_connections_mu);
   return A0_OK;
@@ -282,4 +321,24 @@ a0_err_t a0_prpc_client_cancel(a0_prpc_client_t* client, const a0_uuid_t uuid) {
   pkt.payload = (a0_buf_t){(uint8_t*)uuid, sizeof(a0_uuid_t)};
 
   return a0_writer_write(&client->_connection_writer, pkt);
+}
+
+a0_err_t a0_prpc_client_server_wait_up(a0_prpc_client_t* client, uint64_t* out_tkn) {
+  return a0_deadman_wait_taken(&client->_deadman, out_tkn);
+}
+
+a0_err_t a0_prpc_client_server_timedwait_up(a0_prpc_client_t* client, a0_time_mono_t* timeout, uint64_t* out_tkn) {
+  return a0_deadman_timedwait_taken(&client->_deadman, timeout, out_tkn);
+}
+
+a0_err_t a0_prpc_client_server_wait_down(a0_prpc_client_t* client, uint64_t tkn) {
+  return a0_deadman_wait_released(&client->_deadman, tkn);
+}
+
+a0_err_t a0_prpc_client_server_timedwait_down(a0_prpc_client_t* client, a0_time_mono_t* timeout, uint64_t tkn) {
+  return a0_deadman_timedwait_released(&client->_deadman, timeout, tkn);
+}
+
+a0_err_t a0_prpc_client_server_state(a0_prpc_client_t* client, a0_deadman_state_t* state) {
+  return a0_deadman_state(&client->_deadman, state);
 }

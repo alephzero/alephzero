@@ -61,18 +61,7 @@ struct RpcServerImpl {
 
 }  // namespace
 
-RpcServer::RpcServer(
-    RpcTopic topic,
-    std::function<void(RpcRequest)> onrequest)
-    : RpcServer(topic, onrequest, nullptr) {}
-
-RpcServer::RpcServer(
-    RpcTopic topic,
-    std::function<void(RpcRequest)> onrequest,
-    std::function<void(string_view /* id */)> oncancel)
-    : RpcServer(topic, RpcServer::Options{onrequest, oncancel, TIMEOUT_NEVER}) {}
-
-RpcServer::RpcServer(RpcTopic topic, RpcServer::Options opts) {
+RpcServer::RpcServer(RpcTopic topic, Options opts) {
   set_c_impl<RpcServerImpl>(
       &c,
       [&](a0_rpc_server_t* c, RpcServerImpl* impl) {
@@ -171,7 +160,7 @@ RpcClient::RpcClient(RpcTopic topic) {
       });
 }
 
-void RpcClient::send(Packet pkt, TimeMono timeout, std::function<void(Packet)> onreply, std::function<void()> ontimeout) {
+void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply, SendOptions opts) {
   CHECK_C;
   auto* impl = c_impl<RpcClientImpl>(&c);
 
@@ -210,50 +199,65 @@ void RpcClient::send(Packet pkt, TimeMono timeout, std::function<void(Packet)> o
     };
   }
 
-  a0_callback_t c_ontimeout = A0_EMPTY;
-  if (ontimeout) {
-    RpcClientTimeoutImpl* timeout_impl;
-    {
-      std::unique_lock<std::mutex> lk{impl->mtx};
-      timeout_impl = impl->user_ontimeout.insert(
-        std::unique_ptr<RpcClientTimeoutImpl>(new RpcClientTimeoutImpl{impl, ontimeout})
-      ).first->get();
-    }
+  a0_rpc_client_send_options_t c_opts = A0_EMPTY;
+  c_opts.onreconnect = (a0_onreconnect_t)opts.onreconnect;
 
-    c_ontimeout = {
-        .user_data = timeout_impl,
-        .fn = [](void* user_data) {
-          auto* timeout_impl = (RpcClientTimeoutImpl*)user_data;
-          auto* impl = timeout_impl->impl;
-          auto fn = std::move(timeout_impl->fn);
-          {
-            std::unique_lock<std::mutex> lk{impl->mtx};            
-            std::unique_ptr<RpcClientTimeoutImpl> stale_ptr{timeout_impl};
-            impl->user_ontimeout.erase(stale_ptr);
-            stale_ptr.release();
-          }
-          fn();
-          return A0_OK;
-        },
-    };
+  if (opts.timeout.c) {
+    c_opts.timeout = &*opts.timeout.c;
+
+    if (opts.ontimeout) {
+      RpcClientTimeoutImpl* timeout_impl;
+      {
+        std::unique_lock<std::mutex> lk{impl->mtx};
+        timeout_impl = impl->user_ontimeout.insert(
+          std::unique_ptr<RpcClientTimeoutImpl>(new RpcClientTimeoutImpl{impl, opts.ontimeout})
+        ).first->get();
+      }
+
+      c_opts.ontimeout = {
+          .user_data = timeout_impl,
+          .fn = [](void* user_data) {
+            auto* timeout_impl = (RpcClientTimeoutImpl*)user_data;
+            auto* impl = timeout_impl->impl;
+            auto fn = std::move(timeout_impl->fn);
+            {
+              std::unique_lock<std::mutex> lk{impl->mtx};
+              std::unique_ptr<RpcClientTimeoutImpl> stale_ptr{timeout_impl};
+              impl->user_ontimeout.erase(stale_ptr);
+              stale_ptr.release();
+            }
+            fn();
+            return A0_OK;
+          },
+      };
+    }
   }
 
-  check(a0_rpc_client_send_timeout(&*c, *pkt.c, &*timeout.c, c_onreply, c_ontimeout));
+  check(a0_rpc_client_send_opts(&*c, *pkt.c, c_onreply, c_opts));
 }
 
-std::future<Packet> RpcClient::send(Packet pkt, TimeMono timeout) {
+std::future<Packet> RpcClient::send(Packet pkt, SendOptions opts) {
   auto promise = std::make_shared<std::promise<Packet>>();
   auto onreply = [promise](Packet reply) {
     promise->set_value(reply);
   };
-  auto ontimeout = [promise]() {
-    try {
-      check(A0_ERR_TIMEDOUT);
-    } catch(...) {
-      promise->set_exception(std::current_exception());
-    }
+
+  SendOptions opts_wrapper = {
+    .timeout = opts.timeout,
+    .ontimeout = [opts, promise]() {
+      if (opts.ontimeout) {
+        opts.ontimeout();
+      }
+      try {
+        check(A0_ERR_TIMEDOUT);
+      } catch(...) {
+        promise->set_exception(std::current_exception());
+      }
+    },
+    .onreconnect = opts.onreconnect,
   };
-  send(pkt, timeout, onreply, ontimeout);
+
+  send(pkt, onreply, opts_wrapper);
   return promise->get_future();
 }
 
