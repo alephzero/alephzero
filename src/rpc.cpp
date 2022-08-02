@@ -224,7 +224,7 @@ void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply, SendOption
               std::unique_lock<std::mutex> lk{impl->mtx};
               std::unique_ptr<RpcClientTimeoutImpl> stale_ptr{timeout_impl};
               impl->user_ontimeout.erase(stale_ptr);
-              stale_ptr.release();
+              A0_UNUSED(stale_ptr.release());
             }
             fn();
             return A0_OK;

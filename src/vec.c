@@ -76,6 +76,9 @@ a0_err_t a0_vec_push_back(a0_vec_t* vec, const void* obj) {
 
   void* dst;
   a0_vec_back(vec, &dst);
+  // clang-tidy thinks the memcpy will fail if size == 0.
+  // The resize, above, guarantees the size > 0.
+  // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
   memcpy(dst, obj, vec->_obj_size);
 
   return A0_OK;

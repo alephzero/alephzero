@@ -38,8 +38,8 @@ a0_err_t a0_prpc_topic_open(a0_prpc_topic_t topic, a0_file_t* file) {
 A0_STATIC_INLINE
 a0_err_t a0_prpc_deadman_open(a0_prpc_topic_t topic, a0_deadman_t* deadman) {
   char* deadman_name = alloca(strlen(topic.name) + strlen(".prpc") + 1);
-  memcpy(deadman_name, topic.name, strlen(topic.name));
-  memcpy(deadman_name + strlen(topic.name), ".prpc\0", 6);
+  strcpy(deadman_name, topic.name);
+  strcpy(deadman_name + strlen(topic.name), ".prpc");
 
   a0_deadman_topic_t deadman_topic = {.name = deadman_name};
   a0_deadman_init(deadman, deadman_topic);

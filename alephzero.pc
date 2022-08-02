@@ -5,6 +5,6 @@ libdir=${prefix}/lib
 
 Name: alephzero
 Description: TODO
-Version: 0.3.14
+Version: 0.3.15
 Cflags: -I${includedir}
 Libs: -L${libdir} -lalephzero -lpthread
