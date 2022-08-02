@@ -2,14 +2,10 @@
 #define A0_HEAP_H
 
 #include <a0/cmp.h>
-#include <a0/empty.h>
 #include <a0/err.h>
-#include <a0/inline.h>
 #include <a0/vec.h>
 
 #include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #ifdef __cplusplus

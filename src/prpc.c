@@ -1,19 +1,24 @@
 #include <a0/alloc.h>
 #include <a0/buf.h>
 #include <a0/cmp.h>
+#include <a0/deadman.h>
 #include <a0/env.h>
 #include <a0/err.h>
 #include <a0/file.h>
 #include <a0/inline.h>
 #include <a0/map.h>
 #include <a0/middleware.h>
+#include <a0/mtx.h>
 #include <a0/packet.h>
 #include <a0/prpc.h>
 #include <a0/reader.h>
+#include <a0/time.h>
 #include <a0/topic.h>
+#include <a0/unused.h>
 #include <a0/uuid.h>
 #include <a0/writer.h>
 
+#include <alloca.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>

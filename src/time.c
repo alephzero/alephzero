@@ -2,6 +2,7 @@
 #include <a0/err.h>
 #include <a0/time.h>
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

@@ -1,19 +1,15 @@
 #include <a0/file.h>
 #include <a0/latch.h>
-#include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/prpc.h>
 #include <a0/prpc.hpp>
 #include <a0/string_view.hpp>
-#include <a0/uuid.h>
 
 #include <doctest.h>
 
 #include <functional>
 #include <ostream>
 #include <string>
-
-#include "src/test_util.hpp"
 
 struct PrpcFixture {
   a0_prpc_topic_t topic = {"test", nullptr};

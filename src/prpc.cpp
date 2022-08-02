@@ -7,6 +7,7 @@
 #include <a0/prpc.h>
 #include <a0/prpc.hpp>
 #include <a0/string_view.hpp>
+#include <a0/time.hpp>
 #include <a0/uuid.h>
 
 #include <algorithm>

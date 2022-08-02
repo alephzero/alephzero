@@ -1,5 +1,10 @@
+#include <a0/cmp.h>
+#include <a0/empty.h>
+#include <a0/err.h>
 #include <a0/heap.h>
+#include <a0/vec.h>
 
+#include <stdbool.h>
 #include <string.h>
 
 #include "err_macro.h"

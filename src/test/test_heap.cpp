@@ -1,8 +1,10 @@
 #include <doctest.h>
 
+#include <a0/cmp.h>
+#include <a0/err.h>
 #include <a0/heap.h>
 
-#include <random>
+#include <cstdlib>
 #include <queue>
 
 #include "src/test_util.hpp"

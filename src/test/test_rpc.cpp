@@ -1,25 +1,22 @@
+#include <a0/empty.h>
+#include <a0/err.h>
 #include <a0/file.h>
 #include <a0/latch.h>
-#include <a0/packet.h>
 #include <a0/packet.hpp>
 #include <a0/rpc.h>
 #include <a0/rpc.hpp>
 #include <a0/string_view.hpp>
 #include <a0/time.hpp>
-#include <a0/uuid.h>
 
 #include <doctest.h>
 
-#include <cerrno>
+#include <algorithm>
 #include <chrono>
-#include <cstring>
 #include <functional>
-#include <future>
+#include <memory>
 #include <ostream>
 #include <string>
-#include <thread>
-
-#include "src/test_util.hpp"
+#include <vector>
 
 struct RpcFixture {
   a0_rpc_topic_t topic = {"test", nullptr};

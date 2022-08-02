@@ -1,5 +1,6 @@
 #include <a0/alloc.h>
 #include <a0/buf.h>
+#include <a0/callback.h>
 #include <a0/empty.h>
 #include <a0/err.h>
 #include <a0/packet.h>
@@ -8,11 +9,13 @@
 #include <a0/rpc.hpp>
 #include <a0/string_view.hpp>
 #include <a0/time.hpp>
+#include <a0/unused.h>
 #include <a0/uuid.h>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <functional>
 #include <future>
 #include <memory>

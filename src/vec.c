@@ -1,7 +1,9 @@
 #include <a0/align.h>
+#include <a0/empty.h>
+#include <a0/err.h>
 #include <a0/vec.h>
 
-#include <stdalign.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>

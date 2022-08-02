@@ -11,7 +11,6 @@
 #include <a0/unused.h>
 
 #include <errno.h>
-#include <stdalign.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
