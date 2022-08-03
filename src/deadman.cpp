@@ -44,7 +44,7 @@ bool Deadman::try_take() {
 
 void Deadman::take(TimeMono timeout) {
   CHECK_C;
-  check(ignore_owner_died(a0_deadman_timedtake(&*c, &*timeout.c)));
+  check(ignore_owner_died(a0_deadman_timedtake(&*c, timeout.c.get())));
 }
 
 void Deadman::release() {
@@ -62,7 +62,7 @@ uint64_t Deadman::wait_taken() {
 uint64_t Deadman::wait_taken(TimeMono timeout) {
   CHECK_C;
   uint64_t tkn;
-  check(ignore_owner_died(a0_deadman_timedwait_taken(&*c, &*timeout.c, &tkn)));
+  check(ignore_owner_died(a0_deadman_timedwait_taken(&*c, timeout.c.get(), &tkn)));
   return tkn;
 }
 
@@ -73,7 +73,7 @@ void Deadman::wait_released(uint64_t tkn) {
 
 void Deadman::wait_released(uint64_t tkn, TimeMono timeout) {
   CHECK_C;
-  check(ignore_owner_died(a0_deadman_timedwait_released(&*c, &*timeout.c, tkn)));
+  check(ignore_owner_died(a0_deadman_timedwait_released(&*c, timeout.c.get(), tkn)));
 }
 
 Deadman::State Deadman::state() {

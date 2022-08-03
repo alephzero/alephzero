@@ -1,6 +1,7 @@
 #pragma once
 
 #include <a0/c_wrap.hpp>
+#include <a0/deadman.hpp>
 #include <a0/file.hpp>
 #include <a0/packet.hpp>
 #include <a0/prpc.h>
@@ -82,6 +83,13 @@ struct PrpcClient : details::CppWrap<a0_prpc_client_t> {
   }
 
   void cancel(string_view);
+
+  Deadman server_deadman();
+  uint64_t server_wait_up();
+  uint64_t server_wait_up(TimeMono);
+  void server_wait_down(uint64_t);
+  void server_wait_down(uint64_t, TimeMono);
+  Deadman::State server_state();
 };
 
 }  // namespace a0

@@ -583,22 +583,35 @@ a0_err_t a0_rpc_client_cancel(a0_rpc_client_t* client, const a0_uuid_t reqid) {
   return a0_writer_write(&client->_request_writer, pkt);
 }
 
+A0_STATIC_INLINE
+a0_err_t _ignore_owner_died(a0_err_t err) {
+  if (a0_mtx_previous_owner_died(err)) {
+    return A0_OK;
+  }
+  return err;
+}
+
+a0_err_t a0_rpc_client_server_deadman(a0_rpc_client_t* client, a0_deadman_t** out) {
+  *out = &client->_deadman;
+  return A0_OK;
+}
+
 a0_err_t a0_rpc_client_server_wait_up(a0_rpc_client_t* client, uint64_t* out_tkn) {
-  return a0_deadman_wait_taken(&client->_deadman, out_tkn);
+  return _ignore_owner_died(a0_deadman_wait_taken(&client->_deadman, out_tkn));
 }
 
 a0_err_t a0_rpc_client_server_timedwait_up(a0_rpc_client_t* client, a0_time_mono_t* timeout, uint64_t* out_tkn) {
-  return a0_deadman_timedwait_taken(&client->_deadman, timeout, out_tkn);
+  return _ignore_owner_died(a0_deadman_timedwait_taken(&client->_deadman, timeout, out_tkn));
 }
 
 a0_err_t a0_rpc_client_server_wait_down(a0_rpc_client_t* client, uint64_t tkn) {
-  return a0_deadman_wait_released(&client->_deadman, tkn);
+  return _ignore_owner_died(a0_deadman_wait_released(&client->_deadman, tkn));
 }
 
 a0_err_t a0_rpc_client_server_timedwait_down(a0_rpc_client_t* client, a0_time_mono_t* timeout, uint64_t tkn) {
-  return a0_deadman_timedwait_released(&client->_deadman, timeout, tkn);
+  return _ignore_owner_died(a0_deadman_timedwait_released(&client->_deadman, timeout, tkn));
 }
 
 a0_err_t a0_rpc_client_server_state(a0_rpc_client_t* client, a0_deadman_state_t* state) {
-  return a0_deadman_state(&client->_deadman, state);
+  return _ignore_owner_died(a0_deadman_state(&client->_deadman, state));
 }

@@ -269,4 +269,34 @@ void RpcClient::cancel(string_view id) {
   check(a0_rpc_client_cancel(&*c, id.data()));
 }
 
+Deadman RpcClient::server_deadman() {
+  CHECK_C;
+  auto save = c;
+  return make_cpp<Deadman>(
+      [&](a0_deadman_t* deadman) {
+        return a0_rpc_client_server_deadman(&*c, &deadman);
+      },
+      [save](a0_deadman_t*) {});
+}
+
+uint64_t RpcClient::server_wait_up() {
+  return server_deadman().wait_taken();
+}
+
+uint64_t RpcClient::server_wait_up(TimeMono timeout) {
+  return server_deadman().wait_taken(timeout);
+}
+
+void RpcClient::server_wait_down(uint64_t tkn) {
+  return server_deadman().wait_released(tkn);
+}
+
+void RpcClient::server_wait_down(uint64_t tkn, TimeMono timeout) {
+  return server_deadman().wait_released(tkn, timeout);
+}
+
+Deadman::State RpcClient::server_state() {
+  return server_deadman().state();
+}
+
 }  // namespace a0

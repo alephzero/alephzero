@@ -113,6 +113,7 @@ a0_err_t a0_rpc_client_send_opts(a0_rpc_client_t*, a0_packet_t, a0_packet_callba
 // Note: use the id from the packet used in a0_rpc_client_send.
 a0_err_t a0_rpc_client_cancel(a0_rpc_client_t*, const a0_uuid_t);
 
+a0_err_t a0_rpc_client_server_deadman(a0_rpc_client_t*, a0_deadman_t**);
 a0_err_t a0_rpc_client_server_wait_up(a0_rpc_client_t*, uint64_t* out_tkn);
 a0_err_t a0_rpc_client_server_timedwait_up(a0_rpc_client_t*, a0_time_mono_t*, uint64_t* out_tkn);
 a0_err_t a0_rpc_client_server_wait_down(a0_rpc_client_t*, uint64_t tkn);

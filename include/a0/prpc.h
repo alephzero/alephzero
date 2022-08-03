@@ -94,6 +94,7 @@ a0_err_t a0_prpc_client_connect(a0_prpc_client_t*, a0_packet_t, a0_prpc_progress
 // Note: use the same packet that was provided to a0_prpc_connect.
 a0_err_t a0_prpc_client_cancel(a0_prpc_client_t*, const a0_uuid_t);
 
+a0_err_t a0_prpc_client_server_deadman(a0_prpc_client_t*, a0_deadman_t**);
 a0_err_t a0_prpc_client_server_wait_up(a0_prpc_client_t*, uint64_t* out_tkn);
 a0_err_t a0_prpc_client_server_timedwait_up(a0_prpc_client_t*, a0_time_mono_t*, uint64_t* out_tkn);
 a0_err_t a0_prpc_client_server_wait_down(a0_prpc_client_t*, uint64_t tkn);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <a0/c_wrap.hpp>
+#include <a0/deadman.hpp>
 #include <a0/file.hpp>
 #include <a0/packet.hpp>
 #include <a0/pubsub.h>
@@ -80,7 +81,6 @@ struct RpcClient : details::CppWrap<a0_rpc_client_t> {
   explicit RpcClient(RpcTopic);
 
   void send(Packet, std::function<void(Packet)>, SendOptions);
-
   void send(Packet pkt, TimeMono timeout, std::function<void(Packet)> onreply) {
     SendOptions opts = A0_EMPTY;
     opts.timeout = timeout;
@@ -101,7 +101,6 @@ struct RpcClient : details::CppWrap<a0_rpc_client_t> {
   }
 
   std::future<Packet> send(Packet, SendOptions);
-
   std::future<Packet> send(Packet pkt, TimeMono timeout) {
     SendOptions opts = A0_EMPTY;
     opts.timeout = timeout;
@@ -144,6 +143,13 @@ struct RpcClient : details::CppWrap<a0_rpc_client_t> {
   }
 
   void cancel(string_view);
+
+  Deadman server_deadman();
+  uint64_t server_wait_up();
+  uint64_t server_wait_up(TimeMono);
+  void server_wait_down(uint64_t);
+  void server_wait_down(uint64_t, TimeMono);
+  Deadman::State server_state();
 };
 
 }  // namespace a0

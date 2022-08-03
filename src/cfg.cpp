@@ -89,7 +89,7 @@ Packet Cfg::read_blocking() const {
 
 Packet Cfg::read_blocking(TimeMono timeout) const {
   return Cfg_read([&](a0_alloc_t alloc, a0_packet_t* pkt) {
-    return a0_cfg_read_blocking_timeout(&*c, alloc, &*timeout.c, pkt);
+    return a0_cfg_read_blocking_timeout(&*c, alloc, timeout.c.get(), pkt);
   });
 }
 

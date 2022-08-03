@@ -98,7 +98,7 @@ void SubscriberSyncZeroCopy::read_blocking(std::function<void(TransportLocked, F
 
 void SubscriberSyncZeroCopy::read_blocking(TimeMono timeout, std::function<void(TransportLocked, FlatPacket)> fn) {
   CHECK_C;
-  check(a0_subscriber_sync_zc_read_blocking_timeout(&*c, &*timeout.c, SubscriberSyncZeroCopy_callback(&fn)));
+  check(a0_subscriber_sync_zc_read_blocking_timeout(&*c, timeout.c.get(), SubscriberSyncZeroCopy_callback(&fn)));
 }
 
 namespace {
@@ -166,7 +166,7 @@ Packet SubscriberSync::read_blocking() {
 Packet SubscriberSync::read_blocking(TimeMono timeout) {
   CHECK_C;
   return SubscriberSync_read(c_impl<SubscriberSyncImpl>(&c), [&](a0_packet_t* pkt) {
-    return a0_subscriber_sync_read_blocking_timeout(&*c, &*timeout.c, pkt);
+    return a0_subscriber_sync_read_blocking_timeout(&*c, timeout.c.get(), pkt);
   });
 }
 
