@@ -63,18 +63,29 @@ struct RpcServer : details::CppWrap<a0_rpc_server_t> {
       std::function<void(string_view /* id */)> oncancel) : RpcServer(topic, Options{std::move(onrequest), std::move(oncancel), TIMEOUT_NEVER}) {}
 };
 
-enum class OnReconnect {
-  RESEND = A0_ONRECONNECT_RESEND,
-  CANCEL = A0_ONRECONNECT_CANCEL,
-  IGNORE = A0_ONRECONNECT_IGNORE,
-};
-
 struct RpcClient : details::CppWrap<a0_rpc_client_t> {
+  enum class Action {
+    IGNORE = A0_RPC_CLIENT_ACTION_IGNORE,
+    RESEND = A0_RPC_CLIENT_ACTION_RESEND,
+    CANCEL = A0_RPC_CLIENT_ACTION_CANCEL,
+  };
+
+  struct SendOptions;
+
+  using Hook = std::function<Action(SendOptions*)>;
+
+  static const Hook DO_IGNORE;
+  static const Hook DO_RESEND;
+  static const Hook DO_CANCEL;
+
   struct SendOptions {
     TimeMono timeout;
-    std::function<void()> ontimeout;
+    Hook ontimeout;
+    Hook ondisconnect;
+    Hook onreconnect;
+    std::function<void()> oncomplete;
 
-    OnReconnect onreconnect;
+    static const SendOptions DEFAULT;
   };
 
   RpcClient() = default;

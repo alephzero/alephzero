@@ -121,22 +121,39 @@ RpcServer::RpcServer(RpcTopic topic, Options opts) {
 
 namespace {
 
-struct RpcClientTimeoutImpl;
+struct RpcClientSendImpl;
 
 struct RpcClientImpl {
   std::vector<uint8_t> data;
 
-  std::unordered_map<std::string, std::function<void(Packet)>> user_onreply;
-  std::unordered_set<std::unique_ptr<RpcClientTimeoutImpl>> user_ontimeout;
+  std::unordered_map<std::string, std::unique_ptr<RpcClientSendImpl>> send_impl_memory;
   std::mutex mtx;
 };
 
-struct RpcClientTimeoutImpl {
+struct RpcClientSendImpl {
   RpcClientImpl* impl;
-  std::function<void()> fn;
+  std::string pkt_id;
+  RpcClient::SendOptions opts;
+  std::function<void(Packet)> onreply;
 };
 
 }  // namespace
+
+const RpcClient::SendOptions RpcClient::SendOptions::DEFAULT = {
+    .timeout = cpp_wrap<TimeMono>(A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.timeout),
+    .ontimeout = [](SendOptions*) {
+      return (Action)A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.ontimeout.fn(nullptr, nullptr);
+    },
+    .ondisconnect = [](SendOptions*) {
+      return (Action)A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.ondisconnect.fn(nullptr, nullptr);
+    },
+    .onreconnect = [](SendOptions*) {
+      return (Action)A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.onreconnect.fn(nullptr, nullptr);
+    },
+    .oncomplete = []() {
+      return (Action)A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.oncomplete.fn(nullptr);
+    },
+};
 
 RpcClient::RpcClient(RpcTopic topic) {
   set_c_impl<RpcClientImpl>(
@@ -163,21 +180,78 @@ RpcClient::RpcClient(RpcTopic topic) {
       });
 }
 
+A0_STATIC_INLINE
+a0_rpc_client_send_options_t install_copts(RpcClientSendImpl* send_impl) {
+  a0_rpc_client_send_options_t c_opts;
+  a0_rpc_client_send_options_set_timeout(&c_opts, send_impl->opts.timeout.c.get());
+
+  c_opts.ontimeout = {
+      .user_data = send_impl,
+      .fn = [](void* user_data, a0_rpc_client_send_options_t*) {
+        auto* send_impl = (RpcClientSendImpl*)user_data;
+        auto ontimeout = send_impl->opts.ontimeout ? send_impl->opts.ontimeout : RpcClient::SendOptions::DEFAULT.ontimeout;
+        auto action = ontimeout(&send_impl->opts);
+        install_copts(send_impl);
+        return (a0_rpc_client_action_t)action;
+      }
+  };
+
+  c_opts.ondisconnect = {
+      .user_data = send_impl,
+      .fn = [](void* user_data, a0_rpc_client_send_options_t*) {
+        auto* send_impl = (RpcClientSendImpl*)user_data;
+        auto ondisconnect = send_impl->opts.ondisconnect ? send_impl->opts.ondisconnect : RpcClient::SendOptions::DEFAULT.ondisconnect;
+        auto action = send_impl->opts.ondisconnect(&send_impl->opts);
+        install_copts(send_impl);
+        return (a0_rpc_client_action_t)action;
+      }
+  };
+
+  c_opts.onreconnect = {
+      .user_data = send_impl,
+      .fn = [](void* user_data, a0_rpc_client_send_options_t*) {
+        auto* send_impl = (RpcClientSendImpl*)user_data;
+        auto onreconnect = send_impl->opts.onreconnect ? send_impl->opts.onreconnect : RpcClient::SendOptions::DEFAULT.onreconnect;
+        auto action = send_impl->opts.onreconnect(&send_impl->opts);
+        install_copts(send_impl);
+        return (a0_rpc_client_action_t)action;
+      }
+  };
+
+  c_opts.oncomplete = {
+      .user_data = send_impl,
+      .fn = [](void* user_data) {
+        auto* send_impl = (RpcClientSendImpl*)user_data;
+        auto oncomplete = send_impl->opts.oncomplete ? send_impl->opts.oncomplete : RpcClient::SendOptions::DEFAULT.oncomplete;
+        // TODO: try-catch?
+        oncomplete();
+        return A0_OK;
+      }
+  };
+
+  return c_opts;
+}
+
 void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply, SendOptions opts) {
   CHECK_C;
   auto* impl = c_impl<RpcClientImpl>(&c);
 
   a0_packet_callback_t c_onreply = A0_EMPTY;
-  if (onreply) {
-    {
-      std::unique_lock<std::mutex> lk{impl->mtx};
-      impl->user_onreply[std::string(pkt.id())] = std::move(onreply);
-    }
+  a0_rpc_client_send_options_t c_opts = A0_EMPTY;
+
+  std::string pkt_id(pkt.id());
+
+  RpcClientSendImpl* send_impl = new RpcClientSendImpl{impl, pkt_id, opts, std::move(onreply)};
+
+  {
+    std::unique_lock<std::mutex> lk{impl->mtx};
+    impl->send_impl_memory[pkt_id].reset(send_impl);
 
     c_onreply = {
-        .user_data = impl,
+        .user_data = send_impl,
         .fn = [](void* user_data, a0_packet_t resp) {
-          auto* impl = (RpcClientImpl*)user_data;
+          auto* send_impl = (RpcClientSendImpl*)user_data;
+          auto* impl = send_impl->impl;
 
           a0_packet_header_t req_id_hdr;
 
@@ -190,50 +264,19 @@ void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply, SendOption
           std::function<void(Packet)> onreply;
           {
             std::unique_lock<std::mutex> lk{impl->mtx};
-            auto iter = impl->user_onreply.find(req_id_hdr.val);
-            onreply = std::move(iter->second);
-            impl->user_onreply.erase(iter);
+            onreply = std::move(send_impl->onreply);
+          }
+          if (!onreply) {
+            return;
           }
 
           auto data = std::make_shared<std::vector<uint8_t>>();
           std::swap(*data, impl->data);
           onreply(Packet(resp, [data](a0_packet_t*) {}));
-        },
+        }
     };
-  }
 
-  a0_rpc_client_send_options_t c_opts = A0_EMPTY;
-  c_opts.onreconnect = (a0_onreconnect_t)opts.onreconnect;
-
-  if (opts.timeout.c) {
-    c_opts.timeout = &*opts.timeout.c;
-
-    if (opts.ontimeout) {
-      RpcClientTimeoutImpl* timeout_impl;
-      {
-        std::unique_lock<std::mutex> lk{impl->mtx};
-        timeout_impl = impl->user_ontimeout.insert(
-          std::unique_ptr<RpcClientTimeoutImpl>(new RpcClientTimeoutImpl{impl, opts.ontimeout})
-        ).first->get();
-      }
-
-      c_opts.ontimeout = {
-          .user_data = timeout_impl,
-          .fn = [](void* user_data) {
-            auto* timeout_impl = (RpcClientTimeoutImpl*)user_data;
-            auto* impl = timeout_impl->impl;
-            auto fn = std::move(timeout_impl->fn);
-            {
-              std::unique_lock<std::mutex> lk{impl->mtx};
-              std::unique_ptr<RpcClientTimeoutImpl> stale_ptr{timeout_impl};
-              impl->user_ontimeout.erase(stale_ptr);
-              A0_UNUSED(stale_ptr.release());
-            }
-            fn();
-            return A0_OK;
-          },
-      };
-    }
+    c_opts = install_copts(send_impl);
   }
 
   check(a0_rpc_client_send_opts(&*c, *pkt.c, c_onreply, c_opts));
@@ -245,22 +288,22 @@ std::future<Packet> RpcClient::send(Packet pkt, SendOptions opts) {
     promise->set_value(reply);
   };
 
-  SendOptions opts_wrapper = {
-    .timeout = opts.timeout,
-    .ontimeout = [opts, promise]() {
-      if (opts.ontimeout) {
-        opts.ontimeout();
-      }
-      try {
-        check(A0_ERR_TIMEDOUT);
-      } catch(...) {
-        promise->set_exception(std::current_exception());
-      }
-    },
-    .onreconnect = opts.onreconnect,
+  auto user_ontimeout = opts.ontimeout;
+  opts.ontimeout = [user_ontimeout, promise](SendOptions* opts) {
+    Action action = Action::CANCEL;
+    if (user_ontimeout) {
+      action = user_ontimeout(opts);
+      // TODO: What if action is not cancel?
+    }
+    try {
+      check(A0_ERR_TIMEDOUT);
+    } catch(...) {
+      promise->set_exception(std::current_exception());
+    }
+    return action;
   };
 
-  send(pkt, onreply, opts_wrapper);
+  send(pkt, onreply, opts);
   return promise->get_future();
 }
 

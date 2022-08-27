@@ -42,6 +42,9 @@ template <typename... Args>
 static std::string fmt(const std::string& format, Args... args) {
   size_t size = snprintf(nullptr, 0, format.data(), args...);
   std::vector<char> buf(size + 1);
+  if (!buf.data()) {
+    return "[fmt failed]";
+  }
   sprintf(buf.data(), format.data(), args...);
   return std::string(buf.data(), size);
 }

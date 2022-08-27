@@ -91,24 +91,46 @@ typedef struct a0_rpc_client_s {
   a0_vec_t _outstanding_requests;
 } a0_rpc_client_t;
 
-typedef enum a0_onreconnect_e {
-  A0_ONRECONNECT_RESEND = 0,
-  A0_ONRECONNECT_CANCEL = 1,
-  A0_ONRECONNECT_IGNORE = 2,
-} a0_onreconnect_t;
+typedef enum a0_rpc_client_action_e {
+  A0_RPC_CLIENT_ACTION_IGNORE = 0,
+  A0_RPC_CLIENT_ACTION_RESEND = 1,
+  A0_RPC_CLIENT_ACTION_CANCEL = 2,
+} a0_rpc_client_action_t;
 
-typedef struct a0_rpc_client_send_options_s {
-  a0_time_mono_t* timeout;
-  a0_callback_t ontimeout;
+typedef struct a0_rpc_client_send_options_s a0_rpc_client_send_options_t;
 
-  a0_onreconnect_t onreconnect;
-} a0_rpc_client_send_options_t;
+typedef struct a0_rpc_client_hook_s {
+  void* user_data;
+  a0_rpc_client_action_t (*fn)(void* user_data, a0_rpc_client_send_options_t* mut_opts);
+} a0_rpc_client_hook_t;
+
+extern const a0_rpc_client_hook_t A0_RPC_CLIENT_DO_IGNORE;
+extern const a0_rpc_client_hook_t A0_RPC_CLIENT_DO_RESEND;
+extern const a0_rpc_client_hook_t A0_RPC_CLIENT_DO_CANCEL;
+
+struct a0_rpc_client_send_options_s {
+  bool has_timeout;
+  a0_time_mono_t timeout;
+  a0_rpc_client_hook_t ontimeout;
+  a0_rpc_client_hook_t ondisconnect;
+  a0_rpc_client_hook_t onreconnect;
+  a0_callback_t oncomplete;
+};
+
+void a0_rpc_client_send_options_set_timeout(
+    a0_rpc_client_send_options_t*, a0_time_mono_t*);
+
+extern const a0_rpc_client_send_options_t A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT;
 
 a0_err_t a0_rpc_client_init(a0_rpc_client_t*, a0_rpc_topic_t, a0_alloc_t);
 a0_err_t a0_rpc_client_close(a0_rpc_client_t*);
 
-a0_err_t a0_rpc_client_send(a0_rpc_client_t*, a0_packet_t, a0_packet_callback_t);
 a0_err_t a0_rpc_client_send_opts(a0_rpc_client_t*, a0_packet_t, a0_packet_callback_t, a0_rpc_client_send_options_t);
+
+A0_STATIC_INLINE
+a0_err_t a0_rpc_client_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback_t onreply) {
+  return a0_rpc_client_send_opts(client, pkt, onreply, A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT);
+}
 
 // Note: use the id from the packet used in a0_rpc_client_send.
 a0_err_t a0_rpc_client_cancel(a0_rpc_client_t*, const a0_uuid_t);

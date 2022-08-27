@@ -195,18 +195,69 @@ a0_alloc_t _a0_malloc() {
   return (a0_alloc_t){NULL, _a0_malloc_alloc, _a0_malloc_dealloc};
 }
 
+void a0_rpc_client_send_options_set_timeout(
+    a0_rpc_client_send_options_t* opts, a0_time_mono_t* timeout) {
+  opts->has_timeout = (timeout != NULL);
+  if (timeout) {
+    opts->timeout = *timeout;
+  }
+}
+
+A0_STATIC_INLINE
+a0_rpc_client_action_t _A0_RPC_CLIENT_DO_IGNORE_IMPL(void*, a0_rpc_client_send_options_t*) {
+  return A0_RPC_CLIENT_ACTION_IGNORE;
+}
+
+A0_STATIC_INLINE
+a0_rpc_client_action_t _A0_RPC_CLIENT_DO_RESEND_IMPL(void*, a0_rpc_client_send_options_t*) {
+  return A0_RPC_CLIENT_ACTION_RESEND;
+}
+
+A0_STATIC_INLINE
+a0_rpc_client_action_t _A0_RPC_CLIENT_DO_CANCEL_IMPL(void*, a0_rpc_client_send_options_t*) {
+  return A0_RPC_CLIENT_ACTION_CANCEL;
+}
+
+const a0_rpc_client_hook_t A0_RPC_CLIENT_DO_IGNORE = {
+    .user_data = NULL,
+    .fn = _A0_RPC_CLIENT_DO_IGNORE_IMPL,
+};
+
+const a0_rpc_client_hook_t A0_RPC_CLIENT_DO_RESEND = {
+    .user_data = NULL,
+    .fn = _A0_RPC_CLIENT_DO_RESEND_IMPL,
+};
+
+const a0_rpc_client_hook_t A0_RPC_CLIENT_DO_CANCEL = {
+    .user_data = NULL,
+    .fn = _A0_RPC_CLIENT_DO_CANCEL_IMPL,
+};
+
+const a0_rpc_client_send_options_t A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT = {
+    .has_timeout = false,
+    .timeout = {},
+    .ontimeout = A0_RPC_CLIENT_DO_CANCEL,
+    .ondisconnect = A0_RPC_CLIENT_DO_IGNORE,
+    .onreconnect = A0_RPC_CLIENT_DO_RESEND,
+    .oncomplete = {},
+};
+
 typedef struct _a0_rpc_client_request_s {
   a0_packet_t pkt;
   a0_buf_t pkt_buf;
 
   a0_packet_callback_t onreply;
 
-  a0_time_mono_t timeout;
+  a0_time_mono_t timeout;  // Owns memory for timeout pointer in opts.
   bool has_timeout;
-  a0_callback_t ontimeout;
-
-  a0_onreconnect_t onreconnect;
+  a0_rpc_client_send_options_t opts;
 } _a0_rpc_client_request_t;
+
+A0_STATIC_INLINE
+a0_rpc_client_action_t _a0_rpc_client_hook_call(
+   _a0_rpc_client_request_t* req, a0_rpc_client_hook_t hook) {
+  return hook.fn(hook.user_data, &req->opts);
+}
 
 A0_STATIC_INLINE
 a0_err_t a0_find_pkt_rpctype(a0_packet_t pkt, const char** out) {
@@ -279,6 +330,12 @@ void a0_rpc_client_dosend(a0_rpc_client_t* client, a0_packet_t pkt) {
 }
 
 A0_STATIC_INLINE
+void _a0_rpc_client_complete(_a0_rpc_client_request_t* req) {
+  a0_callback_call(req->opts.oncomplete);
+  _a0_malloc_dealloc(NULL, req->pkt_buf);
+}
+
+A0_STATIC_INLINE
 void a0_rpc_client_onpacket(void* user_data, a0_packet_t pkt) {
   a0_rpc_client_t* client = (a0_rpc_client_t*)user_data;
 
@@ -293,9 +350,108 @@ void a0_rpc_client_onpacket(void* user_data, a0_packet_t pkt) {
   _a0_rpc_client_request_t req;
   if (!_a0_outstanding_requests_pop(client, *reqid, &req)) {
     a0_packet_callback_call(req.onreply, pkt);
-    _a0_malloc_dealloc(NULL, req.pkt_buf);
+    _a0_rpc_client_complete(&req);
   }
 }
+
+typedef struct _a0_rpc_client_process_hook_concern_s {
+  void* user_data;
+  bool (*fn)(void* user_data, _a0_rpc_client_request_t*);
+} _a0_rpc_client_process_hook_concern_t;
+
+A0_STATIC_INLINE
+bool _a0_rpc_client_process_hook_concern_eval(
+    _a0_rpc_client_process_hook_concern_t concern,
+    _a0_rpc_client_request_t* req) {
+  return concern.fn(concern.user_data, req);
+}
+
+typedef struct _a0_rpc_client_process_hook_get_hook_s {
+  void* user_data;
+  a0_rpc_client_hook_t (*fn)(void* user_data, _a0_rpc_client_request_t*);
+} _a0_rpc_client_process_hook_get_hook_t;
+
+A0_STATIC_INLINE
+a0_rpc_client_hook_t _a0_rpc_client_process_hook_get_hook_eval(
+    _a0_rpc_client_process_hook_get_hook_t get_hook,
+    _a0_rpc_client_request_t* req) {
+  return get_hook.fn(get_hook.user_data, req);
+}
+
+A0_STATIC_INLINE
+void _a0_rpc_client_process_hook(
+    a0_rpc_client_t* client,
+    _a0_rpc_client_process_hook_concern_t concern,
+    _a0_rpc_client_process_hook_get_hook_t get_hook) {
+  size_t size;
+  a0_vec_size(&client->_outstanding_requests, &size);
+
+  for (size_t i = 0; i < size;) {
+    _a0_rpc_client_request_t* iter;
+    a0_vec_at(&client->_outstanding_requests, i, (void**)&iter);
+
+    if (_a0_rpc_client_process_hook_concern_eval(concern, iter)) {
+      i++;
+      continue;
+    }
+
+    a0_rpc_client_hook_t hook = _a0_rpc_client_process_hook_get_hook_eval(get_hook, iter);
+    switch (_a0_rpc_client_hook_call(iter, hook)) {
+    case A0_RPC_CLIENT_ACTION_RESEND:
+      // TODO(lshamis): Handle invalid updates to timeout.
+      a0_rpc_client_dosend(client, iter->pkt);
+      i++;
+      break;
+    case A0_RPC_CLIENT_ACTION_CANCEL:
+      _a0_rpc_client_complete(iter);
+      a0_vec_swap_back_pop(&client->_outstanding_requests, i, NULL);
+      break;
+    case A0_RPC_CLIENT_ACTION_IGNORE:
+      i++;
+      break;
+    }
+  }
+}
+
+A0_STATIC_INLINE
+bool _a0_rpc_client_process_hook_concern_all_impl(void*, _a0_rpc_client_request_t*) {
+  return true;
+}
+
+static const _a0_rpc_client_process_hook_concern_t _a0_rpc_client_process_hook_concern_all = {
+    .user_data = NULL,
+    .fn = _a0_rpc_client_process_hook_concern_all_impl,
+};
+
+A0_STATIC_INLINE
+a0_rpc_client_hook_t _a0_rpc_client_process_hook_ontimeout_impl(void*, _a0_rpc_client_request_t* req) {
+  return req->opts.ontimeout;
+}
+
+static const _a0_rpc_client_process_hook_get_hook_t _a0_rpc_client_process_hook_ontimeout = {
+    .user_data = NULL,
+    .fn = _a0_rpc_client_process_hook_ontimeout_impl,
+};
+
+A0_STATIC_INLINE
+a0_rpc_client_hook_t _a0_rpc_client_process_hook_ondisconnect_impl(void*, _a0_rpc_client_request_t* req) {
+  return req->opts.ondisconnect;
+}
+
+static const _a0_rpc_client_process_hook_get_hook_t _a0_rpc_client_process_hook_ondisconnect = {
+    .user_data = NULL,
+    .fn = _a0_rpc_client_process_hook_ondisconnect_impl,
+};
+
+A0_STATIC_INLINE
+a0_rpc_client_hook_t _a0_rpc_client_process_hook_onreconnect_impl(void*, _a0_rpc_client_request_t* req) {
+  return req->opts.onreconnect;
+}
+
+static const _a0_rpc_client_process_hook_get_hook_t _a0_rpc_client_process_hook_onreconnect = {
+    .user_data = NULL,
+    .fn = _a0_rpc_client_process_hook_onreconnect_impl,
+};
 
 A0_STATIC_INLINE
 void* a0_rpc_client_deadman_thread(void* user_data) {
@@ -312,69 +468,37 @@ void* a0_rpc_client_deadman_thread(void* user_data) {
       break;
     }
 
-    size_t size;
-    a0_vec_size(&client->_outstanding_requests, &size);
-
-    for (size_t i = 0; i < size;) {
-      _a0_rpc_client_request_t* iter;
-      a0_vec_at(&client->_outstanding_requests, i, (void**)&iter);
-
-      switch (iter->onreconnect) {
-      case A0_ONRECONNECT_RESEND:
-        a0_rpc_client_dosend(client, iter->pkt);
-        i++;
-        break;
-      case A0_ONRECONNECT_CANCEL:
-        a0_vec_swap_back_pop(&client->_outstanding_requests, i, NULL);
-        break;
-      case A0_ONRECONNECT_IGNORE:
-        i++;
-        break;
-      }
-    }
+    _a0_rpc_client_process_hook(
+        client,
+        _a0_rpc_client_process_hook_concern_all,
+        _a0_rpc_client_process_hook_onreconnect);
 
     a0_mtx_unlock(&client->_mtx);
-    a0_deadman_wait_released(&client->_deadman, server_tkn);
+    err = a0_deadman_wait_released(&client->_deadman, server_tkn);
     A0_UNUSED(a0_mtx_lock(&client->_mtx));
+
+    if (client->_closing || err) {
+      break;
+    }
+
+    _a0_rpc_client_process_hook(
+        client,
+        _a0_rpc_client_process_hook_concern_all,
+        _a0_rpc_client_process_hook_ondisconnect);
   }
   a0_mtx_unlock(&client->_mtx);
 
   return NULL;
 }
 
-A0_STATIC_INLINE
-void a0_rpc_client_timeout_thread_pop_expired(a0_rpc_client_t* client, a0_vec_t* expired) {
-  size_t size;
-  a0_vec_size(&client->_outstanding_requests, &size);
-
-  if (!size) {
-    return;
+bool _a0_rpc_client_process_hook_concern_expired_impl(void* user_data, _a0_rpc_client_request_t* req) {
+  if (!req->has_timeout) {
+    return false;
   }
-
-  a0_time_mono_t now;
-  a0_time_mono_now(&now);
-
-  size_t i = 0;
-  while (i < size) {
-    _a0_rpc_client_request_t* iter;
-    a0_vec_at(&client->_outstanding_requests, i, (void**)&iter);
-
-    bool is_old = false;
-
-    if (iter->has_timeout) {
-      a0_time_mono_less(iter->timeout, now, &is_old);
-      if (is_old) {
-        a0_vec_push_back(expired, iter);
-        a0_vec_swap_back_pop(&client->_outstanding_requests, i, NULL);
-      }
-    }
-
-    if (is_old) {
-      size--;
-    } else {
-      i++;
-    }
-  }
+  a0_time_mono_t* now = (a0_time_mono_t*)user_data;
+  bool is_old = false;
+  a0_time_mono_less(req->timeout, *now, &is_old);
+  return is_old;
 }
 
 A0_STATIC_INLINE
@@ -407,27 +531,20 @@ A0_STATIC_INLINE
 void* a0_rpc_client_timeout_thread(void* user_data) {
   a0_rpc_client_t* client = (a0_rpc_client_t*)user_data;
 
-  a0_vec_t expired;
-  a0_vec_init(&expired, sizeof(_a0_rpc_client_request_t));
-
   A0_UNUSED(a0_mtx_lock(&client->_mtx));
   while (!client->_closing) {
-    a0_rpc_client_timeout_thread_pop_expired(client, &expired);
+    a0_time_mono_t now;
+    a0_time_mono_now(&now);
 
-    a0_mtx_unlock(&client->_mtx);
+    _a0_rpc_client_process_hook_concern_t concern_expired = {
+        .user_data = &now,
+        .fn = _a0_rpc_client_process_hook_concern_expired_impl,
+    };
 
-    size_t expired_size;
-    a0_vec_size(&expired, &expired_size);
-
-    for (size_t i = 0; i < expired_size; i++) {
-      _a0_rpc_client_request_t* iter;
-      a0_vec_at(&expired, i, (void**)&iter);
-      a0_callback_call(iter->ontimeout);
-      _a0_malloc_dealloc(NULL, iter->pkt_buf);
-    }
-    a0_vec_resize(&expired, 0);
-
-    A0_UNUSED(a0_mtx_lock(&client->_mtx));
+    _a0_rpc_client_process_hook(
+        client,
+        concern_expired,
+        _a0_rpc_client_process_hook_ontimeout);
 
     if (client->_closing) {
       break;
@@ -437,7 +554,6 @@ void* a0_rpc_client_timeout_thread(void* user_data) {
     a0_cnd_timedwait(&client->_cnd, &client->_mtx, timeout);
   }
   a0_mtx_unlock(&client->_mtx);
-  a0_vec_close(&expired);
   return NULL;
 }
 
@@ -529,39 +645,31 @@ a0_err_t a0_rpc_client_send_opts(a0_rpc_client_t* client, a0_packet_t pkt, a0_pa
   // Save the request info for future responses.
   _a0_rpc_client_request_t req = A0_EMPTY;
   a0_packet_deep_copy(pkt, _a0_malloc(), &req.pkt, &req.pkt_buf);
-  if (opts.timeout) {
-    req.timeout = *opts.timeout;
-    req.has_timeout = true;
-    req.ontimeout = opts.ontimeout;
-  }
   req.onreply = onreply;
-  req.onreconnect = opts.onreconnect;
+  req.opts = opts;
 
   A0_UNUSED(a0_mtx_lock(&client->_mtx));
 
   a0_vec_push_back(&client->_outstanding_requests, &req);
   a0_rpc_client_dosend(client, req.pkt);
 
-  if (req.has_timeout) {
+  if (req.opts.has_timeout && client->_timeout_thread_created) {
     a0_cnd_broadcast(&client->_cnd, &client->_mtx);
   }
 
-  a0_mtx_unlock(&client->_mtx);
-
-  if (req.has_timeout && !client->_timeout_thread_created) {
+  if (req.opts.has_timeout && !client->_timeout_thread_created) {
     pthread_create(&client->_timeout_thread, NULL, a0_rpc_client_timeout_thread, client);
     client->_timeout_thread_created = true;
   }
 
+  a0_mtx_unlock(&client->_mtx);
   return A0_OK;
 }
 
-a0_err_t a0_rpc_client_send(a0_rpc_client_t* client, a0_packet_t pkt, a0_packet_callback_t onreply) {
-  return a0_rpc_client_send_opts(client, pkt, onreply, (a0_rpc_client_send_options_t)A0_EMPTY);
-}
-
 a0_err_t a0_rpc_client_cancel(a0_rpc_client_t* client, const a0_uuid_t reqid) {
-  _a0_outstanding_requests_pop(client, reqid, NULL);
+  _a0_rpc_client_request_t req;
+  A0_RETURN_ERR_ON_ERR(_a0_outstanding_requests_pop(client, reqid, &req));
+  _a0_rpc_client_complete(&req);
 
   a0_packet_t pkt;
   a0_packet_init(&pkt);
