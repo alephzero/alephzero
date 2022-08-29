@@ -85,7 +85,7 @@ struct RpcClient : details::CppWrap<a0_rpc_client_t> {
     Hook onreconnect;
     std::function<void()> oncomplete;
 
-    static const SendOptions DEFAULT;
+    SendOptions();
   };
 
   RpcClient() = default;
@@ -93,12 +93,12 @@ struct RpcClient : details::CppWrap<a0_rpc_client_t> {
 
   void send(Packet, std::function<void(Packet)>, SendOptions);
   void send(Packet pkt, TimeMono timeout, std::function<void(Packet)> onreply) {
-    SendOptions opts = A0_EMPTY;
+    SendOptions opts;
     opts.timeout = timeout;
     send(pkt, std::move(onreply), std::move(opts));
   }
   void send(Packet pkt, std::function<void(Packet)> onreply) {
-    send(pkt, std::move(onreply), (SendOptions)A0_EMPTY);
+    send(pkt, std::move(onreply), SendOptions());
   }
 
   void send(string_view payload, std::function<void(Packet)> onreply, SendOptions opts) {
@@ -113,12 +113,12 @@ struct RpcClient : details::CppWrap<a0_rpc_client_t> {
 
   std::future<Packet> send(Packet, SendOptions);
   std::future<Packet> send(Packet pkt, TimeMono timeout) {
-    SendOptions opts = A0_EMPTY;
+    SendOptions opts = {};
     opts.timeout = timeout;
     return send(pkt, std::move(opts));
   }
   std::future<Packet> send(Packet pkt) {
-    return send(pkt, (SendOptions)A0_EMPTY);
+    return send(pkt, SendOptions());
   }
 
   std::future<Packet> send(string_view payload, SendOptions opts) {
@@ -135,12 +135,12 @@ struct RpcClient : details::CppWrap<a0_rpc_client_t> {
     return send(pkt, std::move(opts)).get();
   }
   Packet send_blocking(Packet pkt, TimeMono timeout) {
-    SendOptions opts = A0_EMPTY;
+    SendOptions opts;
     opts.timeout = timeout;
     return send_blocking(pkt, std::move(opts));
   }
   Packet send_blocking(Packet pkt) {
-    return send_blocking(pkt, (SendOptions)A0_EMPTY);
+    return send_blocking(pkt, SendOptions());
   }
 
   Packet send_blocking(string_view payload, SendOptions opts) {

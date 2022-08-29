@@ -139,21 +139,23 @@ struct RpcClientSendImpl {
 
 }  // namespace
 
-const RpcClient::SendOptions RpcClient::SendOptions::DEFAULT = {
-    .timeout = cpp_wrap<TimeMono>(A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.timeout),
-    .ontimeout = [](SendOptions*) {
+RpcClient::SendOptions::SendOptions() :
+    timeout{cpp_wrap<TimeMono>(
+        A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.has_timeout ?
+            (a0_time_mono_t*)&A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.timeout :
+            nullptr)},
+    ontimeout{[](SendOptions*) {
       return (Action)A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.ontimeout.fn(nullptr, nullptr);
-    },
-    .ondisconnect = [](SendOptions*) {
+    }},
+    ondisconnect{[](SendOptions*) {
       return (Action)A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.ondisconnect.fn(nullptr, nullptr);
-    },
-    .onreconnect = [](SendOptions*) {
+    }},
+    onreconnect{[](SendOptions*) {
       return (Action)A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.onreconnect.fn(nullptr, nullptr);
-    },
-    .oncomplete = []() {
-      return (Action)A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.oncomplete.fn(nullptr);
-    },
-};
+    }},
+    oncomplete{[]() {
+      return (Action)a0_callback_call(A0_RPC_CLIENT_SEND_OPTIONS_DEFAULT.oncomplete);
+    }} {};
 
 RpcClient::RpcClient(RpcTopic topic) {
   set_c_impl<RpcClientImpl>(
@@ -189,7 +191,7 @@ a0_rpc_client_send_options_t install_copts(RpcClientSendImpl* send_impl) {
       .user_data = send_impl,
       .fn = [](void* user_data, a0_rpc_client_send_options_t*) {
         auto* send_impl = (RpcClientSendImpl*)user_data;
-        auto ontimeout = send_impl->opts.ontimeout ? send_impl->opts.ontimeout : RpcClient::SendOptions::DEFAULT.ontimeout;
+        auto ontimeout = send_impl->opts.ontimeout ? send_impl->opts.ontimeout : RpcClient::SendOptions{}.ontimeout;
         auto action = ontimeout(&send_impl->opts);
         install_copts(send_impl);
         return (a0_rpc_client_action_t)action;
@@ -200,7 +202,7 @@ a0_rpc_client_send_options_t install_copts(RpcClientSendImpl* send_impl) {
       .user_data = send_impl,
       .fn = [](void* user_data, a0_rpc_client_send_options_t*) {
         auto* send_impl = (RpcClientSendImpl*)user_data;
-        auto ondisconnect = send_impl->opts.ondisconnect ? send_impl->opts.ondisconnect : RpcClient::SendOptions::DEFAULT.ondisconnect;
+        auto ondisconnect = send_impl->opts.ondisconnect ? send_impl->opts.ondisconnect : RpcClient::SendOptions{}.ondisconnect;
         auto action = send_impl->opts.ondisconnect(&send_impl->opts);
         install_copts(send_impl);
         return (a0_rpc_client_action_t)action;
@@ -211,7 +213,7 @@ a0_rpc_client_send_options_t install_copts(RpcClientSendImpl* send_impl) {
       .user_data = send_impl,
       .fn = [](void* user_data, a0_rpc_client_send_options_t*) {
         auto* send_impl = (RpcClientSendImpl*)user_data;
-        auto onreconnect = send_impl->opts.onreconnect ? send_impl->opts.onreconnect : RpcClient::SendOptions::DEFAULT.onreconnect;
+        auto onreconnect = send_impl->opts.onreconnect ? send_impl->opts.onreconnect : RpcClient::SendOptions{}.onreconnect;
         auto action = send_impl->opts.onreconnect(&send_impl->opts);
         install_copts(send_impl);
         return (a0_rpc_client_action_t)action;
@@ -222,9 +224,11 @@ a0_rpc_client_send_options_t install_copts(RpcClientSendImpl* send_impl) {
       .user_data = send_impl,
       .fn = [](void* user_data) {
         auto* send_impl = (RpcClientSendImpl*)user_data;
-        auto oncomplete = send_impl->opts.oncomplete ? send_impl->opts.oncomplete : RpcClient::SendOptions::DEFAULT.oncomplete;
+        auto oncomplete = send_impl->opts.oncomplete ? send_impl->opts.oncomplete : RpcClient::SendOptions{}.oncomplete;
         // TODO: try-catch?
-        oncomplete();
+        if (oncomplete) {
+          oncomplete();
+        }
         return A0_OK;
       }
   };
@@ -236,8 +240,8 @@ void RpcClient::send(Packet pkt, std::function<void(Packet)> onreply, SendOption
   CHECK_C;
   auto* impl = c_impl<RpcClientImpl>(&c);
 
-  a0_packet_callback_t c_onreply = A0_EMPTY;
-  a0_rpc_client_send_options_t c_opts = A0_EMPTY;
+  a0_packet_callback_t c_onreply;
+  a0_rpc_client_send_options_t c_opts;
 
   std::string pkt_id(pkt.id());
 

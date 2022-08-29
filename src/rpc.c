@@ -198,7 +198,7 @@ a0_alloc_t _a0_malloc() {
 void a0_rpc_client_send_options_set_timeout(
     a0_rpc_client_send_options_t* opts, a0_time_mono_t* timeout) {
   opts->has_timeout = (timeout != NULL);
-  if (timeout) {
+  if (opts->has_timeout) {
     opts->timeout = *timeout;
   }
 }
@@ -248,8 +248,6 @@ typedef struct _a0_rpc_client_request_s {
 
   a0_packet_callback_t onreply;
 
-  a0_time_mono_t timeout;  // Owns memory for timeout pointer in opts.
-  bool has_timeout;
   a0_rpc_client_send_options_t opts;
 } _a0_rpc_client_request_t;
 
@@ -390,7 +388,7 @@ void _a0_rpc_client_process_hook(
     _a0_rpc_client_request_t* iter;
     a0_vec_at(&client->_outstanding_requests, i, (void**)&iter);
 
-    if (_a0_rpc_client_process_hook_concern_eval(concern, iter)) {
+    if (!_a0_rpc_client_process_hook_concern_eval(concern, iter)) {
       i++;
       continue;
     }
@@ -425,6 +423,8 @@ static const _a0_rpc_client_process_hook_concern_t _a0_rpc_client_process_hook_c
 
 A0_STATIC_INLINE
 a0_rpc_client_hook_t _a0_rpc_client_process_hook_ontimeout_impl(void*, _a0_rpc_client_request_t* req) {
+  // Timeout has triggered. Remove the timeout to prevent repeated triggers.
+  a0_rpc_client_send_options_set_timeout(&req->opts, NULL);
   return req->opts.ontimeout;
 }
 
@@ -492,12 +492,12 @@ void* a0_rpc_client_deadman_thread(void* user_data) {
 }
 
 bool _a0_rpc_client_process_hook_concern_expired_impl(void* user_data, _a0_rpc_client_request_t* req) {
-  if (!req->has_timeout) {
+  if (!req->opts.has_timeout) {
     return false;
   }
   a0_time_mono_t* now = (a0_time_mono_t*)user_data;
   bool is_old = false;
-  a0_time_mono_less(req->timeout, *now, &is_old);
+  a0_time_mono_less(req->opts.timeout, *now, &is_old);
   return is_old;
 }
 
@@ -511,14 +511,14 @@ a0_time_mono_t* a0_rpc_client_timeout_thread_min_timeout(a0_rpc_client_t* client
   for (size_t i = 0; i < size; i++) {
     _a0_rpc_client_request_t* iter;
     a0_vec_at(&client->_outstanding_requests, i, (void**)&iter);
-    if (iter->has_timeout) {
+    if (iter->opts.has_timeout) {
       if (!ret) {
-        ret = &iter->timeout;
+        ret = &iter->opts.timeout;
       } else {
         bool is_earlier;
-        a0_time_mono_less(iter->timeout, *ret, &is_earlier);
+        a0_time_mono_less(iter->opts.timeout, *ret, &is_earlier);
         if (is_earlier) {
-          ret = &iter->timeout;
+          ret = &iter->opts.timeout;
         }
       }
     }
@@ -653,13 +653,13 @@ a0_err_t a0_rpc_client_send_opts(a0_rpc_client_t* client, a0_packet_t pkt, a0_pa
   a0_vec_push_back(&client->_outstanding_requests, &req);
   a0_rpc_client_dosend(client, req.pkt);
 
-  if (req.opts.has_timeout && client->_timeout_thread_created) {
-    a0_cnd_broadcast(&client->_cnd, &client->_mtx);
-  }
-
-  if (req.opts.has_timeout && !client->_timeout_thread_created) {
-    pthread_create(&client->_timeout_thread, NULL, a0_rpc_client_timeout_thread, client);
-    client->_timeout_thread_created = true;
+  if (req.opts.has_timeout) {
+    if (!client->_timeout_thread_created) {
+      pthread_create(&client->_timeout_thread, NULL, a0_rpc_client_timeout_thread, client);
+      client->_timeout_thread_created = true;
+    } else {
+      a0_cnd_broadcast(&client->_cnd, &client->_mtx);
+    }
   }
 
   a0_mtx_unlock(&client->_mtx);
