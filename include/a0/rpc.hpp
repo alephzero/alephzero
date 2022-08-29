@@ -17,7 +17,7 @@ namespace a0 {
 
 struct RpcTopic {
   std::string name;
-  File::Options file_opts{File::Options::DEFAULT};
+  File::Options file_opts;
 
   RpcTopic() = default;
 
@@ -26,7 +26,7 @@ struct RpcTopic {
 
   RpcTopic(  // NOLINT(google-explicit-constructor)
       std::string name,
-      File::Options file_opts = File::Options::DEFAULT)
+      File::Options file_opts = {})
       : name{std::move(name)}, file_opts{file_opts} {}
 };
 

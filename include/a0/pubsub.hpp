@@ -14,7 +14,7 @@ namespace a0 {
 
 struct PubSubTopic {
   std::string name;
-  File::Options file_opts{File::Options::DEFAULT};
+  File::Options file_opts;
 
   PubSubTopic() = default;
 
@@ -23,7 +23,7 @@ struct PubSubTopic {
 
   PubSubTopic(  // NOLINT(google-explicit-constructor)
       std::string name,
-      File::Options file_opts = File::Options::DEFAULT)
+      File::Options file_opts = {})
       : name{std::move(name)}, file_opts{file_opts} {}
 };
 

@@ -22,17 +22,21 @@ struct File : details::CppWrap<a0_file_t> {
       mode_t mode;
       /// Mode for directories that will be created as part of file creation.
       mode_t dir_mode;
+
+      CreateOptions();
     } create_options;
 
     struct OpenOptions {
       /// ...
       a0_arena_mode_t arena_mode;
+
+      OpenOptions();
     } open_options;
 
     /// Default file creation options.
     ///
     /// 16MB and universal read+write.
-    static Options DEFAULT;
+    Options() = default;
   };
 
   File() = default;

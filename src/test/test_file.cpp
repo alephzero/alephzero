@@ -417,7 +417,8 @@ TEST_CASE("file] cpp") {
   file = {};
   a0::File::remove(TEST_FILE);
 
-  a0::File::Options opts = a0::File::Options::DEFAULT;
+  a0::File::Options opts;
+  REQUIRE(opts.create_options.size == 16 * 1024 * 1024);
   opts.create_options.size = 32 * 1024 * 1024;
 
   file = a0::File(TEST_FILE, opts);

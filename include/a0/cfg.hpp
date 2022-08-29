@@ -34,7 +34,7 @@ class CfgVar;
 
 struct CfgTopic {
   std::string name;
-  File::Options file_opts{File::Options::DEFAULT};
+  File::Options file_opts;
 
   CfgTopic() = default;
 
@@ -43,7 +43,7 @@ struct CfgTopic {
 
   CfgTopic(  // NOLINT(google-explicit-constructor)
       std::string name,
-      File::Options file_opts = File::Options::DEFAULT)
+      File::Options file_opts = {})
       : name{std::move(name)}, file_opts{file_opts} {}
 };
 

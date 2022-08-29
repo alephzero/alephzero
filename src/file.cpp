@@ -18,19 +18,16 @@
 
 namespace a0 {
 
-File::Options File::Options::DEFAULT = {
-    .create_options = {
-        .size = A0_FILE_OPTIONS_DEFAULT.create_options.size,
-        .mode = A0_FILE_OPTIONS_DEFAULT.create_options.mode,
-        .dir_mode = A0_FILE_OPTIONS_DEFAULT.create_options.dir_mode,
-    },
-    .open_options = {
-        .arena_mode = A0_FILE_OPTIONS_DEFAULT.open_options.arena_mode,
-    },
-};
+File::Options::CreateOptions::CreateOptions() :
+    size{A0_FILE_OPTIONS_DEFAULT.create_options.size},
+    mode{A0_FILE_OPTIONS_DEFAULT.create_options.mode},
+    dir_mode{A0_FILE_OPTIONS_DEFAULT.create_options.dir_mode} {}
+
+File::Options::OpenOptions::OpenOptions() :
+    arena_mode{A0_FILE_OPTIONS_DEFAULT.open_options.arena_mode} {}
 
 File::File(string_view path)
-    : File(path, Options::DEFAULT) {}
+    : File(path, {}) {}
 
 File::File(string_view path, Options opts) {
   set_c(

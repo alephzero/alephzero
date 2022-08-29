@@ -39,6 +39,6 @@ TEST_CASE("topic] cpp topic_path") {
 TEST_CASE("topic] cpp topic_open") {
   a0::File unused(ABS_PATH);
   a0::File::remove(ABS_PATH);
-  REQUIRE(a0::topic_open(TMPL, TOPIC, a0::File::Options::DEFAULT).path() == ABS_PATH);
+  REQUIRE(a0::topic_open(TMPL, TOPIC, {}).path() == ABS_PATH);
   a0::File::remove(ABS_PATH);
 }

@@ -12,7 +12,7 @@ namespace a0 {
 
 struct LogTopic {
   std::string name;
-  File::Options file_opts{File::Options::DEFAULT};
+  File::Options file_opts;
 
   LogTopic() = default;
 
@@ -21,7 +21,7 @@ struct LogTopic {
 
   LogTopic(  // NOLINT(google-explicit-constructor)
       std::string name,
-      File::Options file_opts = File::Options::DEFAULT)
+      File::Options file_opts = {})
       : name{std::move(name)}, file_opts{file_opts} {}
 };
 
