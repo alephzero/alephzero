@@ -395,6 +395,84 @@ TEST_CASE_FIXTURE(TransportFixture, "transport] cpp alloc/commit") {
 )");
 }
 
+TEST_CASE_FIXTURE(TransportFixture, "transport] cpp evict no-head intersect") {
+  a0::Transport transport(a0::cpp_wrap<a0::Arena>(arena));
+  a0::TransportLocked tlk = transport.lock();
+
+  // TODO(lshamis): Move this into the fixture.
+  auto do_alloc = [&tlk](size_t size) {
+    a0::Frame* frame = tlk.alloc(size);
+    memset(frame->data, '.', size);
+  };
+
+  REQUIRE(tlk.empty());
+
+  require_debugstr(*tlk.c, R"(
+{
+  "header": {
+    "arena_size": 4096,
+    "committed_state": {
+      "seq_low": 0,
+      "seq_high": 0,
+      "off_head": 0,
+      "off_tail": 0,
+      "high_water_mark": 144
+    },
+    "working_state": {
+      "seq_low": 0,
+      "seq_high": 0,
+      "off_head": 0,
+      "off_tail": 0,
+      "high_water_mark": 144
+    }
+  },
+  "data": [
+  ]
+}
+)");
+
+  do_alloc(1024);
+  do_alloc(1024);
+  do_alloc(1024);
+  do_alloc(1024);
+  do_alloc(1024);
+
+  do_alloc(2048);
+
+  require_debugstr(*tlk.c, R"(
+{
+  "header": {
+    "arena_size": 4096,
+    "committed_state": {
+      "seq_low": 6,
+      "seq_high": 5,
+      "off_head": 0,
+      "off_tail": 0,
+      "high_water_mark": 144
+    },
+    "working_state": {
+      "seq_low": 6,
+      "seq_high": 6,
+      "off_head": 144,
+      "off_tail": 144,
+      "high_water_mark": 2232
+    }
+  },
+  "data": [
+    {
+      "committed": false,
+      "off": 144,
+      "seq": 6,
+      "prev_off": 0,
+      "next_off": 0,
+      "data_size": 2048,
+      "data": "................................"
+    }
+  ]
+}
+)");
+}
+
 TEST_CASE_FIXTURE(TransportFixture, "transport] evicts") {
   a0_transport_t transport;
   REQUIRE_OK(a0_transport_init(&transport, arena));
