@@ -13,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        os: ["ubuntu:18.04", "ubuntu:20.04"]
+        os: ["ubuntu:18.04", "ubuntu:20.04", "ubuntu:22.04"]
         compiler: ["gcc", "clang"]
         include:
         - compiler: "gcc"
@@ -57,7 +57,7 @@ jobs:
 
     runs-on: ubuntu-latest
     container:
-      image: "alpine:3.11"
+      image: "alpine"
 
     steps:
     - uses: actions/checkout@v1
@@ -75,7 +75,7 @@ jobs:
 
     runs-on: ubuntu-latest
     container:
-      image: "ubuntu:20.04"
+      image: "ubuntu:22.04"
 
     strategy:
       matrix:
@@ -95,7 +95,7 @@ jobs:
 
     runs-on: ubuntu-latest
     container:
-      image: "ubuntu:20.04"
+      image: "ubuntu:22.04"
 
     steps:
     - uses: actions/checkout@v1
@@ -111,7 +111,7 @@ jobs:
 
     runs-on: ubuntu-latest
     container:
-      image: "ubuntu:20.04"
+      image: "ubuntu:22.04"
 
     strategy:
       matrix:
@@ -132,7 +132,7 @@ jobs:
 
     runs-on: ubuntu-latest
     container:
-      image: "ubuntu:20.04"
+      image: "ubuntu:22.04"
 
     steps:
     - uses: actions/checkout@v1
@@ -152,7 +152,7 @@ jobs:
 
     runs-on: ubuntu-latest
     container:
-      image: "ubuntu:20.04"
+      image: "ubuntu:22.04"
 
     steps:
     - uses: actions/checkout@v1
@@ -171,7 +171,7 @@ jobs:
 
     runs-on: ubuntu-latest
     container:
-      image: "ubuntu:20.04"
+      image: "ubuntu:22.04"
 
     steps:
     - uses: actions/checkout@v1
